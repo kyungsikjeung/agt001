@@ -1,0 +1,7 @@
+{
+  "requirement_id": "req_20260921_001",
+  "design_variants": [
+    { "id": "variant-1", "preview_url": "https://design-preview.example.com/req_20260921_001/variant-1.png" },
+    { "id": "variant-2", "preview_url": "https://design-preview.example.com/req_20260921_001/variant-2.png" }
+  ]
+}

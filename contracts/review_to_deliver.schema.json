@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "review_to_deliver.schema.json",
+  "title": "BND-9: 사람 최종 검토(⑱) → 전송(팀원 B). review_status가 approved일 때만 ⑪ 전송을 실행한다",
+  "type": "object",
+  "required": ["requirement_id", "review_status", "reviewer", "checked_at"],
+  "properties": {
+    "requirement_id": { "type": "string" },
+    "review_status": { "type": "string", "enum": ["approved", "rejected"] },
+    "deploy_url": { "type": "string", "format": "uri", "description": "approved일 때만 존재" },
+    "reviewer": { "type": "string", "description": "검토한 팀원 (A/B/C 순번제)" },
+    "reason": { "type": "string", "description": "rejected일 때 필수" },
+    "checked_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

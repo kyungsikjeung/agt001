@@ -1,0 +1,8 @@
+{
+  "request": { "query": "예약 시스템에 결제 기능 추가", "top_k": 3 },
+  "response": {
+    "chunks": [
+      { "text": "REQ-G01-001 ...", "source": "docs/reqpipe/02_REQUIREMENTS.md#그룹-1", "score": 0.91 }
+    ]
+  }
+}

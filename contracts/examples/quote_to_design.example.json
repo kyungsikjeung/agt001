@@ -1,0 +1,6 @@
+{
+  "requirement_id": "req_20260921_001",
+  "platform": "web",
+  "features": ["로그인", "상품목록", "장바구니", "결제"],
+  "quote": { "amount": 3500000, "basis": "화면 4개 x 표준단가 + 결제연동 가산" }
+}

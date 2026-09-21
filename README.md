@@ -308,6 +308,10 @@ gantt
 ```
 agt001/
 ├── README.md                          # 이 파일 — 전체 안내
+├── .env.example                       # 공통 환경변수 템플릿 (REQ-ENV-001, cp .env.example .env)
+├── docker-compose.yml                 # 팀원 공통 로컬 개발환경 (REQ-ENV-001)
+├── contracts/                         # 팀원 간 경계(BND-1~9) JSON 스키마 + 예시 데이터 (정본은 INTEGRATION_STRATEGY.md §1)
+│   └── examples/                      #   더미 데이터 (워킹 스켈레톤·목업 개발용)
 ├── docs/
 │   ├── reqpipe/                       # 기존 reqpipe 시스템 문서 (읽는 순서: 01→02→03)
 │   │   ├── 01_OVERVIEW_AND_HISTORY.md #   버전 이력·결정 근거 아카이브
@@ -321,6 +325,7 @@ agt001/
 │       ├── REQUIREMENTS.md            #   ★ 정본 요구사항 (REQ-* ID, Input/Output/완료조건)
 │       ├── ARCHITECTURE.md            #   ★ 전체 아키텍처 (팀 역할분담·Mermaid·에이전트 구성)
 │       ├── INTEGRATION_STRATEGY.md    #   팀원별 통합 전략 + 일자별 상세 마일스톤(D0~D7)
+│       ├── PM_ORCHESTRATION.md        #   ★ PM 감사 결과(병목·에러 포인트) + 실행 절차 + 인터페이스 규약 거버넌스
 │       ├── TEAM_A_SPEC.md             #   팀원 A 상세 스펙 (대화·요구사항·견적, ②~⑧)
 │       ├── TEAM_B_SPEC.md             #   팀원 B 상세 스펙 (디자인·전달, ⑨~⑪)
 │       ├── TEAM_C_SPEC.md             #   팀원 C 상세 스펙 (코드생성·배포, ⑫~⑰)
@@ -340,7 +345,8 @@ agt001/
 4. [docs/hackathon/INTEGRATION_STRATEGY.md](docs/hackathon/INTEGRATION_STRATEGY.md) — 내가 맡은 파트를 오늘부터 어떻게 시작할지(D0~D7 마일스톤)
 5. 내 파트의 상세 설계: 팀원 A는 [TEAM_A_SPEC.md](docs/hackathon/TEAM_A_SPEC.md), 팀원 B는 [TEAM_B_SPEC.md](docs/hackathon/TEAM_B_SPEC.md), 팀원 C는 [TEAM_C_SPEC.md](docs/hackathon/TEAM_C_SPEC.md)
 6. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
-7. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
+7. [docs/hackathon/PM_ORCHESTRATION.md](docs/hackathon/PM_ORCHESTRATION.md) — 매일 아침/저녁 팀 전체가 확인하는 절차와 그날의 게이트 조건
+8. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
 
 ### reqpipe 자체를 개발/검토할 사람
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "gate_to_quote.schema.json",
+  "title": "BND-1: 승인게이트 → 견적 (팀원 A 내부)",
+  "type": "object",
+  "required": ["requirement_id", "confirmed_items", "customer_id"],
+  "properties": {
+    "requirement_id": { "type": "string", "description": "요구사항 고유 ID, 전체 경계(BND)에서 동일하게 유지되어야 함" },
+    "confirmed_items": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "고객이 승인한 요구사항 항목 목록"
+    },
+    "customer_id": { "type": "string", "description": "카카오 대화 세션 등 고객 식별자" }
+  },
+  "additionalProperties": true
+}

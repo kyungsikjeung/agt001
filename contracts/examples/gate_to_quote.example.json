@@ -1,0 +1,5 @@
+{
+  "requirement_id": "req_20260921_001",
+  "confirmed_items": ["로그인", "상품목록", "장바구니", "결제"],
+  "customer_id": "cust_kakao_abc123"
+}

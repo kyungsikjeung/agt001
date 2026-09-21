@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "rag_query.schema.json",
+  "title": "BND-8: RAG 검색 요청/응답 (팀원 A 내부)",
+  "type": "object",
+  "properties": {
+    "request": {
+      "type": "object",
+      "required": ["query", "top_k"],
+      "properties": {
+        "query": { "type": "string" },
+        "top_k": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "response": {
+      "type": "object",
+      "required": ["chunks"],
+      "properties": {
+        "chunks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text", "source", "score"],
+            "properties": {
+              "text": { "type": "string" },
+              "source": { "type": "string" },
+              "score": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

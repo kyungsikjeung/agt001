@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "design_to_link.schema.json",
+  "title": "BND-4: 시안생성 → 시안링크 (팀원 B 내부)",
+  "type": "object",
+  "required": ["requirement_id", "design_variants"],
+  "properties": {
+    "requirement_id": { "type": "string" },
+    "design_variants": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "preview_url"],
+        "properties": {
+          "id": { "type": "string" },
+          "preview_url": { "type": "string", "format": "uri" }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

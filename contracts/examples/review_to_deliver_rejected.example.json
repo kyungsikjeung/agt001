@@ -1,0 +1,7 @@
+{
+  "requirement_id": "req_20260921_001",
+  "review_status": "rejected",
+  "reviewer": "팀원A",
+  "reason": "결제 버튼 클릭 시 500 에러 발생, 핵심 기능 미동작",
+  "checked_at": "2026-09-27T10:00:00+09:00"
+}

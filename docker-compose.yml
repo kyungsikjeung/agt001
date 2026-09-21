@@ -1,0 +1,16 @@
+# 팀원 A/B/C 공통 개발환경 (REQ-ENV-001)
+# 사용법: cp .env.example .env 로 값 채운 뒤 `docker compose up --build`
+# 배포용 Dockerfile은 docs/hackathon/deployment/templates/Dockerfile.backend 를 재사용한다.
+# 팀원 B(정적 시안 페이지)·팀원 C(웹/워커)가 각자 서비스를 이 파일에 추가해 나간다 — 지금은 backend 서비스(팀원 A 담당 챗봇/게이트웨이) 골격만 있다.
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docs/hackathon/deployment/templates/Dockerfile.backend
+    env_file:
+      - .env
+    ports:
+      - "8643:8643"
+    volumes:
+      - .:/app

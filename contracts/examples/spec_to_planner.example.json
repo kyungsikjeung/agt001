@@ -1,0 +1,8 @@
+{
+  "requirement_id": "req_20260921_001",
+  "spec_doc_url": "https://internal.example.com/specs/req_20260921_001.md",
+  "tasks": [
+    { "platform": "web", "description": "로그인/상품목록/장바구니/결제 화면 및 API 구현" },
+    { "platform": "android", "description": "동일 기능 React Native 구현" }
+  ]
+}

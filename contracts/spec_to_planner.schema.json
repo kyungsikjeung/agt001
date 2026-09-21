@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "spec_to_planner.schema.json",
+  "title": "BND-6: 스펙생성 → Hermes 플래너 (팀원 C 내부)",
+  "type": "object",
+  "required": ["requirement_id", "spec_doc_url", "tasks"],
+  "properties": {
+    "requirement_id": { "type": "string" },
+    "spec_doc_url": { "type": "string" },
+    "tasks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["platform"],
+        "properties": {
+          "platform": { "type": "string", "enum": ["web", "android"] },
+          "description": { "type": "string" }
+        }
+      },
+      "description": "플랫폼 단위로만 분해(화면 단위 금지, TEAM_C_SPEC.md §3)"
+    }
+  },
+  "additionalProperties": true
+}

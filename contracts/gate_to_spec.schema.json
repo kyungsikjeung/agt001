@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "gate_to_spec.schema.json",
+  "title": "BND-3: 승인게이트(팀원 A) → 스펙생성(팀원 C)",
+  "type": "object",
+  "required": ["requirement_id", "confirmed_items", "platform", "acceptance_criteria"],
+  "properties": {
+    "requirement_id": {
+      "type": "string",
+      "description": "BND-2와 동일 시점에 동일 값으로 함께 발화되어야 함 (REQ-GATE-001 DoD)"
+    },
+    "confirmed_items": { "type": "array", "items": { "type": "string" } },
+    "platform": { "type": "string", "enum": ["web", "android"] },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "코드생성 프롬프트에 그대로 포함되어야 하는 인수조건"
+    }
+  },
+  "additionalProperties": true
+}
