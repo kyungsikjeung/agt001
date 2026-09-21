@@ -36,42 +36,42 @@
 
 ```mermaid
 flowchart TB
-    CUST[고객] -->|채팅으로 요구사항 전달| CHAT[챗봇 게이트웨이]
-    CUST -->|디자인 시안 확인/UI 선택| UI_LINK[시안 확인 링크]
+    CUST["① 고객"] -->|채팅으로 요구사항 전달| CHAT["② 챗봇 게이트웨이"]
+    CUST -->|디자인 시안 확인/UI 선택| UI_LINK["⑩ 시안 확인 링크"]
     CUST -->|견적/확정 응답| GATE
 
     subgraph TEAM_A["팀원 A 담당: 대화·요구사항 파이프라인"]
-        CHAT --> RAG[RAG 사전확인\n기존 프로젝트 요구사항 검색]
-        RAG --> INTAKE[요구사항 접수]
-        INTAKE --> VALIDATE[요구사항 검증]
-        VALIDATE --> ASK[질의: 옵션 3개 + 추천]
-        ASK --> GATE{승인 게이트\n고객 확인 필수}
+        CHAT --> RAG["③ RAG 사전확인\n기존 프로젝트 요구사항 검색"]
+        RAG --> INTAKE["④ 요구사항 접수"]
+        INTAKE --> VALIDATE["⑤ 요구사항 검증"]
+        VALIDATE --> ASK["⑥ 질의: 옵션 3개 + 추천"]
+        ASK --> GATE{"⑦ 승인 게이트\n고객 확인 필수"}
         GATE -->|반려/추가질문| ASK
-        GATE -->|승인| QUOTE[견적 산정 + 근거]
+        GATE -->|승인| QUOTE["⑧ 견적 산정 + 근거"]
     end
 
     subgraph TEAM_B["팀원 B 담당: 디자인/전달"]
-        QUOTE --> DESIGN[UI 시안 생성\nFigma API 또는 커스텀 생성기]
+        QUOTE --> DESIGN["⑨ UI 시안 생성\n커스텀 생성기"]
         DESIGN --> UI_LINK
-        UI_LINK --> DELIVER[산출물 링크 전송\nSMS/이메일/카카오]
+        UI_LINK --> DELIVER["⑪ 산출물 링크 전송\n카카오링크"]
     end
 
     subgraph TEAM_C["팀원 C 담당: 코드 생성 에이전트"]
-        GATE -->|승인된 요구사항| SPEC_GEN[SRS/스펙 문서 생성 에이전트]
-        SPEC_GEN --> PLAN_AGENT[Hermes 플래너 에이전트]
-        PLAN_AGENT --> CODE_WEB[웹 코드 생성 에이전트]
-        PLAN_AGENT --> CODE_AND[안드로이드 코드 생성 에이전트]
-        CODE_WEB --> BUILD[빌드/배포 파이프라인]
+        GATE -->|승인된 요구사항| SPEC_GEN["⑫ SRS/스펙 문서 생성 에이전트"]
+        SPEC_GEN --> PLAN_AGENT["⑬ Hermes 플래너 에이전트"]
+        PLAN_AGENT --> CODE_WEB["⑭ 웹 코드 생성 에이전트"]
+        PLAN_AGENT --> CODE_AND["⑮ 안드로이드 코드 생성 에이전트\n(React Native)"]
+        CODE_WEB --> BUILD["⑯ 빌드/배포 파이프라인"]
         CODE_AND --> BUILD
-        BUILD --> DEPLOY[동작하는 배포본]
+        BUILD --> DEPLOY["⑰ 동작하는 배포본"]
         DEPLOY --> DELIVER
     end
 
     subgraph NV["NVIDIA 스택 (공통 인프라)"]
-        NIM[(NIM 추론 엔드포인트)]
-        NEMO[(NeMo/Nemotron 모델)]
-        HERMES[(Hermes 에이전트 프레임워크)]
-        BLUEPRINT[(NVIDIA Blueprint / Skill)]
+        NIM["⑱ NIM 추론 엔드포인트"]
+        NEMO["⑲ NeMo/Nemotron 모델"]
+        HERMES["⑳ Hermes 에이전트 프레임워크"]
+        BLUEPRINT["㉑ NVIDIA Blueprint / Skill"]
     end
 
     CHAT -.-> NIM
@@ -87,22 +87,49 @@ flowchart TB
     NIM -.-> NEMO
     HERMES -.-> BLUEPRINT
 
-    FLOWDOC[[에이전트 Flow 검토 산출물\nMermaid 시퀀스/상태도]] -.기록.- PLAN_AGENT
+    FLOWDOC["㉒ 에이전트 Flow 검토 산출물\nMermaid 시퀀스/상태도"] -.기록.- PLAN_AGENT
     FLOWDOC -.기록.- SPEC_GEN
 ```
+
+### 번호별 설명
+
+| 번호 | 노드 | 담당 | 설명 |
+|---|---|---|---|
+| ① | 고객 | - | 챗봇으로 요구사항을 전달하고, 시안을 확인하고, 견적·확정 응답을 주는 외부 사용자 |
+| ② | 챗봇 게이트웨이 | 팀원 A | 고객과의 채팅 창구. 모든 요구사항 입력이 여기로 들어온다 |
+| ③ | RAG 사전확인 | 팀원 A | 요구사항 접수 전, 기존 프로젝트(SRS.md/SPEC.md 인덱스)에 유사 요구가 있었는지 검색 |
+| ④ | 요구사항 접수 | 팀원 A | 채팅 내용을 구조화된 요구사항 항목으로 정리 |
+| ⑤ | 요구사항 검증 | 팀원 A | 모호하거나 누락된 항목을 찾아냄 |
+| ⑥ | 질의: 옵션 3개 + 추천 | 팀원 A | 검증에서 걸린 항목을 고객에게 옵션 3개 + 추천 1개로 되물음 |
+| ⑦ | 승인 게이트 | 팀원 A | 고객이 반드시 채팅으로 확인해야 다음 단계(견적)로 넘어가는 필수 확인 지점 |
+| ⑧ | 견적 산정 + 근거 | 팀원 A | 승인된 요구사항으로 견적과 산정 근거(항목별 공수/난이도)를 생성 |
+| ⑨ | UI 시안 생성 | 팀원 B | 커스텀 HTML/CSS 템플릿 생성기로 UI 시안 N종 렌더링 |
+| ⑩ | 시안 확인 링크 | 팀원 B | 고객이 시안을 보고 선택할 수 있는 웹 링크 |
+| ⑪ | 산출물 링크 전송 | 팀원 B | 시안 링크·최종 배포 링크를 카카오링크로 고객에게 전송 |
+| ⑫ | SRS/스펙 문서 생성 에이전트 | 팀원 C | 승인된 요구사항을 개발용 SRS/스펙 문서로 변환 |
+| ⑬ | Hermes 플래너 에이전트 | 팀원 C | 스펙을 작업 단위로 분해해 웹/안드로이드 에이전트에 할당 |
+| ⑭ | 웹 코드 생성 에이전트 | 팀원 C | 웹 산출물 코드를 생성 |
+| ⑮ | 안드로이드 코드 생성 에이전트 | 팀원 C | React Native 기반 크로스플랫폼 코드를 생성 |
+| ⑯ | 빌드/배포 파이프라인 | 팀원 C | 생성된 코드를 빌드하고 배포 |
+| ⑰ | 동작하는 배포본 | 팀원 C | 실제로 접속 가능한 최종 산출물 (컨테이너 PaaS 상시 배포, §6-3 참고) |
+| ⑱ | NIM 추론 엔드포인트 | 공통 인프라 | NVIDIA NIM 챗/임베딩 API 호출 지점 |
+| ⑲ | NeMo/Nemotron 모델 | 공통 인프라 | NIM이 서빙하는 실제 모델 |
+| ⑳ | Hermes 에이전트 프레임워크 | 공통 인프라 | NemoClaw 기반 에이전트 게이트웨이, NIM을 OpenAI 호환 API로 호출 |
+| ㉑ | NVIDIA Blueprint / Skill | 공통 인프라 | 가능한 경우 활용하는 NVIDIA 제공 참조 구현/스킬 |
+| ㉒ | 에이전트 Flow 검토 산출물 | 팀원 C | 에이전트 간 흐름을 검토할 수 있도록 남기는 Mermaid 시퀀스/상태도 기록 |
 
 **요구사항 매핑**
 | 요구 번호 | 반영 위치 |
 |---|---|
 | 1) 인프라 설계 + Mermaid + 역할분담 | 본 다이어그램 (TEAM_A/B/C 서브그래프) |
-| 2) 채팅 요구사항 전달 | CHAT |
-| 3) 접수/검증/질의(3+추천)/게이트 | INTAKE→VALIDATE→ASK→GATE |
-| 4) RAG 사전확인 | RAG (INTAKE 이전 단계) |
-| 5) 웹/안드로이드, 동작하는 산출물 | CODE_WEB/CODE_AND→BUILD→DEPLOY |
-| 6) 채팅 확인 필수 + 견적 근거 | GATE, QUOTE |
-| 7) UI 시안(Figma/커스텀) | DESIGN |
-| 8) 시안 링크 전송 | DELIVER |
-| 9) 에이전트 분리 + Flow 검토 산출물 | TEAM_C 서브그래프, FLOWDOC |
+| 2) 채팅 요구사항 전달 | ② |
+| 3) 접수/검증/질의(3+추천)/게이트 | ④→⑤→⑥→⑦ |
+| 4) RAG 사전확인 | ③ (④ 이전 단계) |
+| 5) 웹/안드로이드, 동작하는 산출물 | ⑭/⑮→⑯→⑰ |
+| 6) 채팅 확인 필수 + 견적 근거 | ⑦, ⑧ |
+| 7) UI 시안(커스텀) | ⑨ |
+| 8) 시안 링크 전송 | ⑪ |
+| 9) 에이전트 분리 + Flow 검토 산출물 | TEAM_C 서브그래프(⑫~⑰), ㉒ |
 | 10) 동일 개발환경 | §4 |
 | 11) 온보딩 가이드 | §5 |
 
