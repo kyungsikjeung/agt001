@@ -3,7 +3,7 @@
 > 작성일: 2026-09-21 / 제출 기한: 2026-09-28
 > 팀원: 3명 / 기반: 기존 `reqpipe`([docs/reqpipe/](../reqpipe/)) 개념을 챗봇형 에이전트로 확장
 > 필수 스택: NVIDIA NeMo(니모), NIM, Hermes 에이전트, (선택) NVIDIA Blueprint / NVIDIA 제공 Skill 최대 활용
-> 읽기 순서: 이 저장소를 처음 본다면 먼저 [최상위 README.md](../../README.md)를 읽을 것
+> 읽기 순서: [최상위 README.md](../../README.md)(간략 개요) → [REQUIREMENTS.md](REQUIREMENTS.md)(무엇을·완료조건) → 이 문서(어떻게 만들지)
 
 ## 목차
 

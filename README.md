@@ -7,6 +7,8 @@
 
 두 묶음은 서로 다른 목적을 갖지만, 해커톤 프로젝트는 `reqpipe`의 게이트·RAG·감사 개념을 재사용하므로 함께 보관한다.
 
+> **이 README는 진입점이다.** 아래 블루프린트와 시나리오는 "대략 어떻게 동작하는가"를 빠르게 보여주기 위한 간략 설명이며, 정식 요구사항(입력/출력/완료조건까지 정의된 `REQ-*` 목록)은 [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md)에, 그걸 어떻게 구현하는지는 [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md)에 따로 정리했다. 읽는 순서: **README(간략) → REQUIREMENTS.md(무엇을, 언제 완료로 볼지) → ARCHITECTURE.md(어떻게 만들지)**.
+
 ## 시스템 블루프린트 (한눈에 보기)
 
 해커톤 프로젝트(고객 채팅 → 코드 산출물) 전체를 압축한 그림이다. 번호(①~⑱)는 [docs/hackathon/ARCHITECTURE.md §1](docs/hackathon/ARCHITECTURE.md#1-시스템-컨텍스트-전체-그림)의 전체 번호 체계와 동일하며, 상세 설명·팀원별 담당은 그 문서를 본다.
@@ -257,6 +259,8 @@ sequenceDiagram
 | 14 (반려) | 플래너가 빌드 파이프라인에 재작업을 지시한다 (7번 단계부터 다시) |
 | 15 | 고객의 카카오톡으로 실제 접속 가능한 링크가 도착한다 — 이때부터 요구 5)("배포된 최종산출물은 동작하는 것") 충족. **사람 검토를 통과하지 못하면 이 단계 자체가 일어나지 않는다** |
 
+> 위 5가지 시나리오에 등장한 모든 단계(그리고 여기 다 담지 못한 예외 케이스까지)는 [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md)에 `REQ-*` ID로 정식 정리되어 있다. 각 REQ는 Input/Output/완료조건(DoD)까지 명시한다.
+
 ## 마일스톤 타임라인 (D0~D7, 9/28 제출)
 
 **목표: 2026-09-28 NVIDIA 해커톤 제출.** 상세 계획은 [docs/hackathon/INTEGRATION_STRATEGY.md §3](docs/hackathon/INTEGRATION_STRATEGY.md#3-상세-마일스톤-d0d7)에 있으며, 여기서는 남은 일수를 한눈에 보기 위한 타임라인만 요약한다.
@@ -313,6 +317,7 @@ agt001/
 │   │       ├── ARCH_S3_v1.2/          #     아키텍처 설계 원본 (모듈89·인터페이스22·다이어그램)
 │   │       └── AI_pipeline_confirmed_v1.1/  # 결정 로그·파라미터 원본
 │   └── hackathon/                     # NVIDIA 해커톤 신규 프로젝트 문서
+│       ├── REQUIREMENTS.md            #   ★ 정본 요구사항 (REQ-* ID, Input/Output/완료조건)
 │       ├── ARCHITECTURE.md            #   ★ 전체 아키텍처 (팀 역할분담·Mermaid·에이전트 구성)
 │       ├── INTEGRATION_STRATEGY.md    #   팀원별 통합 전략 + 일자별 상세 마일스톤(D0~D7)
 │       ├── TEAM_A_SPEC.md             #   팀원 A 상세 스펙 (대화·요구사항·견적, ②~⑧)
@@ -328,12 +333,13 @@ agt001/
 
 ### 처음 합류하는 팀원 (해커톤 작업을 할 사람)
 
-1. 이 README — 전체 그림 파악
-2. [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md) — 시스템 컨텍스트, 팀원별 역할, 확정된 기술 결정
-3. [docs/hackathon/INTEGRATION_STRATEGY.md](docs/hackathon/INTEGRATION_STRATEGY.md) — 내가 맡은 파트를 오늘부터 어떻게 시작할지(D0~D7 마일스톤)
-4. 내 파트의 상세 설계: 팀원 A는 [TEAM_A_SPEC.md](docs/hackathon/TEAM_A_SPEC.md), 팀원 B는 [TEAM_B_SPEC.md](docs/hackathon/TEAM_B_SPEC.md), 팀원 C는 [TEAM_C_SPEC.md](docs/hackathon/TEAM_C_SPEC.md)
-5. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
-6. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
+1. 이 README — 전체 그림을 빠르게 파악(블루프린트+시나리오, 간략 버전)
+2. [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md) — 무엇을 만들어야 하고 언제 "완료"로 볼지 (`REQ-*` ID, Input/Output/완료조건)
+3. [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md) — 그것을 어떻게 만들지 (시스템 컨텍스트, 팀원별 역할, 확정된 기술 결정)
+4. [docs/hackathon/INTEGRATION_STRATEGY.md](docs/hackathon/INTEGRATION_STRATEGY.md) — 내가 맡은 파트를 오늘부터 어떻게 시작할지(D0~D7 마일스톤)
+5. 내 파트의 상세 설계: 팀원 A는 [TEAM_A_SPEC.md](docs/hackathon/TEAM_A_SPEC.md), 팀원 B는 [TEAM_B_SPEC.md](docs/hackathon/TEAM_B_SPEC.md), 팀원 C는 [TEAM_C_SPEC.md](docs/hackathon/TEAM_C_SPEC.md)
+6. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
+7. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
 
 ### reqpipe 자체를 개발/검토할 사람
 
