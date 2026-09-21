@@ -22,6 +22,7 @@ agt001/
 │   │       └── AI_pipeline_confirmed_v1.1/  # 결정 로그·파라미터 원본
 │   └── hackathon/                     # NVIDIA 해커톤 신규 프로젝트 문서
 │       ├── ARCHITECTURE.md            #   ★ 전체 아키텍처 (팀 역할분담·Mermaid·에이전트 구성)
+│       ├── INTEGRATION_STRATEGY.md    #   팀원별 통합 전략 + 일자별 상세 마일스톤(D0~D7)
 │       └── deployment/
 │           ├── RENDER_DEPLOY.md       #     배포 가이드 (배경/목적/핸즈온, AI 에이전트 온보딩용)
 │           ├── templates/             #     Dockerfile·render.yaml 템플릿
@@ -34,7 +35,8 @@ agt001/
 
 1. 이 README — 전체 그림 파악
 2. [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md) — 시스템 컨텍스트, 팀원별 역할, 확정된 기술 결정
-3. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
+3. [docs/hackathon/INTEGRATION_STRATEGY.md](docs/hackathon/INTEGRATION_STRATEGY.md) — 내가 맡은 파트를 오늘부터 어떻게 시작할지(D0~D7 마일스톤)
+4. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
 4. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
 
 ### reqpipe 자체를 개발/검토할 사람
