@@ -1,8 +1,28 @@
-# SRS 통합 요구사항 명세서 (단일 파일)
+# reqpipe 통합 이력·근거 문서 (01/03)
 
-> 작성일: 2026-09-21 / 기준: `AI_pipeline_confirmed_v1.1` + `ARCH_S3_v1.2` / 브랜치: `main`
-> 성격: 사람이 읽는 통합본. 아래에 있는 모든 표와 본문이 곧 요구사항의 전체이며, 원본 CSV/MD의 내용을 빠짐없이 옮겼다.
+> 작성일: 2026-09-21 / 기준: `archive/AI_pipeline_confirmed_v1.1` + `archive/ARCH_S3_v1.2`
+> 성격: **아카이브(근거) 문서.** 버전 계보·결정 전체표·미해결 항목 등 "왜 지금 이 모습인가"를 추적할 때만 펼쳐본다. 평소 개발 중 참조할 확정 요구사항은 [02_REQUIREMENTS.md](02_REQUIREMENTS.md)를 본다.
 > 한계 고지: v0.1~v1.0 원본 CSV 중 개별 요구문 전문 233건은 세션 초기화로 작업폴더에 없고 대화첨부에만 있다. 그 부분은 건수·그룹·결정으로 정리하고, 원본 위치를 12장에 명시했다. 나머지 v1.1/D36~D42/ARCH/파라미터/미해결은 전문 수록이다.
+> **중복 제거 안내**: 아키텍처 89모듈·인터페이스 22·다이어그램 원문은 이 문서에서 표로 반복하지 않고 `archive/ARCH_S3_v1.2/`의 원본 파일을 정본으로 링크한다 (8장·11장 참고).
+
+## 개요 (이 문서를 1분 안에 이해하기)
+
+`reqpipe`는 기획서·문서를 넣으면 4종 산출물(User Story+AC / SRS / AI 작업지시서 / Key Feature)을 만드는 AI 드리븐 요구사항 파이프라인이다. 이 문서는 그 프로젝트의 **버전 이력과 전체 결정 근거를 빠짐없이 보관한 아카이브**로, S0~S3(요구수집~아키텍처 설계) 단계에서 나온 모든 표를 통합했다. 신규 개발 시 실제로 지켜야 할 규칙은 [02_REQUIREMENTS.md](02_REQUIREMENTS.md)의 "시스템은 ~해야 한다" 문장이 정본이며, 이 문서는 그 문장들이 어디서 왔는지 거슬러 올라갈 때 쓴다.
+
+## 목차
+
+1. [프로젝트 전제·범위표](#1-프로젝트-전제·범위표)
+2. [SRS 버전 계보·건수표](#2-srs-버전-계보건수표-전체)
+3. [프로세스 12단계 5게이트표](#3-프로세스-12단계-5게이트표-전체)
+4. [SYS_SRS 상세 (233건)](#4-sys_srs-상세-233건-그룹별-사람이-읽는-정리)
+5. [SWR 상세 (79건)](#5-swr-상세-79건-현-정본)
+6. [결정 전체표 (A/Q/D)](#6-결정-전체표-빠짐없음-aqd)
+7. [확정 파라미터 전체표](#7-확정-파라미터-전체표-빠짐없음)
+8. [아키텍처 S3 요약 (원본은 archive/ 링크)](#8-아키텍처-s3-전체-89모듈22메서드-빠짐없음)
+9. [마일스톤·게이트·수락표](#9-마일스톤게이트수락표)
+10. [미해결·차단 전체표](#10-미해결차단-전체표-빠짐없음)
+11. [다이어그램·검사 원문 (archive/ 링크)](#11-다이어그램검사-원문)
+12. [원본 위치·한계표](#12-원본-위치한계표-빠짐없음)
 
 ## 0. 읽는 법 (30초 요약)
 
@@ -259,128 +279,14 @@ v1.0 73건 전문은 대화첨부 `SWR_security_egress_v1.0.md/csv`에 있다. v
 | WAL | audit.begin 실패는 곧 송신중단 (D32-A). 사후감사는 전량 기록될 때만 성립 |
 | 우선순위 | deny_hard > allowlist > mode, 코드상수. 정책파일·P0허용으로 하드금지 뒤집기 불가 (D30-A) |
 
-### 8-4. 모듈 89 전체표 (빠짐없음)
+### 8-4. 모듈 89 전체표 / 8-5. 인터페이스 22 전체표
 
-| path | layer | 역할 (사람용) | 추적 | 마일스톤 |
-|---|---|---|---|---|
-| kernel/ids.py | L0 | ReqId/EvId/RunId/NodeId, 해시 ID (난수금지) | TRC-01, FR-E08 | M1 |
-| kernel/model_project.py | L0 | ProjectContext 배경·이해관계자·제약·용어, 1개 | FR-C01 | M1 |
-| kernel/model_requirement.py | L0 | Requirement+SlotValue(dict, 하드코딩금지)+deps/conflicts | FR-C01, FR-C02 | M1 |
-| kernel/model_evidence.py | L0 | Evidence source_uri·snapshot·sha·nature·derivation | FR-D01~D03 | M1 |
-| kernel/model_assumption.py | L0 | Assumption safe/risky+Provisional 전파 | PRV-01~05 | M1 |
-| kernel/model_question.py | L0 | Question(target,audience,score)+Answer | ASK-01, ASK-16 | M1 |
-| kernel/model_decision.py | L0 | DecisionRecord 3안+추천+선택+근거+승인+시각 | DEC-01~ | M1 |
-| kernel/model_trace.py | L0 | TraceNode/Edge, derives/verifies/implements/conflicts/assumes | TRC-01~09 | M1 |
-| kernel/model_classification.py | L0 | Level C0/C1/C2, ClassifiedPayload, 최댓값상속 | SF-SEC-01~06 | M1 |
-| kernel/model_egress.py | L0 | EgressRequest/Decision(봉인)/Verdict/Fingerprint | D29-A, D30-A | M1 |
-| kernel/model_artifact.py | L0 | SpecModel 정본+4종뷰 식별자 | FR-B01 | M2 |
-| kernel/errors.py | L0 | 정책/무결성/계약 예외 구분 | - | M1 |
-| policy/classify.py | L1 | 등급판정, 미지정=C1 | SF-SEC-01,02 | M1 |
-| policy/inherit.py | L1 | 파생등급=입력최댓값 | SF-SEC-06 | M1 |
-| policy/downgrade.py | L1 | 승인 없이 강등불가 | SF-SEC-05 | M1 |
-| policy/detectors/rules_pii.py | L1 | 주민·연락처·계좌·이메일 패턴 | SF-DNY-01, D34-A | M1 |
-| policy/detectors/rules_credential.py | L1 | 키·토큰·PEM·커넥션스트링 | SF-DNY-01 | M1 |
-| policy/detectors/roster_match.py | L1 | 명부매칭, 부재 시 pass금지 | SWR-DET-011,012 | M1 |
-| policy/detectors/normalize.py | L1 | 단위·조사·불용어 정규화, 수치토큰 (4열vs6열) | S0 결함2,3 | M1 |
-| policy/egress_gate.py | L1 | deny>allow>mode 상수, Decision 유일발행 | D30-A, SWR-EGR-003 | M1 |
-| policy/exception_ledger.py | L1 | 1인 TTL72h 갱신1회 벽시계 | D35-A, SWR-EXC-004 | M1 |
-| policy/retention.py | L1 | 90일보존·파기산출 벽시계 | D31-A | M2 |
-| policy/timer_policy.py | L1 | 4h/24h/48h 업무정지, 가동기준금지 | SF-TMR-01,02, ASK-28 | M1 |
-| policy/gate_l1_rules.py | L1 | 구조규칙 13종 (근거·스냅샷·수치·순환·충돌대칭) | GATE-L1 | M1 |
-| policy/rubric_l2.py | L1 | 루브릭 5축×3점 계약 | GATE-L2 | M2 |
-| policy/loopback_rules.py | L1 | 12케이스, LLM금지, 2회 상위승격 | LB-01~12 | M2 |
-| policy/profile_schema.py | L1 | 프로파일YAML 검증, required/risk/depends_on | FR-C02~C06 | M1 |
-| ports/store_port.py | L2 | 영속계약 BaaS/SQLite 공통 | SF-DAT-01, SI-I-02 | M1 |
-| ports/transport_port.py | L2 | send(req,decision) 필수 | D29-A | M1 |
-| ports/llm_port.py | L2 | structured/complete/capabilities kernel반환 | SI-E-01 | M2 |
-| ports/doc_port.py | L2 | 원본바이트·블록 접근 | FR-A01 | M1 |
-| ports/index_port.py | L2 | BM25+임베딩 | FR-D05 | M2 |
-| ports/notify_port.py | L2 | 콘솔/텔레그램/카카오반자동 | ASK-05~ | M2 |
-| ports/clock_port.py | L2 | 벽시계만, monotonic 미노출 | SF-TMR-01 | M1 |
-| ports/audit_port.py | L2 | begin/commit/append/verify | D32-A, SF-AUD-02,07 | M1 |
-| ports/render_port.py | L2 | 4종+다이어그램 렌더 | FR-B01, VIZ | M2 |
-| ports/scaffold_port.py | L2 | 폴더·파일 계획·적용 | SCF-01~ | M2 |
-| ports/metrics_port.py | L2 | 런메트릭 기록 | MET-01~04 | M1 |
-| app/capability.py | L3 | 핸드셰이크, 실패 시 최악값 | FR-H01,H02 | M2 |
-| app/llm_call.py | L3 | S0~S3사다리+새니타이저+4콜분할 | FR-G01~, S2 | M2 |
-| app/egress_broker.py | L3 | 유일통로 gate→WAL→send→commit | D29-A, D32-A | M1 |
-| app/question_engine.py | L3 | Top3+추천, 보류·선언순 | FR-E01~E08 | M1 |
-| app/interview_session.py | L3 | 최대5턴, interview:// 근거 | FR-E09 | M1 |
-| app/provisional.py | L3 | 임시확정·전파, 릴리스차단 | PRV-01~05 | M2 |
-| app/escalation.py | L3 | L0→L3·캐치업·병합 | ASK-27,28 | M2 |
-| app/trace_service.py | L3 | 그래프·질의·영향분석 | TRC-01~09 | M1 |
-| app/metrics.py | L3 | 채움률·채택률·턴수·miss | MET-01~04 | M1 |
-| app/graph_build.py | L3 | LangGraph 조립·체크포인터 | S1~S12 | M2 |
-| app/stages/s01_env.py | L3 | 환경노드 | ENV | M1 |
-| app/stages/s02_sysreq.py | L3 | SYS노드 | SYS | M1 |
-| app/stages/s03_swreq.py | L3 | SWR노드 | SWR | M2 |
-| app/stages/s04_decision.py | L3 | 3안+추천 노드 | DEC | M2 |
-| app/stages/s05_arch.py | L3 | 아키텍처 노드 | ARC | M2 |
-| app/stages/s06_iface.py | L3 | IF계약 노드 | IFC | M2 |
-| app/stages/s07_unit.py | L3 | 유닛 노드 | UNT | M2 |
-| app/stages/s08_todo.py | L3 | TODO 노드 | TSK | M2 |
-| app/stages/s09_verify.py | L3 | 검증·결함 노드 | VER | M2 |
-| app/stages/s10_loopback.py | L3 | 루프백 규칙노드 | LB | M3 |
-| app/stages/s11_scaffold.py | L3 | 스캐폴딩 노드 | SCF | M2 |
-| app/stages/s12_release.py | L3 | 패키징 노드 | REL | M3 |
-| app/gates/g1_reqready.py | L3 | G1 완결성 | GATE | M1 |
-| app/gates/g2_decided.py | L3 | G2 미확정0건 | GATE | M2 |
-| app/gates/g3_archready.py | L3 | G3 계약완비 | GATE | M2 |
-| app/gates/g4_impl.py | L3 | G4 TODO-테스트 | GATE | M2 |
-| app/gates/g5_accept.py | L3 | G5 AC100%+라인70% 실패불통과 | VER-12, Q5 | M3 |
-| adapters/store_sqlite.py | L4 | 로컬 Store P0기본 | D25-A | M1 |
-| adapters/store_baas.py | L4 | BaaS Store, 벤더심볼 비노출 | SF-DAT-01~06 | M2 |
-| adapters/transport_https.py | L4 | 유일소켓, 지문검증 후 송신 | D29-A, SF-EGR-08 | M2 |
-| adapters/llm_openai_compat.py | L4 | NIM /v1/chat, ready/live 분리 | SI-E-01, SF-AI-02 | M2 |
-| adapters/llm_replay.py | L4 | 픽스처재생 소켓0건 | SF-EGR-08 | M1 |
-| adapters/doc_loader.py | L4 | 평탄화·forward-fill·ID·문장ID | FR-A01~A08 | M1 |
-| adapters/modality_tagger.py | L4 | 어미사전1차+미해결만LLM | FR-A05,A06 | M1 |
-| adapters/index_hybrid.py | L4 | BM25+임베딩 원형보존 | FR-D05 | M2 |
-| adapters/notify_console.py | L4 | 콘솔 P0기본 | ASK-05 | M1 |
-| adapters/notify_telegram.py | L4 | 내부알림 | ASK-06 | M2 |
-| adapters/notify_kakao_manual.py | L4 | 링크반자동 생성까지, 발송은 사람 | D26-A | M2 |
-| adapters/clock_system.py | L4 | 벽시계 타임존고정 | SF-TMR-01 | M1 |
-| adapters/audit_chain.py | L4 | 해시체인+WAL | D32-A | M1 |
-| adapters/render_markdown.py | L4 | 4종 SpecModel 파생 | FR-B01 | M2 |
-| adapters/render_diagram.py | L4 | .mmd 텍스트 산출 | VIZ-01~04 | M2 |
-| adapters/scaffold_fs.py | L4 | 사람영역 덮어쓰기금지 | SCF-02 | M2 |
-| cli/__main__.py | L5 | run/ask/audit/conformance | - | M1 |
-| cli/wiring.py | L5 | DI합성 deploy.yaml 선택 | SF-HOST-01 | M1 |
-| cli/commands_run.py | L5 | 실행 | - | M2 |
-| cli/commands_ask.py | L5 | 질문조회·응답 내부전용 | ASK-16 | M1 |
-| cli/commands_audit.py | L5 | 조회·검증·전환시뮬 | SWR-EGR-013 | M2 |
-| checks/test_layering.py | L5 | AST 위반1건 실패 | D29-A 보조 | M1 |
-| checks/test_leakage.py | L5 | 어휘누출 단어경계 | FR-C02 | M1 |
-| checks/test_socket_owner.py | L5 | 소켓은 transport만 | SF-EGR-08 | M1 |
-
-### 8-5. 인터페이스 22 전체표 (빠짐없음)
-
-| port | method | 입력 | 출력 | 오류 | 비고 (사람용) |
-|---|---|---|---|---|---|
-| StorePort | save(entity) | kernel엔티티(등급포함) | EntityId | IntegrityError, PolicyError | 멱등, 동일입력 동일ID |
-| StorePort | load(id,type) | ID,타입 | 엔티티 | None 반환 (NotFound 없음) | 읽기전용 |
-| StorePort | find(type,filter,order) | 타입,필터,정렬키 | 목록 | QueryError | 미지정 시 선언순서 (난수금지) |
-| StorePort | link(src,dst,type) | 두ID+LinkType | EdgeId | CycleError | 멱등 |
-| StorePort | neighbors(id,type,dir) | ID,타입,방향 | 목록 | - | 영향분석 기반 |
-| StorePort | transaction() | - | ctx매니저 | TxError | BaaS/SQLite 동일 |
-| StorePort | schema_version() | - | 버전 | - | 콘솔변경 감지 |
-| TransportPort | send(req,decision) | EgressRequest+Decision필수 | Response | GateBypass,FingerprintMismatch,TransportError | 지문불일치 거부 |
-| TransportPort | health(kind) | ready\|live | 상태 | - | 추론성공으로 준비대체 금지 |
-| LLMPort | structured(schema,prompt,budget) | 스키마,프롬프트,예산 | 객체+사용량 | StructuredFailure→unknown | S0~S3 내부처리 |
-| LLMPort | capabilities() | - | ctx,json,tool | - | 실패 시 최악값 |
-| DocPort | load(uri) | URI | 블록+페이지·문장ID | DocError | 이미지 ID보존 |
-| IndexPort | search(q,k,filters) | 질의,k,등급필터 | 청크+uri/sha/snapshot | - | BM25+임베딩 결정적 |
-| NotifyPort | notify(ch,aud,msg,link) | 채널,대상,본문,링크 | 영수증 | NotifyError | customer 반자동 |
-| ClockPort | now() | - | 벽시계 | - | monotonic 미노출 |
-| AuditPort | begin(record) | 예정레코드 원문포함 | WAL ID | AuditWriteError→중단 | 실패 시 전송금지 |
-| AuditPort | commit(wal,result) | WAL,요약 | - | AuditWriteError | 해시갱신 |
-| AuditPort | verify_chain() | - | 리포트 | - | 변조탐지 |
-| RenderPort | render(kind,spec) | 종류,SpecModel | 바이트 | RenderError | 4종 동일정본 파생 |
-| ScaffoldPort | plan(arch) | 아키텍처 | 계획 | - | 사람확인 가능 |
-| ScaffoldPort | apply(plan,mode) | 계획,new_only\|merge | 결과 | OverwriteBlocked | 사람영역 보호 |
-| MetricsPort | record(metric) | 메트릭 | - | - | 임계 시 경고 |
-
-계약 3줄 요약: Clock은 monotonic을 주지 않아 오용 자체를 막는다. find는 정렬키 없으면 선언순서로 재현성을 지킨다. structured 실패는 예외가 아니라 unknown 슬롯으로 정상 질문경로에 합류한다.
+> **중복 제거 (2026-09-21 재구성)**: 이 두 표는 `archive/ARCH_S3_v1.2/ARCH_S3_v1.2.md` 및 동 폴더의 `ARCH_modules_v1.2.csv` / `ARCH_interfaces_v1.2.csv`와 완전히 동일한 내용이었다. 이 문서(통합본)에는 요약만 남기고, 전문은 원본 위치를 정본으로 삼는다.
+>
+> - 모듈 89개 전문표(6층×kernel/policy/ports/app/adapters/cli) → [`docs/reqpipe/archive/ARCH_S3_v1.2/ARCH_modules_v1.2.csv`](archive/ARCH_S3_v1.2/ARCH_modules_v1.2.csv)
+> - 인터페이스 22개 전문표(포트별 메서드 계약) → [`docs/reqpipe/archive/ARCH_S3_v1.2/ARCH_interfaces_v1.2.csv`](archive/ARCH_S3_v1.2/ARCH_interfaces_v1.2.csv)
+>
+> 계약 3줄 요약: Clock은 monotonic을 주지 않아 오용 자체를 막는다. find는 정렬키 없으면 선언순서로 재현성을 지킨다. structured 실패는 예외가 아니라 unknown 슬롯으로 정상 질문경로에 합류한다.
 
 ### 8-6. 영속·동시성·마일스톤표
 
@@ -420,85 +326,15 @@ v1.0 73건 전문은 대화첨부 `SWR_security_egress_v1.0.md/csv`에 있다. v
 | - | egress reviewed_on 외 키 | 실행차단 외 추가 차단 가능 | 기동 전 점검 |
 | - | D19/D22/D27 제목 | 대화본문에 남지 않음, 지어내지 않음 | 원본 decisions CSV 참조 |
 
-## 11. 다이어그램·검사 원문 (빠짐없음, 붙여넣기용)
+## 11. 다이어그램·검사 원문
 
-### 11-1. 01_layers.mmd
-
-```mermaid
-flowchart TB
-  CLI[L5 cli / 합성 루트] --> AD[L4 adapters]
-  CLI --> AP[L3 app]
-  AD --> PO[L2 ports]
-  AP --> PO
-  AP --> PL[L1 policy]
-  PO --> KN[L0 kernel]
-  PL --> KN
-  AD --> KN
-  AP -. 금지 .-> AD
-  AD -. 금지 .-> PL
-```
-
-### 11-2. 02_egress_sequence.mmd
-
-```mermaid
-sequenceDiagram
-  participant N as app/stage node
-  participant B as app/egress_broker
-  participant C as policy/classify
-  participant G as policy/egress_gate
-  participant A as adapters/audit_chain
-  participant T as adapters/transport_https
-  participant X as 외부 엔드포인트
-  N->>B: request(payload, purpose)
-  B->>C: classify(payload)
-  C-->>B: level C0|C1|C2 (미지정=C1)
-  B->>G: evaluate(request, level, policy)
-  G-->>B: EgressDecision(verdict, fingerprint)
-  alt verdict=deny_hard
-    B-->>N: Blocked(reason, 예외신청 가능)
-  else allow / audit
-    B->>A: begin(WAL: 원문+등급+판정)
-    A-->>B: wal_id (기록 실패 시 여기서 중단)
-    B->>T: send(request, decision)
-    T->>T: fingerprint(request) == decision.fingerprint ?
-    T->>X: HTTPS
-    X-->>T: response
-    T-->>B: response
-    B->>A: commit(wal_id, result)
-    B-->>N: response
-  end
-```
-
-### 11-3. 03_loopback_state.mmd
-
-```mermaid
-stateDiagram-v2
-  [*] --> SYS: 시스템 요구사항
-  SYS --> SWR: 전개
-  SWR --> ARCH: 아키텍처/인터페이스
-  ARCH --> UNIT: 유닛설계/TODO
-  UNIT --> VERIFY: 구현+검증
-  VERIFY --> [*]: 수락(AC100% + 신규라인70%)
-  VERIFY --> UNIT: 구현 결함
-  VERIFY --> ARCH: 인터페이스 불일치
-  VERIFY --> SWR: AC 불명확/모순
-  VERIFY --> SYS: 상위 요구 충돌·신규 기능 도출
-  UNIT --> ARCH: 동일 결함 2회 재발(강제 승격)
-```
-
-### 11-4. dependency_rules.toml (5계약 전문 요약)
-
-| 계약 | 소스 | 금지 대상 | 사람용 의미 |
-|---|---|---|---|
-| 레이어 단방향 | 전체 | 역방향 참조 | cli>adapters>app>ports>policy>kernel 순서만 허용 |
-| app은 adapters 모름 | app | adapters | 오케스트레이션이 기술 몰라도 됨 |
-| adapters는 policy 모름 | adapters | policy | 어댑터에서 예외 우회 금지 |
-| transport는 broker만 | stages,gates,policy | transport_port | 송신계약은 브로커만 앎 |
-| 소켓 단일화 | kernel,policy,app,cli | socket/requests/httpx 등 | 소켓은 transport_https만 |
-
-### 11-5. test_layering.py 동작 (사람용)
-
-`reqpipe` 아래 `.py`를 AST로 훑어 import만 본다. 네트워크 라이브러리가 소유자以外에 있으면 위반. 레이어 허용집합 밖 참조면 위반. policy/app에서 broker以外 transport_port 참조면 위반. 위반 1건이면 `FAIL n건 exit1`, 없으면 `PASS`.
+> **중복 제거 (2026-09-21 재구성)**: `.mmd` 3종·`dependency_rules.toml`·`test_layering.py`는 `archive/ARCH_S3_v1.2/`에 원본 파일 그대로 보관되어 있어(diff 가능한 텍스트), 이 문서에 다시 붙여넣지 않는다. 필요 시 아래 원본을 직접 연다.
+>
+> - 레이어 금지 관계 → [`archive/ARCH_S3_v1.2/diagrams/01_layers.mmd`](archive/ARCH_S3_v1.2/diagrams/01_layers.mmd)
+> - 외부송신 시퀀스(WAL·지문 대조) → [`archive/ARCH_S3_v1.2/diagrams/02_egress_sequence.mmd`](archive/ARCH_S3_v1.2/diagrams/02_egress_sequence.mmd)
+> - 루프백 상태전이 → [`archive/ARCH_S3_v1.2/diagrams/03_loopback_state.mmd`](archive/ARCH_S3_v1.2/diagrams/03_loopback_state.mmd)
+> - 레이어 의존 계약 5종 → [`archive/ARCH_S3_v1.2/dependency_rules.toml`](archive/ARCH_S3_v1.2/dependency_rules.toml)
+> - AST 레이어 검사 동작: `reqpipe` 아래 `.py`를 AST로 훑어 import만 본다. 네트워크 라이브러리가 소유자 이외에 있으면 위반, 레이어 허용집합 밖 참조면 위반, policy/app에서 broker 이외 transport_port 참조면 위반. 위반 1건이면 `FAIL n건 exit1`, 없으면 `PASS` → 실행 코드는 [`archive/ARCH_S3_v1.2/checks/test_layering.py`](archive/ARCH_S3_v1.2/checks/test_layering.py)
 
 ## 12. 원본 위치·한계표 (빠짐없음)
 
@@ -514,9 +350,9 @@ stateDiagram-v2
 | 8 | SYS v0.7 델타 + deploy.yaml | +25 →233 | 대화첨부 | 4-4 |
 | 9 | SWR v1.0 + decisions_v1.0.csv | 73건+D29~D35 제안 | 대화첨부 (v1.1이 정본) | 5장 |
 | 10 | reqcollector.zip·schemas.py·gate.py 등 | 초기 프로토타입 | 보관 (S0 재작성됨) | 8장 |
-| 11 | v1.1 정본 4종 | D29~D35·파라미터11·신규6건 | AI_pipeline_confirmed_v1.1/10_confirmed_originals/ | 5-2·6·7 전문수록 |
-| 12 | 재구성 4종 | 대장·파이프라인·미해결·로그 | AI_pipeline_confirmed_v1.1/20_reconstructed/ | 2·3·6·10 전문수록 |
-| 13 | ARCH v1.2 7종 | 설계·모듈89·IF22·D36~D42·toml·py·mmd | ARCH_S3_v1.2/ | 8·11 전문수록 |
-| 14 | 본 파일 | 통합본 | ./SRS.md (루트 main) | 전체 |
+| 11 | v1.1 정본 4종 | D29~D35·파라미터11·신규6건 | [`archive/AI_pipeline_confirmed_v1.1/10_confirmed_originals/`](archive/AI_pipeline_confirmed_v1.1/10_confirmed_originals/) | 5-2·6·7 전문수록 |
+| 12 | 재구성 4종 | 대장·파이프라인·미해결·로그 | [`archive/AI_pipeline_confirmed_v1.1/20_reconstructed/`](archive/AI_pipeline_confirmed_v1.1/20_reconstructed/) | 2·3·6·10 전문수록 |
+| 13 | ARCH v1.2 7종 | 설계·모듈89·IF22·D36~D42·toml·py·mmd | [`archive/ARCH_S3_v1.2/`](archive/ARCH_S3_v1.2/) | 8·11 전문수록(요약+원본링크) |
+| 14 | 본 파일 | 통합 이력본 | `docs/reqpipe/01_OVERVIEW_AND_HISTORY.md` | 전체 |
 
 > 권고: 1~9번 대화첨부 원본을 내려받아 `10_confirmed_originals/` 옆에 함께 보관할 것. 재구성 문서는 건수·결정만 담아 전문을 대체하지 못하나, 본 SRS.md는 현재 폴더에 있는 전문은 모두 합쳤다.

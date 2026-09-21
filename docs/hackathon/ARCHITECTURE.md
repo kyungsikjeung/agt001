@@ -1,0 +1,218 @@
+# NVIDIA 해커톤 에이전트 시스템 아키텍처 (초안 v0.1)
+
+> 작성일: 2026-09-21 / 제출 기한: 2026-09-28
+> 팀원: 3명 / 기반: 기존 `reqpipe`([docs/reqpipe/](../reqpipe/)) 개념을 챗봇형 에이전트로 확장
+> 필수 스택: NVIDIA NeMo(니모), NIM, Hermes 에이전트, (선택) NVIDIA Blueprint / NVIDIA 제공 Skill 최대 활용
+> 읽기 순서: 이 저장소를 처음 본다면 먼저 [최상위 README.md](../../README.md)를 읽을 것
+
+## 목차
+
+- [0. 이 문서의 목적](#0-이-문서의-목적)
+- [0.1 용어 (이 문서 한정)](#01-용어-이-문서-한정)
+- [1. 시스템 컨텍스트 (전체 그림)](#1-시스템-컨텍스트-전체-그림)
+- [2. 요구사항 처리 파이프라인 (상세 시퀀스)](#2-요구사항-처리-파이프라인-상세-시퀀스)
+- [3. 에이전트 구성 (팀원별 소유권)](#3-에이전트-구성-팀원별-소유권)
+- [4. 동일 개발환경 (요구 10)](#4-동일-개발환경-요구-10)
+- [5. 온보딩 가이드 구조 (요구 11)](#5-온보딩-가이드-구조-요구-11)
+- [6. 확정된 결정 사항](#6-확정된-결정-사항)
+- [7. 9/28 제출까지 마일스톤](#7-928-제출까지-마일스톤)
+
+## 0. 이 문서의 목적
+
+해커톤 요구사항 11개(챗봇 → 코드 산출물, RAG 사전확인, 접수/검증/질의/게이트, 견적 근거, 디자인 시안, 산출물 전송, 에이전트 분리, 동일 개발환경, 온보딩 가이드)를 하나의 시스템으로 묶기 위한 전체 아키텍처를 정의한다. 팀원 3명이 이 문서 하나만 보고 각자 맡은 서브시스템을 병렬로 개발할 수 있도록 경계(Context)를 명확히 나눈다.
+
+## 0.1 용어 (이 문서 한정)
+
+`reqpipe`의 공통 용어(RAG, NIM, WAL 등)는 [docs/reqpipe/02_REQUIREMENTS.md의 용어집](../reqpipe/02_REQUIREMENTS.md#02-용어집-한자어영어-약어-첫-등장-풀어쓰기)을 정본으로 삼는다. 아래는 이 해커톤 문서에서만 추가로 쓰는 용어다.
+
+| 용어 | 뜻 |
+|---|---|
+| Hermes 에이전트 | NVIDIA NemoClaw 위에서 구동되는 에이전트 게이트웨이. OpenAI 호환 API로 NIM을 호출한다. 참고: [hackathon-agent-chatbot](https://github.com/kyungsikjeung/hackathon-agent-chatbot)(토이 프로젝트) |
+| 게이트(승인 게이트) | 고객이 채팅으로 확인/승인해야만 다음 단계(견적·개발 착수)로 넘어가는 필수 확인 지점 |
+| 시안 | 고객이 선택할 수 있도록 생성한 UI 디자인 후보(커스텀 템플릿 렌더링 결과) |
+| 컨테이너 PaaS | Docker 이미지만 올리면 빌드·배포·HTTPS를 대신 처리해주는 배포 방식 (Render 등). 상세: [deployment/RENDER_DEPLOY.md](deployment/RENDER_DEPLOY.md) |
+
+## 1. 시스템 컨텍스트 (전체 그림)
+
+```mermaid
+flowchart TB
+    CUST[고객] -->|채팅으로 요구사항 전달| CHAT[챗봇 게이트웨이]
+    CUST -->|디자인 시안 확인/UI 선택| UI_LINK[시안 확인 링크]
+    CUST -->|견적/확정 응답| GATE
+
+    subgraph TEAM_A["팀원 A 담당: 대화·요구사항 파이프라인"]
+        CHAT --> RAG[RAG 사전확인\n기존 프로젝트 요구사항 검색]
+        RAG --> INTAKE[요구사항 접수]
+        INTAKE --> VALIDATE[요구사항 검증]
+        VALIDATE --> ASK[질의: 옵션 3개 + 추천]
+        ASK --> GATE{승인 게이트\n고객 확인 필수}
+        GATE -->|반려/추가질문| ASK
+        GATE -->|승인| QUOTE[견적 산정 + 근거]
+    end
+
+    subgraph TEAM_B["팀원 B 담당: 디자인/전달"]
+        QUOTE --> DESIGN[UI 시안 생성\nFigma API 또는 커스텀 생성기]
+        DESIGN --> UI_LINK
+        UI_LINK --> DELIVER[산출물 링크 전송\nSMS/이메일/카카오]
+    end
+
+    subgraph TEAM_C["팀원 C 담당: 코드 생성 에이전트"]
+        GATE -->|승인된 요구사항| SPEC_GEN[SRS/스펙 문서 생성 에이전트]
+        SPEC_GEN --> PLAN_AGENT[Hermes 플래너 에이전트]
+        PLAN_AGENT --> CODE_WEB[웹 코드 생성 에이전트]
+        PLAN_AGENT --> CODE_AND[안드로이드 코드 생성 에이전트]
+        CODE_WEB --> BUILD[빌드/배포 파이프라인]
+        CODE_AND --> BUILD
+        BUILD --> DEPLOY[동작하는 배포본]
+        DEPLOY --> DELIVER
+    end
+
+    subgraph NV["NVIDIA 스택 (공통 인프라)"]
+        NIM[(NIM 추론 엔드포인트)]
+        NEMO[(NeMo/Nemotron 모델)]
+        HERMES[(Hermes 에이전트 프레임워크)]
+        BLUEPRINT[(NVIDIA Blueprint / Skill)]
+    end
+
+    CHAT -.-> NIM
+    RAG -.-> NIM
+    VALIDATE -.-> NIM
+    ASK -.-> NIM
+    QUOTE -.-> NIM
+    SPEC_GEN -.-> HERMES
+    PLAN_AGENT -.-> HERMES
+    CODE_WEB -.-> HERMES
+    CODE_AND -.-> HERMES
+    HERMES -.-> NIM
+    NIM -.-> NEMO
+    HERMES -.-> BLUEPRINT
+
+    FLOWDOC[[에이전트 Flow 검토 산출물\nMermaid 시퀀스/상태도]] -.기록.- PLAN_AGENT
+    FLOWDOC -.기록.- SPEC_GEN
+```
+
+**요구사항 매핑**
+| 요구 번호 | 반영 위치 |
+|---|---|
+| 1) 인프라 설계 + Mermaid + 역할분담 | 본 다이어그램 (TEAM_A/B/C 서브그래프) |
+| 2) 채팅 요구사항 전달 | CHAT |
+| 3) 접수/검증/질의(3+추천)/게이트 | INTAKE→VALIDATE→ASK→GATE |
+| 4) RAG 사전확인 | RAG (INTAKE 이전 단계) |
+| 5) 웹/안드로이드, 동작하는 산출물 | CODE_WEB/CODE_AND→BUILD→DEPLOY |
+| 6) 채팅 확인 필수 + 견적 근거 | GATE, QUOTE |
+| 7) UI 시안(Figma/커스텀) | DESIGN |
+| 8) 시안 링크 전송 | DELIVER |
+| 9) 에이전트 분리 + Flow 검토 산출물 | TEAM_C 서브그래프, FLOWDOC |
+| 10) 동일 개발환경 | §4 |
+| 11) 온보딩 가이드 | §5 |
+
+## 2. 요구사항 처리 파이프라인 (상세 시퀀스)
+
+```mermaid
+sequenceDiagram
+    participant C as 고객
+    participant B as 챗봇 게이트웨이
+    participant R as RAG 검색기
+    participant V as 검증 에이전트
+    participant A as 질의 에이전트
+    participant G as 승인 게이트
+    participant Q as 견적 에이전트
+    participant D as 디자인 에이전트
+    participant P as 플래너(Hermes)
+    participant K as 코드생성 에이전트(웹/안드)
+
+    C->>B: 요구사항 채팅 입력
+    B->>R: 기존 프로젝트 요구사항 유사도 검색
+    R-->>B: 기존 요구 존재 여부 + 근거 문서
+    B->>V: 요구사항 접수 + 검증 요청
+    V-->>A: 모호/누락 항목
+    A->>C: 옵션 3개 + 추천 1개 질의
+    C-->>A: 선택 응답
+    A->>G: 확정안 제출
+    G->>C: 최종 확인 요청 (필수)
+    C-->>G: 승인
+    G->>Q: 견적 산정 요청
+    Q-->>C: 견적 + 산정 근거(항목별 공수/난이도)
+    G->>D: 승인된 요구사항 전달
+    D->>D: UI 시안 N종 생성 (Figma/커스텀)
+    D->>C: 시안 링크 전송
+    C-->>D: 시안 선택
+    G->>P: 개발 착수 트리거
+    P->>K: 작업 분해 + 에이전트별 태스크 할당
+    K-->>P: 코드/빌드 결과
+    P-->>B: 배포 완료 + 접속 링크 통지
+```
+
+## 3. 에이전트 구성 (팀원별 소유권)
+
+| 서브시스템 | 담당 | 핵심 에이전트/모듈 | NVIDIA 스택 활용 |
+|---|---|---|---|
+| 대화·요구사항 | 팀원 A | 챗봇 게이트웨이, RAG 검색기(SRS.md/SPEC.md 색인), 검증 에이전트, 질의 에이전트, 승인 게이트 | NIM 챗 엔드포인트(Nemotron 3 Super), NIM 임베딩(`nemotron-3-embed-1b`) + 벡터DB, NemoClaw 기반 Hermes 게이트웨이 |
+| 견적·디자인·전달 | 팀원 B | 견적 에이전트, 커스텀 UI 시안 생성기, 카카오링크 전송 서비스 | NIM(견적 근거 생성), HTML 템플릿 렌더러 + 헤드리스 브라우저 스크린샷, 카카오링크 API |
+| 코드 생성·배포 | 팀원 C | Hermes 플래너, 웹 코드 에이전트, React Native 코드 에이전트, 상시 배포 파이프라인 | NemoClaw/Hermes 에이전트 프레임워크, NIM 코드 모델, Docker 기반 상시 호스팅(ngrok 데모 방식 지양) |
+
+각 에이전트는 **입력/출력 계약(스키마)**을 문서로 고정하고, 팀원 간에는 이 계약으로만 통신한다(직접 내부 구현 의존 금지) — reqpipe의 `ports`/`egress_broker` 유일 통로 원칙을 재사용.
+
+## 4. 동일 개발환경 (요구 10)
+
+- `docker-compose.yml` 또는 `devcontainer.json`으로 3인 동일 컨테이너 배포 (Python/Node 버전, NIM API 키 환경변수, Hermes SDK 버전 고정)
+- 공용 `.env.example` 제공, 실제 키는 팀 노션/1Password 등 별도 공유 (레포에 커밋 금지)
+- 브랜치 전략: `main` 보호, 서브시스템별 `feature/agent-a`, `feature/agent-b`, `feature/agent-c`
+- 계약 스키마(§3)는 `contracts/` 디렉터리에 JSON Schema로 버전 관리 → 팀원 간 변경 시 PR 리뷰 필수
+
+## 5. 온보딩 가이드 구조 (요구 11)
+
+에이전트/Hermes를 처음 접하는 팀원을 위해, AI가 질문할 때도 아래 3단 구조로 답을 구성한다.
+
+1. **배경**: 왜 이 결정이 필요한가 (예: "Hermes는 멀티에이전트 오케스트레이션 프레임워크로, 태스크를 플래너→워커로 분해합니다")
+2. **목적**: 이 결정이 전체 파이프라인에서 어떤 역할을 하는가
+3. **상세 핸즈온**: 실행 가능한 단계별 명령/코드 스니펫 (복붙 가능한 수준)
+
+이 구조를 `docs/onboarding/` 하위에 파트별로 작성 (`01_nim_setup.md`, `02_hermes_basics.md`, `03_agent_contracts.md`, `04_local_dev.md`).
+
+## 6. 확정된 결정 사항
+
+| 항목 | 결정 | 비고 |
+|---|---|---|
+| UI 시안 생성 | **커스텀 생성기** (Figma API 미사용) | HTML/CSS 템플릿 N종 + 요구사항 파라미터(색상/레이아웃/컴포넌트 구성)를 채워넣는 방식. 렌더링 후 스크린샷(헤드리스 브라우저)으로 미리보기 이미지도 함께 생성해 링크 페이지에 임베드 |
+| 시안/산출물 전송 | **카카오링크** | reqpipe가 이미 카카오링크 기준으로 설계돼 있어 그대로 재사용. §1 다이어그램의 `DELIVER`는 카카오링크 API(또는 카카오톡 공유 URL 스킴) 단일 통로로 구현 |
+| 안드로이드 산출물 | **크로스플랫폼 (React Native)** | 팀 C가 웹(React 계열)과 스택을 공유해 코드 생성 에이전트 프롬프트/템플릿을 재사용 가능. Flutter 대비 팀 기존 경험(React) 활용도가 높음 |
+| RAG 인덱스 | **SRS.md + SPEC.md 초기 지식베이스** | 레퍼런스 리포(`hackathon-agent-chatbot`)의 `ingest.py` 패턴을 재사용: NIM 임베딩(`nemotron-3-embed-1b`) → 벡터DB(Pinecone 또는 로컬 대체) 색인. 두 문서를 섹션 단위로 청크 분할 후 색인 |
+| 에이전트 프레임워크 | **NemoClaw 기반 Hermes 게이트웨이** ([참조](https://github.com/kyungsikjeung/hackathon-agent-chatbot)) | ⚠️ 참조 리포는 **토이 프로젝트**: 로컬 macOS `backend.py`(포트 8643) + ngrok 터널을 발표 시간에만 기동하는 구조로, 상시 배포가 아님. 요구 5)의 "배포된 최종산출물은 동작해야 한다"를 만족하려면 §6-1 참고 |
+
+### 6-1. 참조 리포와의 차이 — 프로덕션화 필요 지점
+
+레퍼런스는 **데모 시연용**(발표 시간에만 백엔드 기동)이라, 이번 해커톤 제출물은 아래를 추가로 확정해야 한다.
+
+- [ ] **상시 배포**: ngrok 대신 실제 호스팅(예: NIM 엔드포인트는 NVIDIA 호스티드 API 그대로 사용, `backend.py` 역할은 Render/Railway/Fly.io 등 상시 서버로 이전) — 심사 시간 외에도 산출물이 동작해야 하므로 로컬+ngrok 방식은 채택 불가
+- [ ] Hermes/NemoClaw 로컬 샌드박스 의존성(`nemohermes hermespatched ...` CLI)을 팀원 전원이 각자 환경에서 재현 가능한지 확인 (Docker Desktop 필요) → §4 동일 개발환경에 Docker 포함하여 셋업
+- [ ] 참조 리포는 단일 상담 챗봇(요구사항 수집 + 예산/납기 수집)까지만 구현되어 있음 — 이번 프로젝트가 추가해야 하는 범위: RAG 사전확인(신규 vs 기존 프로젝트 판별), 검증/질의(3안+추천)/게이트, 견적 근거 생성, UI 시안 생성기, 코드 생성 에이전트(웹/안드), 카카오링크 전송. 참조 리포의 RAG+Hermes 연동 패턴만 재사용하고 나머지는 신규 구현
+- [ ] 카카오톡 연동은 참조 리포에서 "미착수(스트레치 골)" 상태 — 이번 프로젝트에서는 필수 요구(요구 8)이므로 팀원 B가 최우선으로 구현
+
+### 6-2. 상시 운영환경 제안 (신규)
+
+참조 리포의 "로컬 macOS + ngrok, 발표 시간에만 기동" 방식은 이번 요구 5)("고객은 배포된 최종산출물은 동작하는것이어야 한다")를 만족하지 못한다. 아래 3안 중 하나를 팀 상황(비용/러닝커브/시간)에 맞게 선택한다.
+
+| 안 | 구성 | 장점 | 단점 | 추천 상황 |
+|---|---|---|---|---|
+| **A. 컨테이너 PaaS (권장)** | 프론트: Netlify/Vercel (그대로 유지) · 백엔드(`backend.py` 역할, RAG/게이트/에이전트 오케스트레이션): Render 또는 Railway에 Docker 컨테이너로 상시 배포 · NIM/NemoClaw: NVIDIA 호스티드 NIM API를 그대로 호출(로컬 GPU 불필요) | ngrok 제거로 항상 접속 가능, 설정이 단순, 팀원 3명 모두 Docker 이미지 하나로 로컬 재현 가능(§4와 합치) | 무료 티어는 콜드스타트 지연 있음(수십 초) — 데모 직전 워밍업 요청 권장 | 팀 인프라 경험이 적고 해커톤 기간(1주) 내 안정성이 최우선일 때 |
+| **B. 서버리스 함수** | 백엔드 로직을 API 라우트/서버리스 함수(Vercel Functions, Cloudflare Workers 등)로 분리, RAG 벡터DB는 관리형 서비스(Pinecone/Qdrant Cloud) 그대로 사용 | 인프라 관리 거의 없음, 오토스케일 | 장시간 실행되는 멀티에이전트 코드생성 플로우(팀 C)는 서버리스 실행시간 제한에 걸릴 수 있음 | 챗봇/견적/RAG 파트는 서버리스, 코드생성 파트만 별도 상시 서버로 혼합 운용 시 |
+| **C. 클라우드 VM 상시 기동** | OCI/AWS/GCP 프리티어 VM 1대에 Docker Compose로 백엔드+Hermes 게이트웨이 상시 기동, 프론트는 Netlify | 완전한 제어권, 장시간 작업(코드생성 빌드) 제약 없음 | VM 셋업/보안(방화벽, HTTPS 인증서) 팀원이 직접 관리해야 함, 해커톤 기간 내 부담 큼 | 팀에 인프라 경험자가 있고 코드생성 파이프라인이 무거울 것으로 예상될 때 |
+
+**권장안**: A(컨테이너 PaaS)를 기본으로 하되, 팀 C의 코드 생성·빌드 파이프라인만 실행시간이 긴 작업이므로 큐(Job Queue, 예: 간단한 백그라운드 워커)로 분리해 A안의 웹 요청/응답 흐름과 분리 실행한다. §1 다이어그램의 `BUILD` 단계를 별도 워커 프로세스로 설계하면 A안 그대로 적용 가능.
+
+### 6-3. 최종 확정: Render (무료 플랜 + 워밍업 전략)
+
+A안 중 **Render**를 채택하고, 무료 플랜의 콜드스타트는 발표/심사 직전 워밍업 절차로 감수한다 (유료 플랜 상시 전환은 심사 당일에만 적용). 사람 팀원과 AI 코드생성 에이전트가 동일하게 따라갈 수 있는 배포 절차는 별도 문서로 분리했다.
+
+→ [deployment/RENDER_DEPLOY.md](deployment/RENDER_DEPLOY.md) (Dockerfile 템플릿, Render 설정값, 환경변수 목록, 워밍업 스크립트, AI 에이전트 작업 범위/제약 포함)
+
+## 7. 9/28 제출까지 마일스톤 (제안)
+
+| 일자 | 목표 |
+|---|---|
+| D0 (오늘) | 아키텍처 확정, 계약 스키마 초안, 개발환경 세팅 |
+| D+2 | 팀원별 서브시스템 단독 동작 (mock 연동) |
+| D+4 | 3개 서브시스템 통합, 엔드투엔드 1회 통과 |
+| D+6 | 버그 수정, 데모 시나리오 리허설, 발표자료 |
+| D+7 (9/28) | 제출 |

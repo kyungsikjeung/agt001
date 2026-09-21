@@ -1,8 +1,31 @@
-# SPEC.md — reqpipe v1.2 (AI 드리븐 개발 파이프라인)
+# reqpipe v1.2 구현 스펙 (AI 드리븐 개발 파이프라인)
 
-> 작성일: 2026-09-21 / 기준: SRS.md + SRS_shall.md + AI_pipeline_confirmed_v1.1 + ARCH_S3_v1.2
+> 작성일: 2026-09-21 / 기준: [01_OVERVIEW_AND_HISTORY.md](01_OVERVIEW_AND_HISTORY.md) + [02_REQUIREMENTS.md](02_REQUIREMENTS.md) + `archive/AI_pipeline_confirmed_v1.1` + `archive/ARCH_S3_v1.2`
 > 언어: 한국어 (MD는 한국어, 코드는 프로그래밍 언어). 비개발자가 MD를 관리하고 AI가 MD를 보고 코드를 뽑는 구조.
-> 읽는 순서: 1 개요 → 2 용어 → 3 요구 → 4 시나리오 → 5 API → 6 데이터 → 7 상태 → 8 예외 → 9 권한 → 10 UI → 11 인수 → 12 로그 → 13 배포 → 부록 MECE/MD주기/RAG전략/환경전략/구현전략
+> 성격: **개발자/AI 코드생성 에이전트용 구현 스펙.** "무엇을 만들어야 하는가"는 [02_REQUIREMENTS.md](02_REQUIREMENTS.md)가 정본이고, 이 문서는 "어떻게 코드로 옮기는가"(API/데이터모델/상태/UI/배포)를 다룬다.
+
+## 개요 (이 문서를 1분 안에 이해하기)
+
+기획서·문서 파일을 넣으면 12단계 파이프라인(S0~S11)과 5개 게이트를 거쳐 4종 산출물(User Story+AC / SRS / AI 작업지시서 / Key Feature)을 만드는 것이 `reqpipe`다. 이 문서는 그 구현에 필요한 API 계약, 데이터 모델, 상태 흐름, 예외 처리, 배포 전략을 정의하며, 부록에는 RAG·환경 세팅·요구사항→코드 구현 전략까지 포함한다.
+
+## 목차
+
+| 장 | 제목 |
+|---|---|
+| [1](#1-프로젝트-개요-overview) | 프로젝트 개요 |
+| [2](#2-용어-정의-glossary) | 용어 정의 |
+| [3](#3-요구사항-requirements) | 요구사항 (기능/비기능) |
+| [4](#4-유스케이스--시나리오-use-cases) | 유스케이스/시나리오 |
+| [5](#5-api-명세-api-spec) | API 명세 |
+| [6](#6-데이터-모델-data-model) | 데이터 모델 |
+| [7](#7-상태-흐름-state--flow) | 상태 흐름 |
+| [8](#8-예외-처리-error-handling) | 예외 처리 |
+| [9](#9-권한--인증-auth--permission) | 권한/인증 |
+| [10](#10-uiux) | UI/UX |
+| [11](#11-테스트-기준-acceptance-criteria) | 테스트 기준(인수조건) |
+| [12](#12-로그--모니터링) | 로그/모니터링 |
+| [13](#13-배포--롤백-전략) | 배포/롤백 전략 |
+| 부록 A~E | MECE 원칙 / MD 라이프사이클 / RAG 전략 / 환경 세팅 전략 / 요구사항→코드 구현 전략 |
 
 ## 1. 프로젝트 개요 (Overview)
 
@@ -68,7 +91,7 @@
 
 ## 3. 요구사항 (Requirements)
 
-> 전체 90여 개 `시스템은` 문장은 SRS_shall.md G01~G16에 있다. 여기서는 유저 시나리오형 기능 요구와 비기능 요구로 요약하고, ID로 연결한다.
+> 전체 90여 개 `시스템은` 문장은 [02_REQUIREMENTS.md](02_REQUIREMENTS.md) G01~G18에 있다. 여기서는 유저 시나리오형 기능 요구와 비기능 요구로 요약하고, ID로 연결한다.
 
 ### 3-1. 기능 요구사항 (Functional)
 
@@ -196,7 +219,7 @@ flowchart LR
 | `audit` | 감사 조회·검증·전환 시뮬 | --verify-chain, --simulate-enforce | 무결성 리포트, 차단 분포 | 체인 깨지면 FAIL |
 | `conformance` | 레이어·누출·소켓 검사 | (없음) | PASS/FAIL n건 | 위반 1건이면 exit 1 |
 
-### 5-2. 내부 포트 11종 22메서드 (요약, 전문은 ARCH_S3_v1.2)
+### 5-2. 내부 포트 11종 22메서드 (요약, 전문은 `archive/ARCH_S3_v1.2/ARCH_interfaces_v1.2.csv`)
 
 | 포트 | 대표 메서드 | request | response | 에러 |
 |---|---|---|---|---|
@@ -420,11 +443,11 @@ QA이자 PR 기준: 위 8개 중 1개라도 깨지면 병합·출시 금지. 잠
 
 | 규칙 | 내용 |
 |---|---|
-| MD가 정본 | SPEC.md·SRS.md·SRS_shall.md가 정본. 코드는 AI가 MD를 보고 뽑는 파생물 |
+| MD가 정본 | 03_SPEC.md·01_OVERVIEW_AND_HISTORY.md·02_REQUIREMENTS.md가 정본. 코드는 AI가 MD를 보고 뽑는 파생물 |
 | 수정 순서 | 코드를 직접 고치지 않고 MD를 먼저 고친 뒤 재생성한다 |
 | 언어 | MD는 한국어, 코드는 프로그래밍 언어 |
 | 자산 | 비개발자가 관리할 수 있는 MD를 자산으로 유지한다. 진행상황은 커밋 이력(.mmd diff 포함)으로 추적한다 |
-| 본 SPEC 위치 | ./SPEC.md (루트 main). 상세 shall 100여 개는 SRS_shall.md(G01~G18), 건수·결정 대장은 SRS.md, 설계 전문은 ARCH_S3_v1.2/ 참조 |
+| 본 SPEC 위치 | `docs/reqpipe/03_SPEC.md`. 상세 shall 100여 개는 [02_REQUIREMENTS.md](02_REQUIREMENTS.md)(G01~G18), 건수·결정 대장은 [01_OVERVIEW_AND_HISTORY.md](01_OVERVIEW_AND_HISTORY.md), 설계 전문은 `archive/ARCH_S3_v1.2/` 참조 |
 
 ### 부록 C. RAG 권장 전략 (이 프로젝트에 맞는 선택)
 
