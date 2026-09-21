@@ -9,7 +9,7 @@
 
 ## 시스템 블루프린트 (한눈에 보기)
 
-해커톤 프로젝트(고객 채팅 → 코드 산출물) 전체를 압축한 그림이다. 번호(①~⑰)는 [docs/hackathon/ARCHITECTURE.md §1](docs/hackathon/ARCHITECTURE.md#1-시스템-컨텍스트-전체-그림)의 전체 번호 체계와 동일하며, 상세 설명·팀원별 담당은 그 문서를 본다.
+해커톤 프로젝트(고객 채팅 → 코드 산출물) 전체를 압축한 그림이다. 번호(①~⑱)는 [docs/hackathon/ARCHITECTURE.md §1](docs/hackathon/ARCHITECTURE.md#1-시스템-컨텍스트-전체-그림)의 전체 번호 체계와 동일하며, 상세 설명·팀원별 담당은 그 문서를 본다.
 
 ```mermaid
 flowchart LR
@@ -26,19 +26,23 @@ flowchart LR
     WEB --> BUILD["⑯ 빌드/배포"]
     AND --> BUILD
     BUILD --> DEPLOY["⑰ 배포본"]
-    LINK --> DELIVER["⑪ 카카오링크 전송"]
-    DEPLOY --> DELIVER
+    DEPLOY --> REVIEW{"⑱ 사람 최종 검토"}
+    REVIEW -->|문제 발견| BUILD
+    REVIEW -->|통과| DELIVER["⑪ 카카오링크 전송"]
+    LINK --> DELIVER
     DELIVER --> CUST
 
     classDef teamA fill:#e8f0fe,stroke:#4285f4
     classDef teamB fill:#fef7e0,stroke:#f9ab00
     classDef teamC fill:#e6f4ea,stroke:#34a853
+    classDef review fill:#fce8e6,stroke:#ea4335
     class CHAT,RAG,INTAKE,VALIDATE,ASK,GATE,QUOTE teamA
     class DESIGN,LINK,DELIVER teamB
     class SPEC,PLAN,WEB,AND,BUILD,DEPLOY teamC
+    class REVIEW review
 ```
 
-> 파랑=팀원 A, 노랑=팀원 B, 초록=팀원 C. 경계별 데이터 계약은 [INTEGRATION_STRATEGY.md §1](docs/hackathon/INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의)에 정의되어 있다.
+> 파랑=팀원 A, 노랑=팀원 B, 초록=팀원 C, 빨강=사람이 직접 확인하는 검토 지점. 경계별 데이터 계약은 [INTEGRATION_STRATEGY.md §1](docs/hackathon/INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의)에 정의되어 있다.
 
 | 번호 | 노드 | 담당 | 설명 |
 |---|---|---|---|
@@ -59,12 +63,13 @@ flowchart LR
 | ⑮ | 안드로이드 코드 | 팀원 C | React Native 기반 코드 생성 |
 | ⑯ | 빌드/배포 | 팀원 C | 생성된 코드를 빌드해 배포 |
 | ⑰ | 배포본 | 팀원 C | 실제로 접속 가능한 최종 산출물 |
+| ⑱ | **사람 최종 검토** | 팀원 A/B/C 순번제 | 자동 헬스체크만으로는 부족 — 사람이 직접 열어 핵심 화면·핵심 기능·에러 여부를 확인해야 통과. 문제 발견 시 빌드(⑯)로 되돌아가 재작업 |
 
 > 각 노드의 상세 설명·입출력 계약은 [ARCHITECTURE.md §1 번호별 설명](docs/hackathon/ARCHITECTURE.md#번호별-설명)과 [INTEGRATION_STRATEGY.md §1](docs/hackathon/INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의)을 본다.
 
 ## 사용자 시나리오 예시
 
-같은 시스템이 상황에 따라 어떻게 다르게 움직이는지, 대표 시나리오 4가지를 시퀀스로 그렸다.
+같은 시스템이 상황에 따라 어떻게 다르게 움직이는지, 대표 시나리오 5가지를 시퀀스로 그렸다.
 
 ### 시나리오 1 — 정상 경로 (한 번에 승인, 신규 요구)
 
@@ -202,6 +207,7 @@ sequenceDiagram
     participant 안드 as ⑮안드로이드코드
     participant 빌드 as ⑯빌드/배포
     participant 배포 as ⑰배포본
+    participant 검토 as ⑱사람최종검토
     participant 카톡 as ⑪카카오링크전송
     actor 고객
 
@@ -218,8 +224,17 @@ sequenceDiagram
     빌드->>빌드: 8. 컨테이너 빌드 (백그라운드 워커)
     빌드->>배포: 9. Render 등 컨테이너 PaaS로 배포
     배포-->>플래너: 10. status: "ready" + 접속 URL (BND-5)
-    플래너->>카톡: 11. 배포 완료 통지
-    카톡->>고객: 12. "완성됐습니다! 여기서 확인하세요: https://...onrender.com" (카카오링크)
+    플래너->>검토: 11. 최종 검토 요청 (BND-5)
+    alt 검토 통과
+        검토->>검토: 12. 실제 접속해 핵심 화면·핵심 기능·에러 여부 확인
+        검토-->>플래너: 13. 승인 (BND-9 approved)
+        플래너->>카톡: 14. 배포 완료 통지
+        카톡->>고객: 15. "완성됐습니다! 여기서 확인하세요: https://...onrender.com" (카카오링크)
+    else 문제 발견
+        검토-->>플래너: 13. 반려 + 사유 (BND-9 rejected)
+        플래너->>빌드: 14. 재작업 지시 (7번 단계로 복귀)
+        Note over 카톡,고객: 검토를 통과하기 전까지 고객에게는 아무 링크도 가지 않는다
+    end
 ```
 
 | 번호 | 무슨 일이 일어나는가 |
@@ -234,8 +249,13 @@ sequenceDiagram
 | 8 | 코드를 컨테이너로 빌드한다 (오래 걸리는 작업이라 별도 백그라운드 워커에서 처리, §6-2 참고) |
 | 9 | 빌드된 컨테이너를 Render 같은 상시 배포 서비스에 올린다 |
 | 10 | 배포가 끝나면 "준비됨" 상태와 실제 접속 주소가 플래너에게 돌아온다 |
-| 11 | 플래너가 배포 완료를 전송(카카오링크) 컴포넌트에 알린다 |
-| 12 | 고객의 카카오톡으로 실제 접속 가능한 링크가 도착한다 — 이때부터 요구 5)("배포된 최종산출물은 동작하는 것") 충족 |
+| 11 | 플래너가 배포본을 사람 최종 검토자에게 넘긴다 — **여기서 자동화가 끝나고 사람이 개입한다** |
+| 12 | 검토자가 실제로 링크를 열어 핵심 화면이 뜨는지, 요구했던 핵심 기능이 동작하는지, 에러가 없는지 확인한다 |
+| 13 (통과) | 검토자가 승인한다 |
+| 13 (반려) | 검토자가 문제를 발견해 사유와 함께 반려한다 |
+| 14 (통과) | 플래너가 배포 완료를 전송(카카오링크) 컴포넌트에 알린다 |
+| 14 (반려) | 플래너가 빌드 파이프라인에 재작업을 지시한다 (7번 단계부터 다시) |
+| 15 | 고객의 카카오톡으로 실제 접속 가능한 링크가 도착한다 — 이때부터 요구 5)("배포된 최종산출물은 동작하는 것") 충족. **사람 검토를 통과하지 못하면 이 단계 자체가 일어나지 않는다** |
 
 ## 마일스톤 타임라인 (D0~D7, 9/28 제출)
 
