@@ -1,8 +1,44 @@
 # 시스템 요구사항 정리 (시스템은 ~해야 한다)
 
 > 기준: SRS.md 통합본 + AI_pipeline_confirmed_v1.1 + ARCH_S3_v1.2 / 작성일: 2026-09-21
-> 문체: 모든 항목을 `시스템은 ... 해야 한다 / 해서는 안 된다`로 통일. 그룹별 분류, 출처 추적 포함.
-> 범위: 폴더에 전문이 있는 확정사항(D20~D42, 파라미터, SWR v1.1 6건, ARCH)은 개별 요구사항으로 전개. 원본 CSV 전문이 폴더에 없는 SYS 233건은 그룹·결정 수준에서 빠짐없이 문장화하고, 개별 233문장은 대화첨부 원본 위치를末尾에 명시.
+
+## 시스템 컨텍스트 (한눈보기)
+
+```mermaid
+flowchart TB
+  U[사용자 CLI] --> SYS[reqpipe 시스템]
+  I[내부 단일 승인자] --> SYS
+  SYS --> C[고객 카카오링크 반자동]
+  D[기획서 문서 파일] --> SYS
+  P[프로파일 YAML 도메인팩] --> SYS
+  R[명부사전 egress_policy] --> SYS
+
+  subgraph SYSBOX[reqpipe P0 로컬PC]
+    direction TB
+    CLI[CLI 합성루트] --> APP[app 오케스트레이션]
+    APP --> POL[policy 규칙엔진]
+    APP --> POR[ports 추상계약]
+    POL --> KER[kernel 순수도메인]
+    POR --> KER
+    APP --> BRK[egress_broker 유일통로]
+    BRK --> G[egress_gate 판정]
+    BRK --> WAL[audit WAL 체인]
+    WAL --> T[transport_https 유일소켓]
+  end
+
+  SYS --> O1[4종 산출물 US+AC SRS 작업지시서 KeyFeature]
+  SYS --> O2[질문큐 Top3+추천]
+  SYS --> O3[감사체인 SHA256]
+
+  T -- Decision지문 HMAC 일치 시만 --> X[외부 엔드포인트 HTTPS]
+  SYS --> LLM[NIM 호스티드 Hermes]
+  SYS --> DB[(BaaS SQLite 단일디렉터리)]
+  SYS --> NTF[콘솔 텔레그램]
+  SYS --> CLK[벽시계 OS키링]
+
+  HD{{하드금지 3범주 개인정보 크리덴셜 실명계약}} -. 모드무관 차단 .-> G
+  WAL -. 기록실패 시 전송중단 .-> T
+```
 
 ## 그룹 1. 목적·범위·산출물 (G01)
 
