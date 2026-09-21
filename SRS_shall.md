@@ -2,6 +2,16 @@
 
 > 기준: SRS.md 통합본 + AI_pipeline_confirmed_v1.1 + ARCH_S3_v1.2 / 작성일: 2026-09-21
 
+## 0. 배경 (처음 보는 사람을 위한 설명)
+
+| 질문 | 쉬운 답 |
+|---|---|
+| 이 시스템이 왜 필요한가 | 기획서(企劃書, 만들ものを 적은 문서)가 있어도 개발자가 매번 다르게 해석하고, 인공지능(AI)이 없는 사실을 지어내며(환각, 幻覺), 외부로 보내면 안 되는 정보가 새는 사고가 생긴다. 이를 막기 위해 문서 넣기부터 질문·승인·감사(監査, 기록을 남겨 나중에 따지는 일)까지 한 흐름으로 묶은 도구가 `reqpipe`다. |
+| `reqpipe`는 무엇을 하는가 | 기획서·문서를 넣으면 4가지 결과물(産出物, 만들어 내놓는 것)을 만든다. ① 사용자 이야기와 인수조건(引受條件, 다 만들었다고 인정하는 조건) ② 요구사항 명세서(明細書, 무엇을 만들지 적은 문서) ③ AI 개발용 작업 지시서 ④ 비개발자용 핵심 기능 정리. |
+| 누가 쓰는가 | 사용자(명령줄 인터페이스, CLI, Command Line Interface 앞에서 조작하는 사람), 내부 승인자 1명(회사 안에서 `맞다`고 확정하는 사람), 고객(카카오톡 링크로 질문만 받고 답하는 외부 사람). 고객은 내부 질문 목록을 볼 수 없다. |
+| 어떻게 안전하게 굴러가는가 | 모든 외부 보내기는 한 통로(유일 통로, only path)로만 나가고, 보내기 전에 등급 판정(秘密 등급 C0/C1/C2)과 금지 검사( absolute 금지 3가지)를 거치고, 보낸 뒤에는 기록(WAL, Write-Ahead Log, 먼저 적어두는 장부 + 해시 사슬, hash chain)로 남긴다. 기록에 실패하면 보내지 않는다. |
+| 지금 상태는 | 요구사항 모으기(S0~S2)는 끝났고(시스템 요구 233건, 소프트웨어 요구 79건), 뼈대 설계(S3)도 끝났다(부품 89개). 다음은 실제 만들기(M1→M2→M3 순서)다. |
+
 ## 시스템 컨텍스트 (한눈보기)
 
 ```mermaid
@@ -40,16 +50,62 @@ flowchart TB
   WAL -. 기록실패 시 전송중단 .-> T
 ```
 
+## 0.1 이렇게 요구사항을 정의한 목표 (왜 `시스템은 ~해야 한다`로 썼는가)
+
+| 목표 | 설명 (쉬운 말) |
+|---|---|
+| 해석 다툼 없애기 | `잘 처리한다` 같은 vague한 말을 금지하고, 누가 읽어도 같은 뜻이 되게 `시스템은 ... 해야 한다` 한 문장 한 행동으로 쪼갰다. 테스트할 때 `했는지 안 했는지` 바로 판정할 수 있다. |
+| 빠짐없이 묶기 | 흩어진 결정(D20~D42), 숫자(파라미터 11종), 설계(ARCH 89개 부품)를 16개 그룹(G01~G16)으로 묶어, 같은 주제는 한곳에서 보이게 했다. |
+| 증거 남기기 | 모든 문장에 출처(出處, 어디서 왔는지)를 달아, 나중에 `왜 이렇게 만들었나`를 거슬러 올라갈 수 있게 했다. 출처 없는 값은 산출물에 못 들어간다. |
+| 실패해도 안전하게 | 모르면 멈추는 쪽(fail-closed, 실패 시 차단)으로 정했다. 감사 기록이 안 남으면 보내지 않고, 열쇠(암호 키)가 없으면 기동하지 않으며, 금지 3가지는 어떤 모드에서도 뒤집을 수 없다. |
+| 다시 돌려도 같게 | 같은 입력이면 같은 결과가 나오게(재현성, 再現性) 했다. 난수(亂數, 무작위 수) 금지, 순서 고정, 결정적 규칙(정규식+사전) 우선이 그 장치다. |
+| 단계적으로 만들기 | 한 번에 다 만들지 않고 M1(뼈대, 인터넷 없이 동작)→M2(외부·그림 붙이기)→M3(자동 판정·출시) 순서로 나눠, 앞 단계가 뒤 단계의 전제조건이 되게 했다. |
+
+## 0.2 용어집 (한자어·영어 약어 첫 등장 풀어쓰기)
+
+> 본문 규칙: 아래 표에 있는 말은 본문 첫 등장 때 `한글(漢字, 영어 풀어쓰기, 약어)` 형태로 풀어쓰고, 이후에는 약어만 쓴다.
+
+| 약어/한자어 | 풀어쓰기 (첫 등장 형태) |
+|---|---|
+| SRS | 소프트웨어 요구사항 명세서 (Software Requirements Specification, SRS) |
+| SYS / SWR | 시스템 요구사항 (System Requirements, SYS) / 소프트웨어 요구사항 (Software Requirements, SWR) |
+| FR / NFR | 기능 요구사항 (Functional Requirements, FR) / 비기능 요구사항 (Non-Functional Requirements, NFR) |
+| CLI | 명령줄 인터페이스 (Command Line Interface, CLI) |
+| LLM | 거대 언어 모델 (Large Language Model, LLM) |
+| RAG | 검색 증강 생성 (Retrieval-Augmented Generation, RAG) |
+| NIM | 엔비디아 추론 마이크로서비스 (NVIDIA Inference Microservice, NIM) |
+| BaaS | 서비스형 백엔드 (Backend as a Service, BaaS) |
+| WAL | 선행 기록 장부 (Write-Ahead Log, WAL) |
+| HMAC / SHA | 해시 기반 메시지 인증 코드 (Hash-based Message Authentication Code, HMAC) / 안전 해시 알고리즘 (Secure Hash Algorithm, SHA) |
+| AC | 인수조건 (引受條件, Acceptance Criteria, AC) |
+| BM25 / MMR | 문서 검색 순위 알고리즘 (Best Matching 25, BM25) / 다양성 재순위 기법 (Maximal Marginal Relevance, MMR) |
+| GPU / OCI | 그래픽 처리 장치 (Graphics Processing Unit, GPU) / 오라클 클라우드 인프라 (Oracle Cloud Infrastructure, OCI) |
+| NGC | 엔비디아 GPU 클라우드 (NVIDIA GPU Cloud, NGC) |
+| YAML / JSON | 사람 읽기 쉬운 설정 형식 (YAML Ain't Markup Language, YAML) / 자바스크립트 객체 표기 (JavaScript Object Notation, JSON) |
+| SDK / HTTPS | 소프트웨어 개발 키트 (Software Development Kit, SDK) / 보안 하이퍼텍스트 전송 규약 (HyperText Transfer Protocol Secure, HTTPS) |
+| TTL | 유효 기간 (Time To Live, TTL) |
+| TRC / ASK / PRV | 추적(追跡, Trace, TRC) / 질문(質問, Ask, ASK) / 잠정(暫定, Provisional, PRV) |
+| SEC / EGR / AUD | 보안(保安, Security, SEC) / 외부 송신(外部 送信, Egress, EGR) / 감사(監査, Audit, AUD) |
+| DNY / VEN / KEY | 금지(禁止, Deny, DNY) / 공급자(供給者, Vendor, VEN) / 열쇠(鍵, Key, KEY) |
+| 산출물(産出物) | 만들어 내놓는 문서·파일 |
+| 추적(追跡) | 어디서 와서 어디로 갔는지 연결선으로 따라가는 일 |
+| 승인(承認) | `맞다`고 확정하는 일 |
+| 가정(假定) | 아직 답이 없어 일단 `이렇다고 치고` 진행하는 것 |
+| 증거(證據) | `왜 이렇게 적었나`를 받치는 출처 자료 |
+| 무결성(無缺性) | 기록이 중간에 변조되지 않았음 |
+| 재현성(再現性) | 같은 입력이면 언제 돌려도 같은 결과가 나옴 |
+| 역류(逆流) | 아래 단계에서 발견된 것을 위 요구사항으로 되돌려 고치는 일 |
+
 ## 그룹 1. 목적·범위·산출물 (G01)
 
 | ID | 요구사항 (시스템은 ~해야 한다) | 출처 |
 |---|---|---|
-| REQ-G01-001 | 시스템은 기획서·문서 파일 첨부와 AI 챗봇 수집을 통해 요구사항을 받아야 한다. | A01 |
-| REQ-G01-002 | 시스템은 User Story+AC, SRS 명세서, AI 개발용 작업지시서, 비개발자용 Key Feature 4종을 산출해야 한다. | A02 |
-| REQ-G01-003 | 시스템은 CLI 단독으로 동작해야 하며, OpenWebUI를 실행 전제로 해서는 안 된다. | A03 |
-| REQ-G01-004 | 시스템은 공통 코어와 도메인 팩(web_internal, android_aaos, mcu_firmware)을 분리해야 하며, 도메인은 CLI 인자로 명시해야 한다. | A04 |
-| REQ-G01-005 | 시스템은 도메인을 LLM에 위임해서는 안 되며, 코어에 도메인 어휘를 하드코딩해서는 안 된다. | A04, 관통원칙 |
-| REQ-G01-006 | 시스템은 코드·설정 저장소와 승인 문서(SRS/기획서/ADR)를 RAG 인덱스 대상으로 해야 하며, 티켓·PR을 포함해서는 안 된다. | A05 |
+| REQ-G01-001 | 시스템은 기획서(企劃書)·문서 파일 첨부와 AI 챗봇 수집을 통해 요구사항(要求事項)을 받아야 한다. | A01 |
+| REQ-G01-002 | 시스템은 사용자 이야기(User Story)와 인수조건(引受條件, Acceptance Criteria, AC), 소프트웨어 요구사항 명세서(Software Requirements Specification, SRS) 명세서, AI 개발용 작업 지시서, 비개발자용 핵심 기능(Key Feature) 4종 산출물(産出物)을 만들어야 한다. | A02 |
+| REQ-G01-003 | 시스템은 명령줄 인터페이스(Command Line Interface, CLI) 단독으로 동작해야 하며, OpenWebUI를 실행 전제로 해서는 안 된다. | A03 |
+| REQ-G01-004 | 시스템은 공통 코어(core, 중심 뼈대)와 도메인 팩(domain pack, 분야별 묶음 3종 web_internal, android_aaos, mcu_firmware)을 분리해야 하며, 도메인은 CLI 인자(argument, 실행 때 넘기는 값)로 명시해야 한다. | A04 |
+| REQ-G01-005 | 시스템은 도메인을 거대 언어 모델(Large Language Model, LLM)에 위임해서는 안 되며, 코어에 도메인 어휘를 하드코딩(hard-coding, 코드에 직접 박아넣기)해서는 안 된다. | A04, 관통원칙 |
+| REQ-G01-006 | 시스템은 코드·설정 저장소와 승인(承認) 문서(SRS/기획서/ADR, Architecture Decision Record, 구조 결정 기록)를 검색 증강 생성(Retrieval-Augmented Generation, RAG) 인덱스 대상으로 해야 하며, 티켓(ticket, 할 일 표)·PR(Pull Request, 병합 요청)을 포함해서는 안 된다. | A05 |
 
 ## 그룹 2. 요구 수집·슬롯·증거 (G02)
 
