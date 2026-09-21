@@ -313,6 +313,7 @@ agt001/
 │   │   ├── 01_OVERVIEW_AND_HISTORY.md #   버전 이력·결정 근거 아카이브
 │   │   ├── 02_REQUIREMENTS.md         #   ★ 정본 요구사항 ("시스템은 ~해야 한다", G01~G18)
 │   │   ├── 03_SPEC.md                 #   구현 스펙 (API/데이터모델/상태/배포 + 부록 RAG·환경·구현전략)
+│   │   ├── 04_REQUIREMENTS_DETAILED.md #  02의 REQ 114건 각각에 시퀀스 다이어그램·담당·Success Criteria 첨부
 │   │   └── archive/                   #   원본 근거자료 (CSV·mmd·toml 원문, 수정하지 않음)
 │   │       ├── ARCH_S3_v1.2/          #     아키텍처 설계 원본 (모듈89·인터페이스22·다이어그램)
 │   │       └── AI_pipeline_confirmed_v1.1/  # 결정 로그·파라미터 원본
@@ -344,9 +345,10 @@ agt001/
 ### reqpipe 자체를 개발/검토할 사람
 
 1. [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — ★ 정본. "무엇을 만들어야 하는가"
-2. [docs/reqpipe/03_SPEC.md](docs/reqpipe/03_SPEC.md) — "어떻게 코드로 옮기는가" (API·데이터모델·상태·배포)
-3. [docs/reqpipe/01_OVERVIEW_AND_HISTORY.md](docs/reqpipe/01_OVERVIEW_AND_HISTORY.md) — 왜 지금 이 모습인지 근거가 필요할 때만
-4. `docs/reqpipe/archive/` — 원본 CSV·다이어그램·결정 로그 (01/03 문서가 요약하며 링크하는 원본, 직접 열 필요는 거의 없음)
+2. [docs/reqpipe/04_REQUIREMENTS_DETAILED.md](docs/reqpipe/04_REQUIREMENTS_DETAILED.md) — 실제 구현 착수 전, REQ 항목별 시퀀스 다이어그램·담당 레이어·Success Criteria 확인
+3. [docs/reqpipe/03_SPEC.md](docs/reqpipe/03_SPEC.md) — "어떻게 코드로 옮기는가" (API·데이터모델·상태·배포)
+4. [docs/reqpipe/01_OVERVIEW_AND_HISTORY.md](docs/reqpipe/01_OVERVIEW_AND_HISTORY.md) — 왜 지금 이 모습인지 근거가 필요할 때만
+5. `docs/reqpipe/archive/` — 원본 CSV·다이어그램·결정 로그 (01/03 문서가 요약하며 링크하는 원본, 직접 열 필요는 거의 없음)
 
 ## 문서 작성 규칙 (이 저장소 공통)
 
