@@ -315,6 +315,7 @@ agt001/
 │   └── hackathon/                     # NVIDIA 해커톤 신규 프로젝트 문서
 │       ├── ARCHITECTURE.md            #   ★ 전체 아키텍처 (팀 역할분담·Mermaid·에이전트 구성)
 │       ├── INTEGRATION_STRATEGY.md    #   팀원별 통합 전략 + 일자별 상세 마일스톤(D0~D7)
+│       ├── TEAM_A_SPEC.md             #   팀원 A 상세 스펙 (대화·요구사항·견적, ②~⑧)
 │       ├── TEAM_B_SPEC.md             #   팀원 B 상세 스펙 (디자인·전달, ⑨~⑪)
 │       ├── TEAM_C_SPEC.md             #   팀원 C 상세 스펙 (코드생성·배포, ⑫~⑰)
 │       └── deployment/
@@ -330,7 +331,7 @@ agt001/
 1. 이 README — 전체 그림 파악
 2. [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md) — 시스템 컨텍스트, 팀원별 역할, 확정된 기술 결정
 3. [docs/hackathon/INTEGRATION_STRATEGY.md](docs/hackathon/INTEGRATION_STRATEGY.md) — 내가 맡은 파트를 오늘부터 어떻게 시작할지(D0~D7 마일스톤)
-4. 팀원 B라면 [docs/hackathon/TEAM_B_SPEC.md](docs/hackathon/TEAM_B_SPEC.md), 팀원 C라면 [docs/hackathon/TEAM_C_SPEC.md](docs/hackathon/TEAM_C_SPEC.md) — 내 파트의 상세 설계
+4. 내 파트의 상세 설계: 팀원 A는 [TEAM_A_SPEC.md](docs/hackathon/TEAM_A_SPEC.md), 팀원 B는 [TEAM_B_SPEC.md](docs/hackathon/TEAM_B_SPEC.md), 팀원 C는 [TEAM_C_SPEC.md](docs/hackathon/TEAM_C_SPEC.md)
 5. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
 6. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
 

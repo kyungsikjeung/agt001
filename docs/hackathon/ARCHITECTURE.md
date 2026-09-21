@@ -240,7 +240,7 @@ sequenceDiagram
 
 | 서브시스템 | 담당 | 핵심 에이전트/모듈 | NVIDIA 스택 활용 |
 |---|---|---|---|
-| 대화·요구사항·견적 | 팀원 A | 챗봇 게이트웨이, RAG 검색기(SRS.md/SPEC.md 색인), 검증 에이전트, 질의 에이전트, 승인 게이트, 견적 에이전트 | NIM 챗 엔드포인트(Nemotron 3 Super), NIM 임베딩(`nemotron-3-embed-1b`) + 벡터DB, NemoClaw 기반 Hermes 게이트웨이 |
+| 대화·요구사항·견적 | 팀원 A | 챗봇 게이트웨이, RAG 검색기(SRS.md/SPEC.md 색인), 검증 에이전트, 질의 에이전트, 승인 게이트, 견적 에이전트 ([상세: TEAM_A_SPEC.md](TEAM_A_SPEC.md)) | NIM 챗 엔드포인트(Nemotron 3 Super), NIM 임베딩(`nemotron-3-embed-1b`) + 벡터DB, NemoClaw 기반 Hermes 게이트웨이 |
 | 디자인·전달 | 팀원 B | 커스텀 UI 시안 생성기, 카카오링크 전송 서비스 ([상세: TEAM_B_SPEC.md](TEAM_B_SPEC.md)) | NIM(견적 근거 문구 다듬기 보조), HTML 템플릿 렌더러 + 헤드리스 브라우저 스크린샷, 카카오링크 API |
 | 코드 생성·배포 | 팀원 C | Hermes 플래너, 웹 코드 에이전트, React Native 코드 에이전트, 상시 배포 파이프라인 ([상세: TEAM_C_SPEC.md](TEAM_C_SPEC.md)) | NemoClaw/Hermes 에이전트 프레임워크, NIM 코드 모델, Docker 기반 상시 호스팅(ngrok 데모 방식 지양) |
 | **배포본 최종 검토(신규, ⑱)** | **팀원 A/B/C 순번제** | 전담 에이전트 없음 — 사람이 직접 배포본을 열어 확인 | 해당 없음 (사람 작업) |
