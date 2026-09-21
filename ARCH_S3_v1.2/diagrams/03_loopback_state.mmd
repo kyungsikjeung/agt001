@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> SYS: 시스템 요구사항
+  SYS --> SWR: 전개
+  SWR --> ARCH: 아키텍처/인터페이스
+  ARCH --> UNIT: 유닛설계/TODO
+  UNIT --> VERIFY: 구현+검증
+  VERIFY --> [*]: 수락(AC100% + 신규라인70%)
+  VERIFY --> UNIT: 구현 결함
+  VERIFY --> ARCH: 인터페이스 불일치
+  VERIFY --> SWR: AC 불명확/모순
+  VERIFY --> SYS: 상위 요구 충돌·신규 기능 도출
+  UNIT --> ARCH: 동일 결함 2회 재발(강제 승격)

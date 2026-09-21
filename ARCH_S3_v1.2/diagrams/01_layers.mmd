@@ -1,0 +1,11 @@
+flowchart TB
+  CLI[L5 cli / 합성 루트] --> AD[L4 adapters]
+  CLI --> AP[L3 app]
+  AD --> PO[L2 ports]
+  AP --> PO
+  AP --> PL[L1 policy]
+  PO --> KN[L0 kernel]
+  PL --> KN
+  AD --> KN
+  AP -. 금지 .-> AD
+  AD -. 금지 .-> PL

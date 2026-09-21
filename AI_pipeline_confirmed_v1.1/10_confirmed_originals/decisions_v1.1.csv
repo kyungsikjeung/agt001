@@ -1,0 +1,8 @@
+﻿ID,주제,채택안,확정 내용,영향 SWR,상태
+D29,게이트 강제 지점,A,"TransportPort.send(req, decision) — Decision을 필수 인자로 두어 게이트 미경유 전송은 작성 자체가 불가. 정적검사·소켓가드는 보조.","SWR-EGR-001, SWR-EGR-002, SWR-CLS-013",확정
+D30,판정 우선순위,A,deny_hard > allowlist > mode(audit|enforce) 를 코드 상수로 고정. 정책파일·P0 전면허용 모드로 하드금지 3범주를 뒤집을 수 없음.,"SWR-EGR-003, SWR-DNY-001~003",확정
+D31,원문 보관,A,전송 본문 원문 전량 보관 + 저장 시 암호화 + 보존기한 경과 시 자동 파기. D20-C(사후 감사)의 성립 조건.,"SWR-AUD-001, SWR-AUD-004",확정
+D32,감사 무결성,A,append-only 해시체인(SHA-256 prev_hash) + write-ahead. 기록 실패 시 전송 미수행.,"SWR-AUD-002, SWR-AUD-006",확정
+D33,정책 로드 실패,A,"기동 시 egress_policy.yaml 스키마·reviewed_on 유효성 검사, 미로드/만료 시 fail-closed 기동 중단.",SWR-POL-005,확정
+D34,탐지기 구성,A,결정적 규칙(정규식+엔트로피) + 사내 명부 사전 매칭만 사용. NER·LLM 분류기 배제(리플레이 재현성·근거 설명가능성 유지).,SWR-DET-001~007,확정
+D35,오탐 예외,A,"내부 단일 승인자 1인이 건별 예외 부여, TTL + 감사기록 필수. 전역 해제 불가.",SWR-EXC-001~003,확정

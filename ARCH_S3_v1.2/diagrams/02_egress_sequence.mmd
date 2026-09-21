@@ -1,0 +1,26 @@
+sequenceDiagram
+  participant N as app/stage node
+  participant B as app/egress_broker
+  participant C as policy/classify
+  participant G as policy/egress_gate
+  participant A as adapters/audit_chain
+  participant T as adapters/transport_https
+  participant X as 외부 엔드포인트
+  N->>B: request(payload, purpose)
+  B->>C: classify(payload)
+  C-->>B: level C0|C1|C2 (미지정=C1)
+  B->>G: evaluate(request, level, policy)
+  G-->>B: EgressDecision(verdict, fingerprint)
+  alt verdict=deny_hard
+    B-->>N: Blocked(reason, 예외신청 가능)
+  else allow / audit
+    B->>A: begin(WAL: 원문+등급+판정)
+    A-->>B: wal_id (기록 실패 시 여기서 중단)
+    B->>T: send(request, decision)
+    T->>T: fingerprint(request) == decision.fingerprint ?
+    T->>X: HTTPS
+    X-->>T: response
+    T-->>B: response
+    B->>A: commit(wal_id, result)
+    B-->>N: response
+  end

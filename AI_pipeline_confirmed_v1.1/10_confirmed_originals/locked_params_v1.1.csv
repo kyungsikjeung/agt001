@@ -1,0 +1,12 @@
+﻿파라미터,값,출처 결정,근거,상태
+AUD.retention_days,90,D31,보존기한. 감사 목적상 최소 1개 분기. 사내 규정 없음 → 잠정값,잠정
+AUD.encryption,AES-256-GCM,D31,저장 시 암호화 알고리즘,확정
+AUD.key_location,"OS 키링, 부재 시 파일 mode 600",D31,로컬 PC 단독(D25-A) 전제,확정
+AUD.purge_clock,wall_clock,D31,SF-TMR-01 준수. 가동시간 기준 금지,확정
+AUD.chain_algo,sha256(prev_hash||record),D32,해시체인,확정
+AUD.write_ahead,intent→send→outcome 2단 기록,D32,intent 기록 실패 시 send 금지,확정
+EXC.ttl_hours,72,D35,예외 유효기간. 근거 없는 초기값,잠정
+EXC.max_renewals,1,D35,무기한 연장 방지,잠정
+EXC.scope,"(item_id, category, payload_hash)",D35,전역/카테고리 단위 해제 금지,확정
+EXC.expiry_clock,wall_clock,D35,SF-TMR-01 준수,확정
+DET.roster_dict,미확보,D34,고객사·인명 명부 사전. 없으면 실명 탐지 공백,미해결

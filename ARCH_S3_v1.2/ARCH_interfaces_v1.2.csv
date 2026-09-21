@@ -1,0 +1,23 @@
+﻿port,method,input,output,errors,notes
+StorePort,save(entity) -> EntityId,kernel 엔티티(등급 필드 포함),EntityId,"IntegrityError, PolicyError",동일 입력 재호출 시 동일 ID(멱등)
+StorePort,"load(id, type) -> Entity | None","EntityId, 타입",엔티티,NotFound 없음(None 반환),읽기 전용
+StorePort,"find(type, filter, order) -> list","타입, 필드 필터, 정렬키",엔티티 목록,QueryError,정렬키 미지정 시 선언 순서 고정(난수 금지)
+StorePort,"link(src, dst, link_type) -> EdgeId",두 노드 ID + LinkType,EdgeId,CycleError(requires 순환),멱등
+StorePort,"neighbors(id, link_type, dir) -> list","노드 ID, 링크 타입, 방향",노드 목록,-,영향분석의 기반
+StorePort,transaction() -> ctx,-,컨텍스트 매니저,TxError,BaaS/SQLite 양쪽에서 동일 의미
+StorePort,schema_version() -> str,-,마이그레이션 버전,-,콘솔 수기 변경 감지에 사용
+TransportPort,"send(request, decision) -> Response",EgressRequest + EgressDecision(필수),Response,"GateBypass, FingerprintMismatch, TransportError",Decision 지문이 요청 바이트와 불일치하면 송신 거부
+TransportPort,health(kind) -> Status,ready | live,상태,-,추론 성공 여부로 준비 판정 대체 금지
+LLMPort,"structured(schema, prompt, budget) -> (obj, usage)","JSON 스키마, 프롬프트, 토큰 예산",검증된 객체 + 사용량,StructuredFailure(→ unknown 슬롯),"S0~S3 사다리 내부 처리, 호출부 불변"
+LLMPort,capabilities() -> Caps,-,"ctx_len, json_schema, tool_parser",-,프로브 실패 시 최악값(32768/S3/always)
+DocPort,load(uri) -> RawDoc,문서 URI,블록 목록 + 페이지·문장 ID,DocError,이미지는 ID 플레이스홀더로 보존
+IndexPort,"search(query, k, filters) -> list[Chunk]","질의, k, 등급 필터",청크 + source_uri/commit_sha/snapshot,-,"BM25+임베딩 병행, 결과 순서 결정적"
+NotifyPort,"notify(channel, audience, message, link) -> Receipt","채널, 대상, 본문, 링크",영수증(발송 여부 포함),NotifyError,customer 대상은 반자동(생성까지만)
+ClockPort,now() -> datetime(tz),-,벽시계 시각,-,monotonic 미노출(정책이 오용 불가)
+AuditPort,begin(record) -> WalId,송신 예정 레코드(원문 포함),WAL ID,AuditWriteError(→ 송신 중단),기록 실패 시 전송 금지
+AuditPort,"commit(wal_id, result) -> None","WAL ID, 응답 요약",-,AuditWriteError,체인 해시 갱신
+AuditPort,verify_chain() -> Report,-,무결성 리포트,-,append-only 위반 탐지
+RenderPort,"render(kind, spec) -> bytes","산출물 종류, SpecModel",파일 바이트,RenderError,4종 모두 동일 SpecModel에서 파생
+ScaffoldPort,plan(arch) -> FilePlan,아키텍처 모델,생성/수정 계획,-,적용 전 사람 확인 가능
+ScaffoldPort,"apply(plan, mode) -> Report","계획, new_only|merge",결과,OverwriteBlocked,사람 수정 영역 덮어쓰기 금지
+MetricsPort,record(metric) -> None,런 메트릭,-,-,임계 초과 시 CLI 경고

@@ -1,0 +1,90 @@
+﻿path,layer,role,trace,milestone
+kernel/ids.py,L0,"타입 있는 식별자(ReqId/EvId/RunId/NodeId)와 결정적 ID 생성 규칙(해시 기반, 난수 금지)","TRC-01, FR-E08",M1
+kernel/model_project.py,L0,ProjectContext: 배경·이해관계자·제약·용어. 프로젝트당 1개,FR-C01,M1
+kernel/model_requirement.py,L0,"Requirement(항목 N개) + SlotValue(dict 기반, 슬롯명 하드코딩 금지) + deps/conflicts","FR-C01, FR-C02",M1
+kernel/model_evidence.py,L0,Evidence: source_uri·snapshot·commit_sha·nature(normative/descriptive)·derivation(verbatim/derived/inferred),FR-D01~D03,M1
+kernel/model_assumption.py,L0,Assumption(safe/risky) + Provisional 플래그와 전파 표식,PRV-01~05,M1
+kernel/model_question.py,L0,"Question(target, audience=internal|customer, score 구성요소), Answer","ASK-01, ASK-16",M1
+kernel/model_decision.py,L0,DecisionRecord: 3안+추천+선택+근거+승인자+확정시각,DEC-01~,M1
+kernel/model_trace.py,L0,TraceNode/TraceEdge/LinkType(derives/verifies/implements/conflicts/assumes),TRC-01~09,M1
+kernel/model_classification.py,L0,"Level(C0/C1/C2), ClassifiedPayload, 상속 규칙의 자료형(최댓값 연산)",SF-SEC-01~06,M1
+kernel/model_egress.py,L0,"EgressRequest / EgressDecision(봉인형, 게이트만 생성) / Verdict / Fingerprint","D29-A, D30-A",M1
+kernel/model_artifact.py,L0,SpecModel 단일 정본 + 4종 산출물 뷰의 식별자,FR-B01,M2
+kernel/errors.py,L0,도메인 예외 계층(정책 위반/무결성/계약 위반 구분),-,M1
+policy/classify.py,L1,등급 판정. 미지정 입력은 C1 기본값(fail-safe),"SF-SEC-01,02",M1
+policy/inherit.py,L1,파생 산출물 등급 = 입력 근거 등급의 최댓값,SF-SEC-06,M1
+policy/downgrade.py,L1,강등은 승인 레코드 없이는 불가(거부 반환),SF-SEC-05,M1
+policy/detectors/rules_pii.py,L1,개인정보 결정적 규칙(주민·연락처·계좌·이메일 패턴),"SF-DNY-01, D34-A",M1
+policy/detectors/rules_credential.py,L1,크리덴셜 규칙(키·토큰·PEM·커넥션 스트링),SF-DNY-01,M1
+policy/detectors/roster_match.py,L1,고객사·인명 명부 사전 매칭. 사전 부재 시 pass 반환 금지,"SWR-DET-011,012",M1
+policy/detectors/normalize.py,L1,"단위·조사·불용어 정규화, 수치 토큰 추출(4열 vs 6열 검출)","S0 결함 2,3",M1
+policy/egress_gate.py,L1,deny_hard > allowlist > mode(audit|enforce) 우선순위 상수 고정. EgressDecision 발행 유일 지점,"D30-A, SWR-EGR-003",M1
+policy/exception_ledger.py,L1,"오탐 예외: 승인자 1인, TTL 72h, 갱신 1회, 벽시계 기준","D35-A, SWR-EXC-004",M1
+policy/retention.py,L1,원문 전량 보관의 보존기한 90일 및 파기 대상 산출(벽시계),D31-A,M2
+policy/timer_policy.py,L1,"에스컬레이션 4h/24h/48h, 업무시간 정지, 가동시간 기준 금지","SF-TMR-01,02, ASK-28",M1
+policy/gate_l1_rules.py,L1,구조 규칙 13종(근거 실재·스냅샷 일치·수치 일치·순환·충돌 대칭 등),GATE-L1,M1
+policy/rubric_l2.py,L1,루브릭 5축×3점의 채점 계약(프롬프트 비의존 자료형),GATE-L2,M2
+policy/loopback_rules.py,L1,"루프백 12케이스 판정표. LLM 판정 금지, 2회 재발 시 상위 승격",LB-01~12,M2
+policy/profile_schema.py,L1,프로파일 YAML의 스키마 검증과 슬롯 속성(required/risk/depends_on) 해석,FR-C02~C06,M1
+ports/store_port.py,L2,영속 계약(StorePort). BaaS/SQLite 공통,"SF-DAT-01, SI-I-02",M1
+ports/transport_port.py,L2,"외부 송신 계약. send(req, decision) — Decision 필수 인자",D29-A,M1
+ports/llm_port.py,L2,structured/complete/capabilities. 반환은 kernel 타입,SI-E-01,M2
+ports/doc_port.py,L2,원본 문서 바이트·블록 접근 계약,FR-A01,M1
+ports/index_port.py,L2,하이브리드 검색 계약(BM25+임베딩),FR-D05,M2
+ports/notify_port.py,L2,알림 계약(콘솔/텔레그램/카카오 반자동),ASK-05~,M2
+ports/clock_port.py,L2,벽시계 시각 제공. monotonic 노출 안 함,SF-TMR-01,M1
+ports/audit_port.py,L2,begin(WAL)/commit/append/verify_chain,"D32-A, SF-AUD-02,07",M1
+ports/render_port.py,L2,산출물 4종 및 다이어그램 렌더 계약,"FR-B01, VIZ",M2
+ports/scaffold_port.py,L2,폴더·파일 생성 계획과 적용 계약,SCF-01~,M2
+ports/metrics_port.py,L2,런 메트릭 기록 계약,MET-01~04,M1
+app/capability.py,L3,부팅 핸드셰이크. 프로브 실패 시 예외 없이 최악값 고정,"FR-H01,H02",M2
+app/llm_call.py,L3,구조화 출력 사다리 S0~S3 + 새니타이저(무조건) + 4콜 분할,"FR-G01~, S2 결정",M2
+app/egress_broker.py,L3,유일한 외부 송신 통로. gate→WAL→send→commit 순서 강제,"D29-A, D32-A",M1
+app/question_engine.py,L3,"Top-k 3개 + 추천. depends_on 보류, 동점은 선언 순서",FR-E01~E08,M1
+app/interview_session.py,L3,인터뷰 루프(최대 5턴). 답변을 interview:// 근거로 기록,FR-E09,M1
+app/provisional.py,L3,"고객 대기 항목의 임시 확정과 파생 전파, 릴리스 차단",PRV-01~05,M2
+app/escalation.py,L3,"L0→L3 단계 진행, 재기동 캐치업, 알림 병합","ASK-27,28",M2
+app/trace_service.py,L3,추적 그래프 생성·질의·영향분석(무엇을 다시 봐야 하는가),TRC-01~09,M1
+app/metrics.py,L3,채움률·자동채택률·질문턴수·citation_miss 집계,MET-01~04,M1
+app/graph_build.py,L3,LangGraph 조립. 노드/조건분기/체크포인터 주입,S1~S12,M2
+app/stages/s01_env.py,L3,환경 세팅 단계 노드,ENV,M1
+app/stages/s02_sysreq.py,L3,시스템 요구사항 분석 노드,SYS,M1
+app/stages/s03_swreq.py,L3,소프트웨어 요구사항 전개 노드,SWR,M2
+app/stages/s04_decision.py,L3,결정 3안+추천 생성 노드,DEC,M2
+app/stages/s05_arch.py,L3,아키텍처(레이어·컴포넌트·파일역할) 산출 노드,ARC,M2
+app/stages/s06_iface.py,L3,인터페이스 계약 산출 노드,IFC,M2
+app/stages/s07_unit.py,L3,유닛 설계 노드,UNT,M2
+app/stages/s08_todo.py,L3,TODO 구현 리스트 전개 노드,TSK,M2
+app/stages/s09_verify.py,L3,검증 실행 및 결함 수집 노드,VER,M2
+app/stages/s10_loopback.py,L3,루프백 계층 판정 노드(규칙 기반),LB,M3
+app/stages/s11_scaffold.py,L3,폴더·파일 생성 및 역할 분리 적용 노드,SCF,M2
+app/stages/s12_release.py,L3,최종 산출물 패키징 노드,REL,M3
+app/gates/g1_reqready.py,L3,게이트1: 요구사항 완결성,GATE,M1
+app/gates/g2_decided.py,L3,게이트2: 미확정 결정 0건,GATE,M2
+app/gates/g3_archready.py,L3,게이트3: 인터페이스 계약 완비,GATE,M2
+app/gates/g4_impl.py,L3,게이트4: TODO-테스트 연결,GATE,M2
+app/gates/g5_accept.py,L3,"게이트5: AC 100% + 신규코드 라인 70%, 측정 실패는 불통과","VER-12, Q5",M3
+adapters/store_sqlite.py,L4,로컬 단독 실행용 StorePort 구현(P0 기본),D25-A,M1
+adapters/store_baas.py,L4,BaaS StorePort 구현. 코어에 벤더 심볼 노출 금지,SF-DAT-01~06,M2
+adapters/transport_https.py,L4,유일한 소켓 보유 모듈. Decision 지문 검증 후 송신,"D29-A, SF-EGR-08",M2
+adapters/llm_openai_compat.py,L4,"NIM 호스티드 /v1/chat/completions, ready/live 분리 확인","SI-E-01, SF-AI-02",M2
+adapters/llm_replay.py,L4,픽스처 재생. 소켓 생성 0건,SF-EGR-08,M1
+adapters/doc_loader.py,L4,표 평탄화·병합셀 forward-fill·이미지 ID 플레이스홀더·문장 ID 부여,FR-A01~A08,M1
+adapters/modality_tagger.py,L4,어미 사전 1차 분류 + 미해결분만 LLM 위임,"FR-A05,A06",M1
+adapters/index_hybrid.py,L4,BM25 + 임베딩 병행. 설정키·플래그 원형 보존,FR-D05,M2
+adapters/notify_console.py,L4,로컬 콘솔 알림(P0 기본),ASK-05,M1
+adapters/notify_telegram.py,L4,내부 담당자 알림,ASK-06,M2
+adapters/notify_kakao_manual.py,L4,"고객 링크 반자동: 메시지·링크 생성까지, 발송은 사람",D26-A,M2
+adapters/clock_system.py,L4,시스템 벽시계(타임존 고정),SF-TMR-01,M1
+adapters/audit_chain.py,L4,append-only 해시 체인 + WAL 파일,D32-A,M1
+adapters/render_markdown.py,L4,산출물 4종 렌더(단일 SpecModel에서 파생),FR-B01,M2
+adapters/render_diagram.py,L4,단계별 최적 다이어그램 생성(.mmd 텍스트 산출),VIZ-01~04,M2
+adapters/scaffold_fs.py,L4,파일 생성. 사람 수정 영역 덮어쓰기 금지,SCF-02,M2
+cli/__main__.py,L5,엔트리포인트. run/ask/audit/conformance 서브커맨드,-,M1
+cli/wiring.py,L5,DI 합성 루트. deploy.yaml 프로파일로 어댑터 선택,SF-HOST-01,M1
+cli/commands_run.py,L5,파이프라인 실행,-,M2
+cli/commands_ask.py,L5,"질문 큐 조회·응답 입력(내부 전용, customer 항목 비노출)",ASK-16,M1
+cli/commands_audit.py,L5,감사 로그 조회·체인 검증·enforce 전환 시뮬레이션,SWR-EGR-013,M2
+checks/test_layering.py,L5,의존 방향 정적검사(AST). 위반 1건이면 실패,D29-A 보조,M1
+checks/test_leakage.py,L5,코어 도메인 어휘 누출 검사(단어 경계 매칭),FR-C02,M1
+checks/test_socket_owner.py,L5,소켓/HTTP 라이브러리 import는 transport_https.py만 허용,SF-EGR-08,M1

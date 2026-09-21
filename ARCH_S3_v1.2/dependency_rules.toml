@@ -1,0 +1,32 @@
+# import-linter 계약 (checks/test_layering.py 가 동일 규칙을 AST로 강제)
+[tool.importlinter]
+root_package = "reqpipe"
+
+[[tool.importlinter.contracts]]
+name = "레이어 단방향"
+type = "layers"
+layers = ["reqpipe.cli","reqpipe.adapters","reqpipe.app","reqpipe.ports","reqpipe.policy","reqpipe.kernel"]
+
+[[tool.importlinter.contracts]]
+name = "app 은 adapters 를 모른다"
+type = "forbidden"
+source_modules = ["reqpipe.app"]
+forbidden_modules = ["reqpipe.adapters"]
+
+[[tool.importlinter.contracts]]
+name = "adapters 는 policy 를 재구현하지 않는다"
+type = "forbidden"
+source_modules = ["reqpipe.adapters"]
+forbidden_modules = ["reqpipe.policy"]
+
+[[tool.importlinter.contracts]]
+name = "transport_port 는 broker 만 안다"
+type = "forbidden"
+source_modules = ["reqpipe.app.stages","reqpipe.app.gates","reqpipe.policy"]
+forbidden_modules = ["reqpipe.ports.transport_port"]
+
+[[tool.importlinter.contracts]]
+name = "소켓 보유자 단일화"
+type = "forbidden"
+source_modules = ["reqpipe.kernel","reqpipe.policy","reqpipe.app","reqpipe.cli"]
+forbidden_modules = ["socket","http.client","requests","httpx","urllib.request"]
