@@ -118,7 +118,17 @@
 | 도메인 | `144.24.91.250.sslip.io` — [sslip.io](https://sslip.io) 무료 와일드카드 DNS, 가입 없이 IP를 도메인처럼 사용. 카카오 개발자 콘솔 등 "IP 아닌 도메인" 요구 사항 충족용 |
 | 보안리스트 | SSH(22)+ICMP에 더해 **TCP 8643(챗봇 API/웹) 인바운드 오픈** |
 | 겪은 문제 | `openai==1.51.0`이 최신 `httpx`(0.28+)와 호환 안 됨(`Client.__init__() got an unexpected keyword argument 'proxies'`) → `requirements.txt`에 `httpx==0.27.2` 고정해서 해결 |
-| 남은 일 | 카카오링크(팀B)는 보통 IP가 아니라 **도메인**을 요구함 — 이 IP에 도메인을 붙이는 작업이 팀B 진짜 구현의 전제조건 |
+
+### 3-6. 카카오톡 공유 (팀B, 실구현·검증 완료)
+
+| 항목 | 값 |
+|---|---|
+| Kakao Developers 앱 | `agt001` (ID 1585973), 카테고리 라이브러리/데모 |
+| JavaScript 키 | `db5e5247ff48a792df0cc393b4453c6d` (공개용 키, 비밀 아님) |
+| **도메인 등록 (2곳 다 필요, 실측)** | ① `앱 > 제품 링크 관리 > 웹 도메인`, ② `앱 > 플랫폼 키 > JavaScript 키 > JavaScript SDK 도메인` — 둘 다 `http://144.24.91.250.sslip.io:8643` 등록. 앱 생성 시 넣는 "앱 대표 도메인"과는 별개라 반드시 이 두 곳을 추가로 등록해야 함 |
+| 겪은 에러 | Error 4019(도메인 미등록, "제품 링크 관리"에 등록 안 해서 발생) → 등록 후 해소. 이후 `Cannot read properties of null (reading 'focus')`는 자동화 클릭이 브라우저에 신뢰된 제스처로 인식 안 돼 팝업이 차단된 것으로, 실제 사용자 클릭에서는 발생하지 않음 |
+| 프론트 구현 | `static/index.html` — Kakao SDK 로드 + `Kakao.init()` + 파이프라인 `DONE` 시점에 "카카오톡으로 공유하기" 버튼 노출, `Kakao.Share.sendDefault()`로 배포 링크 공유 |
+| 검증 | ✅ 실제 브라우저에서 버튼 클릭 → 카카오톡 공유 팝업 정상 → 실제 카카오톡으로 메시지 수신까지 확인 완료 |
 
 ---
 
