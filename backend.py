@@ -1,3 +1,4 @@
+import math
 import os
 import uuid
 
@@ -10,6 +11,7 @@ load_dotenv()
 NIM_API_KEY = os.environ["NIM_API_KEY"]
 NIM_CHAT_MODEL = os.environ.get("NIM_CHAT_MODEL", "nvidia/nemotron-3-super-120b-a12b")
 NIM_BASE_URL = os.environ.get("NIM_BASE_URL", "https://integrate.api.nvidia.com/v1")
+NIM_EMBED_MODEL = os.environ.get("NIM_EMBED_MODEL", "nvidia/nemotron-3-embed-1b")
 
 # TODO(Hermes): 팀C(코드생성) 단계에서만 Hermes 게이트웨이(http://127.0.0.1:8642/v1)를 쓴다.
 # 팀A(이 파일의 대화/RAG/견적 로직)는 NIM을 직접 호출하는 구조를 유지한다 (설계 결정, 2026-09-22).
@@ -28,20 +30,86 @@ FAKE_RAG_DOCS = [
 ]
 
 
+# RAG 임계값: 코사인 유사도가 이 값 미만이면 '신규 프로젝트'로 판단.
+# nemotron-3-embed-1b 실측 기준: 관련 쿼리 0.75~0.85, 무관 쿼리 0.45~0.65(가끔 0.72까지).
+# 3개 문서의 소규모 코퍼스에서 실측 분리점 ≈ 0.70.
+RAG_TOP_K = 1
+RAG_SIM_THRESHOLD = 0.70
+
+
 def call_nim(messages):
     completion = nim_client.chat.completions.create(model=NIM_CHAT_MODEL, messages=messages)
     return completion.choices[0].message.content
 
 
+def get_embedding(text):
+    """NIM 임베딩 API(POST /v1/embeddings) 단일 텍스트 임베딩."""
+    resp = nim_client.embeddings.create(model=NIM_EMBED_MODEL, input=text)
+    return resp.data[0].embedding
+
+
+def _cosine_sim(a, b):
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
+
+
+# 서버 기동 시 1회 계산되는 인메모리 문서 임베딩 캐시.
+_DOC_EMBEDDINGS = None
+
+
+def _ensure_doc_embeddings():
+    """FAKE_RAG_DOCS 각 문서의 임베딩을 1회 계산해 인메모리에 캐시한다."""
+    global _DOC_EMBEDDINGS
+    if _DOC_EMBEDDINGS is not None:
+        return _DOC_EMBEDDINGS
+    _DOC_EMBEDDINGS = [get_embedding(d["text"]) for d in FAKE_RAG_DOCS]
+    return _DOC_EMBEDDINGS
+
+
+def rag_query(query, top_k=1):
+    """contracts/rag_query.schema.json 규격의 진짜 벡터 검색.
+
+    request{query, top_k} -> response{chunks: [{text, source, score}]}
+    score는 코사인 유사도다.
+    """
+    doc_embeddings = _ensure_doc_embeddings()
+    q_emb = get_embedding(query)
+    scored = []
+    for doc, d_emb in zip(FAKE_RAG_DOCS, doc_embeddings):
+        scored.append(
+            {"text": doc["text"], "source": doc["source"], "score": _cosine_sim(q_emb, d_emb)}
+        )
+    scored.sort(key=lambda c: c["score"], reverse=True)
+    return {"chunks": scored[: max(1, top_k)]}
+
+
 def rag_precheck(user_text):
-    """②RAG 사전확인 스텁: 하드코딩 문서 중 관련된 게 있는지 NIM에게 판단시킨다."""
-    docs_text = "\n".join(f"- [{d['source']}] {d['text']}" for d in FAKE_RAG_DOCS)
-    prompt = (
-        "아래는 과거 프로젝트 문서 목록이다. 고객 요청과 가장 관련 있는 문서가 있으면 "
-        "'기존 프로젝트: <source>' 형식으로, 없으면 '신규 프로젝트'라고만 한 줄로 답하라.\n\n"
-        f"문서 목록:\n{docs_text}\n\n고객 요청: {user_text}"
-    )
-    return call_nim([{"role": "user", "content": prompt}])
+    """진짜 벡터 검색 기반 사전확인: top_k=1 문서의 source/score로 기존/신규를 판정한다."""
+    try:
+        result = rag_query(user_text, top_k=RAG_TOP_K)
+    except Exception as e:
+        # 임베딩 API 장애 시 /chat 플로우가 죽지 않도록 신규로 폴백.
+        print(f"[rag_precheck] embedding search failed, fallback to 신규: {e}")
+        return "신규 프로젝트"
+    if not result["chunks"]:
+        return "신규 프로젝트"
+    top = result["chunks"][0]
+    if top["score"] < RAG_SIM_THRESHOLD:
+        return "신규 프로젝트"
+    return f"기존 프로젝트: {top['source']}"
+
+
+# 서버 기동 시 문서 임베딩을 미리 계산한다. NIM 장애 시에는 크래시 대신
+# 첫 rag_query 호출 때 재시도하도록(None 유지) 한다.
+try:
+    _ensure_doc_embeddings()
+except Exception as e:
+    _DOC_EMBEDDINGS = None
+    print(f"[startup] doc embedding precompute skipped (retry on first query): {e}")
 
 
 def build_quote(user_text):
@@ -123,6 +191,7 @@ def chat():
             codegen = stub_codegen(session["requirement_id"])
             deploy = stub_deploy(session["requirement_id"])
             session["state"] = "DONE"
+            session["deploy_url"] = deploy["deploy_url"]
             reply = (
                 "진행합니다! (아래는 뼈대 단계 스텁 결과입니다)\n\n"
                 f"- UI 시안: {mockup['mockup_url']}\n"
@@ -139,7 +208,11 @@ def chat():
         reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
         session["state"] = "GATHERING"
 
-    return jsonify({"session_id": session_id, "state": session["state"], "reply": reply})
+    payload = {"session_id": session_id, "state": session["state"], "reply": reply}
+    if session["state"] == "DONE" and session.get("deploy_url"):
+        # ⑦카카오링크(팀B)용: 프론트가 완료 시점에 카카오톡 공유 버튼을 띄울 수 있도록 링크를 함께 내려준다.
+        payload["deploy_url"] = session["deploy_url"]
+    return jsonify(payload)
 
 
 if __name__ == "__main__":

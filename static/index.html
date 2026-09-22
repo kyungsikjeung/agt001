@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>agt001 챗봇 (뼈대)</title>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 <style>
   body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
   #log { border: 1px solid #ccc; border-radius: 8px; height: 420px; overflow-y: auto; padding: 12px; margin-bottom: 12px; }
@@ -23,6 +24,12 @@
   </div>
 
 <script>
+// ⑦카카오링크(팀B): JS 키는 클라이언트에 노출되는 공개 키라 그대로 하드코딩한다 (비밀키 아님).
+const KAKAO_JS_KEY = 'db5e5247ff48a792df0cc393b4453c6d';
+if (window.Kakao && !Kakao.isInitialized()) {
+  Kakao.init(KAKAO_JS_KEY);
+}
+
 let sessionId = null;
 const log = document.getElementById('log');
 const input = document.getElementById('input');
@@ -32,6 +39,26 @@ function addMsg(text, who) {
   div.className = 'msg ' + who;
   div.textContent = text;
   log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+function addKakaoShareButton(deployUrl) {
+  const btn = document.createElement('button');
+  btn.textContent = '카카오톡으로 공유하기';
+  btn.style.margin = '8px 0';
+  btn.onclick = () => {
+    Kakao.Share.sendDefault({
+      objectType: 'feed',
+      content: {
+        title: 'agt001 프로젝트 결과',
+        description: '요청하신 프로젝트 결과물이 준비됐습니다.',
+        imageUrl: 'https://placehold.co/600x400?text=agt001',
+        link: { mobileWebUrl: deployUrl, webUrl: deployUrl },
+      },
+      buttons: [{ title: '결과 보기', link: { mobileWebUrl: deployUrl, webUrl: deployUrl } }],
+    });
+  };
+  log.appendChild(btn);
   log.scrollTop = log.scrollHeight;
 }
 
@@ -48,6 +75,9 @@ async function send() {
   const data = await res.json();
   sessionId = data.session_id;
   addMsg(data.reply, 'bot');
+  if (data.state === 'DONE' && data.deploy_url) {
+    addKakaoShareButton(data.deploy_url);
+  }
 }
 
 input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
