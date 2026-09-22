@@ -62,6 +62,36 @@ function addKakaoShareButton(deployUrl) {
   log.scrollTop = log.scrollHeight;
 }
 
+let pollTimer = null;
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+// ⑧팀C 코드생성(Hermes)은 백그라운드에서 돌기 때문에, GENERATING 상태인 동안
+// 화면에 메시지를 새로 찍지 않고 조용히 폴링만 하다가 상태가 바뀌면 결과를 보여준다.
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(async () => {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId, message: '' + Math.random() }),
+    });
+    const data = await res.json();
+    if (data.state !== 'GENERATING') {
+      stopPolling();
+      addMsg(data.reply, 'bot');
+      if (data.state === 'DONE' && data.deploy_url) {
+        addKakaoShareButton(data.deploy_url);
+      }
+    }
+  }, 4000);
+}
+
 async function send() {
   const text = input.value;
   input.value = '';
@@ -77,6 +107,9 @@ async function send() {
   addMsg(data.reply, 'bot');
   if (data.state === 'DONE' && data.deploy_url) {
     addKakaoShareButton(data.deploy_url);
+  }
+  if (data.state === 'GENERATING') {
+    startPolling();
   }
 }
 

@@ -1,5 +1,12 @@
 FROM python:3.11-slim
 
+# 팀C(코드생성) 격리용: backend 컨테이너 자신은 Docker 데몬을 갖고 있지 않으므로,
+# 호스트의 데몬을 docker.sock으로 빌려 쓰는 "Docker-outside-of-Docker" 구조다.
+# 이 CLI는 그 소켓에 명령만 보내는 클라이언트이고, 실제 실행은 호스트 데몬이 한다.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

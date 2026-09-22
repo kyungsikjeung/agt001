@@ -47,7 +47,20 @@
 
 **남은 작업**: `~/.hermes/.env`에 실제 `NVIDIA_API_KEY` 채우기 → `hermes doctor`로 경고 해소 확인.
 
-### 2-3. OCI CLI (클라우드 제어용)
+### 2-3. Hermes 코드생성 Docker 샌드박스 (격리 실패 → 컨테이너 격리, 2026-09-22)
+
+> 상세(재현 방법·사용법·네트워크 판단)는 [LOCAL_SETUP.md §7](LOCAL_SETUP.md#7-hermes-코드생성-docker-샌드박스-실측-격리-실패--docker-격리-2026-09-22) 참고. 여기서는 환경 관점에서만 요약한다.
+
+| 항목 | 값 |
+|---|---|
+| 문제 | 로컬 `hermes` 서브프로세스(`cwd=generated/<id>/web`) + `--in DIR --no-restore-cwd` 조합으로도 격리 실패 — Hermes가 작업 디렉토리를 무시하고 호스트 홈(`~/index.html`)에 파일 기록 (재현 확인) |
+| 해결 | `backend.py` 팀C 코드생성을 `docker run --rm` 기반 샌드박스로 전환. 요청별 디렉토리만 `/workspace`에 bind mount, 컨테이너 `WORKDIR=/workspace` 고정, 마운트 밖 쓰기는 `--rm`과 함께 폐기 |
+| 이미지 | `docker/hermes-sandbox/Dockerfile` → `reqpipe-hermes-sandbox:latest` (빌드 성공, Hermes v0.21.4, 키 없이 빌드됨·이미지에 키 없음 확인) |
+| 키 전달 | 빌드 시점 주입 없음. 실행 시점에 호스트 환경변수(`NVIDIA_API_KEY` 우선, 없으면 `NIM_API_KEY`)를 `-e` + `env=` 로 컨테이너에 전달 (`.env` 직접 읽기 아님) |
+| 네트워크 | `--network none` 미사용 (의도적) — Hermes가 NIM API(`integrate.api.nvidia.com`)를 호출해야 생성 가능하므로. 외부 요청 방지는 프롬프트 지시 수준 |
+| 미검증 | 실제 `docker run` 전체 플로우(백엔드 실행 + `/chat` 흐름)는 별도 확인 예정 |
+
+### 2-4. OCI CLI (클라우드 제어용)
 
 | 항목 | 값 |
 |---|---|

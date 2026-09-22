@@ -5,6 +5,9 @@
 # 개인 OCI 계정/테넌시에 종속된 로컬 운영 스크립트 (공개 리포에 안 올림)
 scripts/check_oci_cost.sh
 
+# 팀C 코드생성(Hermes) 산출물 — 요청마다 생기는 임시 프로젝트, 커밋 대상 아님
+generated/
+
 # 파이썬
 __pycache__/
 *.pyc

@@ -172,3 +172,64 @@ hermes dashboard --status   # 대시보드 상태
 > `backend.py` → Hermes 전환 조건: `hermes gateway run` (또는 service install+start) 후
 > `curl -sf http://127.0.0.1:8642/v1/models -H "Authorization: Bearer $API_SERVER_KEY"` 통과,
 > 그리고 `~/.hermes/.env`의 `NVIDIA_API_KEY` 등록 완료 후. 그 전까지 NIM 직접 호출 유지.
+
+## 7. Hermes 코드생성 Docker 샌드박스 (실측 격리 실패 → Docker 격리, 2026-09-22)
+
+### 7-1. 발견된 문제: Hermes `--in` 옵션이 작업 디렉토리를 보장하지 않음
+
+`backend.py` 팀C 코드생성이 로컬 `hermes` CLI를 `cwd=generated/<requirement_id>/web` 서브프로세스로
+직접 실행하던 시절, 아래 격리 실패가 재현 확인됐다:
+
+- `--in DIR --no-restore-cwd` 옵션을 줘도 Hermes가 지정한 작업 디렉토리를 무시하고
+  **호스트의 홈 디렉토리(`~/index.html`)에 파일을 씀**.
+- 즉, "요청별 전용 디렉토리 밖은 건드리지 말라"는 프롬프트 지시 + `cwd` 지정만으로는
+  호스트 파일시스템 오염을 막을 수 없다. 지시 수준의 샌드박싱은 강제력이 없음.
+
+재현 방법 (호스트에 `hermes` CLI가 설치된 상태에서):
+
+```bash
+mkdir -p /tmp/hermes-isolation-check
+hermes -z "작업 디렉토리 안에 index.html 하나만 만들어라" --in /tmp/hermes-isolation-check --no-restore-cwd
+ls /tmp/hermes-isolation-check   # 비어 있음
+ls ~/index.html                  # ← 원하지 않은 산출물이 홈에 생김
+```
+
+### 7-2. 해결: Docker 컨테이너로 완전 격리
+
+- 샌드박스 이미지: [`docker/hermes-sandbox/Dockerfile`](../../docker/hermes-sandbox/Dockerfile)
+  (`python:3.11-slim` + 공식 설치 스크립트 `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`,
+  빌드 시 `provider=nvidia` + `base_url=https://integrate.api.nvidia.com/v1` 만 시드).
+- `backend.py` `_run_hermes_codegen_job`은 로컬 `hermes` 대신 매 요청 `docker run --rm`으로
+  요청 전용 컨테이너를 띄웠다 지운다. 백그라운드 스레드 + GENERATING 폴링 구조는 그대로다.
+  - 유일한 호스트 마운트: `generated/<requirement_id>/web` → `/workspace` (읽기/쓰기).
+    그 외 호스트 파일시스템은 컨테이너에서 보이지 않는다 (마운트 안 한 것은 Docker 기본 격리로 차단).
+  - 컨테이너 `WORKDIR=/workspace` 고정 + `docker run -w /workspace` 로 이중 고정.
+    Hermes가 `--in` 같은 옵션을 무시해도 프로세스 cwd 자체가 `/workspace`라 산출물은
+    마운트 안으로 떨어지고, 마운트 밖 쓰기는 컨테이너와 함께 `--rm`으로 폐기된다.
+  - API 키는 이미지 빌드 시점에 넣지 않고, 실행 시점에 호스트 프로세스의 환경변수
+    (`NVIDIA_API_KEY` 우선, 없으면 `NIM_API_KEY` — 같은 키 값, 변수명만 다름)를
+    `-e NVIDIA_API_KEY` + `env=...` 로 주입한다 (`.env` 파일 직접 읽기 아님, `ps` 인자 노출 회피).
+  - 90초 타임아웃 유지 (`CODEGEN_TIMEOUT_SEC`).
+
+### 7-3. 네트워크 판단: `--network none` 미사용 (의도적)
+
+코드생성 중 외부 요청 방지를 위해 `--network none`을 검토했으나 **적용하지 않았다**.
+Hermes(`hermes -z`)는 프롬프트를 `https://integrate.api.nvidia.com/v1` (NIM API)로 보내서
+추론해야 코드를 생성하므로, 네트워크를 끊으면 아무 산출물도 만들지 못한다.
+외부 요청 방지는 "생성되는 프로젝트는 단일 정적 파일, 외부 네트워크/패키지 설치 불필요"라는
+프롬프트 지시 수준에서만 한다. 이 판단 근거는 `backend.py` 주석(원칙 4)에도 남겨 둠.
+
+### 7-4. 사용법
+
+```bash
+# 1) 샌드박스 이미지 빌드 (API 키 없이도 빌드됨)
+docker build -t reqpipe-hermes-sandbox:latest docker/hermes-sandbox
+
+# 2) 백엔드 실행 전에 키가 환경변수로 있어야 함 (예: shell export, compose env 등 — .env 값 예시 아님)
+#    NVIDIA_API_KEY 또는 NIM_API_KEY 중 하나 (같은 키 값이면 됨)
+
+# 3) 이미지 이름 변경 시 (기본값 reqpipe-hermes-sandbox:latest)
+HERMES_SANDBOX_IMAGE=my-registry/hermes-sandbox:v1 docker compose up --build
+```
+
+전체 플로우(`/chat` → GENERATING → DONE) 실기 검증은 별도로 진행한다.

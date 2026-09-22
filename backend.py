@@ -1,6 +1,11 @@
 import math
 import os
+import re
+import shutil
+import subprocess
+import threading
 import uuid
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
@@ -128,12 +133,155 @@ def stub_mockup():
     return {"mockup_url": "https://placehold.co/600x400?text=UI+Mockup+(stub)"}
 
 
-def stub_codegen(requirement_id):
-    """⑧코드생성 스텁 (팀C). 실제 Hermes 플래너 대신 고정 템플릿 프로젝트로 대체."""
-    return {
-        "web_repo": f"stub://generated/{requirement_id}/web-template",
-        "android_repo": f"stub://generated/{requirement_id}/android-template",
-    }
+# ⑧코드생성(팀C) 실구현: Hermes CLI를 Docker 샌드박스 컨테이너 안에서, 백그라운드로, 타임아웃과 함께 실행한다.
+# 보안/설계 원칙(2026-09-22 시니어 리뷰 + Docker 격리 강화):
+#  1) 사용자 원문이 아니라 정제·길이제한된 스펙 텍스트만 프롬프트에 넣는다.
+#  2) 실측된 격리 실패: 호스트에서 hermes를 cwd=generated/<id>/web 로 직접 실행해도
+#     `--in DIR --no-restore-cwd`를 무시하고 호스트 홈(~/index.html)에 파일을 씀.
+#     그래서 로컬 서브프로세스 대신 Docker 컨테이너로 격리한다. 요청별 디렉토리만
+#     /workspace에 bind mount하고, 그 외 호스트 파일시스템은 컨테이너에서 보이지 않는다
+#     (마운트하지 않은 것은 Docker 기본 격리로 차단 — 별도 read-only 마운트 불필요).
+#  3) 컨테이너 WORKDIR=/workspace 고정 + 매 요청 --rm으로 새로 띄웠다 지움.
+#     hermes가 --in 같은 옵션을 무시해도 cwd 자체가 /workspace라 산출물은 마운트 안으로
+#     떨어지고, 마운트 밖 쓰기는 컨테이너와 함께 폐기된다.
+#  4) 네트워크는 차단하지 않는다 (--network none 미사용). Hermes가 NIM 추론 API
+#     (https://integrate.api.nvidia.com/v1)를 호출해야 코드생성이 되므로, 네트워크를
+#     끊으면 아무것도 생성하지 못한다. 외부 요청 방지는 프롬프트 지시 수준에서만 한다.
+#  5) 90초 하드 타임아웃.
+#  6) Flask에게 "성공했다"는 텍스트를 믿지 않고, 실제로 파일이 생겼는지 확인한다.
+#  7) 동기 blocking을 피하려고 백그라운드 스레드 + 폴링(GENERATING 상태)으로 처리한다.
+#     이 비동기 구조는 유지 — 격리 방식(docker run)만 바뀜.
+GENERATED_DIR = Path(__file__).parent / "generated"
+CODEGEN_TIMEOUT_SEC = 90
+# docker build: docker build -t reqpipe-hermes-sandbox:latest docker/hermes-sandbox
+HERMES_SANDBOX_IMAGE = os.environ.get("HERMES_SANDBOX_IMAGE", "reqpipe-hermes-sandbox:latest")
+# backend.py가 컨테이너 안에서 돌 때(OCI 배포), `docker run -v`는 docker.sock을 통해
+# 호스트 데몬으로 전달되므로 마운트 소스는 컨테이너 내부 경로가 아니라 "호스트" 경로여야
+# 한다. docker-compose.yml이 프로젝트 루트를 컨테이너의 /app에 마운트하므로, 호스트 쪽
+# 실제 경로(${PWD} 등)를 HOST_PROJECT_DIR로 넘겨받아 그 기준으로 변환한다.
+# 로컬에서 backend.py를 그냥 `python3 backend.py`로 띄울 때는 이 값이 없고, 그때는
+# 컨테이너화가 아니므로 workdir.resolve()가 이미 올바른(호스트=실행 환경) 경로다.
+HOST_PROJECT_DIR = os.environ.get("HOST_PROJECT_DIR")
+
+
+def _sanitize_spec(text, max_len=800):
+    """프롬프트 인젝션 표면을 줄이기 위해 제어문자를 제거하고 길이를 제한한다. 완벽한 방어는 아니다."""
+    text = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f]", "", text or "")
+    return text.strip()[:max_len]
+
+
+def _sanitize_requirement_id(value, max_len=64):
+    """경로 순회(../../) 및 docker 인자 주입 방지를 위해 영숫자/하이픈/언더스코어만 남긴다."""
+    cleaned = re.sub(r"[^A-Za-z0-9_-]", "", value or "")
+    return cleaned[:max_len]
+
+
+def _run_hermes_codegen_job(session_id, requirement_id, spec_text):
+    """백그라운드 스레드에서 실행. 결과를 SESSIONS[session_id]['codegen']에 기록한다."""
+    session = SESSIONS.get(session_id)
+    if session is None:
+        return
+
+    docker_bin = shutil.which("docker")
+    if not docker_bin:
+        session["codegen"] = {
+            "status": "unavailable",
+            "note": "이 환경에 docker가 없어 코드생성을 건너뛰었습니다.",
+        }
+        return
+
+    # .env 파일을 직접 읽지 않고, 호스트 프로세스의 환경변수에서만 읽는다.
+    # NVIDIA_API_KEY 우선, 없으면 NIM_API_KEY(같은 키 값, 변수명만 다름)로 폴백.
+    # 비밀값을 코드·로그에 하드코딩하지 않는다.
+    api_key = os.environ.get("NVIDIA_API_KEY") or os.environ.get("NIM_API_KEY")
+    if not api_key:
+        session["codegen"] = {
+            "status": "unavailable",
+            "note": "NVIDIA_API_KEY/NIM_API_KEY 환경변수가 없어 코드생성을 건너뛰었습니다.",
+        }
+        return
+
+    safe_req_id = _sanitize_requirement_id(requirement_id)
+    if not safe_req_id:
+        session["codegen"] = {"status": "error", "message": "invalid requirement_id"}
+        return
+
+    workdir = GENERATED_DIR / safe_req_id / "web"
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    spec = _sanitize_spec(spec_text)
+    prompt = (
+        "다음 스펙을 바탕으로 최소한의 정적 웹 프로젝트(index.html 하나만 있어도 됨)를 "
+        "지금 이 작업 디렉토리(/workspace) 안에만 생성해라. "
+        "이 디렉토리 밖의 파일은 절대 읽거나 쓰지 말고, "
+        "생성되는 프로젝트가 외부 네트워크나 패키지 설치를 필요로 하지 않게(단일 정적 파일 권장) 만들어라. "
+        "(참고: 너 자신이 모델 API를 호출하는 것은 정상 동작이니 계속해라.)\n\n"
+        f"스펙: {spec}"
+    )
+
+    # 격리 실행: 요청 전용 컨테이너를 매번 새로 띄웠다 지운다(--rm).
+    # -v workdir:/workspace(유일한 호스트 마운트, 읽기/쓰기), -w /workspace 고정.
+    # 네트워크는 열어둔다: Hermes가 NIM API를 호출해야 해서 --network none을 쓰면
+    # 코드생성 자체가 불가능해진다. 값 전달은 `-e NVIDIA_API_KEY`(값 없이 이름만) +
+    # env=... 로 해서 키가 `ps` 인자 목록에 노출되지 않게 한다.
+    if HOST_PROJECT_DIR:
+        # workdir은 컨테이너 내부 기준 GENERATED_DIR(/app/generated/...) 하위이므로,
+        # /app을 HOST_PROJECT_DIR로 바꿔치기해서 호스트 데몬이 이해하는 실제 경로를 만든다.
+        rel = workdir.resolve().relative_to(Path(__file__).parent.resolve())
+        mount_src = str(Path(HOST_PROJECT_DIR) / rel)
+    else:
+        mount_src = str(workdir.resolve())
+
+    cmd = [
+        docker_bin,
+        "run",
+        "--rm",
+        "-v",
+        f"{mount_src}:/workspace",
+        "-w",
+        "/workspace",
+        "-e",
+        "NVIDIA_API_KEY",
+        HERMES_SANDBOX_IMAGE,
+        "hermes",
+        "-z",
+        prompt,
+    ]
+    child_env = dict(os.environ)
+    child_env["NVIDIA_API_KEY"] = api_key
+
+    try:
+        subprocess.run(
+            cmd,
+            timeout=CODEGEN_TIMEOUT_SEC,
+            capture_output=True,
+            text=True,
+            env=child_env,
+        )
+    except subprocess.TimeoutExpired:
+        session["codegen"] = {"status": "timeout", "dir": str(workdir)}
+        return
+    except Exception as e:
+        session["codegen"] = {"status": "error", "message": str(e), "dir": str(workdir)}
+        return
+
+    created_files = [str(p.relative_to(workdir)) for p in workdir.rglob("*") if p.is_file()]
+    if not created_files:
+        # "성공했다"는 모델의 주장을 믿지 않고, 실제 산출물이 없으면 실패로 기록한다.
+        session["codegen"] = {"status": "no_files_created", "dir": str(workdir)}
+        return
+
+    session["codegen"] = {"status": "done", "dir": str(workdir), "files": created_files}
+
+
+def start_codegen(session_id, requirement_id, spec_text):
+    """동기 blocking을 피하려고 백그라운드 스레드로 던지고 바로 리턴한다."""
+    thread = threading.Thread(
+        target=_run_hermes_codegen_job,
+        args=(session_id, requirement_id, spec_text),
+        daemon=True,
+    )
+    thread.start()
 
 
 def stub_deploy(requirement_id):
@@ -160,7 +308,38 @@ def chat():
     session = SESSIONS.setdefault(session_id, {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]})
     state = session["state"]
 
-    if not user_text:
+    if state == "GENERATING":
+        # 팀C 코드생성 백그라운드 작업 폴링. 빈 메시지(자동 폴링)든 아니든 이 상태에선 진행상황만 본다.
+        codegen = session.get("codegen")
+        if codegen is None:
+            reply = "코드 생성 중입니다... 잠시만 기다려주세요."
+        elif codegen["status"] == "done":
+            deploy = stub_deploy(session["requirement_id"])
+            session["state"] = "DONE"
+            session["deploy_url"] = deploy["deploy_url"]
+            files_list = ", ".join(codegen["files"][:5])
+            reply = (
+                "코드 생성이 완료됐습니다!\n\n"
+                f"- 생성된 파일: {files_list}\n"
+                f"- 배포 링크: {deploy['deploy_url']}\n\n"
+                "파이프라인 뼈대 관통 완료 (팀C 실구현)."
+            )
+        elif codegen["status"] == "unavailable":
+            mockup = stub_mockup()
+            deploy = stub_deploy(session["requirement_id"])
+            session["state"] = "DONE"
+            session["deploy_url"] = deploy["deploy_url"]
+            reply = (
+                f"{codegen['note']}\n\n"
+                f"- UI 시안: {mockup['mockup_url']}\n"
+                f"- 배포 링크: {deploy['deploy_url']}\n\n"
+                "파이프라인 뼈대 관통 완료 (팀C 스텁 폴백)."
+            )
+        else:  # timeout / error / no_files_created
+            session["state"] = "QUOTED"
+            reply = f"코드 생성에 실패했습니다 ({codegen['status']}). 다시 '진행'을 보내 재시도할 수 있습니다."
+
+    elif not user_text:
         reply = "안녕하세요! 어떤 프로젝트를 원하시나요? (예: 예산, 원하는 기능을 알려주세요)"
         session["state"] = "GATHERING"
 
@@ -187,18 +366,12 @@ def chat():
 
     elif state == "QUOTED":
         if user_text in ("진행", "네", "yes", "proceed", "예"):
-            mockup = stub_mockup()
-            codegen = stub_codegen(session["requirement_id"])
-            deploy = stub_deploy(session["requirement_id"])
-            session["state"] = "DONE"
-            session["deploy_url"] = deploy["deploy_url"]
+            session["codegen"] = None
+            session["state"] = "GENERATING"
+            start_codegen(session_id, session["requirement_id"], session.get("last_request", ""))
             reply = (
-                "진행합니다! (아래는 뼈대 단계 스텁 결과입니다)\n\n"
-                f"- UI 시안: {mockup['mockup_url']}\n"
-                f"- 웹 코드: {codegen['web_repo']}\n"
-                f"- 안드로이드 코드: {codegen['android_repo']}\n"
-                f"- 배포 링크: {deploy['deploy_url']}\n\n"
-                "파이프라인 뼈대 관통 완료."
+                "진행합니다! 팀C 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. "
+                "완료까지 최대 90초 정도 걸릴 수 있어요 — 잠시 후 아무 메시지나 보내시면 진행상황을 알려드립니다."
             )
         else:
             session["state"] = "GATHERING"
@@ -217,4 +390,4 @@ def chat():
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8643))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, threaded=True)
