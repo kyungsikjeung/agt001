@@ -2,6 +2,9 @@
 .env
 .env.local
 
+# 개인 OCI 계정/테넌시에 종속된 로컬 운영 스크립트 (공개 리포에 안 올림)
+scripts/check_oci_cost.sh
+
 # 파이썬
 __pycache__/
 *.pyc
