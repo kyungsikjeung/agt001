@@ -115,6 +115,7 @@
 |---|---|
 | 실행 방식 | 이 리포를 `git clone` 후 `docker compose up -d --build` (인스턴스 안 `~/agt001`) |
 | 서비스 주소 | `http://144.24.91.250:8643` — `/health`, `/chat`, 웹 채팅 위젯(`/`) 전부 외부에서 접속 확인 |
+| 도메인 | `144.24.91.250.sslip.io` — [sslip.io](https://sslip.io) 무료 와일드카드 DNS, 가입 없이 IP를 도메인처럼 사용. 카카오 개발자 콘솔 등 "IP 아닌 도메인" 요구 사항 충족용 |
 | 보안리스트 | SSH(22)+ICMP에 더해 **TCP 8643(챗봇 API/웹) 인바운드 오픈** |
 | 겪은 문제 | `openai==1.51.0`이 최신 `httpx`(0.28+)와 호환 안 됨(`Client.__init__() got an unexpected keyword argument 'proxies'`) → `requirements.txt`에 `httpx==0.27.2` 고정해서 해결 |
 | 남은 일 | 카카오링크(팀B)는 보통 IP가 아니라 **도메인**을 요구함 — 이 IP에 도메인을 붙이는 작업이 팀B 진짜 구현의 전제조건 |
