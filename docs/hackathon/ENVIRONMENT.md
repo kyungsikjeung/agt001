@@ -103,8 +103,21 @@
 | SSH 키 | `~/.ssh/oci_agt001` (개인키) / `oci_agt001.pub` |
 | SSH 접속 | `ssh -i ~/.ssh/oci_agt001 ubuntu@144.24.91.250` |
 | 상태 | RUNNING |
+| Docker | ✅ 설치 완료 (`get.docker.com` 스크립트, v28.1.1), `hello-world` 컨테이너 실행 확인 |
+| Hermes Agent | ✅ 설치 완료 (v0.21.4, `hermes-agent.nousresearch.com/install.sh`) |
+| NIM 연동 검증 | ✅ `hermes -z "..."` → `OK` 응답 확인 (Linux ARM64에서 실측) |
 
-**아직 안 한 것**: 이 인스턴스(Linux ARM64)에 SSH 접속 후 Docker 설치 + Hermes/NemoClaw 설치·동작 검증. (로컬 맥의 Hermes 설치는 macOS ARM64용이라 이 검증을 대신하지 않는다.)
+**검증 결론**: 로컬(macOS ARM64/Darwin)과 이 OCI 인스턴스(Linux ARM64) **양쪽 모두에서 Hermes Agent + NVIDIA NIM 연동이 정상 동작**함을 확인했다. 두 환경은 CPU 아키텍처(ARM64)는 같지만 OS(Darwin vs Linux)가 달라 별개로 검증이 필요했던 것 — 완료.
+
+### 3-5. 챗봇 앱 배포 (실서비스)
+
+| 항목 | 값 |
+|---|---|
+| 실행 방식 | 이 리포를 `git clone` 후 `docker compose up -d --build` (인스턴스 안 `~/agt001`) |
+| 서비스 주소 | `http://144.24.91.250:8643` — `/health`, `/chat`, 웹 채팅 위젯(`/`) 전부 외부에서 접속 확인 |
+| 보안리스트 | SSH(22)+ICMP에 더해 **TCP 8643(챗봇 API/웹) 인바운드 오픈** |
+| 겪은 문제 | `openai==1.51.0`이 최신 `httpx`(0.28+)와 호환 안 됨(`Client.__init__() got an unexpected keyword argument 'proxies'`) → `requirements.txt`에 `httpx==0.27.2` 고정해서 해결 |
+| 남은 일 | 카카오링크(팀B)는 보통 IP가 아니라 **도메인**을 요구함 — 이 IP에 도메인을 붙이는 작업이 팀B 진짜 구현의 전제조건 |
 
 ---
 
