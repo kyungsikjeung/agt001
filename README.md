@@ -7,6 +7,8 @@
 
 두 묶음은 서로 다른 목적을 갖지만, 해커톤 프로젝트는 `reqpipe`의 게이트·RAG·감사 개념을 재사용하므로 함께 보관한다.
 
+> **지금 진행 상황이 궁금하면 [STATUS.md](STATUS.md)를 보면 된다.** 단계별 완료/스텁/미착수 현황과 다음 할 일을 정리해 둔다.
+
 > **이 README는 진입점이다.** 아래 블루프린트와 시나리오는 "대략 어떻게 동작하는가"를 빠르게 보여주기 위한 간략 설명이며, 정식 요구사항(입력/출력/완료조건까지 정의된 `REQ-*` 목록)은 [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md)에, 그걸 어떻게 구현하는지는 [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md)에 따로 정리했다. 읽는 순서: **README(간략) → REQUIREMENTS.md(무엇을, 언제 완료로 볼지) → ARCHITECTURE.md(어떻게 만들지)**.
 
 ## 시스템 블루프린트 (한눈에 보기)
