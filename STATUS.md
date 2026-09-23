@@ -6,6 +6,13 @@
 **최종 갱신**: 2026-09-23
 **전략**: 9단계 파이프라인 전체를 얇게(thin vertical slice) 먼저 관통시킨 뒤, 병목 순서(팀A → 팀B → 팀C)로 두껍게 채우는 방식으로 진행 중.
 
+## 🔗 지금 바로 확인해보세요 (경영진용 라이브 링크)
+
+- **1:1 챗봇**: http://144.24.91.250.sslip.io:8643/
+- **다인원 공유채팅(신규)**: http://144.24.91.250.sslip.io:8643/room.html — 링크를 열면 새 방이 자동 생성됩니다. 닉네임 입력 후 "카페 예약 사이트 만들고 싶어요" 같은 요청을 보내보세요.
+  - **여러 명이 함께 검증하는 법**: 방에 입장한 뒤 화면 하단 "카카오톡으로 초대하기" 버튼으로 같은 방 링크(`?room=<id>`가 붙은 URL)를 다른 사람에게 보내면, 같은 화면에서 서로의 메시지·투표·AI 진행상태가 실시간(4초 폴링)으로 함께 보입니다. 승인은 참여자 과반이 "승인"을 눌러야 다음 단계(견적)로 넘어갑니다.
+  - OCI 실배포본에서 전 구간(입장→요청→투표→견적→시안→코드생성→배포 URL) end-to-end 검증 완료 — 근거: [OCI_ROOM_E2E_VERIFICATION.md](docs/hackathon/OCI_ROOM_E2E_VERIFICATION.md)
+
 ## 한눈에 보기
 
 | 단계 | 담당 | 상태 |
@@ -60,7 +67,7 @@
 
 회원가입/로그인: [docs/hackathon/AUTH_DB_COST_DECISION.md](docs/hackathon/AUTH_DB_COST_DECISION.md)에서 조사 완료 — 결론 **No-Go (마감 전 착수 금지)**. 게스트 우선 흐름에 인증을 붙이려면 DB(SQLite 최소)+claim API+로그인 UI가 필요해 공수 2~3일이 잔여 일정과 경합. 마감 후 백로그 1순위(안 A: 방은 비회원 그대로·결과 저장만 회원 + 카카오 로그인)로 이관.
 
-## 신규 기능: 다인원 공유채팅 (진행 중)
+## 신규 기능: 다인원 공유채팅 (핵심 구현·검증 완료)
 
 여러 명이 하나의 방에서 함께 요구사항을 도출하는 기능. 조사·설계·PM 통합 플랜 확정 완료
 ([MULTIUSER_CHAT_DESIGN.md](docs/hackathon/MULTIUSER_CHAT_DESIGN.md),
@@ -70,12 +77,12 @@
 - ✅ 카카오톡 그룹채팅 안에서 봇이 직접 동작하는 것은 공식 API로 불가능함을 조사로 확인 — 대신 "우리 웹에 room + 카카오는 초대링크 공유"로 방향 확정
 - ✅ **백엔드 구현 완료(D-4)**: `POST /room`(방 생성), `POST /room/<id>/chat`(참여자 메시지), `GET /room/<id>/messages`(증분 조회), 과반 투표 승인 게이트, `ai_status` 브로드캐스트, 방 파일 백업/재시작 복구. 기존 1:1 `/chat`은 무변경(회귀 없음 로컬 검증 완료)
 - ✅ **프론트 UI 구현 완료(D-3)**: `static/room.html`(305줄, 커밋 `4bb017e`) — Slack식 발신자 표시+아바타, AI 진행상태 배너(`ai_status`), 과반 투표바, 카카오 초대 버튼. 로컬 브라우저 실측(입장→투표→견적→코드생성→배포 URL, 중복 메시지 없음) 완료
-- ✅ end-to-end 검증 로컬 완료(위 실측) / ⬜ OCI end-to-end 검증 남음(코드 OCI 업로드됨·검증 미완)
+- ✅ **end-to-end 검증 완료 (로컬 + OCI 양쪽)** — OCI 실배포본에서 curl 실측으로 9단계 전 구간(입장→요청→과반투표 승인→견적→진행→시안 200→GET 폴링만으로 GENERATING→DONE 전이→배포 URL 200 + Hermes 실콘텐츠) 확인. 근거: [OCI_ROOM_E2E_VERIFICATION.md](docs/hackathon/OCI_ROOM_E2E_VERIFICATION.md)
 
 ## 다음으로 할 일
 
 ([PM_NEXT_STRATEGY.md](docs/hackathon/PM_NEXT_STRATEGY.md) Top 3 — "데모가 죽는 순서대로")
 
-1. **다인원 공유채팅 OCI end-to-end 검증 (읽기 전용)** — 코드는 OCI에 올라갔으나 e2e 미검증이 최대 리스크. 3브라우저 입장→투표→견적→시안→코드생성→`/site/<id>/` 접속. 검증 절차는 [KAKAO_VERIFICATION_PLAN.md](docs/hackathon/KAKAO_VERIFICATION_PLAN.md) §1·§3 병행 (room.html 카카오 초대는 OCI 도메인에서 정식 판정 — `file://`로 열면 Error 4019가 나는 것은 사용법 문제이므로 서버 URL로만 검증)
-2. ✅ STATUS.md 갱신 (다인원 프론트 완료 반영 — 본 커밋에서 처리)
-3. ⑱ 사람 최종 검토(REQ-REVIEW-001) 설계 문서 착수 — 9단계 중 유일 미착수. 최소 범위: 순번표 + approved 강제 규칙 + 반려 기록 방식
+1. ✅ 다인원 공유채팅 OCI end-to-end 검증 — 완료(위 참고)
+2. ✅ STATUS.md 갱신 (다인원 프론트+OCI 검증 완료 반영, 경영진용 라이브 링크 추가)
+3. ⑱ 사람 최종 검토(REQ-REVIEW-001) 설계 착수 — 설계 문서 완료: [REVIEW_GATE_DESIGN.md](docs/hackathon/REVIEW_GATE_DESIGN.md) (구현은 아직)
