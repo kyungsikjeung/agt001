@@ -71,12 +71,14 @@
 - XSS 방지: 기존 프론트처럼 닉네임도 반드시 `textContent`로 렌더링.
 - **카카오는 메인 UI에 섞지 않는다.** "결과 공유하기" 버튼(기존 패턴 재사용)만 두고, 그룹 논의/AI 처리/투표는 전부 웹 화면 안에서 끝낸다 — UIUX_DESIGN_REFERENCE.md §4의 권장 아키텍처와 동일.
 
-**구현 도구**: [emilkowalski/skills](https://github.com/emilkowalski/skills)(13종)·[pbakaus/impeccable](https://github.com/pbakaus/impeccable)를 전역 설치 완료(2026-09-23). D-4~D-3 프론트 구현 시 다음을 실제로 호출한다 — "만들어 놓고 안 쓰는 스킬"이 되지 않도록 각 산출물에 구체적으로 매핑:
+**구현 도구**: [emilkowalski/skills](https://github.com/emilkowalski/skills)(13종)·[pbakaus/impeccable](https://github.com/pbakaus/impeccable)·[leonxlnx/taste-skill](https://github.com/leonxlnx/taste-skill)(13종)를 전역 설치 완료(2026-09-23). D-4~D-3 프론트 구현 시 다음을 실제로 호출한다 — "만들어 놓고 안 쓰는 스킬"이 되지 않도록 각 산출물에 구체적으로 매핑:
   - **`animate`**: AI 진행 카드의 상태 전환(○→◐→●), 새 메시지 도착 시 등장 애니메이션, 투표 바 카운트 변화. easing/duration을 감으로 고르지 않고 이 스킬의 판단을 따른다.
   - **`mobile-native`**: 반응형 이미 적용된 채팅 위젯(RESPONSIVE_SPEC.md)을 공유방 화면에도 그대로 적용 — 특히 모바일에서 입력창 포커스 시 확대되는 문제, 하단 세이프에어리어 같은 항목 재점검.
   - **`emil-design-eng`**: 전체적인 디테일(간격, 그림자 vs 테두리 선택 등) 감수 — UIUX_DESIGN_REFERENCE.md의 Slack식 방향을 실제 CSS로 옮길 때 참고.
   - **`review-animations`**: D-2 검증 단계에서 완성된 애니메이션을 감수해 조잡한 부분을 걸러낸다.
   - **`impeccable`**(`/impeccable critique`, `/impeccable polish`, `/impeccable audit`): 공유방 화면 초안이 나오면 `critique`(UX 리뷰: 위계·명확성)로 1차 점검, D-2에 `polish`(최종 마감·디자인시스템 정합성)와 `audit`(접근성·반응형·성능 자동 점검)를 순서대로 돌린다. "매 SaaS 템플릿에 흔한 특징"(보라-파랑 그라디언트, 카드 안 카드 등)을 걸러내는 목적이 우리 챗봇 UI에도 유효.
+  - **`design-taste-frontend`(taste-skill v2)**: D-4 최초 화면 구현 시점에 브리프(닉네임 입장→Slack식 그룹채팅→AI 진행카드→투표)를 읽혀 톤을 잡는 데 쓴다. "흔한 AI 산출물 티"(과도한 그라디언트, 과한 그림자, 뻔한 카드형)를 피하는 목적으로, `impeccable`의 critique/polish와 역할이 겹치므로 **동시에 두 개를 다 돌리지 말고 초기 톤 설정엔 taste-skill, 마무리 점검엔 impeccable**로 역할을 나눈다.
+  - **`redesign-existing-projects`**: 이미 반응형까지 완료된 `static/index.html`을 공유방 화면으로 "새로 만들기"가 아니라 "업그레이드"하는 성격이 강하므로, 기존 기능을 깨지 않으면서 고급화하는 이 스킬의 점검 절차를 D-4 작업 시작 전에 1회 참고한다.
 
 ## 5. 실행 순서 (D-5 ~ D-0, MULTIUSER_CHAT_DESIGN.md §5 로드맵 반영 — 총 2일+버퍼로 기존 예상보다 짧음)
 
