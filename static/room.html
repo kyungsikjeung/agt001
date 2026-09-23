@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>agt001 공유방</title>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+<style>
+  :root {
+    --accent: #6366f1;
+    --accent-dark: #4338ca;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2328;
+    --text-muted: #52525b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0; background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; height: 100dvh;
+  }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  header h1 { font-size: 1rem; margin: 0; font-weight: 600; }
+  #memberCount { font-size: 0.8125rem; color: var(--text-muted); }
+  #statusBar {
+    padding: 8px 16px; font-size: 0.875rem; color: var(--accent-dark);
+    background: #eef2ff; border-bottom: 1px solid var(--border);
+    display: none; align-items: center; gap: 8px;
+  }
+  #statusBar.show { display: flex; }
+  #statusBar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #statusBar .dot { animation: none; } }
+
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 10px; align-items: flex-start; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 0.8125rem; font-weight: 600;
+  }
+  .bubble { max-width: 78%; }
+  .meta { font-size: 0.8125rem; margin-bottom: 2px; }
+  .meta .name { font-weight: 600; }
+  .meta .time { color: var(--text-muted); font-size: 0.75rem; margin-left: 6px; }
+  .text { font-size: 0.9375rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .kind-ai_reply .bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kind-ai_reply .avatar { background: var(--accent); }
+  .kind-chat .avatar { background: #64748b; }
+  .kind-system, .kind-vote { justify-content: center; }
+  .kind-system .text, .kind-vote .text {
+    color: var(--text-muted); font-size: 0.8125rem; text-align: center; background: none;
+  }
+  .badge-bot { font-size: 0.6875rem; background: var(--accent-dark); color: #fff; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+
+  #voteBar, #proceedBar {
+    display: none; padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border);
+    gap: 8px; align-items: center; font-size: 0.875rem;
+  }
+  #voteBar.show, #proceedBar.show { display: flex; }
+  #voteBar button, #proceedBar button {
+    border: 1px solid var(--border); background: var(--bg); border-radius: 8px;
+    padding: 8px 14px; font-size: 0.875rem; cursor: pointer;
+  }
+  #voteBar button.approve, #proceedBar button.go { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  #voteBar button:active, #proceedBar button:active { transform: scale(0.97); }
+
+  #row {
+    display: flex; gap: 8px; padding: 12px 16px; background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  #input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 1rem; border: 1px solid var(--border); border-radius: 8px; }
+  #sendBtn { padding: 10px 16px; font-size: 0.9375rem; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; cursor: pointer; white-space: nowrap; }
+  #sendBtn:active { transform: scale(0.97); }
+
+  #shareRow { padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); }
+  #shareBtn { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fee500; color: #191919; font-weight: 600; cursor: pointer; }
+
+  #nicknameOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 16px;
+  }
+  #nicknameCard {
+    background: var(--surface); border-radius: 12px; padding: 24px; max-width: 320px; width: 100%;
+  }
+  #nicknameCard h2 { margin: 0 0 8px; font-size: 1.125rem; }
+  #nicknameCard p { margin: 0 0 16px; font-size: 0.875rem; color: var(--text-muted); }
+  #nicknameInput { width: 100%; padding: 10px 12px; font-size: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+  #nicknameJoinBtn { width: 100%; padding: 10px; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; font-weight: 600; cursor: pointer; }
+
+  @media (max-width: 480px) {
+    header { padding: 10px 12px; }
+    #log { padding: 12px; }
+    .bubble { max-width: 86%; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <h1>agt001 요구사항 도출방</h1>
+    <span id="memberCount"></span>
+  </header>
+  <div id="statusBar"><span class="dot"></span><span id="statusText"></span></div>
+  <div id="log"></div>
+  <div id="voteBar">
+    <span>이 요구사항으로 견적을 진행할까요?</span>
+    <button class="approve" onclick="vote('승인')">👍 승인</button>
+    <button onclick="vote('거절')">거절</button>
+  </div>
+  <div id="proceedBar">
+    <span>이 견적으로 진행할까요?</span>
+    <button class="go" onclick="proceed('진행')">🚀 진행</button>
+    <button onclick="proceed('취소')">취소</button>
+  </div>
+  <div id="row">
+    <input id="input" placeholder="메시지를 입력하세요..." autocomplete="off">
+    <button id="sendBtn" onclick="send()">보내기</button>
+  </div>
+  <div id="shareRow"><button id="shareBtn" onclick="shareInvite()">카카오톡으로 초대하기</button></div>
+
+  <div id="nicknameOverlay">
+    <div id="nicknameCard">
+      <h2>공유방 입장</h2>
+      <p>닉네임을 입력하면 다른 참여자에게 그 이름으로 보입니다.</p>
+      <input id="nicknameInput" placeholder="닉네임" maxlength="20">
+      <button id="nicknameJoinBtn" onclick="joinRoom()">입장하기</button>
+    </div>
+  </div>
+
+<script>
+const KAKAO_JS_KEY = 'db5e5247ff48a792df0cc393b4453c6d';
+if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+
+const log = document.getElementById('log');
+const statusBar = document.getElementById('statusBar');
+const statusText = document.getElementById('statusText');
+const voteBar = document.getElementById('voteBar');
+const proceedBar = document.getElementById('proceedBar');
+const memberCountEl = document.getElementById('memberCount');
+
+let roomId = new URLSearchParams(location.search).get('room');
+let memberId = localStorage.getItem('agt001_member_id');
+let nickname = localStorage.getItem('agt001_nickname');
+let lastSeq = 0;
+let pollTimer = null;
+
+const STATUS_LABEL = {
+  IDLE: '', RAG_SEARCHING: '🔍 과거 프로젝트를 검색 중...', THINKING: '🤖 AI가 생각 중...',
+  QUOTING: '🧾 견적을 계산 중...', GENERATING: '⚙️ 코드 생성 중... (최대 90초)', DONE: '✅ 완료',
+};
+
+function hueFromString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+
+function addMessage(m) {
+  const row = document.createElement('div');
+  row.className = 'row kind-' + m.kind;
+  if (m.kind === 'chat' || m.kind === 'ai_reply') {
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    if (m.kind === 'ai_reply') {
+      av.textContent = '🤖';
+    } else {
+      av.textContent = m.nickname.slice(0, 1);
+      av.style.background = `hsl(${hueFromString(m.nickname)}, 55%, 45%)`;
+    }
+    row.appendChild(av);
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (m.kind === 'chat' || m.kind === 'ai_reply') {
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = m.nickname;
+    meta.appendChild(nameSpan);
+    if (m.kind === 'ai_reply') {
+      const badge = document.createElement('span');
+      badge.className = 'badge-bot';
+      badge.textContent = 'BOT';
+      meta.appendChild(badge);
+    }
+    bubble.appendChild(meta);
+  }
+  const text = document.createElement('div');
+  text.className = 'text';
+  text.textContent = m.text;
+  bubble.appendChild(text);
+  row.appendChild(bubble);
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+}
+
+function updateStatus(aiStatus) {
+  const label = STATUS_LABEL[aiStatus] || '';
+  if (label && aiStatus !== 'DONE' && aiStatus !== 'IDLE') {
+    statusText.textContent = label;
+    statusBar.classList.add('show');
+  } else {
+    statusBar.classList.remove('show');
+  }
+}
+
+function updateActionBars(state) {
+  voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL');
+  proceedBar.classList.toggle('show', state === 'QUOTED');
+}
+
+async function pollMessages() {
+  if (!roomId) return;
+  const res = await fetch(`/room/${roomId}/messages?since=${lastSeq}`);
+  if (!res.ok) return;
+  const data = await res.json();
+  for (const m of data.messages) addMessage(m);
+  if (data.messages.length) lastSeq += data.messages.length;
+  updateStatus(data.ai_status);
+  updateActionBars(data.state);
+  memberCountEl.textContent = data.members.length ? `${data.members.length}명 참여 중` : '';
+}
+
+async function sendRoomMessage(text) {
+  await fetch(`/room/${roomId}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ member_id: memberId, nickname, message: text }),
+  });
+  await pollMessages();
+}
+
+function send() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  sendRoomMessage(text);
+}
+
+function vote(choice) { sendRoomMessage(choice); }
+function proceed(choice) { sendRoomMessage(choice); }
+
+function shareInvite() {
+  const url = new URL(location.href);
+  url.search = `?room=${roomId}`;
+  const absUrl = url.href;
+  if (!window.Kakao || !Kakao.isInitialized()) { alert('카카오 SDK 로딩에 실패했습니다.'); return; }
+  Kakao.Share.sendDefault({
+    objectType: 'feed',
+    content: {
+      title: 'agt001 요구사항 도출방 초대',
+      description: '함께 요구사항을 정리해봐요! AI가 견적까지 도와드려요.',
+      imageUrl: 'https://placehold.co/600x400?text=agt001',
+      link: { mobileWebUrl: absUrl, webUrl: absUrl },
+    },
+    buttons: [{ title: '방 입장하기', link: { mobileWebUrl: absUrl, webUrl: absUrl } }],
+  });
+}
+
+async function ensureRoom() {
+  if (roomId) return;
+  const res = await fetch('/room', { method: 'POST' });
+  const data = await res.json();
+  roomId = data.room_id;
+  const url = new URL(location.href);
+  url.searchParams.set('room', roomId);
+  history.replaceState(null, '', url);
+}
+
+function joinRoom() {
+  const input = document.getElementById('nicknameInput');
+  const value = input.value.trim();
+  if (!value) { input.focus(); return; }
+  nickname = value;
+  localStorage.setItem('agt001_nickname', nickname);
+  document.getElementById('nicknameOverlay').remove();
+  startRoom();
+}
+
+async function startRoom() {
+  await ensureRoom();
+  if (!memberId) {
+    memberId = crypto.randomUUID();
+    localStorage.setItem('agt001_member_id', memberId);
+  }
+  await sendRoomMessage('');
+  pollTimer = setInterval(pollMessages, 4000);
+}
+
+document.getElementById('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+if (nickname) {
+  document.getElementById('nicknameOverlay').remove();
+  startRoom();
+}
+// nickname 없을 때는 #nicknameJoinBtn의 inline onclick="joinRoom()"이 처리한다 (중복 리스너 금지).
+</script>
+</body>
+</html>

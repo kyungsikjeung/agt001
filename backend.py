@@ -654,6 +654,13 @@ def room_chat(room_id):
 
 @app.route("/room/<room_id>/messages")
 def room_messages(room_id):
+    """참여자 전원이 4초 폴링으로 부르는 조회 엔드포인트.
+
+    1:1 `/chat`은 폴링 요청도 POST라서 그 요청 자체가 GENERATING 완료 여부를
+    확인하는 트리거였다. room은 조회가 GET이라 트리거가 없으므로, GENERATING
+    상태일 때는 여기서도 _process_chat_turn을 1회 호출해 완료 여부를 확인하고
+    상태를 진행시킨다 (안 그러면 코드생성이 끝나도 방이 GENERATING에 영원히 멈춘다).
+    """
     safe_id = _sanitize_token(room_id)
     room = ROOMS.get(safe_id)
     if not safe_id or room is None:
@@ -661,6 +668,12 @@ def room_messages(room_id):
     since = request.args.get("since", default=0, type=int)
     with SESSIONS_LOCK:
         session = SESSIONS.get(room["session_id"], {})
+    if session.get("state") == "GENERATING":
+        reply = _process_chat_turn(room["session_id"], session, "", room=room)
+        if session.get("state") != "GENERATING":
+            _room_append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+            save_rooms()
+            save_sessions()
     return jsonify({
         "messages": room["messages"][since:],
         "ai_status": room["ai_status"],
