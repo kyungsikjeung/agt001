@@ -54,8 +54,21 @@
 
 추가로 [docs/hackathon/LOVABLE_RESEARCH.md](docs/hackathon/LOVABLE_RESEARCH.md)에 Lovable(lovable.dev)의 UI생성~배포 방식을 조사해 적용 아이디어 3가지(스냅샷 재발행 모델, 팀B 시안 AI 우회 스타일 수정, 팀C 코드 surgical diff) 정리.
 
+## 신규 기능: 다인원 공유채팅 (진행 중)
+
+여러 명이 하나의 방에서 함께 요구사항을 도출하는 기능. 조사·설계·PM 통합 플랜 확정 완료
+([MULTIUSER_CHAT_DESIGN.md](docs/hackathon/MULTIUSER_CHAT_DESIGN.md),
+[UIUX_DESIGN_REFERENCE.md](docs/hackathon/UIUX_DESIGN_REFERENCE.md),
+[MULTIUSER_PM_INTEGRATION_PLAN.md](docs/hackathon/MULTIUSER_PM_INTEGRATION_PLAN.md)).
+
+- ✅ 카카오톡 그룹채팅 안에서 봇이 직접 동작하는 것은 공식 API로 불가능함을 조사로 확인 — 대신 "우리 웹에 room + 카카오는 초대링크 공유"로 방향 확정
+- ✅ **백엔드 구현 완료(D-4)**: `POST /room`(방 생성), `POST /room/<id>/chat`(참여자 메시지), `GET /room/<id>/messages`(증분 조회), 과반 투표 승인 게이트, `ai_status` 브로드캐스트, 방 파일 백업/재시작 복구. 기존 1:1 `/chat`은 무변경(회귀 없음 로컬 검증 완료)
+- ⬜ 프론트 UI 구현(D-3): Slack식 발신자 표시+진행카드+투표바, 카카오 초대 링크 연결
+- ⬜ end-to-end 검증(로컬+OCI, D-2)
+
 ## 다음으로 할 일
 
+- 다인원 공유채팅 프론트 구현 (위 참고)
 - 팀B: 시안 템플릿 N종 확장 (지금은 1종 고정)
 - ⑱ 사람 최종 검토 단계 설계·구현
 - LOVABLE_RESEARCH.md의 적용 가능 아이디어 3가지 실구현 검토
