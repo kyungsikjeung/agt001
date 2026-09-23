@@ -42,20 +42,22 @@ function addMsg(text, who) {
   log.scrollTop = log.scrollHeight;
 }
 
-function addKakaoShareButton(deployUrl) {
+function addKakaoShareButton(url, opts) {
+  const { label = '카카오톡으로 공유하기', title = 'agt001 프로젝트 결과', description = '요청하신 프로젝트 결과물이 준비됐습니다.', buttonLabel = '결과 보기' } = opts || {};
+  const absUrl = new URL(url, window.location.href).href;
   const btn = document.createElement('button');
-  btn.textContent = '카카오톡으로 공유하기';
+  btn.textContent = label;
   btn.style.margin = '8px 0';
   btn.onclick = () => {
     Kakao.Share.sendDefault({
       objectType: 'feed',
       content: {
-        title: 'agt001 프로젝트 결과',
-        description: '요청하신 프로젝트 결과물이 준비됐습니다.',
+        title,
+        description,
         imageUrl: 'https://placehold.co/600x400?text=agt001',
-        link: { mobileWebUrl: deployUrl, webUrl: deployUrl },
+        link: { mobileWebUrl: absUrl, webUrl: absUrl },
       },
-      buttons: [{ title: '결과 보기', link: { mobileWebUrl: deployUrl, webUrl: deployUrl } }],
+      buttons: [{ title: buttonLabel, link: { mobileWebUrl: absUrl, webUrl: absUrl } }],
     });
   };
   log.appendChild(btn);
@@ -82,6 +84,9 @@ function startPolling() {
       body: JSON.stringify({ session_id: sessionId, message: '' + Math.random() }),
     });
     const data = await res.json();
+    if (data.design_url) {
+      addKakaoShareButton(data.design_url, { label: '시안 카카오톡으로 공유하기', title: 'UI 시안이 준비됐어요', description: '마음에 드는 디자인을 확인해보세요.', buttonLabel: '시안 보기' });
+    }
     if (data.state !== 'GENERATING') {
       stopPolling();
       addMsg(data.reply, 'bot');
@@ -105,6 +110,9 @@ async function send() {
   const data = await res.json();
   sessionId = data.session_id;
   addMsg(data.reply, 'bot');
+  if (data.design_url) {
+    addKakaoShareButton(data.design_url, { label: '시안 카카오톡으로 공유하기', title: 'UI 시안이 준비됐어요', description: '마음에 드는 디자인을 확인해보세요.', buttonLabel: '시안 보기' });
+  }
   if (data.state === 'DONE' && data.deploy_url) {
     addKakaoShareButton(data.deploy_url);
   }

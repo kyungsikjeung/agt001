@@ -1,3 +1,5 @@
+import html
+import json
 import math
 import os
 import re
@@ -8,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, abort, jsonify, request, send_from_directory
 from openai import OpenAI
 
 load_dotenv()
@@ -118,19 +120,80 @@ except Exception as e:
 
 
 def build_quote(user_text):
-    """⑤견적 스텁: 3안 + 추천을 NIM에게 생성시킨다. 실제 단가표 연동은 2차 이후."""
+    """⑧견적: 3안(A/B/C) + 추천을 NIM에게 구조화된 JSON으로 생성시킨다.
+
+    팀B의 시안 페이지(⑨/⑩)가 quote.amount/basis를 그대로 노출해야 하므로
+    (contracts/quote_to_design.schema.json), 자유 텍스트가 아니라 JSON으로 받는다.
+    파싱 실패 시에도 /chat 플로우가 죽지 않도록 자유 텍스트로 폴백한다.
+    """
     prompt = (
         "너는 소프트웨어 외주 견적 담당자다. 아래 고객 요청을 보고, "
-        "예산/일정이 다른 3가지 안(A/B/C)과 그중 추천안을 간단히 제시해라. "
-        "각 안은 한 줄로, 마지막에 '추천: <A/B/C>'를 명시해라.\n\n"
+        "예산/일정이 다른 3가지 안(A/B/C)과 그중 추천안을 JSON으로만 응답해라. "
+        "마크다운 코드블록이나 설명 문구 없이 JSON 객체 하나만 출력해라. 형식:\n"
+        '{"options": [{"id": "A", "weeks": 2, "amount": 1500000, "desc": "..."}, '
+        '{"id": "B", "weeks": 1, "amount": 1000000, "desc": "..."}, '
+        '{"id": "C", "weeks": 3, "amount": 2500000, "desc": "..."}], "recommended": "B"}\n\n'
         f"고객 요청: {user_text}"
     )
-    return call_nim([{"role": "user", "content": prompt}])
+    raw = call_nim([{"role": "user", "content": prompt}])
+    try:
+        cleaned = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
+        data = json.loads(cleaned)
+        options = {o["id"]: o for o in data["options"]}
+        if data["recommended"] not in options:
+            raise ValueError("recommended id not in options")
+        return {"ok": True, "options": data["options"], "recommended": data["recommended"], "raw": raw}
+    except Exception as e:
+        print(f"[build_quote] JSON 파싱 실패, 자유 텍스트로 폴백: {e}")
+        return {"ok": False, "raw": raw}
 
 
-def stub_mockup():
-    """⑥UI 시안 생성 스텁 (팀B). 고정 placeholder만 반환."""
-    return {"mockup_url": "https://placehold.co/600x400?text=UI+Mockup+(stub)"}
+def format_quote_text(quote):
+    """견적 dict를 채팅창에 보여줄 텍스트로 만든다."""
+    if not quote["ok"]:
+        return quote["raw"]
+    lines = []
+    for o in quote["options"]:
+        lines.append(f"{o['id']}: {o['weeks']}주, {o['amount']:,}원 – {o['desc']}")
+    lines.append(f"\n추천: {quote['recommended']}")
+    return "\n".join(lines)
+
+
+# ⑨UI 시안 생성기(팀B) 실구현: Figma API 없이 정적 HTML/CSS 템플릿 렌더링.
+# (docs/hackathon/TEAM_B_SPEC.md §2 결정 그대로 — 개발 순서상 1차는 템플릿 1종 고정.)
+DESIGN_TEMPLATE_PATH = Path(__file__).parent / "templates" / "variant-1.html"
+
+
+def render_design(requirement_id, platform, features, quote_amount, quote_basis):
+    """features/quote를 템플릿에 채워 generated/<id>/design/index.html로 저장.
+
+    contracts/design_to_link.schema.json(BND-4) 규격의 design_variants를 반환한다.
+    미리보기 이미지(카카오링크용)는 아직 헤드리스 브라우저 스크린샷이 아니라
+    placehold.co 플레이스홀더다 — TEAM_B_SPEC.md §2 개발순서상 다음 단계.
+    """
+    template = DESIGN_TEMPLATE_PATH.read_text(encoding="utf-8")
+    features_html = "\n".join(f"      <li>{html.escape(f)}</li>" for f in features) or "      <li>(기능 미지정)</li>"
+    rendered = (
+        template
+        .replace("{{TITLE}}", html.escape(f"{platform} 프로젝트 시안"))
+        .replace("{{PLATFORM}}", html.escape(platform))
+        .replace("{{FEATURES_HTML}}", features_html)
+        .replace("{{QUOTE_AMOUNT}}", html.escape(f"{quote_amount:,}원"))
+        .replace("{{QUOTE_BASIS}}", html.escape(quote_basis))
+        .replace("{{REQUIREMENT_ID}}", html.escape(requirement_id))
+    )
+
+    design_dir = GENERATED_DIR / requirement_id / "design"
+    design_dir.mkdir(parents=True, exist_ok=True)
+    (design_dir / "index.html").write_text(rendered, encoding="utf-8")
+
+    return {
+        "requirement_id": requirement_id,
+        "design_variants": [
+            {"id": "v1", "preview_url": f"https://placehold.co/600x400?text={platform}+UI+시안"}
+        ],
+        "design_url": f"/design/{requirement_id}",
+    }
 
 
 # ⑧코드생성(팀C) 실구현: Hermes CLI를 Docker 샌드박스 컨테이너 안에서, 백그라운드로, 타임아웃과 함께 실행한다.
@@ -299,6 +362,16 @@ def health():
     return {"status": "ok"}, 200
 
 
+@app.route("/design/<requirement_id>")
+def design_page(requirement_id):
+    """⑩시안 확인 링크 페이지: render_design()이 만든 정적 HTML을 그대로 서빙."""
+    safe_id = _sanitize_requirement_id(requirement_id)
+    path = GENERATED_DIR / safe_id / "design" / "index.html"
+    if not safe_id or not path.is_file():
+        abort(404)
+    return path.read_text(encoding="utf-8")
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     body = request.get_json(force=True)
@@ -325,13 +398,12 @@ def chat():
                 "파이프라인 뼈대 관통 완료 (팀C 실구현)."
             )
         elif codegen["status"] == "unavailable":
-            mockup = stub_mockup()
             deploy = stub_deploy(session["requirement_id"])
             session["state"] = "DONE"
             session["deploy_url"] = deploy["deploy_url"]
             reply = (
                 f"{codegen['note']}\n\n"
-                f"- UI 시안: {mockup['mockup_url']}\n"
+                f"- UI 시안: {session.get('design_url', '(없음)')}\n"
                 f"- 배포 링크: {deploy['deploy_url']}\n\n"
                 "파이프라인 뼈대 관통 완료 (팀C 스텁 폴백)."
             )
@@ -356,8 +428,9 @@ def chat():
     elif state == "AWAIT_APPROVAL":
         if user_text in ("승인", "네", "yes", "approve", "예"):
             quote = build_quote(session.get("last_request", ""))
+            session["quote"] = quote
             session["state"] = "QUOTED"
-            reply = f"승인 감사합니다. 견적안입니다:\n\n{quote}\n\n이 견적으로 진행할까요? (진행/취소)"
+            reply = f"승인 감사합니다. 견적안입니다:\n\n{format_quote_text(quote)}\n\n이 견적으로 진행할까요? (진행/취소)"
         elif user_text in ("거절", "아니오", "no", "reject"):
             session["state"] = "GATHERING"
             reply = "알겠습니다. 요구사항을 다시 말씀해 주세요."
@@ -366,11 +439,26 @@ def chat():
 
     elif state == "QUOTED":
         if user_text in ("진행", "네", "yes", "proceed", "예"):
+            # ⑨/⑩ 팀B 시안 생성 — 코드생성 시작 전에 먼저 만들어서 고객이 먼저 확인할 수 있게 한다
+            # (TEAM_B_SPEC.md §0.1 전송 순서: 시안이 최종 배포보다 먼저 나가야 함).
+            quote = session.get("quote") or {"ok": False, "raw": ""}
+            if quote["ok"]:
+                rec = next(o for o in quote["options"] if o["id"] == quote["recommended"])
+                amount, basis = rec["amount"], rec["desc"]
+            else:
+                amount, basis = 0, "견적 산정 실패 — 자유 텍스트 견적 참고"
+            design = render_design(
+                session["requirement_id"], "web", [session.get("last_request", "")], amount, basis
+            )
+            session["design_url"] = design["design_url"]
+            session["design_url_unsent"] = True
+
             session["codegen"] = None
             session["state"] = "GENERATING"
             start_codegen(session_id, session["requirement_id"], session.get("last_request", ""))
             reply = (
-                "진행합니다! 팀C 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. "
+                f"진행합니다! UI 시안이 준비됐어요: {design['design_url']}\n\n"
+                "팀C 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. "
                 "완료까지 최대 90초 정도 걸릴 수 있어요 — 잠시 후 아무 메시지나 보내시면 진행상황을 알려드립니다."
             )
         else:
@@ -383,8 +471,12 @@ def chat():
 
     payload = {"session_id": session_id, "state": session["state"], "reply": reply}
     if session["state"] == "DONE" and session.get("deploy_url"):
-        # ⑦카카오링크(팀B)용: 프론트가 완료 시점에 카카오톡 공유 버튼을 띄울 수 있도록 링크를 함께 내려준다.
+        # ⑪카카오링크(팀B)용: 프론트가 완료 시점에 카카오톡 공유 버튼을 띄울 수 있도록 링크를 함께 내려준다.
         payload["deploy_url"] = session["deploy_url"]
+    if session.pop("design_url_unsent", False):
+        # ⑪카카오링크(팀B)용: 시안 링크는 배포 링크보다 먼저 나가야 하므로(전송 순서),
+        # 시안이 막 만들어진 이번 응답에서만 한 번 내려주고, 폴링 응답에서는 반복해서 보내지 않는다.
+        payload["design_url"] = session["design_url"]
     return jsonify(payload)
 
 
