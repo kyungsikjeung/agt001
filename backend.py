@@ -24,10 +24,52 @@ NIM_EMBED_MODEL = os.environ.get("NIM_EMBED_MODEL", "nvidia/nemotron-3-embed-1b"
 # 팀A(이 파일의 대화/RAG/견적 로직)는 NIM을 직접 호출하는 구조를 유지한다 (설계 결정, 2026-09-22).
 
 app = Flask(__name__, static_folder="static", static_url_path="")
-nim_client = OpenAI(api_key=NIM_API_KEY, base_url=NIM_BASE_URL)
+# NIM_TIMEOUT_SEC: 타임아웃 없으면(openai 기본값은 수 분) NIM이 hang될 때
+# 요청 스레드가 같이 물려 전체가 무응답이 될 수 있다 (EFFICIENCY_PLAN.md §1-①).
+NIM_TIMEOUT_SEC = float(os.environ.get("NIM_TIMEOUT_SEC", "25"))
+nim_client = OpenAI(api_key=NIM_API_KEY, base_url=NIM_BASE_URL, timeout=NIM_TIMEOUT_SEC, max_retries=1)
 
-# 뼈대(1차 관통) 단계: 세션 상태를 메모리에 보관한다. 재시작하면 날아간다 — 프로덕션용 아님.
+# 세션 상태 저장소. 인메모리 dict가 원본이고, SESSIONS_FILE은 재시작 복구용 백업일 뿐이다
+# (EFFICIENCY_PLAN.md §3-①: 재배포·재시작 한 번이면 진행 중 대화가 전부 증발하는 문제).
+# 여러 스레드(요청 핸들러 + 코드생성 백그라운드 스레드)가 동시에 건드리므로 락으로 감싼다.
 SESSIONS = {}
+SESSIONS_LOCK = threading.Lock()
+SESSIONS_FILE = Path(__file__).parent / "generated" / "sessions.json"
+
+
+def save_sessions():
+    """SESSIONS를 파일에 원자적으로(tmp+rename) 저장한다. 실패해도 /chat은 죽지 않는다."""
+    try:
+        SESSIONS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = SESSIONS_FILE.with_suffix(".json.tmp")
+        with SESSIONS_LOCK:
+            data = json.dumps(SESSIONS, ensure_ascii=False)
+        tmp_path.write_text(data, encoding="utf-8")
+        tmp_path.replace(SESSIONS_FILE)
+    except Exception as e:
+        print(f"[save_sessions] 세션 저장 실패(무시하고 계속 진행): {e}")
+
+
+def load_sessions():
+    """기동 시 SESSIONS_FILE을 복구한다.
+
+    GENERATING 상태는 백그라운드 스레드가 재시작과 함께 죽었으므로 복구 불가 —
+    QUOTED로 되돌려서 사용자가 '진행'을 다시 보내면 재시도되게 한다.
+    """
+    if not SESSIONS_FILE.is_file():
+        return
+    try:
+        data = json.loads(SESSIONS_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[load_sessions] 세션 복구 실패(빈 상태로 시작): {e}")
+        return
+    for session in data.values():
+        if session.get("state") == "GENERATING":
+            session["state"] = "QUOTED"
+            session["codegen"] = None
+    with SESSIONS_LOCK:
+        SESSIONS.update(data)
+    print(f"[load_sessions] 세션 {len(data)}개 복구")
 
 # ②RAG 스텁: 진짜 벡터DB 없이, 과거 프로젝트 문서 몇 개를 하드코딩해서 흉내만 낸다.
 FAKE_RAG_DOCS = [
@@ -118,13 +160,38 @@ except Exception as e:
     _DOC_EMBEDDINGS = None
     print(f"[startup] doc embedding precompute skipped (retry on first query): {e}")
 
+load_sessions()
+
+
+# NIM 호출 자체가 실패(타임아웃/장애)할 때 쓰는 정적 견적 폴백. quote.amount/basis를
+# 시안 페이지(⑨)가 그대로 노출하므로, "산정 실패"류 문구가 아니라 그럴듯한 구조화된
+# 값을 준다 (EFFICIENCY_PLAN.md §3-②).
+STATIC_QUOTE_FALLBACK = {
+    "ok": True,
+    "options": [
+        {"id": "A", "weeks": 2, "amount": 3500000, "desc": "표준 웹 프로젝트 기본안"},
+        {"id": "B", "weeks": 1, "amount": 2000000, "desc": "최소 기능 우선 구현"},
+        {"id": "C", "weeks": 3, "amount": 5500000, "desc": "고급 커스터마이징 포함"},
+    ],
+    "recommended": "B",
+    "raw": (
+        "⚠ 견적 엔진(NIM) 연결이 원활하지 않아 기본 견적을 보여드립니다. "
+        "실제 견적은 담당자가 다시 확인 후 안내드립니다.\n\n"
+        "A: 2주, 3,500,000원 – 표준 웹 프로젝트 기본안\n"
+        "B: 1주, 2,000,000원 – 최소 기능 우선 구현\n"
+        "C: 3주, 5,500,000원 – 고급 커스터마이징 포함\n\n"
+        "추천: B"
+    ),
+}
+
 
 def build_quote(user_text):
     """⑧견적: 3안(A/B/C) + 추천을 NIM에게 구조화된 JSON으로 생성시킨다.
 
     팀B의 시안 페이지(⑨/⑩)가 quote.amount/basis를 그대로 노출해야 하므로
     (contracts/quote_to_design.schema.json), 자유 텍스트가 아니라 JSON으로 받는다.
-    파싱 실패 시에도 /chat 플로우가 죽지 않도록 자유 텍스트로 폴백한다.
+    NIM 호출 자체가 실패하면 STATIC_QUOTE_FALLBACK으로, JSON 파싱만 실패하면
+    자유 텍스트로 폴백한다 — 어느 쪽이든 /chat 플로우가 500으로 죽지 않는다.
     """
     prompt = (
         "너는 소프트웨어 외주 견적 담당자다. 아래 고객 요청을 보고, "
@@ -135,7 +202,11 @@ def build_quote(user_text):
         '{"id": "C", "weeks": 3, "amount": 2500000, "desc": "..."}], "recommended": "B"}\n\n'
         f"고객 요청: {user_text}"
     )
-    raw = call_nim([{"role": "user", "content": prompt}])
+    try:
+        raw = call_nim([{"role": "user", "content": prompt}])
+    except Exception as e:
+        print(f"[build_quote] NIM 호출 실패, 정적 견적으로 폴백: {e}")
+        return STATIC_QUOTE_FALLBACK
     try:
         cleaned = re.sub(r"^```(?:json)?|```$", "", raw.strip(), flags=re.MULTILINE).strip()
         data = json.loads(cleaned)
@@ -352,18 +423,24 @@ def _run_hermes_codegen_job(session_id, requirement_id, spec_text):
         )
     except subprocess.TimeoutExpired:
         session["codegen"] = {"status": "timeout", "dir": str(workdir)}
+        save_sessions()
         return
     except Exception as e:
         session["codegen"] = {"status": "error", "message": str(e), "dir": str(workdir)}
+        save_sessions()
         return
 
     created_files = [str(p.relative_to(workdir)) for p in workdir.rglob("*") if p.is_file()]
     if not created_files:
         # "성공했다"는 모델의 주장을 믿지 않고, 실제 산출물이 없으면 실패로 기록한다.
         session["codegen"] = {"status": "no_files_created", "dir": str(workdir)}
+        save_sessions()
         return
 
     session["codegen"] = {"status": "done", "dir": str(workdir), "files": created_files}
+    # 백그라운드 스레드 완료 시점에도 저장 — 사용자가 폴링하기 전에 서버가 재시작되면
+    # /chat 응답 때만 저장하는 경로로는 이 결과가 유실된다.
+    save_sessions()
 
 
 def start_codegen(session_id, requirement_id, spec_text):
@@ -439,7 +516,8 @@ def chat():
     session_id = body.get("session_id") or str(uuid.uuid4())
     user_text = (body.get("message") or "").strip()
 
-    session = SESSIONS.setdefault(session_id, {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]})
+    with SESSIONS_LOCK:
+        session = SESSIONS.setdefault(session_id, {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]})
     state = session["state"]
 
     if state == "GENERATING":
@@ -539,6 +617,7 @@ def chat():
         # 시안이 막 만들어진 이번 응답에서만 한 번 내려주고, 폴링 응답에서는 반복해서 보내지 않는다.
         payload["design_url"] = session["design_url"]
         payload["design_preview_url"] = session.get("design_preview_url")
+    save_sessions()
     return jsonify(payload)
 
 
