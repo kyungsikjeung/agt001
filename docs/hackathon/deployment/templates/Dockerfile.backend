@@ -11,6 +11,11 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# 팀B(UI 시안) 카카오 미리보기 이미지용: 렌더링된 시안 HTML을 헤드리스 브라우저로
+# 스크린샷 찍는다(render_design() 참고). --with-deps로 Chromium 실행에 필요한
+# OS 라이브러리(폰트/코덱 등)까지 같이 설치한다.
+RUN python -m playwright install --with-deps chromium
+
 COPY . .
 
 # Render가 런타임에 PORT 환경변수를 주입한다. backend.py는 이 값을 읽어 바인딩해야 한다.

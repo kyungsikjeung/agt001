@@ -10,7 +10,7 @@ import uuid
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, abort, jsonify, request, send_from_directory
+from flask import Flask, abort, jsonify, request, send_file, send_from_directory
 from openai import OpenAI
 
 load_dotenv()
@@ -162,6 +162,25 @@ def format_quote_text(quote):
 # ⑨UI 시안 생성기(팀B) 실구현: Figma API 없이 정적 HTML/CSS 템플릿 렌더링.
 # (docs/hackathon/TEAM_B_SPEC.md §2 결정 그대로 — 개발 순서상 1차는 템플릿 1종 고정.)
 DESIGN_TEMPLATE_PATH = Path(__file__).parent / "templates" / "variant-1.html"
+DESIGN_SCREENSHOT_TIMEOUT_MS = 15000
+
+
+def _screenshot_html(html_content, out_path, width=800, height=600):
+    """렌더링된 시안 HTML을 헤드리스 크로미움으로 스크린샷 찍어 PNG로 저장.
+
+    playwright는 무거운 의존성이라 import를 함수 안으로 미뤄서, 모듈 로드
+    시점에는(=서버 기동/폴백 경로에는) 영향이 없게 한다.
+    """
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        try:
+            page = browser.new_page(viewport={"width": width, "height": height})
+            page.set_content(html_content, timeout=DESIGN_SCREENSHOT_TIMEOUT_MS)
+            page.screenshot(path=str(out_path))
+        finally:
+            browser.close()
 
 
 def render_design(requirement_id, platform, features, quote_amount, quote_basis):
@@ -187,12 +206,21 @@ def render_design(requirement_id, platform, features, quote_amount, quote_basis)
     design_dir.mkdir(parents=True, exist_ok=True)
     (design_dir / "index.html").write_text(rendered, encoding="utf-8")
 
+    # 헤드리스 브라우저 스크린샷: 카카오링크 미리보기 이미지로 쓴다.
+    # 실패해도(브라우저 미설치 등) 시안 페이지 자체는 살아있어야 하므로 폴백만 하고 넘어간다.
+    preview_path = design_dir / "preview.png"
+    try:
+        _screenshot_html(rendered, preview_path)
+        preview_url = f"/design/{requirement_id}/preview.png"
+    except Exception as e:
+        print(f"[render_design] 스크린샷 실패, placeholder로 폴백: {e}")
+        preview_url = f"https://placehold.co/600x400?text={platform}+UI+시안"
+
     return {
         "requirement_id": requirement_id,
-        "design_variants": [
-            {"id": "v1", "preview_url": f"https://placehold.co/600x400?text={platform}+UI+시안"}
-        ],
+        "design_variants": [{"id": "v1", "preview_url": preview_url}],
         "design_url": f"/design/{requirement_id}",
+        "preview_url": preview_url,
     }
 
 
@@ -372,6 +400,16 @@ def design_page(requirement_id):
     return path.read_text(encoding="utf-8")
 
 
+@app.route("/design/<requirement_id>/preview.png")
+def design_preview(requirement_id):
+    """render_design()이 헤드리스 브라우저로 찍은 시안 스크린샷(카카오 미리보기용)."""
+    safe_id = _sanitize_requirement_id(requirement_id)
+    path = GENERATED_DIR / safe_id / "design" / "preview.png"
+    if not safe_id or not path.is_file():
+        abort(404)
+    return send_file(path, mimetype="image/png")
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     body = request.get_json(force=True)
@@ -451,6 +489,7 @@ def chat():
                 session["requirement_id"], "web", [session.get("last_request", "")], amount, basis
             )
             session["design_url"] = design["design_url"]
+            session["design_preview_url"] = design["preview_url"]
             session["design_url_unsent"] = True
 
             session["codegen"] = None
@@ -477,6 +516,7 @@ def chat():
         # ⑪카카오링크(팀B)용: 시안 링크는 배포 링크보다 먼저 나가야 하므로(전송 순서),
         # 시안이 막 만들어진 이번 응답에서만 한 번 내려주고, 폴링 응답에서는 반복해서 보내지 않는다.
         payload["design_url"] = session["design_url"]
+        payload["design_preview_url"] = session.get("design_preview_url")
     return jsonify(payload)
 
 
