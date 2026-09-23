@@ -1,3 +1,4 @@
+import datetime
 import html
 import json
 import math
@@ -70,6 +71,41 @@ def load_sessions():
     with SESSIONS_LOCK:
         SESSIONS.update(data)
     print(f"[load_sessions] 세션 {len(data)}개 복구")
+
+
+# 다인원 공유채팅 (MULTIUSER_CHAT_DESIGN.md §3). 기존 1:1 SESSIONS는 무변경 —
+# rooms[room_id]가 session_id로 기존 SESSIONS 항목을 가리키기만 한다(상태머신 복제 아님).
+ROOMS = {}
+ROOMS_LOCK = threading.Lock()
+ROOMS_FILE = Path(__file__).parent / "generated" / "rooms.json"
+
+
+def save_rooms():
+    """SESSIONS와 동일한 원자적(tmp+rename) 저장 패턴."""
+    try:
+        ROOMS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = ROOMS_FILE.with_suffix(".json.tmp")
+        with ROOMS_LOCK:
+            data = json.dumps(ROOMS, ensure_ascii=False)
+        tmp_path.write_text(data, encoding="utf-8")
+        tmp_path.replace(ROOMS_FILE)
+    except Exception as e:
+        print(f"[save_rooms] 방 저장 실패(무시하고 계속 진행): {e}")
+
+
+def load_rooms():
+    if not ROOMS_FILE.is_file():
+        return
+    try:
+        data = json.loads(ROOMS_FILE.read_text(encoding="utf-8"))
+    except Exception as e:
+        print(f"[load_rooms] 방 복구 실패(빈 상태로 시작): {e}")
+        return
+    for room in data.values():
+        room["ai_status"] = "IDLE"  # 재시작으로 진행 중이던 표시는 의미가 없어짐
+    with ROOMS_LOCK:
+        ROOMS.update(data)
+    print(f"[load_rooms] 방 {len(data)}개 복구")
 
 # ②RAG 스텁: 진짜 벡터DB 없이, 과거 프로젝트 문서 몇 개를 하드코딩해서 흉내만 낸다.
 FAKE_RAG_DOCS = [
@@ -161,6 +197,7 @@ except Exception as e:
     print(f"[startup] doc embedding precompute skipped (retry on first query): {e}")
 
 load_sessions()
+load_rooms()
 
 
 # NIM 호출 자체가 실패(타임아웃/장애)할 때 쓰는 정적 견적 폴백. quote.amount/basis를
@@ -510,14 +547,139 @@ def serve_site(requirement_id, filename="index.html"):
     return send_from_directory(web_dir, filename)
 
 
-@app.route("/chat", methods=["POST"])
-def chat():
+# 다인원 공유채팅 REST API (MULTIUSER_CHAT_DESIGN.md §3, §4).
+# 기존 /chat과 완전히 분리 — 여기서 만든 room["session_id"]가 SESSIONS의 기존 항목을
+# 가리키기만 하므로, 상태머신·팀A/B/C 로직은 한 줄도 복제하지 않는다(_process_chat_turn 재사용).
+_sanitize_token = _sanitize_requirement_id  # 영숫자/-/_ 로 제한 — room_id/member_id에도 동일 적용
+
+
+def _room_append(room, member_id, nickname, text, kind="chat"):
+    seq = len(room["messages"])
+    room["messages"].append(
+        {"seq": seq, "member_id": member_id, "nickname": nickname, "text": text, "ts": _now_iso(), "kind": kind}
+    )
+
+
+def _now_iso():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+@app.route("/room", methods=["POST"])
+def create_room():
+    """방 생성: 신규 session_id(1:1 SESSIONS 재사용) + room_id 발급."""
+    room_id = str(uuid.uuid4())[:8]
+    session_id = str(uuid.uuid4())
+    with SESSIONS_LOCK:
+        SESSIONS.setdefault(session_id, {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]})
+    room = {
+        "room_id": room_id,
+        "session_id": session_id,
+        "created_at": _now_iso(),
+        "members": [],
+        "messages": [],
+        "ai_status": "IDLE",
+        "votes": {},
+    }
+    with ROOMS_LOCK:
+        ROOMS[room_id] = room
+    save_rooms()
+    save_sessions()
+    return jsonify({"room_id": room_id})
+
+
+@app.route("/room/<room_id>/chat", methods=["POST"])
+def room_chat(room_id):
+    safe_id = _sanitize_token(room_id)
+    room = ROOMS.get(safe_id)
+    if not safe_id or room is None:
+        abort(404)
+
     body = request.get_json(force=True)
-    session_id = body.get("session_id") or str(uuid.uuid4())
-    user_text = (body.get("message") or "").strip()
+    member_id = _sanitize_token(body.get("member_id") or "")
+    nickname = html.escape((body.get("nickname") or "익명")[:40])
+    user_text = (body.get("message") or "").strip()[:2000]  # 메시지 길이 상한 (§3.6)
+    if not member_id:
+        abort(400)
 
     with SESSIONS_LOCK:
-        session = SESSIONS.setdefault(session_id, {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]})
+        session = SESSIONS.get(room["session_id"])
+    if session is None:
+        abort(404)
+
+    now = _now_iso()
+    existing = next((m for m in room["members"] if m["member_id"] == member_id), None)
+    if existing is None:
+        room["members"].append({"member_id": member_id, "nickname": nickname, "joined_at": now, "last_seen": now})
+        _room_append(room, "system", "시스템", f"{nickname}님이 입장했습니다.", kind="system")
+    else:
+        existing["last_seen"] = now
+        existing["nickname"] = nickname
+
+    if not user_text:
+        save_rooms()
+        return jsonify({"ai_status": room["ai_status"]})
+
+    _room_append(room, member_id, nickname, user_text, kind="chat")
+
+    # 승인 게이트(⑦) 다인원 최소 구현: 과반 투표 (MULTIUSER_CHAT_DESIGN.md §4.2).
+    # 이 레이어를 거치는 건 AWAIT_APPROVAL 한정 — 나머지 상태는 그대로 _process_chat_turn으로 직행한다.
+    if session["state"] == "AWAIT_APPROVAL" and user_text in ("승인", "거절", "네", "아니오", "yes", "no"):
+        vote = "approve" if user_text in ("승인", "네", "yes") else "reject"
+        room["votes"][member_id] = vote
+        total = len(room["members"])
+        approve_n = sum(1 for v in room["votes"].values() if v == "approve")
+        reject_n = sum(1 for v in room["votes"].values() if v == "reject")
+        _room_append(
+            room, "system", "시스템",
+            f"{nickname}님이 {'승인' if vote == 'approve' else '거절'}했습니다 (찬성 {approve_n}/{total}, 반대 {reject_n}/{total})",
+            kind="vote",
+        )
+        if approve_n > total / 2:
+            reply = _process_chat_turn(room["session_id"], session, "승인", room=room)
+            _room_append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+            room["votes"] = {}
+        elif reject_n > total / 2:
+            reply = _process_chat_turn(room["session_id"], session, "거절", room=room)
+            _room_append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+            room["votes"] = {}
+        # 동점/미달이면 투표만 기록하고 대기 — AI는 아직 호출하지 않는다.
+    else:
+        reply = _process_chat_turn(room["session_id"], session, user_text, room=room)
+        _room_append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+
+    save_rooms()
+    save_sessions()
+    return jsonify({"ai_status": room["ai_status"]})
+
+
+@app.route("/room/<room_id>/messages")
+def room_messages(room_id):
+    safe_id = _sanitize_token(room_id)
+    room = ROOMS.get(safe_id)
+    if not safe_id or room is None:
+        abort(404)
+    since = request.args.get("since", default=0, type=int)
+    with SESSIONS_LOCK:
+        session = SESSIONS.get(room["session_id"], {})
+    return jsonify({
+        "messages": room["messages"][since:],
+        "ai_status": room["ai_status"],
+        "members": room["members"],
+        "votes": room["votes"],
+        "state": session.get("state"),
+        "deploy_url": session.get("deploy_url"),
+        "design_url": session.get("design_url"),
+        "design_preview_url": session.get("design_preview_url"),
+    })
+
+
+def _process_chat_turn(session_id, session, user_text, room=None):
+    """1:1 `/chat`과 다인원 `/room/<id>/chat` 모두가 공유하는 상태머신 본체.
+
+    room을 넘기면(공유방 경로) 주요 전이 지점마다 room["ai_status"]를 갱신해
+    폴링하는 다른 참여자들이 "AI가 지금 뭘 하는지"를 볼 수 있게 한다
+    (MULTIUSER_CHAT_DESIGN.md §3.4). room=None(기존 1:1 `/chat`)이면 무변경 동작.
+    """
     state = session["state"]
 
     if state == "GENERATING":
@@ -554,6 +716,9 @@ def chat():
         session["state"] = "GATHERING"
 
     elif state in ("GREETING", "GATHERING"):
+        if room is not None:
+            room["ai_status"] = "RAG_SEARCHING"
+            save_rooms()
         # ②RAG 사전확인 + ③검증/질의를 한 번에: 관련 과거 프로젝트 안내 후 승인 게이트로 진입
         rag_result = rag_precheck(user_text)
         session["last_request"] = user_text
@@ -562,13 +727,20 @@ def chat():
             f"요청하신 내용을 검토했습니다. 이 요구사항으로 견적을 진행할까요? (승인/거절로 답해주세요)"
         )
         session["state"] = "AWAIT_APPROVAL"
+        if room is not None:
+            room["ai_status"] = "IDLE"
 
     elif state == "AWAIT_APPROVAL":
         if user_text in ("승인", "네", "yes", "approve", "예"):
+            if room is not None:
+                room["ai_status"] = "QUOTING"
+                save_rooms()
             quote = build_quote(session.get("last_request", ""))
             session["quote"] = quote
             session["state"] = "QUOTED"
             reply = f"승인 감사합니다. 견적안입니다:\n\n{format_quote_text(quote)}\n\n이 견적으로 진행할까요? (진행/취소)"
+            if room is not None:
+                room["ai_status"] = "IDLE"
         elif user_text in ("거절", "아니오", "no", "reject"):
             session["state"] = "GATHERING"
             reply = "알겠습니다. 요구사항을 다시 말씀해 주세요."
@@ -594,6 +766,8 @@ def chat():
 
             session["codegen"] = None
             session["state"] = "GENERATING"
+            if room is not None:
+                room["ai_status"] = "GENERATING"
             start_codegen(session_id, session["requirement_id"], session.get("last_request", ""))
             reply = (
                 f"진행합니다! UI 시안이 준비됐어요: {design['design_url']}\n\n"
@@ -607,6 +781,27 @@ def chat():
     else:  # DONE
         reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
         session["state"] = "GATHERING"
+
+    if room is not None:
+        if session["state"] == "DONE":
+            room["ai_status"] = "DONE"
+        elif state == "GENERATING" and session["state"] != "GENERATING":
+            # 코드생성 실패(timeout/error/no_files_created)로 QUOTED에 복귀한 경우.
+            room["ai_status"] = "IDLE"
+
+    return reply
+
+
+@app.route("/chat", methods=["POST"])
+def chat():
+    body = request.get_json(force=True)
+    session_id = body.get("session_id") or str(uuid.uuid4())
+    user_text = (body.get("message") or "").strip()
+
+    with SESSIONS_LOCK:
+        session = SESSIONS.setdefault(session_id, {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]})
+
+    reply = _process_chat_turn(session_id, session, user_text)
 
     payload = {"session_id": session_id, "state": session["state"], "reply": reply}
     if session["state"] == "DONE" and session.get("deploy_url"):
