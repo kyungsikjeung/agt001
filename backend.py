@@ -375,9 +375,19 @@ def start_codegen(session_id, requirement_id, spec_text):
     thread.start()
 
 
-def stub_deploy(requirement_id):
-    """⑨배포 스텁. 실제로는 OCI agt001-hermes-backend 또는 Render로 이어질 자리."""
-    return {"deploy_url": f"https://deploy.stub.local/{requirement_id}"}
+def deploy_generated_site(requirement_id):
+    """⑰배포 실구현: 팀C(Hermes)가 만든 정적 산출물을 백엔드 자신이 직접 서빙한다.
+
+    별도 호스팅(Render/Netlify 등) 없이 GENERATED_DIR/<id>/web을
+    /site/<id>/ 로 바로 서빙 — 로컬에서도, OCI 배포본(sslip.io 도메인)에서도
+    추가 설정 없이 바로 접속 가능한 실제 URL이 나온다.
+    request.url_root를 써서 지금 접속한 호스트 기준으로 절대 URL을 만든다.
+    """
+    web_dir = GENERATED_DIR / requirement_id / "web"
+    if not web_dir.is_dir() or not any(web_dir.iterdir()):
+        return {"deploy_url": None}
+    deploy_url = request.url_root.rstrip("/") + f"/site/{requirement_id}/"
+    return {"deploy_url": deploy_url}
 
 
 @app.route("/")
@@ -410,6 +420,18 @@ def design_preview(requirement_id):
     return send_file(path, mimetype="image/png")
 
 
+@app.route("/site/<requirement_id>/")
+@app.route("/site/<requirement_id>/<path:filename>")
+def serve_site(requirement_id, filename="index.html"):
+    """⑰배포 실구현: 팀C 코드생성 산출물을 그대로 서빙. deploy_generated_site() 참고."""
+    safe_id = _sanitize_requirement_id(requirement_id)
+    web_dir = GENERATED_DIR / safe_id / "web"
+    if not safe_id or not web_dir.is_dir():
+        abort(404)
+    # send_from_directory가 path traversal(../)을 자체적으로 막는다.
+    return send_from_directory(web_dir, filename)
+
+
 @app.route("/chat", methods=["POST"])
 def chat():
     body = request.get_json(force=True)
@@ -425,7 +447,7 @@ def chat():
         if codegen is None:
             reply = "코드 생성 중입니다... 잠시만 기다려주세요."
         elif codegen["status"] == "done":
-            deploy = stub_deploy(session["requirement_id"])
+            deploy = deploy_generated_site(session["requirement_id"])
             session["state"] = "DONE"
             session["deploy_url"] = deploy["deploy_url"]
             files_list = ", ".join(codegen["files"][:5])
@@ -436,13 +458,12 @@ def chat():
                 "파이프라인 뼈대 관통 완료 (팀C 실구현)."
             )
         elif codegen["status"] == "unavailable":
-            deploy = stub_deploy(session["requirement_id"])
+            # docker/키 미탑재 등으로 코드생성 자체를 못 돌린 경우 — 산출물이 없으니 배포도 없다.
             session["state"] = "DONE"
-            session["deploy_url"] = deploy["deploy_url"]
             reply = (
                 f"{codegen['note']}\n\n"
                 f"- UI 시안: {session.get('design_url', '(없음)')}\n"
-                f"- 배포 링크: {deploy['deploy_url']}\n\n"
+                "- 배포 링크: (코드생성을 건너뛰어 배포할 산출물이 없습니다)\n\n"
                 "파이프라인 뼈대 관통 완료 (팀C 스텁 폴백)."
             )
         else:  # timeout / error / no_files_created
