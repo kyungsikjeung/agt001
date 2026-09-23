@@ -33,11 +33,13 @@ RUN apt-get update \
 # --skip-browser: 코드생성 샌드박스에는 Playwright/Chromium 불필요 → 이미지 축소 + 공격표면 감소.
 RUN curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-setup --non-interactive --skip-browser
 
-# 빌드 시점에 NIM 연동 기본값만 시드 (키 없이도 동작해야 함).
-# model.default는 설치 기본값 유지 — backend.py NIM_CHAT_MODEL과 표기가 다를 수 있어
-# 프로바이더+base_url만 고정하고 모델 선택은 Hermes 기본에 맡긴다.
+# 빌드 시점에 NIM 연동 기본값 시드 (키 없이도 동작해야 함).
+# model.default를 설치 기본값에 맡겼더니 NIM에 없는 모델 경로로 요청이 가서
+# "HTTP 404" 로 실패하는 것을 실측 확인 — 로컬/OCI Hermes와 동일하게
+# nvidia/nemotron-3-super-120b-a12b 를 명시적으로 고정한다.
 RUN hermes config set model.provider nvidia \
     && hermes config set model.base_url https://integrate.api.nvidia.com/v1 \
+    && hermes config set model.default nvidia/nemotron-3-super-120b-a12b \
     && hermes --version
 
 # 격리 핵심: 컨테이너 기본 작업 디렉토리를 /workspace 로 고정.
