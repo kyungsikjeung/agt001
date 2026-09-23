@@ -23,3 +23,6 @@ build/
 .DS_Store
 .vscode/
 .idea/
+
+# 로컬 Claude Code 설정 (impeccable 훅 등, 개인 머신 경로 하드코딩 — 공개 리포에 안 올림)
+.claude/
