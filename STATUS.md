@@ -47,13 +47,15 @@
 
 ## 효율화 계획
 
-[docs/hackathon/EFFICIENCY_PLAN.md](docs/hackathon/EFFICIENCY_PLAN.md) 참고. Top 3(전부 작업량 '하'):
-1. 세션 파일 백업 (재배포 시 대화 전멸 방지)
-2. NIM 호출 타임아웃 + 견적 폴백 통일 (NIM 장애 시 500 방지)
-3. `deploy.sh` + 조건부 빌드 (수동 배포 절차 스크립트화)
+[docs/hackathon/EFFICIENCY_PLAN.md](docs/hackathon/EFFICIENCY_PLAN.md) 참고. Top 3 — **전부 적용 완료** (로컬+OCI 양쪽 검증):
+1. ✅ 세션 파일 백업 — 재배포해도 대화가 안 끊김을 OCI 실제 재시작으로 검증
+2. ✅ NIM 호출 타임아웃(25초) + 견적 폴백 통일 — NIM 장애 시에도 그럴듯한 정적 견적으로 폴백, 500 방지
+3. ✅ `scripts/deploy.sh` — rsync+조건부 빌드+헬스체크, 실제 OCI 배포 2회로 검증(최초 빌드/이후 재시작만)
+
+추가로 [docs/hackathon/LOVABLE_RESEARCH.md](docs/hackathon/LOVABLE_RESEARCH.md)에 Lovable(lovable.dev)의 UI생성~배포 방식을 조사해 적용 아이디어 3가지(스냅샷 재발행 모델, 팀B 시안 AI 우회 스타일 수정, 팀C 코드 surgical diff) 정리.
 
 ## 다음으로 할 일
 
 - 팀B: 시안 템플릿 N종 확장 (지금은 1종 고정)
 - ⑱ 사람 최종 검토 단계 설계·구현
-- 효율화 계획 Top 3 적용 (위 참고)
+- LOVABLE_RESEARCH.md의 적용 가능 아이디어 3가지 실구현 검토
