@@ -45,8 +45,15 @@
 - UI 반응형(모바일/태블릿/데스크톱) 대응 완료 — 챗봇 위젯, 팀B 시안 템플릿, 팀C Hermes 코드생성 프롬프트 3곳 모두 적용 (OpenCode 위임 → 검토 후 커밋)
 - 반응형 대응을 OCI 실제 배포본에도 반영하고 end-to-end 검증 — 이 과정에서 배포용 이미지에 `docker.io`만 있고 CLI 바이너리(`docker-cli`)가 빠져 있던 버그를 실측 발견·수정 (지금까지 OCI에서는 팀C 코드생성이 항상 "docker 없음"으로 스텁 폴백되고 있었음)
 
+## 효율화 계획
+
+[docs/hackathon/EFFICIENCY_PLAN.md](docs/hackathon/EFFICIENCY_PLAN.md) 참고. Top 3(전부 작업량 '하'):
+1. 세션 파일 백업 (재배포 시 대화 전멸 방지)
+2. NIM 호출 타임아웃 + 견적 폴백 통일 (NIM 장애 시 500 방지)
+3. `deploy.sh` + 조건부 빌드 (수동 배포 절차 스크립트화)
+
 ## 다음으로 할 일
 
 - 팀B: 시안 템플릿 N종 확장 (지금은 1종 고정)
 - ⑱ 사람 최종 검토 단계 설계·구현
-- (진행 중) OpenCode에게 시스템 효율화 계획(EFFICIENCY_PLAN.md) 수립 위임 — 완료되면 우선순위 재조정
+- 효율화 계획 Top 3 적용 (위 참고)
