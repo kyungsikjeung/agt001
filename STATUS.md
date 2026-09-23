@@ -44,6 +44,10 @@
 - 팀C 배포(⑰) 실구현 — 코드생성 산출물을 백엔드가 `/site/<id>/`로 직접 서빙 (가짜 URL 제거)
 - UI 반응형(모바일/태블릿/데스크톱) 대응 완료 — 챗봇 위젯, 팀B 시안 템플릿, 팀C Hermes 코드생성 프롬프트 3곳 모두 적용 (OpenCode 위임 → 검토 후 커밋)
 - 반응형 대응을 OCI 실제 배포본에도 반영하고 end-to-end 검증 — 이 과정에서 배포용 이미지에 `docker.io`만 있고 CLI 바이너리(`docker-cli`)가 빠져 있던 버그를 실측 발견·수정 (지금까지 OCI에서는 팀C 코드생성이 항상 "docker 없음"으로 스텁 폴백되고 있었음)
+- [조사] 회원가입/로그인 도입 여부 판단 ([AUTH_DB_COST_DECISION.md](docs/hackathon/AUTH_DB_COST_DECISION.md)) — 결론: **No-Go (마감 전 착수 금지)**. 공수 2~3일 + 보안 부채가 잔여 일정과 정면 경합. 마감 후 백로그 1순위(최소 범위: 결과 저장만 회원 + 카카오 로그인 + SQLite)로 이관
+- [조사] PM 다음 전략 ([PM_NEXT_STRATEGY.md](docs/hackathon/PM_NEXT_STRATEGY.md)) — 결론: 데모가 죽는 순서대로. P0는 다인원 공유채팅 OCI e2e 검증 + STATUS.md 갱신, P1은 ⑱ 설계, 마감 전 금지 목록(로그인/WebSocket/React 전환 등) 재확인
+- [조사] 무중단 배포·롤백 ([DEPLOYMENT_STRATEGY.md](docs/hackathon/DEPLOYMENT_STRATEGY.md)) — 결론: blue-green은 기술적으로 가능하나 마감 전 도입 비권장. 당장은 `deploy.sh`에 배포 전 스냅샷+`rollback.sh` 최소 구현(작업량 하·$0) + 발표 시간대 배포 금지를 권장. 모든 방향 OCI Always Free 내 $0 가능
+- [조사] 카카오톡 연동 검증 계획 ([KAKAO_VERIFICATION_PLAN.md](docs/hackathon/KAKAO_VERIFICATION_PLAN.md)) — 결론: `room.html`의 Error 4019는 `file://`로 직접 열어서 생긴 착시 버그가 유력(확정 아님). `file://` vs 로컬 서버 vs OCI 3-way 대조 검증 절차 + 판정 매트릭스 수록. `*.html`은 반드시 서버 URL로 접속할 것
 
 ## 효율화 계획
 
@@ -54,6 +58,8 @@
 
 추가로 [docs/hackathon/LOVABLE_RESEARCH.md](docs/hackathon/LOVABLE_RESEARCH.md)에 Lovable(lovable.dev)의 UI생성~배포 방식을 조사해 적용 아이디어 3가지(스냅샷 재발행 모델, 팀B 시안 AI 우회 스타일 수정, 팀C 코드 surgical diff) 정리.
 
+회원가입/로그인: [docs/hackathon/AUTH_DB_COST_DECISION.md](docs/hackathon/AUTH_DB_COST_DECISION.md)에서 조사 완료 — 결론 **No-Go (마감 전 착수 금지)**. 게스트 우선 흐름에 인증을 붙이려면 DB(SQLite 최소)+claim API+로그인 UI가 필요해 공수 2~3일이 잔여 일정과 경합. 마감 후 백로그 1순위(안 A: 방은 비회원 그대로·결과 저장만 회원 + 카카오 로그인)로 이관.
+
 ## 신규 기능: 다인원 공유채팅 (진행 중)
 
 여러 명이 하나의 방에서 함께 요구사항을 도출하는 기능. 조사·설계·PM 통합 플랜 확정 완료
@@ -63,12 +69,13 @@
 
 - ✅ 카카오톡 그룹채팅 안에서 봇이 직접 동작하는 것은 공식 API로 불가능함을 조사로 확인 — 대신 "우리 웹에 room + 카카오는 초대링크 공유"로 방향 확정
 - ✅ **백엔드 구현 완료(D-4)**: `POST /room`(방 생성), `POST /room/<id>/chat`(참여자 메시지), `GET /room/<id>/messages`(증분 조회), 과반 투표 승인 게이트, `ai_status` 브로드캐스트, 방 파일 백업/재시작 복구. 기존 1:1 `/chat`은 무변경(회귀 없음 로컬 검증 완료)
-- ⬜ 프론트 UI 구현(D-3): Slack식 발신자 표시+진행카드+투표바, 카카오 초대 링크 연결
-- ⬜ end-to-end 검증(로컬+OCI, D-2)
+- ✅ **프론트 UI 구현 완료(D-3)**: `static/room.html`(305줄, 커밋 `4bb017e`) — Slack식 발신자 표시+아바타, AI 진행상태 배너(`ai_status`), 과반 투표바, 카카오 초대 버튼. 로컬 브라우저 실측(입장→투표→견적→코드생성→배포 URL, 중복 메시지 없음) 완료
+- ✅ end-to-end 검증 로컬 완료(위 실측) / ⬜ OCI end-to-end 검증 남음(코드 OCI 업로드됨·검증 미완)
 
 ## 다음으로 할 일
 
-- 다인원 공유채팅 프론트 구현 (위 참고)
-- 팀B: 시안 템플릿 N종 확장 (지금은 1종 고정)
-- ⑱ 사람 최종 검토 단계 설계·구현
-- LOVABLE_RESEARCH.md의 적용 가능 아이디어 3가지 실구현 검토
+([PM_NEXT_STRATEGY.md](docs/hackathon/PM_NEXT_STRATEGY.md) Top 3 — "데모가 죽는 순서대로")
+
+1. **다인원 공유채팅 OCI end-to-end 검증 (읽기 전용)** — 코드는 OCI에 올라갔으나 e2e 미검증이 최대 리스크. 3브라우저 입장→투표→견적→시안→코드생성→`/site/<id>/` 접속. 검증 절차는 [KAKAO_VERIFICATION_PLAN.md](docs/hackathon/KAKAO_VERIFICATION_PLAN.md) §1·§3 병행 (room.html 카카오 초대는 OCI 도메인에서 정식 판정 — `file://`로 열면 Error 4019가 나는 것은 사용법 문제이므로 서버 URL로만 검증)
+2. ✅ STATUS.md 갱신 (다인원 프론트 완료 반영 — 본 커밋에서 처리)
+3. ⑱ 사람 최종 검토(REQ-REVIEW-001) 설계 문서 착수 — 9단계 중 유일 미착수. 최소 범위: 순번표 + approved 강제 규칙 + 반려 기록 방식
