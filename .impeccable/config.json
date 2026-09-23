@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "pulsing-dot",
+        "value": "*",
+        "files": [
+          "static/room.html"
+        ],
+        "createdAt": "2026-09-23T09:10:55.633Z",
+        "reason": "AI 어시스턴트 처리 상태(ai_status)가 실제로 변화 중일 때만 펄스가 뜨는 라이브 인디케이터 — 룰이 명시한 예외(진짜 실시간 상태와 연동)에 해당, 장식용 아님"
+      }
+    ]
+  }
+}
