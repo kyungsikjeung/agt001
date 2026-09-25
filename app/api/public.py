@@ -12,8 +12,8 @@ router = APIRouter()
 # 다루게 해 앱의 브라우저 저장소(채팅방 본인 확인 값)와 쿠키에 손대지 못하게 한다.
 # 별도 미리보기 주소로 옮기기 전의 임시 격리다 (docs/product/DESIGN_PIPELINE_PLAN.md §13, 보안 P0).
 _SITE_HEADERS = {
-    # 스크립트는 허용하되(생성 사이트 동작), 앱 출처로 취급되지 않게 한다. 외부 링크 새 탭은 허용.
-    "Content-Security-Policy": "sandbox allow-scripts allow-popups allow-popups-to-escape-sandbox",
+    # 스크립트는 허용하되(생성 사이트 동작), 앱 출처로 취급되지 않게 한다. 외부 링크 새 탭과 문의 폼 전송은 허용.
+    "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox",
     "X-Content-Type-Options": "nosniff",
 }
 _DESIGN_HEADERS = {

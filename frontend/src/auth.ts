@@ -42,14 +42,15 @@ export function startLogin(provider: LoginProvider, next = '/projects'): void {
 }
 
 /** 이 기기의 방을 로그인 계정으로 옮긴다. 로그인 안 함(401)이면 0. */
-export async function claim(roomIds: string[]): Promise<number> {
-  if (roomIds.length === 0) return 0;
+export async function claim(roomIds: string[], memberId: string | null): Promise<number> {
+  // 서버는 X-Member-Id가 그 방의 참여자일 때만 옮긴다 (AUTH_REVIEW #8).
+  if (roomIds.length === 0 || !memberId) return 0;
   let res: Response;
   try {
     res = await fetch('/api/me/claim', {
       method: 'POST',
       credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
       body: JSON.stringify({ room_ids: roomIds }),
     });
   } catch {

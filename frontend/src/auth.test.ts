@@ -42,10 +42,11 @@ describe('auth', () => {
 
   it('claim은 401이면 0, 성공이면 claimed 수를 돌려준다', async () => {
     vi.stubGlobal('fetch', mockFetch(401));
-    expect(await claim(['r1'])).toBe(0);
+    expect(await claim(['r1'], 'm1')).toBe(0);
     vi.stubGlobal('fetch', mockFetch(200, { claimed: 2 }));
-    expect(await claim(['r1', 'r2'])).toBe(2);
-    expect(await claim([])).toBe(0);
+    expect(await claim(['r1', 'r2'], 'm1')).toBe(2);
+    expect(await claim(['r1'], null)).toBe(0);
+    expect(await claim([], 'm1')).toBe(0);
   });
 
   it('logout은 POST /api/logout을 같은 출처로 보낸다', async () => {

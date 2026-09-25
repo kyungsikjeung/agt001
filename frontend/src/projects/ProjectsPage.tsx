@@ -55,12 +55,15 @@ export function relativeTime(iso: string | null): string {
   return new Date(t).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 }
 
-async function fetchSummary(roomIds: string[], memberId: string | null): Promise<Project[]> {
-  if (roomIds.length === 0 || !memberId) return [];
+// 로그인했으면 이 기기에 방이 없어도 부른다: 서버가 계정에 옮긴 방(다른 기기 포함)을 함께 돌려준다.
+async function fetchSummary(roomIds: string[], memberId: string | null, loggedIn: boolean): Promise<Project[]> {
+  if (!loggedIn && (roomIds.length === 0 || !memberId)) return [];
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (memberId) headers['X-Member-Id'] = memberId;
   const res = await fetch('/api/projects/summary', {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+    headers,
     body: JSON.stringify({ room_ids: roomIds }),
   });
   if (!res.ok) throw new Error(`목록을 불러오지 못했습니다 (${res.status})`);
@@ -84,11 +87,11 @@ export default function ProjectsPage() {
       setUser(u);
       if (u && !claimedRef.current) {
         claimedRef.current = true;
-        await claim(roomIds);
+        await claim(roomIds, memberId);
       }
       if (!alive) return;
       try {
-        setProjects(await fetchSummary(roomIds, memberId));
+        setProjects(await fetchSummary(roomIds, memberId, Boolean(u)));
       } catch {
         if (!alive) return;
         setError('목록을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.');

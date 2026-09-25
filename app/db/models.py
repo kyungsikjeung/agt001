@@ -179,3 +179,20 @@ class UserRoomRow(Base):
     room_id: Mapped[str] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), primary_key=True)
     member_id: Mapped[str] = mapped_column(Text, nullable=False)
     claimed_at: Mapped[datetime.datetime] = _now_col()
+
+
+class InquiryRow(Base):
+    """생성 사이트의 "문의하기" 폼으로 들어온 문의 (플랫폼 공용 ①, D31·D32). 30일 보관."""
+
+    __tablename__ = "inquiries"
+    __table_args__ = (
+        Index("ix_inquiries_site", "site_key", "id"),
+        Index("ix_inquiries_ts", "ts"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime.datetime] = _now_col()
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)  # sessions.requirement_id (/site/<id>/)
+    name: Mapped[Optional[str]] = mapped_column(Text)
+    contact: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)

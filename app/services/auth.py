@@ -126,11 +126,14 @@ def finish(provider: str, state: str, state_cookie: Optional[str], code: str, re
     if not state or not state_cookie or not secrets.compare_digest(state, state_cookie):
         raise AuthError("state")
     with get_sessionmaker()() as db, db.begin():
-        row = db.get(OAuthStateRow, _hash(state))
-        if row is None or row.provider != provider or row.expires_at < _now():
-            raise AuthError("state")
-        verifier, next_path = row.code_verifier, row.next_path
-        db.delete(row)  # 한 번만 쓴다
+        # 읽기와 지우기를 한 문장으로 해서, 같은 state로 동시에 온 콜백 중 하나만 통과한다 (AUTH_REVIEW #10).
+        row = db.execute(delete(OAuthStateRow).where(OAuthStateRow.state_hash == _hash(state))
+                         .returning(OAuthStateRow.provider, OAuthStateRow.code_verifier,
+                                    OAuthStateRow.next_path, OAuthStateRow.expires_at)).first()
+    # 검사는 커밋 뒤에: 틀린 제공자·만료여도 state는 이미 지워져 다시 쓸 수 없다.
+    if row is None or row.provider != provider or row.expires_at < _now():
+        raise AuthError("state")
+    verifier, next_path = row.code_verifier, row.next_path
     token = exchange_code(provider, code, verifier, redirect_uri)
     provider_user_id, nickname, email = fetch_profile(provider, token)
     with get_sessionmaker()() as db, db.begin():
