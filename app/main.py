@@ -19,6 +19,7 @@ async def lifespan(_app: FastAPI):
         db_migrate.upgrade_head()
     store.recover_on_startup()
     funnel.purge_expired()
+    store.purge_chat_turns()
     if settings.precompute_embeddings:
         rag.precompute()
     yield

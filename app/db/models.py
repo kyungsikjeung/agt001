@@ -102,3 +102,24 @@ class FunnelEventRow(Base):
     source: Mapped[Optional[str]] = mapped_column(Text)
     campaign: Mapped[Optional[str]] = mapped_column(Text)
     template_id: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class ChatTurnRow(Base):
+    """대화 한 턴의 원문과 엔진 판단. AI 성능 평가의 재료 (1:1·공유방 모두). 90일 보관."""
+
+    __tablename__ = "chat_turns"
+    __table_args__ = (
+        Index("ix_chat_turns_session", "session_id", "id"),
+        Index("ix_chat_turns_ts", "ts"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime.datetime] = _now_col()
+    session_id: Mapped[str] = mapped_column(Text, nullable=False)
+    room_id: Mapped[Optional[str]] = mapped_column(Text)
+    author: Mapped[Optional[str]] = mapped_column(Text)  # 공개 식별자(member_handle). 비밀값이 아니다
+    user_text: Mapped[str] = mapped_column(Text, nullable=False)
+    ai_text: Mapped[str] = mapped_column(Text, nullable=False)
+    state_before: Mapped[str] = mapped_column(Text, nullable=False)
+    state_after: Mapped[str] = mapped_column(Text, nullable=False)
+    meta: Mapped[Optional[dict]] = mapped_column(JSONB)

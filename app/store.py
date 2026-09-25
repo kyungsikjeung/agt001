@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.db.models import RoomMemberRow, RoomMessageRow, RoomRow, RoomVoteRow, SessionRow
+from app.db.models import ChatTurnRow, RoomMemberRow, RoomMessageRow, RoomRow, RoomVoteRow, SessionRow
 from app.db.session import get_sessionmaker
 
 log = logging.getLogger(__name__)
@@ -284,7 +284,34 @@ def recover_on_startup() -> None:
     log.info("기동 복구: 세션 %d개 GENERATING→QUOTED, 방 %d개 ai_status→IDLE", n_sessions, n_rooms)
 
 
+# ── 대화 턴 기록 (AI 성능 평가) ────────────────────────────────────────
+
+CHAT_TURN_RETENTION_DAYS = 90
+MAX_TURN_TEXT = 4000
+
+
+def record_turn(session_id: str, room_id: Optional[str], author: Optional[str], user_text: str, ai_text: str,
+                state_before: str, state_after: str, meta: Optional[dict]) -> None:
+    """요청 트랜잭션 안에서 함께 기록한다(대화 처리가 롤백되면 기록도 사라진다)."""
+    with _transaction() as tx:
+        tx.db.add(ChatTurnRow(
+            session_id=session_id, room_id=room_id, author=author,
+            user_text=(user_text or "")[:MAX_TURN_TEXT], ai_text=(ai_text or "")[:MAX_TURN_TEXT],
+            state_before=state_before, state_after=state_after, meta=meta,
+        ))
+
+
+def purge_chat_turns(now: Optional[datetime.datetime] = None) -> int:
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    cutoff = now - datetime.timedelta(days=CHAT_TURN_RETENTION_DAYS)
+    with get_sessionmaker()() as db, db.begin():
+        n = db.execute(delete(ChatTurnRow).where(ChatTurnRow.ts < cutoff)).rowcount
+    if n:
+        log.info("대화 턴 기록 %d건 삭제 (%d일 경과)", n, CHAT_TURN_RETENTION_DAYS)
+    return n
+
+
 def reset_all() -> None:
     """테스트 전용: 모든 행을 지운다."""
     with get_sessionmaker()() as db, db.begin():
-        db.execute(text("TRUNCATE funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))
+        db.execute(text("TRUNCATE chat_turns, funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))

@@ -58,6 +58,7 @@ def _rag_note(spec: str) -> str:
 def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None,
                  by: Optional[str] = None, is_owner: bool = True) -> str:
     state = session["state"]
+    engine_trace = None
 
     if state == "GENERATING":
         cg = session.get("codegen")
@@ -96,6 +97,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         _set_room_status(room, "THINKING", persist=True)
         card = session.get("prd") or prd_engine.new_card()
         result = prd_engine.turn(card, user_text, by=by, is_owner=is_owner)
+        engine_trace = result.get("trace")
         session["prd"] = card
         if result["done"]:
             _set_room_status(room, "RAG_SEARCHING", persist=True)
@@ -153,6 +155,10 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         session["prd"] = None
 
     _record_transition(session_id, state, session["state"])
+    # 대화 턴 기록 (AI 성능 평가용, 90일). 폴링처럼 사람이 말하지 않은 턴은 남기지 않는다.
+    if user_text:
+        store.record_turn(session_id, room["room_id"] if room else None, by, user_text, reply,
+                          state, session["state"], engine_trace)
 
     if room is not None:
         if session["state"] == "DONE":

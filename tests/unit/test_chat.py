@@ -124,3 +124,19 @@ def test_codegen_unavailable_done_without_deploy(client, monkeypatch):
     nxt = _chat(client, "poll", s)
     assert nxt["state"] == "DONE"
     assert "deploy_url" not in nxt
+
+
+def test_turns_are_recorded_with_engine_trace(client):
+    """AI 성능 평가용: 사람이 말한 턴마다 원문·답·상태·엔진 판단이 남는다."""
+    from sqlalchemy import select
+    from app.db.models import ChatTurnRow
+    from app.db.session import get_sessionmaker
+    s = _fresh_session(client)                  # 빈 메시지(인사)는 기록하지 않는다
+    _chat(client, "카페 예약 서비스 만들어줘", s)
+    _chat(client, SKIP, s)
+    with get_sessionmaker()() as db:
+        rows = db.scalars(select(ChatTurnRow).where(ChatTurnRow.session_id == s).order_by(ChatTurnRow.id)).all()
+    assert [r.user_text for r in rows] == ["카페 예약 서비스 만들어줘", SKIP]
+    assert rows[0].state_before == "GATHERING" and rows[1].state_after == "AWAIT_APPROVAL"
+    assert rows[0].meta["extract_ok"] is True and rows[0].meta["next_slot"] == "business_type"
+    assert rows[1].meta["skip"] is True and rows[1].meta["done"] is True

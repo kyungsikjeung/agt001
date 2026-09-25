@@ -6,6 +6,7 @@
 import json
 import logging
 import re
+import time
 from typing import Optional
 
 from app import llm
@@ -98,19 +99,25 @@ def _parse_updates(raw: str) -> Optional[list[dict]]:
     return out
 
 
-def extract(text: str, last_question: Optional[str]) -> list[dict]:
-    """형식이 틀리면 한 번 다시 시도하고, 그래도 틀리거나 시간이 넘으면 빈 목록(대화는 계속된다)."""
+def extract_detail(text: str, last_question: Optional[str]) -> tuple[list[dict], bool, int, int]:
+    """(추출 결과, 형식 통과 여부, 걸린 ms, 시도 횟수). 대화 턴 기록과 성능 평가에 쓴다."""
     user = (f"[직전 질문] {last_question}\n" if last_question else "") + f"[사장님 메시지] {text}"
+    started = time.monotonic()
     for attempt in range(2):
         try:
             ups = _parse_updates(llm.chat_json(_system_prompt(), user))
         except Exception:
             log.exception("요구사항 추출 호출 실패")
-            return []
+            return [], False, int((time.monotonic() - started) * 1000), attempt + 1
         if ups is not None:
-            return ups
+            return ups, True, int((time.monotonic() - started) * 1000), attempt + 1
         log.warning("요구사항 추출 형식 오류 (시도 %d)", attempt + 1)
-    return []
+    return [], False, int((time.monotonic() - started) * 1000), 2
+
+
+def extract(text: str, last_question: Optional[str]) -> list[dict]:
+    """형식이 틀리면 한 번 다시 시도하고, 그래도 틀리거나 시간이 넘으면 빈 목록(대화는 계속된다)."""
+    return extract_detail(text, last_question)[0]
 
 
 # ── 규칙 ──────────────────────────────────────────────────────────────
@@ -293,21 +300,33 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     card["turn"] += 1
     t = (text or "").strip()
     applied: list[str] = []
+    # 대화 턴 기록(chat_turns)에 남길 엔진 판단. 원문은 기록하는 쪽이 따로 남긴다.
+    trace = {"answered_by_rule": False, "extract_ok": None, "extract_ms": None, "extract_attempts": 0,
+             "extracted": [], "skip": False, "asked_slot": (card.get("pending") or {}).get("slot"),
+             "asked_kind": (card.get("pending") or {}).get("kind")}
     wants_skip = any(p in t for p in SKIP_PHRASES)
+    trace["skip"] = wants_skip
     if t and not wants_skip:
         answered = _answer_pending(card, t, by, is_owner)
+        trace["answered_by_rule"] = bool(answered)
         if not answered:
             last_q = (card.get("pending") or {}).get("text")
-            applied = apply_updates(card, extract(t, last_q), t, by, is_owner)
+            ups, ok, ms, attempts = extract_detail(t, last_q)
+            trace.update(extract_ok=ok, extract_ms=ms, extract_attempts=attempts,
+                         extracted=[u["slot"] for u in ups])
+            applied = apply_updates(card, ups, t, by, is_owner)
             card["pending"] = None if applied else card.get("pending")
+    trace["applied"] = applied
     q = None if wants_skip or card["asked"] >= S.MAX_QUESTIONS else next_question(card)
     if q is None:
         finalize(card)
-        return {"done": True, "question": None, "applied": applied}
+        trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
+        return {"done": True, "question": None, "applied": applied, "trace": trace}
     card["asked"] += 1
     card["pending"] = q
     card["done"] = False
-    return {"done": False, "question": q, "applied": applied}
+    trace.update(next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
+    return {"done": False, "question": q, "applied": applied, "trace": trace}
 
 
 # ── 사람이 읽는 형태 ────────────────────────────────────────────────
