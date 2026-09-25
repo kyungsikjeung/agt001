@@ -137,6 +137,30 @@ def actual_from_card(card: dict) -> dict[str, list[str]]:
 
 # ── 채점 (순수 함수: 외부 의존 없음) ────────────────────────────
 
+_SYNONYMS = (("카카오톡", "카톡"), ("카카오", "카톡"))
+
+
+def _norm_match(s: str) -> str:
+    s = (s or "").replace(" ", "")
+    for a, b in _SYNONYMS:
+        s = s.replace(a, b)
+    return s
+
+
+def value_matches(expected: str, actual: str) -> bool:
+    """채점용 일치 판정(평가 1차에서 '카톡'≠'카카오톡', '세 시'≠'3시'로 억울하게 틀리던 것)."""
+    if expected in actual or _norm_match(expected) in _norm_match(actual):
+        return True
+    try:
+        from app.services.numbers import numbers_in, value_numbers
+    except ImportError:  # 저장소 루트 밖에서 실행할 때
+        return False
+    en = numbers_in(expected)
+    an = value_numbers(actual) | numbers_in(actual)
+    an |= {n - 12 for n in an if isinstance(n, int) and 13 <= n <= 24}
+    return bool(en) and en <= an
+
+
 def score_case(case: dict, actual: dict[str, list[str]]) -> dict:
     """한 케이스 판정. README 채점 규칙 그대로.
 
@@ -154,8 +178,8 @@ def score_case(case: dict, actual: dict[str, list[str]]) -> dict:
         for ev in _as_str_list(exp_val):
             expected_total += 1
             got = actual.get(slot, [])
-            # 기대 값이 추출 값에 포함되면 일치 (부분 문자열 포함)
-            hit = any(ev in av for av in got)
+            # 기대 값이 추출 값에 포함되면 일치. 띄어쓰기·"카톡/카카오톡"·말로 한 숫자("세 시"↔"3시")는 같은 것으로 본다.
+            hit = any(value_matches(ev, av) for av in got)
             matched += 1 if hit else 0
             slot_results.append({"slot": slot, "expected": ev, "matched": hit, "actual": list(got)})
 

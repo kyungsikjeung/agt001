@@ -93,6 +93,22 @@ def render_variants(requirement_id: str, card: dict) -> dict:
     }
 
 
+def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
+    """고른 시안을 공개 사이트로 (generated/<id>/published/index.html → /site/<id>/).
+
+    D31: AI가 서버 코드를 쓰지 않고, 정해진 부품으로 만든 화면 그대로 공개한다. 문의 폼은 공용 API로 동작한다."""
+    from app.services import design_variants as DV
+    from app.services import site_render
+
+    v = DV.pick(card, variant_id)
+    if v is None:
+        raise ValueError(f"unknown variant {variant_id}")
+    out = settings.generated_dir / requirement_id / "published"
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "index.html").write_text(
+        site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card)), encoding="utf-8")
+
+
 def render_design(requirement_id: str, platform: str, features: list[str], quote_amount: int, quote_basis: str,
                   card: Optional[dict] = None) -> dict:
     """generated/<id>/design/index.html을 만들고 contracts/design_to_link.schema.json 형식을 반환한다."""

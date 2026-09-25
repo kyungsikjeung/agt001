@@ -11,7 +11,7 @@ import unicodedata
 from typing import Optional
 
 from app import llm
-from app.services import intake
+from app.services import intake, numbers
 from app.services import prd_schema as S
 from app.services.stt import normalize_digits as _stt_normalize_digits
 
@@ -40,6 +40,7 @@ NEG_NORMS = ("안돼", "안되", "안됨", "안해", "안함", "못해", "못가
              "없어", "없다", "아니", "별로", "싫", "불가", "빼", "제외")
 # 잡담 판정 (B-4): 정규화 후 이 길이를 넘는데 추출·규칙에 안 걸리면 주제 이탈로 보고 예산을 쓰지 않는다.
 CHATTER_LEN = 5
+_KO_ONE = {"공": 0, "영": 0, "빵": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "륙": 6, "칠": 7, "팔": 8, "구": 9}
 # 리뷰어 에이전트(요약 직전 1회)가 보는 원문 범위
 SAID_MAX, SAID_CHARS = 40, 300
 # 같은 칸을 못 채운 채 이 횟수만큼 물으면 가정·자리 표시로 넘어간다 (INTAKE_GATE_DESIGN §5).
@@ -181,8 +182,14 @@ def grounded(slot: str, value: str, text: str) -> bool:
     norm_text = _norm_text(text)
     norm_value = _norm_text(value)
     d = _digits(norm_value)
+    if slot == "phone":
+        # "공일공에 0000에 6789"처럼 섞어 말한 번호: 전화 칸에서만 세 글자 이상 이어진 한 자리 수 읽기를 숫자로 바꾼다.
+        spoken = re.sub(r"[공영빵일이삼사오육륙칠팔구]{3,}",
+                        lambda m: "".join(str(_KO_ONE.get(c, "")) for c in m.group(0)), norm_text)
+        return bool(d) and d in _digits(spoken)
     if d:
-        return d in _digits(norm_text)
+        # 시간·가격·주소 번지: 숫자 값으로 비교한다("오후 세 시" ↔ "15:00", "3만5천원" ↔ "35,000원").
+        return numbers.grounded_numbers(norm_value, norm_text)
     # 숫자 없는 사실(예: 지역명)은 두 글자 이상 낱말 하나 이상이 메시지에 있어야 한다.
     words = [w for w in re.split(r"[\s,·/]+", norm_value) if len(w) >= 2]
     return bool(words) and any(w in norm_text for w in words)

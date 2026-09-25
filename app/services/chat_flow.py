@@ -60,6 +60,29 @@ def _rag_note(spec: str) -> str:
     return "말씀하신 내용과 업종 기본 구성에 맞춰 설계할게요."
 
 
+VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
+PUBLISH_WORDS = ("공개", "공개해줘", "공개해 주세요", "공개할게요", "그대로 공개")
+
+
+def _publish(session: dict, base_url: str, force: bool) -> str:
+    """고른 시안을 공개한다. [입력 필요] 자리가 남았으면 먼저 알리고 한 번 더 확인받는다(⑱ 사람 최종 확인)."""
+    card = session["prd"]
+    choice = card.get("design_choice")
+    if not choice:
+        return "먼저 1안·2안·3안 중 하나를 골라 주세요. 예: '2안으로 할게요'"
+    ind = prd_engine.industry_of(card)
+    missing = [prd_engine.S.label_for(ind, k) for k, v in card["slots"].items() if v.get("status") == prd_engine.S.PLACEHOLDER]
+    if missing and not force:
+        return ("공개 전에 확인해 주세요. 아직 비어 있는 곳이 있어요: " + ", ".join(missing) + "\n"
+                "사이트에는 [입력 필요]로 보여요. 그래도 먼저 열려면 '그대로 공개'라고 보내 주세요.")
+    design.publish_choice(session["requirement_id"], card, choice)
+    url = deploy.site_url(session["requirement_id"], base_url)
+    session["deploy_url"] = url
+    card["published"] = choice
+    return (f"사이트를 열었어요: {url}\n"
+            f"{choice[1]}안({VARIANT_NAMES[choice]}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
+
+
 _CHOICE = re.compile(r"(?<!\d)([1-3])\s*(?:안|번)")
 
 
@@ -75,13 +98,17 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     state = session["state"]
     engine_trace = None
 
-    choice = _design_choice(user_text) if session.get("design_url") and session.get("prd") else None
+    has_design = bool(session.get("design_url") and session.get("prd"))
+    choice = _design_choice(user_text) if has_design else None
+    publish_cmd = has_design and state in ("GENERATING", "DONE") and user_text.strip() in PUBLISH_WORDS
     if choice and state in ("GENERATING", "DONE"):
         # 시안 3안 고르기 (C7): 카드에 남긴다. 제작 상태는 그대로 둔다.
         session["prd"]["design_choice"] = choice
-        name = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}[choice]
+        name = VARIANT_NAMES[choice]
         reply = (f"{choice[1]}안({name})으로 정했어요. {session['design_url']}/{choice}/ 에서 크게 볼 수 있어요.\n"
-                 "바꾸고 싶으면 언제든 다른 번호를 보내 주세요.")
+                 "이대로 사이트를 열려면 '공개'라고 보내 주세요. 바꾸고 싶으면 다른 번호를 보내 주세요.")
+    elif publish_cmd:
+        reply = _publish(session, base_url, force=user_text.strip() == "그대로 공개")
     elif state == "GENERATING":
         cg = session.get("codegen")
         if cg is None:

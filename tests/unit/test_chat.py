@@ -159,3 +159,20 @@ def test_design_choice_recorded(client):
     c = _chat(client, "2안으로 할게요", s)
     assert "사진 강조형" in c["reply"]
     assert store.read_session(s)["prd"]["design_choice"] == "v2"
+
+
+def test_publish_chosen_design(client):
+    """고른 시안 공개(⑧·⑱): 고르기 전엔 안내, 빈 자리가 있으면 확인, '그대로 공개'면 /site/<id>/에 고른 안."""
+    s = _fresh_session(client)
+    _to_quoted(client, s)
+    _chat(client, "진행", s)
+    assert "골라 주세요" in _chat(client, "공개", s)["reply"]
+    _chat(client, "3안으로 할게요", s)
+    r = _chat(client, "공개", s)
+    assert "비어 있는 곳" in r["reply"]  # 시안 먼저로 건너뛴 카드라 가게 이름 등이 자리 표시
+    r = _chat(client, "그대로 공개", s)
+    sess = store.read_session(s)
+    assert "사이트를 열었어요" in r["reply"] and sess["deploy_url"].endswith(f"/site/{sess['requirement_id']}/")
+    page = client.get(f"/site/{sess['requirement_id']}/")
+    assert page.status_code == 200 and "allow-forms" in page.headers["content-security-policy"]
+    assert sess["prd"]["published"] == "v3"

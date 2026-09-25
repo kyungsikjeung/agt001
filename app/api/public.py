@@ -113,7 +113,10 @@ def site_root_redirect(requirement_id: str):
 @router.get("/site/{requirement_id}/")
 @router.get("/site/{requirement_id}/{filename:path}")
 def serve_site(requirement_id: str, filename: str = ""):
-    web_dir = _project_dir(requirement_id, "web")
+    # 사장님이 고른 시안을 공개했으면 그것을, 아니면 코드생성 결과를 연다.
+    web_dir = _project_dir(requirement_id, "published")
+    if not web_dir.is_dir():
+        web_dir = _project_dir(requirement_id, "web")
     if not web_dir.is_dir():
         raise HTTPException(status_code=404)
     root = web_dir.resolve()
