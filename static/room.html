@@ -445,6 +445,21 @@ async function sendRoomMessage(text) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ member_id: memberId, nickname, message: text }),
   });
+  // 꽉 찬 방(D8, 10명)·닫힌 방(T4)은 서버가 거절한다. 무엇 때문인지 입력창 아래에 알린다.
+  if (res.status === 403 || res.status === 423) {
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = res.status === 403
+      ? '방이 꽉 찼어요(최대 10명). 방장에게 문의해 주세요.'
+      : '방이 닫혔어요. 방장이 메시지를 보내면 다시 열려요.';
+    return null;
+  }
   await pollMessages();
   return res.ok ? res.json() : null;
 }

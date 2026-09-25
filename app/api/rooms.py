@@ -27,6 +27,10 @@ def room_chat(room_id: str, body: RoomMessageIn, request: Request):
         raise HTTPException(status_code=404, detail="room not found")
     except rooms.InvalidRequest as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except rooms.RoomFull:
+        raise HTTPException(status_code=403, detail="room full")  # D8: 10명
+    except rooms.RoomClosed:
+        raise HTTPException(status_code=423, detail="room closed")  # T4: 방장만 다시 열 수 있다
 
 
 @router.get("/room/{room_id}/messages")

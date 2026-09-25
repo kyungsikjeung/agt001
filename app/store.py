@@ -237,6 +237,7 @@ def room_tx(room_id: str) -> Iterator[tuple[Optional[dict], Optional[dict]]]:
         last_seq = tx.db.scalar(select(func.max(RoomMessageRow.seq)).where(RoomMessageRow.room_id == room_id))
         room["next_seq"] = 0 if last_seq is None else last_seq + 1
         room["new_messages"] = []
+        room["activity"] = _activity(tx.db, room_id)
         with session_tx(row.session_id) as session:
             yield room, session
         _save_room(tx.db, row, room)
@@ -261,6 +262,21 @@ def read_messages(room_id: str, since: int) -> list[dict]:
              "text": r.text, "ts": _iso(r.ts), "kind": r.kind}
             for r in rows
         ]
+
+
+def _activity(db: DbSession, room_id: str) -> tuple[Optional[datetime.datetime], Optional[str]]:
+    last_act = db.scalar(select(func.max(RoomMessageRow.ts))
+                         .where(RoomMessageRow.room_id == room_id, RoomMessageRow.kind.in_(("chat", "vote"))))
+    last_text = db.scalar(select(RoomMessageRow.text).where(RoomMessageRow.room_id == room_id)
+                          .order_by(RoomMessageRow.seq.desc()).limit(1))
+    return last_act, last_text
+
+
+def activity_info(room_id: str) -> tuple[Optional[datetime.datetime], Optional[str]]:
+    """(마지막 사람 활동 시각, 마지막 메시지 글). 활동은 사람이 보낸 메시지와 투표(ROOM_POLICY §4.2).
+    room_tx 안에서는 room["activity"]를 쓴다(잠금 중에 연결을 하나 더 잡으면 동시 요청에서 풀이 바닥난다)."""
+    with get_sessionmaker()() as db:
+        return _activity(db, room_id)
 
 
 def set_room_ai_status(room_id: str, status: str) -> None:

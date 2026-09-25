@@ -69,8 +69,10 @@ def test_recover_on_startup(client):
     assert store.read_room(room_id)["ai_status"] == "IDLE"
 
 
-def test_parallel_posts_get_gapless_unique_seq(client):
+def test_parallel_posts_get_gapless_unique_seq(client, monkeypatch):
     """같은 방에 20명이 동시에 입장(빈 메시지) → 입장 메시지 seq가 0..19로 빈틈·중복 없음."""
+    from app.config import settings
+    monkeypatch.setattr(settings, "room_max_members", 50)  # 인원 상한(D8)이 아니라 동시성을 본다
     room_id = rooms_svc.create_room()
 
     def join(i):

@@ -17,7 +17,7 @@
 | M-8 | OAuth 키 서버 등록 (scripts/set_oauth_secrets.sh 실행) | DECISIONS D10, DELIVERY 1-6 | 사용자 | 없음 | 30분 |
 | M-9 | 구글 동의 화면 마지막 단계 확인 | README, OAUTH_SETUP | 사용자 | 없음 | 30분 |
 | M-10 | 개인정보처리방침·약관 공개 (static 초안 게시) | USER_DB_PLAN §A-2, DECISIONS D14 | Claude | 사용자 확인 | 2시간 |
-| M-11 | T4 30일 무활동 닫기 동작 확인 (미구현이면 표기만) | ROOM_POLICY §4.2 | Claude | 없음 | 1시간, 확인 필요 |
+| M-11 | ✅ 구현 T1 투표 24시간·T2 견적 7일·T4 30일 닫기·D8 10명 (읽기·쓰기 때 판정, 경고 알림은 아직) | ROOM_POLICY §4.2 | Claude | 없음 | 1시간, 확인 필요 |
 | M-12 | 저장소 공개 전환 (마지막에) | 지시문 마감 항목 | 사용자 | 전부 | 10분 |
 
 ## 2. 마감 전 하면 좋음

@@ -6,8 +6,10 @@ import datetime
 import hashlib
 import html
 import uuid
+from typing import Optional
 
 from app import store
+from app.config import settings
 from app.security import sanitize_token
 from app.services import chat_flow
 
@@ -25,6 +27,68 @@ class RoomNotFound(Exception):
 
 class InvalidRequest(Exception):
     pass
+
+
+class RoomFull(Exception):
+    pass
+
+
+class RoomClosed(Exception):
+    pass
+
+
+# 타이머가 남기는 시스템 메시지 (ROOM_POLICY §4.2). 같은 글이 마지막이면 다시 남기지 않는다.
+MSG_VOTE_RESET = "투표가 24시간 동안 끝나지 않아 초기화됐습니다. 다시 '승인' 또는 '거절'을 보내 주세요"
+MSG_QUOTE_EXPIRED = "견적 유효기간(7일)이 지났습니다. 요구사항이 바뀌지 않았다면 '다시 견적'을 보내 주세요"
+MSG_CLOSED = "30일 동안 활동이 없어 방이 닫혔습니다. 방장이 메시지를 보내면 다시 열립니다"
+MSG_REOPENED = "방장이 방을 다시 열었습니다."
+
+
+def _utcnow() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _idle(room_id: str, room: dict) -> tuple[Optional[datetime.timedelta], Optional[str]]:
+    last_act, last_text = room.get("activity") or store.activity_info(room_id)
+    if last_act is None:
+        created = room.get("created_at")
+        last_act = datetime.datetime.fromisoformat(created) if isinstance(created, str) else created
+    return ((_utcnow() - last_act) if last_act else None), last_text
+
+
+def _due_timers(session: dict, idle: Optional[datetime.timedelta], last_text: Optional[str]) -> list[str]:
+    """지금 실행할 타이머 (T1·T2·T4/T5). 제작 중은 건드리지 않는다."""
+    if idle is None or session.get("state") == "GENERATING":
+        return []
+    due = []
+    if idle >= datetime.timedelta(days=settings.room_close_days) and last_text != MSG_CLOSED:
+        due.append("close")
+    elif session.get("state") == "AWAIT_APPROVAL" and idle >= datetime.timedelta(hours=settings.room_vote_reset_hours) \
+            and last_text != MSG_VOTE_RESET:
+        due.append("vote_reset")
+    elif session.get("state") == "QUOTED" and idle >= datetime.timedelta(days=settings.room_quote_expire_days) \
+            and last_text != MSG_QUOTE_EXPIRED:
+        due.append("quote_expire")
+    return due
+
+
+def _run_timers(room: dict, session: dict, due: list[str]) -> None:
+    for t in due:
+        if t == "vote_reset":
+            room["votes"] = {}
+            _append(room, "system", "시스템", MSG_VOTE_RESET, kind="system")
+        elif t == "quote_expire":
+            session["quote"] = None
+            session["state"] = "GATHERING"
+            _append(room, "system", "시스템", MSG_QUOTE_EXPIRED, kind="system")
+        elif t == "close":
+            _append(room, "system", "시스템", MSG_CLOSED, kind="system")
+
+
+def _is_closed(session: dict, idle: Optional[datetime.timedelta], last_text: Optional[str]) -> bool:
+    if session.get("state") == "GENERATING":
+        return False
+    return last_text == MSG_CLOSED or (idle is not None and idle >= datetime.timedelta(days=settings.room_close_days))
 
 
 def _now_iso() -> str:
@@ -97,7 +161,18 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
         fresh = room["next_seq"] == 0
         now = _now_iso()
         existing = next((m for m in room["members"] if m["member_id"] == member_id), None)
+        idle, last_text = _idle(safe_id, room)
+        if _is_closed(session, idle, last_text) and user_text:
+            # T4: 닫힌 방은 읽기 전용. 방장이 말하면 다시 연다(ROOM_POLICY §4.2).
+            is_owner_now = bool(room["members"]) and room["members"][0]["member_id"] == member_id
+            if not is_owner_now:
+                raise RoomClosed(room_id)
+            _append(room, "system", "시스템", MSG_REOPENED, kind="system")
+        elif user_text:
+            _run_timers(room, session, _due_timers(session, idle, last_text))
         if existing is None:
+            if len(room["members"]) >= settings.room_max_members:
+                raise RoomFull(room_id)  # D8
             room["members"].append({"member_id": member_id, "nickname": nickname, "joined_at": now, "last_seen": now})
             _append(room, "system", "시스템", f"{nickname}님이 입장했습니다.", kind="system")
         else:
@@ -151,6 +226,16 @@ def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) ->
     if room is None or not any(m["member_id"] == member_id for m in room["members"]):
         raise RoomNotFound(room_id)
     session = store.read_session(room["session_id"]) or {}
+    idle, last_text = _idle(safe_id, room)
+    if _due_timers(session, idle, last_text):
+        # 타이머가 된 방만 잠그고, 잠근 뒤 다시 판정한다(그 사이 누가 입력했을 수 있음).
+        with store.room_tx(safe_id) as (locked_room, locked_session):
+            if locked_session is not None:
+                idle2, last2 = _idle(safe_id, locked_room)
+                _run_timers(locked_room, locked_session, _due_timers(locked_session, idle2, last2))
+        room = store.read_room(safe_id)
+        session = store.read_session(room["session_id"]) or {}
+        idle, last_text = _idle(safe_id, room)
     if session.get("state") == "GENERATING" and session.get("codegen") is not None:
         with store.room_tx(safe_id) as (locked_room, locked_session):
             # 잠금을 기다리는 사이 다른 요청이 이미 전이시켰을 수 있으므로 다시 확인한다.
@@ -174,6 +259,7 @@ def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) ->
         "design_url": session.get("design_url"),
         "design_preview_url": session.get("design_preview_url"),
         "question": _pending_question(session),
+        "closed": _is_closed(session, idle, last_text),
     }
 
 

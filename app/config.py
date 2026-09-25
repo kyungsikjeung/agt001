@@ -61,6 +61,12 @@ class Settings(BaseSettings):
     google_client_secret: Optional[str] = None
     login_session_days: int = 30
 
+    # 채팅방 타이머·인원 (D7·D8, ROOM_POLICY §4.2). 점검 작업 대신 방을 읽거나 쓸 때 판정한다.
+    room_vote_reset_hours: float = 24
+    room_quote_expire_days: float = 7
+    room_close_days: float = 30
+    room_max_members: int = 10
+
     # 설정하면 배포 URL을 요청 호스트 대신 이 값으로 만든다 (예: https://example.com).
     public_base_url: Optional[str] = None
 
