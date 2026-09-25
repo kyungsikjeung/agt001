@@ -191,3 +191,15 @@ def test_join_reports_fresh_room_only_once(client):
     room_id = _create_room(client)
     assert _post(client, room_id, "m1", "철수", "").json()["fresh"] is True
     assert _post(client, room_id, "m2", "영희", "").json()["fresh"] is False
+
+
+def test_messages_include_pending_question_choices(client):
+    room_id = _create_room(client)
+    _post(client, room_id, "m1", "철수", "카페 예약 서비스 만들어줘")
+    q = _get(client, room_id)["question"]
+    assert q["kind"] == "single" and q["options"][-1] == "알아서 해주세요" and q["owner_only"] is False
+    # 버튼으로 답하면(선택지 그대로) 다음 질문으로 넘어간다
+    _post(client, room_id, "m1", "철수", q["options"][0])
+    assert _get(client, room_id)["question"] != q
+    _post(client, room_id, "m1", "철수", "나머지는 알아서, 시안 먼저 볼게요")
+    assert _get(client, room_id)["question"] is None

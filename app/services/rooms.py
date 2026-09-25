@@ -173,4 +173,14 @@ def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) ->
         "deploy_url": session.get("deploy_url"),
         "design_url": session.get("design_url"),
         "design_preview_url": session.get("design_preview_url"),
+        "question": _pending_question(session),
     }
+
+
+def _pending_question(session: dict):
+    """요구사항 엔진이 기다리는 질문의 선택지. 채팅방이 누르는 버튼으로 그린다 (휴대폰 타자 줄이기)."""
+    pending = (session.get("prd") or {}).get("pending")
+    if session.get("state") != "GATHERING" or not pending:
+        return None
+    return {"kind": pending["kind"], "options": pending["options"],
+            "owner_only": pending["kind"] == "owner_confirm"}
