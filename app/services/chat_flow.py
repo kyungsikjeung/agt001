@@ -107,8 +107,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             )
             session["state"] = "AWAIT_APPROVAL"
         else:
-            prefix = "알겠어요. " if result["applied"] else ""
-            reply = prefix + prd_engine.format_question(card, result["question"])
+            reply = prd_engine.ack_text(card, result["applied"]) + prd_engine.format_question(card, result["question"])
             session["state"] = "GATHERING"
         _set_room_status(room, "IDLE")
 

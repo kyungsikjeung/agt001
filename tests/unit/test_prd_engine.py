@@ -164,3 +164,16 @@ def test_malformed_ai_output_retries_then_continues(monkeypatch):
     r = E.turn(card, "카페예요")
     assert len(calls) == 2           # 한 번 재시도
     assert r["question"]["slot"] == "business_type"  # 대화는 멈추지 않는다
+
+
+def test_unknown_industry_skips_generic_hidden_items_and_keeps_features(fake_extract):
+    """실제 사례: '첼로 사이트, 문의가 제 카카오톡으로' → 엉뚱한 '주차·배송' 질문 대신 기능을 붙잡는다."""
+    msg = "첼로사이트를 만들고 싶어요. 사용자가 입력한 문의 내용이 저의 카카오톡 채팅방으로 전송되었으면 좋겠어요"
+    fake_extract[msg] = [u("business_type", "첼로"), u("features", "카카오톡으로 문의 받기")]
+    card = E.new_card()
+    r = E.turn(card, msg)
+    assert card["industry"] == "other"
+    assert r["question"]["kind"] != "multi"
+    assert card["slots"]["features"]["value"] == ["카카오톡으로 문의 받기"]
+    ack = E.ack_text(card, r["applied"])
+    assert "카카오톡으로 문의 받기" in ack and ack.startswith("이렇게 이해했어요")

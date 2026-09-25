@@ -252,8 +252,10 @@ def next_question(card: dict) -> Optional[dict]:
     # 2) 필수 칸 (업종별 순서)
     missing = [k for k in ind.required if not _satisfied(card, k)]
     done_count = len(ind.required) - len(missing)
-    # 3) 숨은 항목은 필수 칸이 절반 넘게 찼을 때 한 번 (D21)
-    if not card["hidden"]["asked"] and ind.hidden and (done_count >= 3 or not missing):
+    # 3) 숨은 항목은 필수 칸이 절반 넘게 찼을 때 한 번 (D21).
+    #    업종을 모르면(기타) 묻지 않는다 — 일반 목록("주차·배송")은 엉뚱한 질문이 된다.
+    if (ind.key != "other" and not card["hidden"]["asked"] and ind.hidden
+            and (done_count >= 3 or not missing)):
         labels = [label for _, label in ind.hidden]
         return {"slot": None, "kind": "multi", "options": labels + ["없음"],
                 "text": "해당되는 것을 모두 골라 주세요. 사이트에 안내해 드릴게요."}
@@ -327,8 +329,23 @@ def _display(ind, key, slot) -> str:
     return f"{text} (가정)" if slot["status"] == S.ASSUMED else text
 
 
-_SUMMARY_ORDER = ("business_type", "shop_name", "goal", "target", "offerings", "sections", "exclude",
+_SUMMARY_ORDER = ("business_type", "shop_name", "goal", "target", "offerings", "sections", "features", "exclude",
                   "contact_method", "phone", "hours", "location", "price", "detail")
+
+
+def ack_text(card: dict, applied: list[str]) -> str:
+    """이번 메시지에서 알아들은 것을 되짚는다. 사장님이 말한 요구가 버려지지 않았음을 보여준다."""
+    if not applied:
+        return ""
+    ind = industry_of(card)
+    parts = []
+    for key in dict.fromkeys(applied):
+        slot = card["slots"].get(key)
+        if not slot or slot.get("value") in (None, "", []):
+            continue
+        value = ", ".join(slot["value"]) if isinstance(slot["value"], list) else slot["value"]
+        parts.append(f"{S.label_for(ind, key)} '{value}'")
+    return ("이렇게 이해했어요: " + " · ".join(parts) + "\n\n") if parts else ""
 
 
 def summary_text(card: dict) -> str:
