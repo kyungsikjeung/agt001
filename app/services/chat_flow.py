@@ -8,7 +8,7 @@ import uuid
 from typing import Optional
 
 from app import store
-from app.services import codegen, deploy, design, funnel, quote, rag
+from app.services import codegen, deploy, design, funnel, prd_engine, quote, rag
 
 APPROVE_WORDS = ("승인", "네", "yes", "approve", "예")
 REJECT_WORDS = ("거절", "아니오", "no", "reject")
@@ -46,7 +46,17 @@ def _record_transition(session_id: str, before: str, after: str) -> None:
         funnel.record(event, session_id=session_id)
 
 
-def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None) -> str:
+def _rag_note(spec: str) -> str:
+    """유사 프로젝트 사전 확인 결과를 사람 말로. 내부 문서 이름은 보여주지 않는다 (해커톤 요구 4)."""
+    result = rag.precheck(spec)
+    log.info("유사 프로젝트 판정: %s", result)
+    if result.startswith("기존"):
+        return "비슷한 이전 프로젝트가 있어서 그 경험을 참고해 설계할게요."
+    return "비슷한 이전 프로젝트를 찾아봤는데 없어서, 이 가게에 맞게 새로 설계할게요."
+
+
+def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None,
+                 by: Optional[str] = None, is_owner: bool = True) -> str:
     state = session["state"]
 
     if state == "GENERATING":
@@ -82,16 +92,24 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         session["state"] = "GATHERING"
 
     elif state in ("GREETING", "GATHERING"):
-        _set_room_status(room, "RAG_SEARCHING", persist=True)
-        # 유사 프로젝트 판정은 내부 참고용이다. 결과(내부 문서 이름)를 사용자에게 보여주지 않는다.
-        log.info("유사 프로젝트 판정: %s", rag.precheck(user_text))
-        session["last_request"] = user_text
-        summary = user_text if len(user_text) <= 120 else user_text[:120] + "…"
-        reply = (
-            f"이렇게 이해했어요.\n“{summary}”\n\n"
-            "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
-        )
-        session["state"] = "AWAIT_APPROVAL"
+        # 요구사항 엔진 (REQUIREMENTS_ENGINE_PLAN.md): 빠진 정보를 선택지와 함께 하나씩 묻고, 다 모이면 요약한다.
+        _set_room_status(room, "THINKING", persist=True)
+        card = session.get("prd") or prd_engine.new_card()
+        result = prd_engine.turn(card, user_text, by=by, is_owner=is_owner)
+        session["prd"] = card
+        if result["done"]:
+            _set_room_status(room, "RAG_SEARCHING", persist=True)
+            spec = prd_engine.spec_text(card)
+            session["last_request"] = spec
+            reply = (
+                f"정리했어요.\n{prd_engine.summary_text(card)}\n\n{_rag_note(spec)}\n\n"
+                "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
+            )
+            session["state"] = "AWAIT_APPROVAL"
+        else:
+            prefix = "알겠어요. " if result["applied"] else ""
+            reply = prefix + prd_engine.format_question(card, result["question"])
+            session["state"] = "GATHERING"
         _set_room_status(room, "IDLE")
 
     elif state == "AWAIT_APPROVAL":
@@ -104,7 +122,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             _set_room_status(room, "IDLE")
         elif user_text in REJECT_WORDS:
             session["state"] = "GATHERING"
-            reply = "알겠습니다. 요구사항을 다시 말씀해 주세요."
+            reply = "알겠습니다. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요."
         else:
             reply = "승인 또는 거절로 답해주세요."
 
@@ -133,6 +151,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     else:  # DONE
         reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
         session["state"] = "GATHERING"
+        session["prd"] = None
 
     _record_transition(session_id, state, session["state"])
 

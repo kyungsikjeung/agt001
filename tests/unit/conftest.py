@@ -52,6 +52,11 @@ def default_chat(messages):
     return VALID_QUOTE_JSON
 
 
+def default_chat_json(system, user, **kwargs):
+    """요구사항 추출의 기본 가짜: 아무 칸도 뽑지 않는다(규칙만으로 흐름이 진행된다)."""
+    return '{"updates": []}'
+
+
 def raise_screenshot(*args, **kwargs):
     raise RuntimeError("fake screenshot disabled")
 
@@ -96,6 +101,7 @@ def client(tmp_path, monkeypatch):
     store.reset_all()
     rag.reset_cache()
     monkeypatch.setattr(llm, "chat", default_chat)
+    monkeypatch.setattr(llm, "chat_json", default_chat_json)
     monkeypatch.setattr(llm, "embed", default_embed)
     monkeypatch.setattr(design_svc, "screenshot_html", raise_screenshot)
     monkeypatch.setattr(codegen_svc, "start", fake_codegen_done)

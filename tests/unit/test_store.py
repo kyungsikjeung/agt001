@@ -91,3 +91,12 @@ def test_ai_status_side_write_visible_during_room_tx(client):
         assert store.read_room(room_id)["ai_status"] == "RAG_SEARCHING"
         room["ai_status"] = "IDLE"
     assert store.read_room(room_id)["ai_status"] == "IDLE"
+
+
+def test_in_place_json_mutation_is_saved(client):
+    """읽은 JSONB dict를 제자리에서 고쳐도 저장돼야 한다 (요구사항 카드가 사라지던 버그)."""
+    with store.session_tx("sj", default=lambda: {**_new("rj"), "prd": {"slots": {}}}):
+        pass
+    with store.session_tx("sj") as s:
+        s["prd"]["slots"]["shop_name"] = {"value": "바다정원", "status": "filled"}
+    assert store.read_session("sj")["prd"]["slots"]["shop_name"]["value"] == "바다정원"

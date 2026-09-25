@@ -127,7 +127,11 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
                 _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
                 room["votes"] = {}
         else:
-            reply = chat_flow.process_turn(room["session_id"], session, user_text, base_url, room=room)
+            # 공유방의 사실 정보(전화·주소·가격·영업시간)는 방장 확인을 거친다 (DECISIONS.md D24).
+            # 역할 기능(R-2) 전까지는 가장 먼저 들어온 사람이 방장이다.
+            is_owner = bool(room["members"]) and room["members"][0]["member_id"] == member_id
+            reply = chat_flow.process_turn(room["session_id"], session, user_text, base_url, room=room,
+                                           by=member_handle(safe_id, member_id), is_owner=is_owner)
             _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
 
         return {"ai_status": room["ai_status"], "fresh": fresh}

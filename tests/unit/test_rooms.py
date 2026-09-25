@@ -26,6 +26,8 @@ def _get(client, room_id, since=None, member_id="m1"):
 def _drive_to_await_approval(client, room_id):
     r = _post(client, room_id, "m1", "철수", "카페 예약 서비스 만들어줘")
     assert r.status_code == 200
+    # 요구사항 엔진이 질문하므로 건너뛰기 문구로 승인 단계까지 간다 (D20).
+    _post(client, room_id, "m1", "철수", "나머지는 알아서, 시안 먼저 볼게요")
     data = _get(client, room_id)
     assert data["state"] == "AWAIT_APPROVAL"
     return data

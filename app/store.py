@@ -22,6 +22,7 @@ from typing import Callable, Iterator, Optional
 from sqlalchemy import delete, func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session as DbSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.db.models import RoomMemberRow, RoomMessageRow, RoomRow, RoomVoteRow, SessionRow
 from app.db.session import get_sessionmaker
@@ -31,9 +32,12 @@ log = logging.getLogger(__name__)
 _LOCK_NS_ROOM = 1
 _LOCK_NS_SESSION = 2
 
+# JSONB 열. 읽은 dict를 제자리에서 고치면 ORM이 변경을 모르므로 저장할 때 항상 변경으로 표시한다.
+_JSON_FIELDS = ("quote", "codegen", "prd")
+
 # dict 키 ↔ sessions 열. 이 밖의 키가 dict에 생기면 조용히 버리지 않고 에러를 낸다.
 _SESSION_FIELDS = (
-    "state", "requirement_id", "last_request", "quote", "codegen",
+    "state", "requirement_id", "last_request", "quote", "codegen", "prd",
     "design_url", "design_preview_url", "design_url_unsent", "deploy_url",
 )
 
@@ -118,6 +122,8 @@ def _apply_session(row: SessionRow, data: dict) -> None:
             continue
         value = data.get(field)
         setattr(row, field, bool(value) if field == "design_url_unsent" else value)
+        if field in _JSON_FIELDS:
+            flag_modified(row, field)
     row.updated_at = func.now()
 
 

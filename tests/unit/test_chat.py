@@ -20,9 +20,21 @@ def _fresh_session(client):
     return d["session_id"]
 
 
-def _to_quoted(client, s, request="카페 예약 서비스 만들어줘"):
-    d1 = _chat(client, request, s)
+SKIP = "나머지는 알아서, 시안 먼저 볼게요"
+
+
+def _to_approval(client, s, request="카페 예약 서비스 만들어줘"):
+    """요구사항 엔진은 질문부터 한다. 건너뛰기 문구로 나머지를 가정으로 채우고 승인 단계로 간다(D20)."""
+    d0 = _chat(client, request, s)
+    assert d0["state"] == "GATHERING"
+    assert "질문 1/8" in d0["reply"]
+    d1 = _chat(client, SKIP, s)
     assert d1["state"] == "AWAIT_APPROVAL"
+    return d1
+
+
+def _to_quoted(client, s, request="카페 예약 서비스 만들어줘"):
+    _to_approval(client, s, request)
     d2 = _chat(client, "승인", s)
     assert d2["state"] == "QUOTED"
     return d2
@@ -36,9 +48,8 @@ def test_empty_message_greeting(client):
 
 def test_full_flow_to_done(client):
     s = _fresh_session(client)
-    # 요청 → AWAIT_APPROVAL
-    d1 = _chat(client, "카페 예약 서비스 만들어줘", s)
-    assert d1["state"] == "AWAIT_APPROVAL"
+    # 요청 → 질문 → 건너뛰기 → AWAIT_APPROVAL
+    d1 = _to_approval(client, s)
     assert "승인/거절" in d1["reply"]
 
     # 모호한 답 → 재질문 유지

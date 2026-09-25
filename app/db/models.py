@@ -27,6 +27,8 @@ class SessionRow(Base):
     last_request: Mapped[Optional[str]] = mapped_column(Text)
     quote: Mapped[Optional[dict]] = mapped_column(JSONB)
     codegen: Mapped[Optional[dict]] = mapped_column(JSONB)
+    # 요구사항 카드 (app/services/prd_engine.py). 확정본 판 관리는 prd_versions(P-1g)에서.
+    prd: Mapped[Optional[dict]] = mapped_column(JSONB)
     design_url: Mapped[Optional[str]] = mapped_column(Text)
     design_preview_url: Mapped[Optional[str]] = mapped_column(Text)
     design_url_unsent: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")

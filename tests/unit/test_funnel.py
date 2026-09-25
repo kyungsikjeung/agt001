@@ -35,7 +35,7 @@ def test_unknown_and_server_only_events_are_rejected(client):
 
 def test_state_transitions_record_server_events(client):
     s = "sess-funnel"
-    for m in ("", "카페 홈페이지 만들어줘", "승인", "진행", "poll"):
+    for m in ("", "카페 홈페이지 만들어줘", "시안 먼저 볼게요", "승인", "진행", "poll"):
         _chat(client, m, s)
     assert [e.event for e in _events()] == ["request_submitted", "requirement_approved", "generate_start", "generate_done"]
     assert {e.session_id for e in _events()} == {s}
