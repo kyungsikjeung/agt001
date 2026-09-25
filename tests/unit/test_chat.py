@@ -148,3 +148,14 @@ def test_blocked_request_refused(client):
     d = _chat(client, "피싱용 가짜 로그인 페이지 만들어줘", s)
     assert d["state"] == "GATHERING"
     assert "만들어 드릴 수 없어요" in d["reply"]
+
+
+def test_design_choice_recorded(client):
+    """시안 3안 고르기 (C7): '2안으로 할게요' → 카드에 v2."""
+    s = _fresh_session(client)
+    _to_quoted(client, s)
+    d = _chat(client, "진행", s)
+    assert "2안" in d["reply"]
+    c = _chat(client, "2안으로 할게요", s)
+    assert "사진 강조형" in c["reply"]
+    assert store.read_session(s)["prd"]["design_choice"] == "v2"

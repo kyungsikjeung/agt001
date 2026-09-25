@@ -75,6 +75,28 @@ def design_page(requirement_id: str):
     return HTMLResponse(path.read_text(encoding="utf-8"), headers=_DESIGN_HEADERS)
 
 
+@router.get("/design/{requirement_id}/{variant}/", response_class=HTMLResponse)
+def design_variant_page(requirement_id: str, variant: str):
+    # 시안 3안 각각 (C7). 보기 전용 CSP는 고르기 페이지와 같다.
+    if variant not in ("v1", "v2", "v3"):
+        raise HTTPException(status_code=404)
+    path = _project_dir(requirement_id, "design") / variant / "index.html"
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return HTMLResponse(path.read_text(encoding="utf-8"), headers=_DESIGN_HEADERS)
+
+
+@router.get("/design/{requirement_id}/{variant}.png")
+def design_variant_preview(requirement_id: str, variant: str):
+    # /preview.png(카카오 미리보기, 1안)도 이 경로 모양에 걸리므로 함께 받는다.
+    if variant not in ("v1", "v2", "v3", "preview"):
+        raise HTTPException(status_code=404)
+    path = _project_dir(requirement_id, "design") / f"{variant}.png"
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(path, media_type="image/png", headers={"X-Content-Type-Options": "nosniff"})
+
+
 @router.get("/design/{requirement_id}/preview.png")
 def design_preview(requirement_id: str):
     path = _project_dir(requirement_id, "design") / "preview.png"

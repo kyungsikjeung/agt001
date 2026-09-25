@@ -4,6 +4,7 @@
 room을 넘기면 주요 전이마다 room["ai_status"]를 갱신해 다른 참여자가 AI 진행 상황을 보게 한다.
 """
 import logging
+import re
 import uuid
 from typing import Optional
 
@@ -55,12 +56,29 @@ def _rag_note(spec: str) -> str:
     return "비슷한 이전 프로젝트를 찾아봤는데 없어서, 이 가게에 맞게 새로 설계할게요."
 
 
+_CHOICE = re.compile(r"(?<!\d)([1-3])\s*(?:안|번)")
+
+
+def _design_choice(text: str) -> Optional[str]:
+    """ "2안으로 할게요", "3번" → v2, v3. 짧은 메시지에서만 본다(긴 문장 속 숫자를 오인하지 않게)."""
+    t = (text or "").strip()
+    m = _CHOICE.search(t) if len(t) <= 20 else None
+    return f"v{m.group(1)}" if m else None
+
+
 def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None,
                  by: Optional[str] = None, is_owner: bool = True) -> str:
     state = session["state"]
     engine_trace = None
 
-    if state == "GENERATING":
+    choice = _design_choice(user_text) if session.get("design_url") and session.get("prd") else None
+    if choice and state in ("GENERATING", "DONE"):
+        # 시안 3안 고르기 (C7): 카드에 남긴다. 제작 상태는 그대로 둔다.
+        session["prd"]["design_choice"] = choice
+        name = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}[choice]
+        reply = (f"{choice[1]}안({name})으로 정했어요. {session['design_url']}/{choice}/ 에서 크게 볼 수 있어요.\n"
+                 "바꾸고 싶으면 언제든 다른 번호를 보내 주세요.")
+    elif state == "GENERATING":
         cg = session.get("codegen")
         if cg is None:
             reply = "코드 생성 중입니다... 잠시만 기다려주세요."
@@ -164,7 +182,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         if user_text in PROCEED_WORDS:
             # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
             amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
-            d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis)
+            d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
+                                     card=session.get("prd"))
             session["design_url"] = d["design_url"]
             session["design_preview_url"] = d["preview_url"]
             session["design_url_unsent"] = True
@@ -174,7 +193,9 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             _set_room_status(room, "GENERATING")
             codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
             reply = (
-                f"진행합니다! UI 시안이 준비됐어요: {d['design_url']}\n\n"
+                f"진행합니다! UI 시안이 준비됐어요: {d['design_url']}\n"
+                + ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n"
+                   if len(d.get("design_variants", [])) >= 3 else "\n") +
                 "팀C 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. "
                 "완료까지 최대 90초 정도 걸릴 수 있어요 — 잠시 후 아무 메시지나 보내시면 진행상황을 알려드립니다."
             )
