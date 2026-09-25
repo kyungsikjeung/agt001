@@ -78,3 +78,22 @@ def test_static_root_and_room(client):
     assert client.get("/").status_code == 200
     r = client.get("/room.html")
     assert r.status_code == 200
+
+
+def test_generated_pages_are_sandboxed(client):
+    """AI가 만든 페이지는 앱 출처로 취급되면 안 된다 (채팅방 본인 확인 값 탈취 방지)."""
+    web = settings.generated_dir / "sbx" / "web"
+    web.mkdir(parents=True)
+    (web / "index.html").write_text("<script>localStorage.getItem('agt001_member_id')</script>", encoding="utf-8")
+    r = client.get("/site/sbx/")
+    csp = r.headers["content-security-policy"]
+    assert csp.startswith("sandbox") and "allow-same-origin" not in csp
+    assert r.headers["x-content-type-options"] == "nosniff"
+
+    design = settings.generated_dir / "sbx" / "design"
+    design.mkdir(parents=True)
+    (design / "index.html").write_text("<h1>시안</h1>", encoding="utf-8")
+    d = client.get("/design/sbx")
+    assert d.headers["content-security-policy"].startswith("sandbox")
+    assert "allow-scripts" not in d.headers["content-security-policy"]
+    assert d.headers["x-robots-tag"] == "noindex"
