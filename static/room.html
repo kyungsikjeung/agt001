@@ -243,7 +243,7 @@ async function pollMessages() {
   if (!roomId || pollInFlight) return;
   pollInFlight = true;
   try {
-    const res = await fetch(`/room/${roomId}/messages?since=${lastSeq}`);
+    const res = await fetch(`/room/${roomId}/messages?since=${lastSeq}`, { headers: { 'X-Member-Id': memberId } });
     if (!res.ok) return;
     const data = await res.json();
     for (const m of data.messages) addMessage(m);
@@ -257,12 +257,13 @@ async function pollMessages() {
 }
 
 async function sendRoomMessage(text) {
-  await fetch(`/room/${roomId}/chat`, {
+  const res = await fetch(`/room/${roomId}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ member_id: memberId, nickname, message: text }),
   });
   await pollMessages();
+  return res.ok ? res.json() : null;
 }
 
 function send() {
@@ -319,22 +320,11 @@ async function startRoom() {
     memberId = makeMemberId();
     safeSet('agt001_member_id', memberId);
   }
-  // 온보딩 안내: 서버에 남기지 않는 프론트 1회성 표시.
-  // 입장 ping(sendRoomMessage(''))을 보내기 "전"에 기존 로그를 먼저 조회해서
-  // 정말 새 방(messages 비어 있음)일 때만 보여준다. 이미 대화가 있는 방에
-  // 나중에 들어온 사람에게는 보여주지 않아 로그가 어지럽혀지지 않는다.
-  // (입장 ping 자체가 "○○님이 입장했습니다" system 메시지를 서버에 추가하므로,
-  //  ping 이후에 조회하면 자기 입장 메시지 때문에 새 방 판별이 불가능하다.)
-  let isFreshRoom = false;
-  try {
-    const pre = await fetch(`/room/${roomId}/messages?since=0`);
-    if (pre.ok) {
-      const preData = await pre.json();
-      isFreshRoom = preData.messages.length === 0;
-    }
-  } catch (e) { /* 조회 실패 시 온보딩 생략하고 정상 진행 */ }
-  await sendRoomMessage('');
-  if (isFreshRoom) showOnboarding();
+  // 온보딩 안내: 서버에 남기지 않는 프론트 1회성 표시. 정말 새 방일 때만 보여준다.
+  // 참여자가 아니면 기록을 조회할 수 없으므로(ROOM_POLICY.md R-0), 새 방인지는
+  // 입장 응답의 fresh(입장 전 메시지가 하나도 없었는지)로 판단한다.
+  const joined = await sendRoomMessage('');
+  if (joined && joined.fresh) showOnboarding();
   pollTimer = setInterval(pollMessages, 4000);
 }
 

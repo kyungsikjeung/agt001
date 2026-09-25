@@ -76,7 +76,7 @@
 
 | WP | 내용 | 레인/담당 | 소유 파일 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| R-0 | 보안: 비밀 토큰·공개 식별자 분리, 조회·전송 참여자 확인 | 구현 / Claude | `app/services/rooms.py`, `app/api/rooms.py`, `app/store.py` | 0-2b | 🟢 |
+| R-0 | 보안: 비밀 토큰·공개 식별자 분리, 조회·전송 참여자 확인 | 구현 / Claude | `app/services/rooms.py`, `app/api/rooms.py`, `app/store.py` | 0-2b | ✅ 대신 투표 차단, 비참여자 조회 차단 (방 ID로 입장하는 경로는 R-2에서 차단) |
 | R-1 | Alembic 0002 스키마 | 구현 / Claude | `app/db/**`, `alembic/**` | R-0 | 🟢 |
 | R-2 | 초대 링크 API·입장 흐름·역할 | 구현 / Claude + OpenCode(화면) | `app/api/invites.py`, `static/room.html` | R-1 | 🟢 |
 | R-3 | 기록 페이지네이션·읽음·안 읽은 수 | 구현 / Claude + OpenCode(화면) | `app/api/rooms.py`, `static/room.html` | R-1 | 🟢 |

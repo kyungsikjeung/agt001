@@ -14,11 +14,11 @@ def _post(client, room_id, member_id, nickname, message):
     return client.post(f"/room/{room_id}/chat", json={"member_id": member_id, "nickname": nickname, "message": message})
 
 
-def _get(client, room_id, since=None):
+def _get(client, room_id, since=None, member_id="m1"):
     url = f"/room/{room_id}/messages"
     if since is not None:
         url += f"?since={since}"
-    r = client.get(url)
+    r = client.get(url, headers={"X-Member-Id": member_id})
     assert r.status_code == 200
     return r.json()
 
@@ -69,7 +69,7 @@ def test_room_missing_member_id_400(client):
 
 def test_room_not_found_404(client):
     assert client.post("/room/nope123/chat", json={"member_id": "m", "message": "hi"}).status_code == 404
-    assert client.get("/room/nope123/messages").status_code == 404
+    assert client.get("/room/nope123/messages", headers={"X-Member-Id": "m1"}).status_code == 404
 
 
 def test_room_nickname_html_escaped(client):
@@ -160,3 +160,32 @@ def test_room_messages_negative_since_is_clamped_to_zero(client):
     _post(client, room_id, "m1", "철수", "hello")
     everything = _get(client, room_id, since=0)["messages"]
     assert _get(client, room_id, since=-1)["messages"] == everything
+
+
+# ── R-0: 본인 확인 값 비노출, 참여자만 조회 (ROOM_POLICY.md §1) ──
+
+def test_member_ids_are_never_exposed(client):
+    room_id = _create_room(client)
+    _drive_to_await_approval(client, room_id)
+    _post(client, room_id, "secret-m2", "영희", "")
+    _post(client, room_id, "secret-m2", "영희", "승인")
+    body = client.get(f"/room/{room_id}/messages", headers={"X-Member-Id": "m1"}).text
+    assert "secret-m2" not in body
+    data = _get(client, room_id)
+    assert all("member_id" not in m for m in data["messages"])
+    assert all("member_id" not in m for m in data["members"])
+    handles = {m["member_handle"] for m in data["members"]}
+    assert set(data["votes"]) <= handles and len(data["votes"]) == 1
+
+
+def test_non_member_cannot_read_messages(client):
+    room_id = _create_room(client)
+    _drive_to_await_approval(client, room_id)
+    assert client.get(f"/room/{room_id}/messages").status_code == 404
+    assert client.get(f"/room/{room_id}/messages", headers={"X-Member-Id": "stranger"}).status_code == 404
+
+
+def test_join_reports_fresh_room_only_once(client):
+    room_id = _create_room(client)
+    assert _post(client, room_id, "m1", "철수", "").json()["fresh"] is True
+    assert _post(client, room_id, "m2", "영희", "").json()["fresh"] is False

@@ -3,6 +3,7 @@
 방은 session_id로 기존 세션을 가리키기만 한다. 상태머신은 chat_flow를 그대로 재사용한다.
 """
 import datetime
+import hashlib
 import html
 import uuid
 
@@ -14,6 +15,8 @@ MAX_MESSAGE_LEN = 2000
 MAX_NICKNAME_LEN = 40
 VOTE_WORDS = ("승인", "거절", "네", "아니오", "yes", "no")
 VOTE_APPROVE_WORDS = ("승인", "네", "yes")
+# 서버가 쓰는 발신자 ID. 사람의 member_id와 달리 비밀이 아니므로 그대로 내보낸다.
+_SERVER_SENDERS = ("system", "ai")
 
 
 class RoomNotFound(Exception):
@@ -38,6 +41,23 @@ def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "c
         "kind": kind,
     })
     room["next_seq"] += 1
+
+
+def member_handle(room_id: str, member_id: str) -> str:
+    """응답에 내보내는 공개 식별자 (ROOM_POLICY.md §1 R-0).
+
+    member_id는 본인 확인용 비밀값(브라우저에만 저장)이라 응답에 담으면 같은 방 참여자가 남의
+    이름으로 투표할 수 있다. 무작위 UUID의 해시라 공개 식별자에서 원래 값을 알아낼 수 없다.
+    """
+    if member_id in _SERVER_SENDERS:
+        return member_id
+    return hashlib.sha256(f"{room_id}:{member_id}".encode()).hexdigest()[:12]
+
+
+def _public_message(room_id: str, msg: dict) -> dict:
+    out = {k: v for k, v in msg.items() if k != "member_id"}
+    out["member_handle"] = member_handle(room_id, msg["member_id"])
+    return out
 
 
 def _room_id(room_id: str) -> str:
@@ -73,6 +93,8 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
         if not member_id:
             raise InvalidRequest("member_id required")
 
+        # 입장 전에 기록을 볼 수 없으므로, 첫 화면 안내를 띄울지는 입장 응답으로 알려준다.
+        fresh = room["next_seq"] == 0
         now = _now_iso()
         existing = next((m for m in room["members"] if m["member_id"] == member_id), None)
         if existing is None:
@@ -83,7 +105,7 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
             existing["nickname"] = nickname
 
         if not user_text:
-            return {"ai_status": room["ai_status"]}
+            return {"ai_status": room["ai_status"], "fresh": fresh}
 
         _append(room, member_id, nickname, user_text, kind="chat")
 
@@ -108,10 +130,10 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
             reply = chat_flow.process_turn(room["session_id"], session, user_text, base_url, room=room)
             _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
 
-        return {"ai_status": room["ai_status"]}
+        return {"ai_status": room["ai_status"], "fresh": fresh}
 
 
-def get_messages(room_id: str, since: int, base_url: str) -> dict:
+def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) -> dict:
     """참여자들이 4초마다 부르는 조회. 조회가 GET이라 GENERATING 완료를 확인할 트리거가
     따로 없으므로 여기서 상태머신을 한 번 돌려 완료 전이를 일으킨다.
 
@@ -120,7 +142,9 @@ def get_messages(room_id: str, since: int, base_url: str) -> dict:
     """
     safe_id = _room_id(room_id)
     room = store.read_room(safe_id)
-    if room is None:
+    member_id = sanitize_token(member_id_raw or "")
+    # 참여자가 아니면 방이 있는지도 알려주지 않는다 (404).
+    if room is None or not any(m["member_id"] == member_id for m in room["members"]):
         raise RoomNotFound(room_id)
     session = store.read_session(room["session_id"]) or {}
     if session.get("state") == "GENERATING" and session.get("codegen") is not None:
@@ -133,10 +157,14 @@ def get_messages(room_id: str, since: int, base_url: str) -> dict:
         room = store.read_room(safe_id)
         session = store.read_session(room["session_id"]) or {}
     return {
-        "messages": store.read_messages(safe_id, since),
+        "messages": [_public_message(safe_id, m) for m in store.read_messages(safe_id, since)],
         "ai_status": room["ai_status"],
-        "members": room["members"],
-        "votes": room["votes"],
+        "members": [
+            {"member_handle": member_handle(safe_id, m["member_id"]), "nickname": m["nickname"],
+             "joined_at": m["joined_at"], "last_seen": m["last_seen"]}
+            for m in room["members"]
+        ],
+        "votes": {member_handle(safe_id, k): v for k, v in room["votes"].items()},
         "state": session.get("state"),
         "deploy_url": session.get("deploy_url"),
         "design_url": session.get("design_url"),
