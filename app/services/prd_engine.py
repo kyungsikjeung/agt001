@@ -40,6 +40,17 @@ NEG_NORMS = ("안돼", "안되", "안됨", "안해", "안함", "못해", "못가
              "없어", "없다", "아니", "별로", "싫", "불가", "빼", "제외")
 # 잡담 판정 (B-4): 정규화 후 이 길이를 넘는데 추출·규칙에 안 걸리면 주제 이탈로 보고 예산을 쓰지 않는다.
 CHATTER_LEN = 5
+def _spoken_phone(text: str) -> str:
+    """"공일공에 0000에 6789번" → "010-0000-6789": 세 글자 이상 이어진 한 자리 수 읽기를 숫자로 바꾸고,
+    숫자 덩어리만 남았으면 하이픈으로 잇는다(전화 칸에서만 쓴다)."""
+    t = re.sub(r"[공영빵일이삼사오육륙칠팔구]{3,}", lambda m: "".join(str(_KO_ONE.get(c, "")) for c in m.group(0)), text or "")
+    groups = re.findall(r"\d+", t)
+    joined = "".join(groups)
+    if 9 <= len(joined) <= 11 and re.fullmatch(r"[\d\s\-에번은이요.,]*", t.replace("번호", "")):
+        return "-".join(groups) if len(groups) > 1 else joined
+    return t
+
+
 _KO_ONE = {"공": 0, "영": 0, "빵": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "륙": 6, "칠": 7, "팔": 8, "구": 9}
 # 리뷰어 에이전트(요약 직전 1회)가 보는 원문 범위
 SAID_MAX, SAID_CHARS = 40, 300
@@ -59,6 +70,9 @@ def _norm_text(s: str) -> str:
 
 
 YES_NORMS = frozenset(_norm(w) for w in YES_WORDS)
+# 추출기가 칸 값으로 돌려주면 버릴 진행 말
+_CONTROL_NORMS = frozenset([_norm(S.LET_AI), "알아서", "알아서해줘", "알아서해주세요", "나중에", "나중에넣을게요",
+                            "나중에넣을게", "모르겠어요", "없음", "없어요"] + [_norm(p) for p in SKIP_PHRASES])
 NO_NORMS = frozenset(_norm(w) for w in NO_WORDS)
 NONE_NORMS = frozenset(_norm(w) for w in NONE_WORDS)
 SKIP_NORMS = frozenset([_norm(p) for p in SKIP_PHRASES] + list(SKIP_KEYWORDS))
@@ -142,7 +156,8 @@ def _parse_updates(raw: str) -> Optional[list[dict]]:
     for u in ups:
         if isinstance(u, dict) and u.get("slot") in S.SLOTS and isinstance(u.get("value"), str):
             value = u["value"].strip()[:200]
-            if value:
+            # "알아서 해주세요"·"나중에 넣을게요" 같은 진행 말은 칸 값이 아니다(T2 2차: 5건을 값으로 넣음).
+            if value and _norm(value) not in _CONTROL_NORMS:
                 out.append({"slot": u["slot"], "value": value})
     return out
 
@@ -183,10 +198,8 @@ def grounded(slot: str, value: str, text: str) -> bool:
     norm_value = _norm_text(value)
     d = _digits(norm_value)
     if slot == "phone":
-        # "공일공에 0000에 6789"처럼 섞어 말한 번호: 전화 칸에서만 세 글자 이상 이어진 한 자리 수 읽기를 숫자로 바꾼다.
-        spoken = re.sub(r"[공영빵일이삼사오육륙칠팔구]{3,}",
-                        lambda m: "".join(str(_KO_ONE.get(c, "")) for c in m.group(0)), norm_text)
-        return bool(d) and d in _digits(spoken)
+        d = _digits(_spoken_phone(norm_value))
+        return bool(d) and d in _digits(_spoken_phone(norm_text))
     if d:
         # 시간·가격·주소 번지: 숫자 값으로 비교한다("오후 세 시" ↔ "15:00", "3만5천원" ↔ "35,000원").
         return numbers.grounded_numbers(norm_value, norm_text)
@@ -305,6 +318,8 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             continue
         if spec.fact and isinstance(value, str):
             value = _norm_text(value)  # B-5: 사실은 정규화된 값으로 저장한다
+            if key == "phone":
+                value = _spoken_phone(value)
         if spec.multi:
             cur = _slot(card, key)
             items = list(cur["value"]) if cur["status"] == S.FILLED and cur.get("value") else []
