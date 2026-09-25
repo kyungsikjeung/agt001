@@ -79,3 +79,24 @@ class RoomVoteRow(Base):
     room_id: Mapped[str] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), primary_key=True)
     member_id: Mapped[str] = mapped_column(Text, primary_key=True)
     vote: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class FunnelEventRow(Base):
+    """유입·전환 단계 이벤트 (DECISIONS.md D16). 개인정보 없음, 90일 보관."""
+
+    __tablename__ = "funnel_events"
+    __table_args__ = (
+        Index("ix_funnel_events_event_ts", "event", "ts"),
+        Index("ix_funnel_events_visitor", "visitor_id"),
+        Index("ix_funnel_events_ts", "ts"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime.datetime] = _now_col()
+    event: Mapped[str] = mapped_column(Text, nullable=False)
+    # 브라우저가 만든 무작위 ID. 사람을 식별하지 않고 한 방문자의 단계만 잇는다.
+    visitor_id: Mapped[Optional[str]] = mapped_column(Text)
+    session_id: Mapped[Optional[str]] = mapped_column(Text)
+    source: Mapped[Optional[str]] = mapped_column(Text)
+    campaign: Mapped[Optional[str]] = mapped_column(Text)
+    template_id: Mapped[Optional[str]] = mapped_column(Text)

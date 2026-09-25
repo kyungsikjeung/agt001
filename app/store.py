@@ -281,4 +281,4 @@ def recover_on_startup() -> None:
 def reset_all() -> None:
     """테스트 전용: 모든 행을 지운다."""
     with get_sessionmaker()() as db, db.begin():
-        db.execute(text("TRUNCATE room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))
+        db.execute(text("TRUNCATE funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))

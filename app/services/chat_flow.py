@@ -7,7 +7,7 @@ import uuid
 from typing import Optional
 
 from app import store
-from app.services import codegen, deploy, design, quote, rag
+from app.services import codegen, deploy, design, funnel, quote, rag
 
 APPROVE_WORDS = ("승인", "네", "yes", "approve", "예")
 REJECT_WORDS = ("거절", "아니오", "no", "reject")
@@ -25,6 +25,22 @@ def _set_room_status(room: Optional[dict], status: str, persist: bool = False) -
     if persist:
         # 긴 NIM 호출 전에 바로 커밋해 두어야 폴링하는 다른 참여자가 진행 상태를 볼 수 있다.
         store.set_room_ai_status(room["room_id"], status)
+
+
+# 상태 전이 → 유입 단계 이벤트 (DECISIONS.md D16). 같은 트랜잭션에 기록되므로 전이가 롤백되면 함께 사라진다.
+_TRANSITION_EVENTS = {
+    ("GATHERING", "AWAIT_APPROVAL"): "request_submitted",
+    ("GREETING", "AWAIT_APPROVAL"): "request_submitted",
+    ("AWAIT_APPROVAL", "QUOTED"): "requirement_approved",
+    ("QUOTED", "GENERATING"): "generate_start",
+    ("GENERATING", "DONE"): "generate_done",
+}
+
+
+def _record_transition(session_id: str, before: str, after: str) -> None:
+    event = _TRANSITION_EVENTS.get((before, after))
+    if event:
+        funnel.record(event, session_id=session_id)
 
 
 def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None) -> str:
@@ -112,6 +128,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     else:  # DONE
         reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
         session["state"] = "GATHERING"
+
+    _record_transition(session_id, state, session["state"])
 
     if room is not None:
         if session["state"] == "DONE":

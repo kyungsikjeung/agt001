@@ -6,9 +6,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import chat, public, rooms
+from app.api import chat, events, public, rooms
 from app.config import settings
-from app.services import rag
+from app.services import funnel, rag
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -18,6 +18,7 @@ async def lifespan(_app: FastAPI):
     if settings.run_migrations_on_startup:
         db_migrate.upgrade_head()
     store.recover_on_startup()
+    funnel.purge_expired()
     if settings.precompute_embeddings:
         rag.precompute()
     yield
@@ -28,6 +29,7 @@ def create_app() -> FastAPI:
     app.include_router(public.router)
     app.include_router(chat.router)
     app.include_router(rooms.router)
+    app.include_router(events.router)
     # 라우터 뒤에 마운트해야 API 경로가 우선한다. html=True로 "/"에서 index.html을 준다.
     app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")
     return app
