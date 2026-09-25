@@ -65,12 +65,17 @@
 |---|---|---|---|---|---|
 | 1-0a | 카카오·구글 OAuth 조사: 엔드포인트, 콘솔 설정 절차, 리다이렉트 URI, 필요한 동의항목, 테스트 계정 방식 | 계획 / OpenCode | `docs/product/OAUTH_SETUP.md` | — | ✅ (구글은 sslip.io로 테스트 모드만 가능 → 공개 전 도메인 구매 필요) |
 | 1-0b | 랜딩 페이지 정적 초안 (가치 제안, 예시, 시작하기, 로그인 버튼 자리) | 구현 / OpenCode | `static/landing.html` | — | ✅ `/landing.html` (예시 이미지 슬롯은 실제 결과물로 교체 예정) |
+| 1-0c | 랜딩 기획(유입 구성요소·업종별 템플릿 6개·퍼널) — [DECISIONS.md](DECISIONS.md) D12~D16 반영 | 계획 / OpenCode K → Claude 검토 | `docs/product/LANDING_PLAN.md` | — | 🔄 |
+| 1-0d | 유입 측정: `funnel_events` 테이블·수집 API·90일 정리 (D16) | 구현 / Claude | `app/db/**`, `app/api/events.py` | 0-2a | 🟢 |
+| 1-0e | 프론트엔드 React+TS+Vite 골격, FastAPI 서빙, CI 빌드 (D5) | 구현 / Claude + OpenCode | `frontend/**`, Dockerfile, `ci.yml` | — | 🟢 |
+| 1-0f | 예시 사이트 6개 생성(우리 엔진) + 템플릿 카탈로그 (D15) | 구현 / OpenCode → Claude 검토 | `app/templates_catalog.py`, `generated/examples/**` | 0-3b | ⏳ |
+| 1-0g | 개인정보처리방침·이용약관 초안 (D14) | 계획 / Claude | `static/privacy.html` | — | 🟢 |
 | 1-1 | users·oauth_accounts·room_members 스키마 | 구현 / Claude | `app/db/**` | 0-2a | ⏳ |
 | 1-2 | OAuth 라우트(state 검증), 세션 쿠키, `/me`, `/logout` | 구현 / Claude | `app/auth/**`, `app/api/auth.py` | 1-1, 1-0a | ⏳ |
 | 1-3 | 게스트 방 귀속(claim), 내 프로젝트 목록 | 구현 / Claude | `app/services/rooms.py`, `app/api/me.py` | 1-2 | ⏳ |
 | 1-4 | 랜딩·로그인·내 프로젝트 화면 연결 | 구현 / OpenCode → Claude 검토 | `static/landing.html`, `static/projects.html` | 1-2, 1-0b | ⏳ |
 | 1-5 | 인증 테스트(단위·E2E) | 검증 / OpenCode | `tests/**` | 1-2 | ⏳ |
-| 1-6 | 사용자 작업: 카카오 로그인 활성화, 구글 OAuth 클라이언트 발급 (절차: OAUTH_SETUP.md §5) | 사용자 | 콘솔 | 1-0a | 🟢 사용자 작업 대기 |
+| 1-6 | 사용자 작업: 카카오 로그인 활성화, 구글 OAuth 클라이언트 발급(테스트 모드, D9) (절차: OAUTH_SETUP.md §5). 시크릿은 입력 스크립트로 서버에 넣는다(D10) | 사용자 | 콘솔 | 1-0a | 🟢 사용자 작업 대기 |
 
 ### 채팅방 정책 — 초대·기록·종료/초기화·알림 ([ROOM_POLICY.md](ROOM_POLICY.md) §7)
 
@@ -91,7 +96,7 @@
 |---|---|---|---|---|---|
 | 0-6a | 전화 발신 수단·에스컬레이션 조사 | 계획 / OpenCode J | `docs/product/DEV_DECISION_CALL.md` | — | ✅ 추천: 텔레그램 먼저 → 무응답 시 Twilio 전화·키패드, 월 약 $8 |
 | 0-6b | 음성(TTS·STT) 결정 판정 프로토콜 조사 | 계획 / OpenCode J2 | `docs/product/DEV_DECISION_VOICE.md` | — | ✅ 복창 확인 필수, 돈·비가역 결정은 음성 확정 불가, 월 5천원대 |
-| 0-6c | 결정 요청 시스템 구현 (도입 결정 시) | 구현 / Claude | `app/api/decisions.py`, `scripts/dev-decision-request.sh` | 0-6a, 0-6b | ⏳ 경영진 결정 대기 |
+| 0-6c | 결정 요청 시스템: 텔레그램 → 무응답 10분 뒤 전화(최대 2회), 음성+복창, 돈 드는 결정은 버튼 재확인, 월 $15 상한 (D11) | 구현 / Claude | `app/api/decisions.py`, `scripts/dev-decision-request.sh` | 0-6a, 0-6b | 🟢 착수 가능 (실통화는 사용자 Twilio 가입 후) |
 
 2단계(PRD 엔진) 이후 WP는 1단계 구현이 시작될 때 계획 레인에서 이 표에 추가한다.
 
