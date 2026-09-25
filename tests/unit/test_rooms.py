@@ -205,3 +205,17 @@ def test_messages_include_pending_question_choices(client):
     assert after == before + 1 and _get(client, room_id)["question"] is not None
     _post(client, room_id, "m1", "철수", "나머지는 알아서, 시안 먼저 볼게요")
     assert _get(client, room_id)["question"] is None
+
+
+def test_room_from_template_starts_with_industry_card(client):
+    """B-15: 템플릿으로 만든 방은 업종·구성을 가정으로 채운 카드로 시작한다(가게 사실은 비움)."""
+    from app import store
+    rid = client.post("/room", json={"template_id": "pension"}).json()["room_id"]
+    card = store.read_session(store.read_room(rid)["session_id"])["prd"]
+    assert card["industry"] == "pension"
+    assert card["slots"]["business_type"]["status"] == "assumed"
+    assert "shop_name" not in card["slots"]
+    # 모르는 템플릿·본문 없음은 예전처럼 빈 카드
+    rid2 = client.post("/room", json={"template_id": "nope"}).json()["room_id"]
+    assert store.read_session(store.read_room(rid2)["session_id"]).get("prd") is None
+    assert client.post("/room").status_code == 200

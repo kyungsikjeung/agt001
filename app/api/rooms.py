@@ -14,9 +14,14 @@ class RoomMessageIn(BaseModel):
     message: Optional[str] = None
 
 
+class RoomCreateIn(BaseModel):
+    template_id: Optional[str] = None
+
+
 @router.post("/room")
-def create_room():
-    return {"room_id": rooms.create_room()}
+def create_room(body: Optional[RoomCreateIn] = None):
+    # 본문 없이 불러도 된다(예전 방식). 템플릿을 넘기면 그 업종 카드로 시작한다(B-15).
+    return {"room_id": rooms.create_room(body.template_id if body else None)}
 
 
 @router.post("/room/{room_id}/chat")

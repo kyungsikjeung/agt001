@@ -18,8 +18,12 @@ log = logging.getLogger(__name__)
 PROCEED_WORDS = ("진행", "네", "yes", "proceed", "예")
 
 
-def new_session() -> dict:
-    return {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]}
+def new_session(template_id: Optional[str] = None) -> dict:
+    session = {"state": "GREETING", "requirement_id": str(uuid.uuid4())[:8]}
+    if template_id in prd_engine.S.INDUSTRIES and template_id != "other":
+        # B-15·D26: 랜딩에서 업종 템플릿을 골랐으면 업종과 구성만 가정으로 채운 카드로 시작한다.
+        session["prd"] = prd_engine.new_card(template_id)
+    return session
 
 
 def _set_room_status(room: Optional[dict], status: str, persist: bool = False) -> None:

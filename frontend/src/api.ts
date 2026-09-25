@@ -55,7 +55,11 @@ export function track(event: FunnelEvent, templateId?: string): void {
 
 /** 방을 만들고, 입력한 내용을 첫 메시지로 넘긴 뒤 채팅방으로 이동한다. */
 export async function startRoom(message: string, templateId?: string): Promise<void> {
-  const res = await fetch('/room', { method: 'POST' });
+  const res = await fetch('/room', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ template_id: templateId ?? null }),
+  });
   if (!res.ok) throw new Error(`방을 만들지 못했습니다 (${res.status})`);
   const { room_id: roomId } = (await res.json()) as { room_id: string };
   safeSet(sessionStorage, PENDING_KEY, JSON.stringify({ roomId, text: message, templateId: templateId ?? null }));

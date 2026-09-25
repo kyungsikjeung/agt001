@@ -16,7 +16,7 @@
 | M-7 | ✅ 완료 T1 듣기 버튼 (운영 배포, 실측 2.25초, 자동재생 없음) | VOICE 부록, DELIVERY O6 | OpenCode | Claude 계약 | 2시간 |
 | M-8 | ✅ 완료 OAuth 키 서버 등록 (scripts/set_oauth_secrets.sh 실행) | DECISIONS D10, DELIVERY 1-6 | 사용자 | 없음 | 30분 |
 | M-9 | ✅ 완료 구글 동의 화면 마지막 단계 확인 | README, OAUTH_SETUP | 사용자 | 없음 | 30분 |
-| M-10 | 개인정보처리방침·약관 공개 (static 초안 게시) | USER_DB_PLAN §A-2, DECISIONS D14 | Claude | 사용자 확인 | 2시간 |
+| M-10 | ✅ 완료 개인정보처리방침·약관 공개 (보호책임자·시행일 2026-09-26 기재, 법률 검토는 남음) | USER_DB_PLAN §A-2, DECISIONS D14 | Claude | 사용자 확인 | 2시간 |
 | M-11 | ✅ 구현 T1 투표 24시간·T2 견적 7일·T4 30일 닫기·D8 10명 (읽기·쓰기 때 판정, 경고 알림은 아직) | ROOM_POLICY §4.2 | Claude | 없음 | 1시간, 확인 필요 |
 | M-12 | 저장소 공개 전환 (마지막에) | 지시문 마감 항목 | 사용자 | 전부 | 10분 |
 
@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|
 | S-1 | B-6 승인·투표 단어 정규화 완화 | FIXES §2-④, ROOM_POLICY | Claude | 없음 | 1시간 |
 | S-2 | B-9 방장 승계 (첫 입장자 자동 승계) | FIXES B-9, ROOM_POLICY §2 | Claude | 없음 | 2시간 |
-| S-3 | B-15 템플릿 시작 배선 (template_id 연결) | FIXES B-15, DECISIONS D26 | Claude | 없음 | 1시간 |
+| S-3 | ✅ 완료 B-15 템플릿 시작 배선 (template_id 연결) | FIXES B-15, DECISIONS D26 | Claude | 없음 | 1시간 |
 | S-4 | B-4 잡담 2턴 넛지 문구 추가 | FIXES B-4 잔여, INTAKE §5 | Claude | 없음 | 1시간 |
 | S-5 | S-2 sandbox iframe 자동 검사 | DESIGN §13.5 S-2 | Claude | 없음 | 1시간 |
 | S-6 | S-5 게시 전 검사 (외부 스크립트·폼 차단) | DESIGN §13.5 S-5 | Claude | 없음 | 2시간 |

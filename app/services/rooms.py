@@ -131,10 +131,10 @@ def _room_id(room_id: str) -> str:
     return safe_id
 
 
-def create_room() -> str:
+def create_room(template_id: Optional[str] = None) -> str:
     room_id = str(uuid.uuid4())[:8]
     session_id = str(uuid.uuid4())
-    store.create_room(room_id, session_id, chat_flow.new_session())
+    store.create_room(room_id, session_id, chat_flow.new_session(sanitize_token(template_id or "") or None))
     return room_id
 
 
