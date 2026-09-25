@@ -3,3 +3,8 @@
 144.24.91.250.sslip.io {
 	reverse_proxy backend:8643
 }
+
+# 생성 사이트·시안 전용 주소 (S-1). 같은 백엔드로 보내고, 백엔드가 주소를 보고 생성물만 연다(app/main.py _split_hosts).
+144-24-91-250.sslip.io {
+	reverse_proxy backend:8643
+}

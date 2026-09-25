@@ -69,6 +69,9 @@ class Settings(BaseSettings):
 
     # 설정하면 배포 URL을 요청 호스트 대신 이 값으로 만든다 (예: https://example.com).
     public_base_url: Optional[str] = None
+    # 생성 사이트·시안을 앱과 다른 주소(출처)에서 연다 (S-1). 예: 144-24-91-250.sslip.io
+    # 설정하면 앱 주소의 /site·/design은 이 주소로 보내고, 이 주소에서는 생성물·문의 접수만 연다.
+    preview_host: Optional[str] = None
 
     # compose에서는 db 서비스를 가리킨다. 로컬 개발은 .env에서 덮어쓴다.
     database_url: str = "postgresql+psycopg://agt001:agt001@localhost:5432/agt001"

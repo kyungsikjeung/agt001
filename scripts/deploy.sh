@@ -151,8 +151,12 @@ if [ "$LOCAL_HASH" != "$REMOTE_HASH" ]; then
   ssh -i "$SSH_KEY" "$REMOTE_HOST" "cd $REMOTE_DIR && sudo docker compose up -d --build && echo '$LOCAL_HASH' > $BUILD_MARKER"
 else
   echo "   변경 없음 → 컨테이너만 재시작 (코드는 바인드 마운트로 이미 반영됨)"
-  ssh -i "$SSH_KEY" "$REMOTE_HOST" "cd $REMOTE_DIR && sudo docker compose restart backend"
+  # up -d: compose 설정(환경변수 등)이 바뀐 서비스만 다시 만든다. 코드는 restart로 다시 읽힌다.
+  ssh -i "$SSH_KEY" "$REMOTE_HOST" "cd $REMOTE_DIR && sudo docker compose up -d backend caddy && sudo docker compose restart backend"
 fi
+# Caddyfile은 바인드 마운트라 파일이 바뀌어도 다시 읽어야 반영된다(새 주소면 인증서도 이때 발급).
+ssh -i "$SSH_KEY" "$REMOTE_HOST" "cd $REMOTE_DIR && sudo docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile" \
+  || echo "   (경고) Caddy 설정 다시 읽기 실패 — 기존 설정으로 계속 동작"
 
 echo "4/4) 헬스체크 (https + http 직접, 둘 다 200이어야 성공)"
 HEALTH_OK=1

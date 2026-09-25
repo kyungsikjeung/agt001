@@ -1,7 +1,8 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import store
@@ -27,8 +28,31 @@ async def lifespan(_app: FastAPI):
     yield
 
 
+# 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
+_PREVIEW_PATHS = ("/site/", "/design/", "/api/inquiries/", "/health")
+_GENERATED_PATHS = ("/site/", "/design/")
+
+
+async def _split_hosts(request: Request, call_next):
+    """생성물은 미리보기 주소로, 앱은 앱 주소로 (DESIGN_PIPELINE_PLAN §13.5 S-1).
+
+    로그인 쿠키(__Host-)는 앱 주소에만 붙으므로, 생성물이 다른 출처에서 열리면 쿠키·저장소에 닿을 수 없다."""
+    preview = settings.preview_host
+    if preview:
+        host = (request.headers.get("host") or "").split(":")[0].lower()
+        path = request.url.path
+        if host == preview.lower():
+            if not path.startswith(_PREVIEW_PATHS):
+                return PlainTextResponse("not found", status_code=404)
+        elif path.startswith(_GENERATED_PATHS):
+            query = f"?{request.url.query}" if request.url.query else ""
+            return RedirectResponse(f"https://{preview}{path}{query}", status_code=308)
+    return await call_next(request)
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="agt001", lifespan=lifespan)
+    app.middleware("http")(_split_hosts)
     app.include_router(public.router)
     app.include_router(chat.router)
     app.include_router(rooms.router)

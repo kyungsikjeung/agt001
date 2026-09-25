@@ -8,5 +8,5 @@ def site_url(requirement_id: str, base_url: str) -> Optional[str]:
     web_dir = settings.generated_dir / requirement_id / "web"
     if not web_dir.is_dir() or not any(web_dir.iterdir()):
         return None
-    base = (settings.public_base_url or base_url).rstrip("/")
+    base = f"https://{settings.preview_host}" if settings.preview_host else (settings.public_base_url or base_url).rstrip("/")
     return f"{base}/site/{requirement_id}/"
