@@ -219,3 +219,6 @@ h1 {
 .proj-actions .send { text-decoration: none; font-size: 14px; padding: 9px 16px; }
 .proj-actions .ghost { text-decoration: none; font-size: 14px; padding: 8px 15px; display: inline-block; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+.foot-links { display: inline-flex; gap: 12px; margin-left: 12px; }
+.foot-links a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

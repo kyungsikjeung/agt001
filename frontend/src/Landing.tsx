@@ -228,6 +228,10 @@ export default function Landing() {
 
       <footer className="foot">
         <span>© {new Date().getFullYear()} agt001 · 베타</span>
+        <nav className="foot-links" aria-label="약관">
+          <a href="/privacy.html">개인정보처리방침</a>
+          <a href="/terms.html">이용약관</a>
+        </nav>
       </footer>
 
       {toast && (
