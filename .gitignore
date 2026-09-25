@@ -8,6 +8,9 @@ scripts/check_oci_cost.sh
 # 팀C 코드생성(Hermes) 산출물 — 요청마다 생기는 임시 프로젝트, 커밋 대상 아님
 generated/
 
+# deploy.sh가 서버에 남기는 빌드 판단용 마커
+.deploy_build_marker
+
 # 파이썬
 __pycache__/
 *.pyc

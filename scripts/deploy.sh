@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # OCI 배포 스크립트 (EFFICIENCY_PLAN.md §4-① Top 3).
 #
-# 배경: OCI 인스턴스에서 `git pull`이 GitHub API 404로 막히는 것을 실측 확인했다
-# (Oracle 무료티어 IP 대역이 GitHub 쪽에서 차단/제한된 것으로 추정). 그래서 인스턴스
-# 안에서 git을 쓰지 않고, 로컬에서 rsync로 직접 파일을 올리는 경로를 정식 경로로 쓴다.
+# 기본 경로(git): 로컬 HEAD가 origin에 push돼 있는지 확인한 뒤, 서버가 읽기 전용 Deploy Key로
+# fetch해서 **그 커밋(SHA)을 정확히** 체크아웃한다. 서버 코드 = 커밋된 코드가 되어 드리프트가 없다.
+# (예전 "git pull이 IP 차단으로 막힌다"는 추정은 틀렸다. private 저장소에 대한 서버 인증이 없던 것이
+# 원인이었다. docs/product/GIT_PULL_ROOT_CAUSE.md)
+# 대체 경로(--rsync): GitHub 장애 등으로 fetch가 안 될 때 로컬 작업 트리를 rsync로 올린다.
 #
 # 조건부 빌드: Dockerfile.backend / requirements.txt가 바뀌지 않았으면 `--build`
 # 없이 컨테이너만 재시작한다 (코드는 .:/app 바인드 마운트라 재기동만으로 반영됨).
@@ -16,7 +18,7 @@
 # (generated/·.env 제외 — 사용자 데이터·비밀이므로 스냅샷·롤백 대상이 아님)
 # 최근 5개만 보관한다. 헬스체크 실패 시 --auto-rollback이면 rollback.sh로 자동 복구한다.
 #
-# 사용법: scripts/deploy.sh [--auto-rollback]
+# 사용법: scripts/deploy.sh [--auto-rollback] [--rsync]
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,13 +34,16 @@ BUILD_MARKER=".deploy_build_marker"
 KEEP_SNAPSHOTS=5
 
 AUTO_ROLLBACK=0
+MODE="git"
 if [ "$#" -gt 0 ]; then
   for arg in "$@"; do
     case "$arg" in
       --auto-rollback) AUTO_ROLLBACK=1 ;;
+      --rsync) MODE="rsync" ;;
       -h|--help)
-        echo "사용법: scripts/deploy.sh [--auto-rollback]"
+        echo "사용법: scripts/deploy.sh [--auto-rollback] [--rsync]"
         echo "  --auto-rollback  헬스체크 실패 시 배포 전 스냅샷으로 자동 롤백 (기본: 안내만 출력)"
+        echo "  --rsync          git 대신 로컬 작업 트리를 rsync로 전송 (GitHub 장애 시 대체 경로)"
         exit 0
         ;;
       *)
@@ -58,6 +63,21 @@ fi
 if [ ! -f "$SSH_KEY" ]; then
   echo "SSH 키가 없습니다: $SSH_KEY (SSH_KEY 환경변수로 경로를 지정할 수 있습니다)" >&2
   exit 1
+fi
+
+DEPLOY_SHA=""
+if [ "$MODE" = "git" ]; then
+  # 커밋 안 된 변경이 있으면 "배포한 것 = 커밋된 것"이 깨지므로 거부한다.
+  if ! git diff --quiet || ! git diff --cached --quiet; then
+    echo "커밋되지 않은 변경이 있습니다. 커밋·push 후 배포하거나 --rsync를 쓰세요." >&2
+    exit 1
+  fi
+  git fetch -q origin
+  DEPLOY_SHA="$(git rev-parse HEAD)"
+  if ! git merge-base --is-ancestor "$DEPLOY_SHA" origin/main; then
+    echo "HEAD($DEPLOY_SHA)가 origin/main에 없습니다. 먼저 push하세요." >&2
+    exit 1
+  fi
 fi
 
 SNAPSHOT_TS="$(date -u +%Y%m%d-%H%M%S)"
@@ -86,13 +106,25 @@ ssh -i "$SSH_KEY" "$REMOTE_HOST" "
   fi
 "
 
-echo "2/4) rsync로 코드 전송 (.env/generated/.git 등 제외)"
-rsync -avz --delete \
-  --exclude '.git' --exclude '.env' --exclude '.env.local' --exclude 'generated' \
-  --exclude '__pycache__' --exclude '.venv' --exclude 'venv' --exclude 'node_modules' \
-  --exclude '.DS_Store' --exclude "$BUILD_MARKER" \
-  -e "ssh -i $SSH_KEY" \
-  ./ "$REMOTE_HOST:$REMOTE_DIR/"
+if [ "$MODE" = "git" ]; then
+  echo "2/4) 서버에서 git fetch → $DEPLOY_SHA 체크아웃 (.env·generated는 추적 제외라 보존)"
+  # shellcheck disable=SC2029
+  ssh -i "$SSH_KEY" "$REMOTE_HOST" "
+    set -euo pipefail
+    cd $REMOTE_DIR
+    git fetch -q --prune origin
+    git reset -q --hard $DEPLOY_SHA
+    echo \"   서버 HEAD: \$(git rev-parse --short HEAD)\"
+  "
+else
+  echo "2/4) rsync로 코드 전송 (.env/generated/.git 등 제외)"
+  rsync -avz --delete \
+    --exclude '.git' --exclude '.env' --exclude '.env.local' --exclude 'generated' \
+    --exclude '__pycache__' --exclude '.venv' --exclude 'venv' --exclude 'node_modules' \
+    --exclude '.DS_Store' --exclude "$BUILD_MARKER" \
+    -e "ssh -i $SSH_KEY" \
+    ./ "$REMOTE_HOST:$REMOTE_DIR/"
+fi
 
 echo "3/4) 이미지 빌드가 필요한지 판단"
 # Dockerfile/requirements.txt의 해시를 원격에 저장해둔 마커와 비교한다.
