@@ -61,3 +61,32 @@ ReqElicitGym의 가상 사용자는 실제 사용자와 정보 공개 행동 일
 - [NVIDIA NIM Structured Generation](https://docs.nvidia.com/nim/large-language-models/1.12.0/structured-generation.html), [guided_json 형식 변경 (nim-api-adapter PR #117)](https://github.com/dataloop-ai-apps/nim-api-adapter/pull/117)
 - [Durable vs Wix ADI](https://reviews.thewindowsclub.com/durable-vs-wix-adi-which-ai-website-builder/), [Wix ADI → Harmony](https://www.wix.com/blog/wix-artificial-design-intelligence)
 - [Chatbot UX Best Practices (BotHero)](https://blog.bothero.ai/chatbot-ux-best-practices-the-cognitive-playbook-12-interface-decisions-that-determine-whether-users-trust-your-bot-in-4-seconds-or-close-the-widget-forever), [Chatbot UI Design Best Practices (Conferbot)](https://www.conferbot.com/blog/chatbot-ui-design-best-practices)
+
+## 5. 실측: 우리 NIM 모델로 추출하기 (2026-09-26)
+
+모델: `nvidia/nemotron-3-super-120b-a12b` (현재 `NIM_CHAT_MODEL`). 추론형 모델이라 기본 설정에서는 생각 과정을 본문에 먼저 출력한다.
+
+| 방식 | 결과 | 판정 |
+|---|---|---|
+| `guided_json` (extra_body 최상위) | `{ {`로 시작 후 공백 반복, 길이 제한에서 잘림 → 형식 오류 | **사용 안 함** |
+| `response_format` json_schema (strict) | 같은 현상 | 사용 안 함 |
+| 스키마를 프롬프트에 + 추론 켠 상태 | 본문이 "We need to extract…"로 시작 → 형식 오류 | 사용 안 함 |
+| 추론 끔(`chat_template_kwargs.enable_thinking=false`) + `guided_json` | 쉼표 위치가 어긋난 JSON → 형식 오류 | 사용 안 함 |
+| **추론 끔 + 스키마를 프롬프트에 + 서버 검증** | 1.7초, 올바른 형식 | **채택** |
+| 대체 모델 `meta/llama-3.3-70b-instruct`, `qwen/qwen3-next-80b-a3b-instruct` | NIM에서 서비스 종료(410) | — |
+
+**채택 방식 신뢰도 시험 (발화 8개, 짧은 답·알아서 해줘·순서 없음·가격·전화·주소 포함):**
+
+| 지표 | 결과 |
+|---|---|
+| 형식 통과 | 8/8 |
+| 지어낸 사실(말하지 않은 전화·가격·영업시간·주소) | 0건 |
+| 평균 응답 | 3.4초 (최대 14.8초 1건: "알아서 해주세요" — 빈 결과) |
+| 칸 오분류 | 3건: 공방 "도자기"를 가게 이름으로, 학원 "초등 영어"를 사이트 목적으로, "바비큐는 빼주세요"를 뺄 것으로 못 잡음 |
+
+**계획 반영:**
+1. 추출 호출은 `enable_thinking=false` + 스키마를 프롬프트에 넣고, 서버가 JSON 스키마 검증 → 실패 시 1회 재시도. §1 발견 #10(`guided_json`)은 이 모델에서는 쓰지 않는다.
+2. 칸마다 한 줄 설명과 예/반례를 프롬프트에 넣는다("가게 이름: 간판 이름. 업종·품목은 아님").
+3. 칸 추가: `target`(대상 손님·수강생), `exclude`(뺄 것), `detail`(업종 품목·특징).
+4. 응답 시간 상한 20초, 넘으면 이번 턴은 추출 없이 질문만(대화가 멈추지 않게).
+5. 위 오분류 3건을 T2 녹화 테스트의 첫 사례로 넣는다.
