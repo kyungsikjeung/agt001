@@ -69,6 +69,12 @@ def embed(text: str) -> list[float]:
     return resp.data[0].embedding
 
 
+def embed_many(texts: list[str]) -> list[list[float]]:
+    """여러 문장을 한 번에 (기동 시 사례집 임베딩: 51개 한 번 호출 약 2.4초)."""
+    resp = _client().embeddings.create(model=settings.nim_embed_model, input=texts)
+    return [d.embedding for d in sorted(resp.data, key=lambda d: d.index)]
+
+
 def chat_json(system: str, user: str, timeout_sec: float = 20.0, max_tokens: int = 700) -> str:
     """정해진 JSON만 받아야 하는 호출(요구사항 추출 등).
 

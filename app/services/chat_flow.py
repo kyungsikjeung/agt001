@@ -48,12 +48,12 @@ def _record_transition(session_id: str, before: str, after: str) -> None:
 
 
 def _rag_note(spec: str) -> str:
-    """유사 프로젝트 사전 확인 결과를 사람 말로. 내부 문서 이름은 보여주지 않는다 (해커톤 요구 4)."""
-    result = rag.precheck(spec)
-    log.info("유사 프로젝트 판정: %s", result)
-    if result.startswith("기존"):
-        return "비슷한 이전 프로젝트가 있어서 그 경험을 참고해 설계할게요."
-    return "비슷한 이전 프로젝트를 찾아봤는데 없어서, 이 가게에 맞게 새로 설계할게요."
+    """비슷한 사례(기능 사례집·업종 프로필)를 사람 말로. 없으면 없다고 말한다 (해커톤 요구 4)."""
+    names = rag.similar(spec)
+    log.info("비슷한 사례: %s", names)
+    if names:
+        return "비슷한 사례를 참고해 설계할게요: " + ", ".join(names)
+    return "딱 맞는 사례는 없어서, 말씀하신 내용에 맞게 새로 설계할게요."
 
 
 _CHOICE = re.compile(r"(?<!\d)([1-3])\s*(?:안|번)")

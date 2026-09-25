@@ -38,7 +38,7 @@ VALID_QUOTE_JSON = json.dumps(
     ensure_ascii=False,
 )
 
-_DOC_TEXTS = {d["text"] for d in rag.FAKE_RAG_DOCS}
+_DOC_TEXTS = {d["text"] for d in rag.DOCS}
 
 
 def default_embed(text):
@@ -103,6 +103,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(llm, "chat", default_chat)
     monkeypatch.setattr(llm, "chat_json", default_chat_json)
     monkeypatch.setattr(llm, "embed", default_embed)
+    monkeypatch.setattr(llm, "embed_many", lambda texts: [default_embed(t) for t in texts])
     monkeypatch.setattr(design_svc, "screenshot_html", raise_screenshot)
     monkeypatch.setattr(codegen_svc, "start", fake_codegen_done)
     with TestClient(create_app()) as c:

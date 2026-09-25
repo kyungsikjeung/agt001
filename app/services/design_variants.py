@@ -56,6 +56,10 @@ def _values(card: dict, key: str) -> list[str]:
 
 
 def _wants_form(card: dict) -> bool:
+    # "문의는 사이트 문의 양식으로" 같은 말은 AI가 기능이 아니라 연락 방법 칸에 넣기도 한다.
+    contact = " ".join(_values(card, "contact_method"))
+    if any(w in contact for w in ("문의 양식", "문의양식", "문의 폼", "양식")):
+        return True
     for v in card.get("features_judged") or []:
         if v.get("id") == "inquiry_form":
             return True

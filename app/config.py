@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     templates_dir: Path = PROJECT_ROOT / "templates"
 
     rag_top_k: int = 1
-    # nemotron-3-embed-1b 실측: 관련 0.75~0.85, 무관 0.45~0.65(가끔 0.72). 소규모 코퍼스 분리점.
-    rag_sim_threshold: float = 0.70
+    # nemotron-3-embed-1b, 기능 사례집 51개 자료 실측(2026-09-26): 관련 0.76~0.80, 무관 0.61~0.74.
+    rag_sim_threshold: float = 0.745
     precompute_embeddings: bool = True
 
     design_screenshot_timeout_ms: int = 15000

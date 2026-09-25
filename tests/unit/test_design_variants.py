@@ -53,3 +53,11 @@ def test_render_variants_writes_pages(client, monkeypatch, tmp_path):
     assert 'action="/api/inquiries/req-c7"' in v2.text
     assert client.get("/design/req-c7/preview.png").status_code == 200
     assert client.get("/design/req-c7/v9/").status_code == 404
+
+
+def test_form_from_contact_method():
+    card = E.new_card()
+    E._put(card, "business_type", "첼로 레슨", S.FILLED, 1)
+    E._put(card, "contact_method", "사이트 문의 양식", S.FILLED, 1)
+    types = [(s["type"], s["variant"]) for s in DV.base_spec(card)["sections"]]
+    assert ("contact", "form") in types
