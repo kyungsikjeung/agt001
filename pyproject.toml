@@ -1,4 +1,5 @@
 [tool.pytest.ini_options]
 testpaths = ["tests/unit"]
+pythonpath = ["."]
 filterwarnings = ["ignore::DeprecationWarning"]
 markers = ["e2e: 실제 서버와 브라우저가 필요한 E2E 테스트 (E2E_BASE_URL 필요)"]
