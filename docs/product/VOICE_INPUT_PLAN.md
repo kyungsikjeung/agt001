@@ -240,3 +240,25 @@ flowchart TD
 - iOS 오디오 재생 후 인식 잠금(서드파티 보고, 공식 아님): https://www.technetexperts.com/ios-safari-web-speech-api-bug-fix/
 - 삼성 인터넷 지원표 위치 확인 필요: https://developer.samsung.com/internet
 - 인앱 WebView 마이크·인식 지원 공식 문서 확인 필요: 카카오·네이버·Meta 공개 스펙 없음
+
+---
+
+## 부록: NVIDIA 음성 모델 실측 (2026-09-26, Claude)
+
+지금 쓰는 NVIDIA API 키로 **NVIDIA 호스팅 음성 API**(grpc.nvcf.nvidia.com, `nvidia-riva-client`)를 직접 호출해 확인했다. 우리 서버에 GPU가 없어도 된다.
+
+| 항목 | 모델 (호스팅 함수 ID) | 결과 |
+|---|---|---|
+| 음성 → 글자 | Parakeet 1.1B RNNT 다국어 (`71203149-d3b7-4460-8231-1be2543a1fca`) | 한국어 문장 약 9초 분량을 **2.5초**에 전사. "객실 세 개" → "객실세계" 1곳 오인식, 전화번호는 "공일공 공공공공…"처럼 한글 숫자로 나옴 |
+| 글자 → 음성 | Magpie TTS 다국어 (`877104f7-e885-42b9-8de8-f6e4c6303969`) | 한국어 목소리 6개(`Magpie-Multilingual.KO-KR.Aria` 등). 7.4초 분량을 **1.4초**에 합성 |
+| 왕복 확인 | 합성 음성을 다시 전사 | 원문과 거의 같음(띄어쓰기만 차이) |
+
+**계획 변경:** 3단계(녹음 후 서버 전사)의 기본 엔진을 NVIDIA Parakeet로 한다. 외부 벤더(월 $5 초과)보다 먼저 쓴다.
+- 브라우저 녹음(MediaRecorder) → 우리 서버 업로드 → 16kHz 모노로 변환(ffmpeg, iOS는 mp4/aac로 녹음됨) → Parakeet → 글자를 **입력창에 넣고 사장님이 고친 뒤 보낸다**(자동 전송 금지).
+- 전사 뒤처리: 한글 숫자("공일공 …")를 숫자로 바꾸고, 전화번호·가격이 들어가면 "번호가 맞나요?" 확인을 붙인다.
+- 녹음 파일은 전사 직후 삭제. 국외 전송(NVIDIA) 고지를 개인정보처리방침에 추가.
+- TTS(읽어주기)는 선택 버튼으로만: 질문을 읽어 주는 "듣기" 버튼. 자동 재생하지 않는다.
+
+**확인 필요:** 호스팅 API는 개발·시험용 무료 크레딧으로 제공된다. 운영 규모에서의 이용 조건·요금·호출 한도는 NVIDIA 약관 확인이 필요하다(https://build.nvidia.com). 한도에 걸리면 1단계(키보드 음성 입력)로 폴백한다.
+
+출처: [NVIDIA ASR NIM 지원표](https://docs.nvidia.com/nim/speech/latest/reference/support-matrix/asr.html), [Parakeet RNNT 다국어 배포 문서](https://docs.nvidia.com/nim/speech/26.02.0/asr/deploy-asr-models/parakeet-rnnt.html), [Magpie TTS 다국어(Hugging Face)](https://huggingface.co/nvidia/magpie_tts_multilingual_357m), [NVIDIA TTS NIM 지원표](https://docs.nvidia.com/nim/speech/latest/reference/support-matrix/tts.html), [Speech NIM 릴리스 노트](https://docs.nvidia.com/nim/speech/26.07.0/about/release-notes.html)
