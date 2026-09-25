@@ -23,8 +23,8 @@ def _set_room_status(room: Optional[dict], status: str, persist: bool = False) -
         return
     room["ai_status"] = status
     if persist:
-        # 긴 NIM 호출 전에 저장해 두어야 폴링하는 다른 참여자가 진행 상태를 볼 수 있다.
-        store.rooms.save()
+        # 긴 NIM 호출 전에 바로 커밋해 두어야 폴링하는 다른 참여자가 진행 상태를 볼 수 있다.
+        store.set_room_ai_status(room["room_id"], status)
 
 
 def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None) -> str:

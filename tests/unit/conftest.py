@@ -1,16 +1,26 @@
-"""tests/unit 전용 픽스처. app/, backend.py 등은 절대 수정하지 않는다."""
+"""tests/unit 전용 픽스처.
+
+저장소는 실제 PostgreSQL을 쓴다 (JSONB·잠금 동작은 SQLite로 검증할 수 없음, STAGE0_DESIGN.md §6.1).
+로컬: docker run -d --name agt001-pg-test -e POSTGRES_USER=agt001 -e POSTGRES_PASSWORD=agt001 \
+  -e POSTGRES_DB=agt001_test -p 127.0.0.1:55432:5432 postgres:16-alpine
+"""
 import json
 import os
 
 # 앱 import 전에 테스트용 환경변수를 고정한다 (.env를 읽지 않고 동작해야 함).
 os.environ["NIM_API_KEY"] = "test"
 os.environ["PRECOMPUTE_EMBEDDINGS"] = "false"
+os.environ["RUN_MIGRATIONS_ON_STARTUP"] = "false"
+os.environ["DATABASE_URL"] = os.environ.get(
+    "TEST_DATABASE_URL", "postgresql+psycopg://agt001:agt001@localhost:55432/agt001_test"
+)
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app import llm, store
 from app.config import settings
+from app.db import migrate as db_migrate
 from app.main import create_app
 from app.services import codegen as codegen_svc
 from app.services import design as design_svc
@@ -52,35 +62,38 @@ def fake_png_screenshot(html_content, out_path, width=800, height=600):
     Path(out_path).write_bytes(b"\x89PNG\r\n\x1a\nfakepng")
 
 
+def _finish_codegen(session_id, result):
+    # 실제 start()처럼 요청 트랜잭션 커밋 뒤에 결과를 기록한다.
+    store.after_commit(lambda: store.set_codegen(session_id, result))
+
+
 def fake_codegen_done(session_id, requirement_id, spec_text):
     web_dir = settings.generated_dir / requirement_id / "web"
     web_dir.mkdir(parents=True, exist_ok=True)
     (web_dir / "index.html").write_text("<html>fake done</html>", encoding="utf-8")
-    sess = store.sessions.get(session_id)
-    if sess is not None:
-        sess["codegen"] = {"status": "done", "dir": str(web_dir), "files": ["index.html"]}
+    _finish_codegen(session_id, {"status": "done", "dir": str(web_dir), "files": ["index.html"]})
 
 
 def fake_codegen_timeout(session_id, requirement_id, spec_text):
     workdir = settings.generated_dir / requirement_id / "web"
     workdir.mkdir(parents=True, exist_ok=True)
-    sess = store.sessions.get(session_id)
-    if sess is not None:
-        sess["codegen"] = {"status": "timeout", "dir": str(workdir)}
+    _finish_codegen(session_id, {"status": "timeout", "dir": str(workdir)})
 
 
 def fake_codegen_unavailable(session_id, requirement_id, spec_text):
-    sess = store.sessions.get(session_id)
-    if sess is not None:
-        sess["codegen"] = {"status": "unavailable", "note": "fake unavailable"}
+    _finish_codegen(session_id, {"status": "unavailable", "note": "fake unavailable"})
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _db_schema():
+    db_migrate.upgrade_head()
 
 
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     """테스트마다 격리된 generated_dir + 비어 있는 저장소 + 가짜 외부 의존."""
     monkeypatch.setattr(settings, "generated_dir", tmp_path)
-    store.sessions.clear()
-    store.rooms.clear()
+    store.reset_all()
     rag.reset_cache()
     monkeypatch.setattr(llm, "chat", default_chat)
     monkeypatch.setattr(llm, "embed", default_embed)
@@ -88,6 +101,4 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(codegen_svc, "start", fake_codegen_done)
     with TestClient(create_app()) as c:
         yield c
-    store.sessions.clear()
-    store.rooms.clear()
     rag.reset_cache()

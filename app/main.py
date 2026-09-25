@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app import store
+from app.db import migrate as db_migrate
 from app.api import chat, public, rooms
 from app.config import settings
 from app.services import rag
@@ -14,8 +15,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    store.sessions.load()
-    store.rooms.load()
+    if settings.run_migrations_on_startup:
+        db_migrate.upgrade_head()
+    store.recover_on_startup()
     if settings.precompute_embeddings:
         rag.precompute()
     yield

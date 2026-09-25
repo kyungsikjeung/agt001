@@ -29,39 +29,28 @@ def _now_iso() -> str:
 
 
 def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "chat") -> None:
-    room["messages"].append({
-        "seq": len(room["messages"]),
+    room["new_messages"].append({
+        "seq": room["next_seq"],
         "member_id": member_id,
         "nickname": nickname,
         "text": text,
         "ts": _now_iso(),
         "kind": kind,
     })
+    room["next_seq"] += 1
 
 
-def _get_room(room_id: str) -> dict:
+def _room_id(room_id: str) -> str:
     safe_id = sanitize_token(room_id)
-    room = store.rooms.get(safe_id) if safe_id else None
-    if room is None:
+    if not safe_id:
         raise RoomNotFound(room_id)
-    return room
+    return safe_id
 
 
 def create_room() -> str:
     room_id = str(uuid.uuid4())[:8]
     session_id = str(uuid.uuid4())
-    store.sessions.setdefault(session_id, chat_flow.new_session())
-    store.rooms.set(room_id, {
-        "room_id": room_id,
-        "session_id": session_id,
-        "created_at": _now_iso(),
-        "members": [],
-        "messages": [],
-        "ai_status": "IDLE",
-        "votes": {},
-    })
-    store.rooms.save()
-    store.sessions.save()
+    store.create_room(room_id, session_id, chat_flow.new_session())
     return room_id
 
 
@@ -72,71 +61,79 @@ def tally(votes: dict) -> tuple[int, int]:
 
 
 def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_url: str) -> dict:
-    room = _get_room(room_id)
+    safe_id = _room_id(room_id)
     member_id = sanitize_token(member_id_raw or "")
-    if not member_id:
-        raise InvalidRequest("member_id required")
     nickname = html.escape((nickname_raw or "익명")[:MAX_NICKNAME_LEN])
     user_text = (message_raw or "").strip()[:MAX_MESSAGE_LEN]
 
-    session = store.sessions.get(room["session_id"])
-    if session is None:
-        raise RoomNotFound(room_id)
+    # 방 잠금 안에서 처리한다: 같은 방의 요청은 순서대로, 다른 방은 병렬로 (STAGE0_DESIGN.md §6.3).
+    with store.room_tx(safe_id) as (room, session):
+        if room is None or session is None:
+            raise RoomNotFound(room_id)
+        if not member_id:
+            raise InvalidRequest("member_id required")
 
-    now = _now_iso()
-    existing = next((m for m in room["members"] if m["member_id"] == member_id), None)
-    if existing is None:
-        room["members"].append({"member_id": member_id, "nickname": nickname, "joined_at": now, "last_seen": now})
-        _append(room, "system", "시스템", f"{nickname}님이 입장했습니다.", kind="system")
-    else:
-        existing["last_seen"] = now
-        existing["nickname"] = nickname
+        now = _now_iso()
+        existing = next((m for m in room["members"] if m["member_id"] == member_id), None)
+        if existing is None:
+            room["members"].append({"member_id": member_id, "nickname": nickname, "joined_at": now, "last_seen": now})
+            _append(room, "system", "시스템", f"{nickname}님이 입장했습니다.", kind="system")
+        else:
+            existing["last_seen"] = now
+            existing["nickname"] = nickname
 
-    if not user_text:
-        store.rooms.save()
-        return {"ai_status": room["ai_status"]}
+        if not user_text:
+            return {"ai_status": room["ai_status"]}
 
-    _append(room, member_id, nickname, user_text, kind="chat")
+        _append(room, member_id, nickname, user_text, kind="chat")
 
-    # 승인 게이트는 과반 투표. 동점·미달이면 투표만 기록하고 AI는 호출하지 않는다.
-    if session["state"] == "AWAIT_APPROVAL" and user_text in VOTE_WORDS:
-        vote = "approve" if user_text in VOTE_APPROVE_WORDS else "reject"
-        room["votes"][member_id] = vote
-        total = len(room["members"])
-        approve_n, reject_n = tally(room["votes"])
-        _append(
-            room, "system", "시스템",
-            f"{nickname}님이 {'승인' if vote == 'approve' else '거절'}했습니다 "
-            f"(찬성 {approve_n}/{total}, 반대 {reject_n}/{total})",
-            kind="vote",
-        )
-        decision = "승인" if approve_n > total / 2 else "거절" if reject_n > total / 2 else None
-        if decision:
-            reply = chat_flow.process_turn(room["session_id"], session, decision, base_url, room=room)
+        # 승인 게이트는 과반 투표. 동점·미달이면 투표만 기록하고 AI는 호출하지 않는다.
+        if session["state"] == "AWAIT_APPROVAL" and user_text in VOTE_WORDS:
+            vote = "approve" if user_text in VOTE_APPROVE_WORDS else "reject"
+            room["votes"][member_id] = vote
+            total = len(room["members"])
+            approve_n, reject_n = tally(room["votes"])
+            _append(
+                room, "system", "시스템",
+                f"{nickname}님이 {'승인' if vote == 'approve' else '거절'}했습니다 "
+                f"(찬성 {approve_n}/{total}, 반대 {reject_n}/{total})",
+                kind="vote",
+            )
+            decision = "승인" if approve_n > total / 2 else "거절" if reject_n > total / 2 else None
+            if decision:
+                reply = chat_flow.process_turn(room["session_id"], session, decision, base_url, room=room)
+                _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+                room["votes"] = {}
+        else:
+            reply = chat_flow.process_turn(room["session_id"], session, user_text, base_url, room=room)
             _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
-            room["votes"] = {}
-    else:
-        reply = chat_flow.process_turn(room["session_id"], session, user_text, base_url, room=room)
-        _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
 
-    store.rooms.save()
-    store.sessions.save()
-    return {"ai_status": room["ai_status"]}
+        return {"ai_status": room["ai_status"]}
 
 
 def get_messages(room_id: str, since: int, base_url: str) -> dict:
     """참여자들이 4초마다 부르는 조회. 조회가 GET이라 GENERATING 완료를 확인할 트리거가
-    따로 없으므로 여기서 상태머신을 한 번 돌려 완료 전이를 일으킨다."""
-    room = _get_room(room_id)
-    session = store.sessions.get(room["session_id"], {})
-    if session.get("state") == "GENERATING":
-        reply = chat_flow.process_turn(room["session_id"], session, "", base_url, room=room)
-        if session.get("state") != "GENERATING":
-            _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
-            store.rooms.save()
-            store.sessions.save()
+    따로 없으므로 여기서 상태머신을 한 번 돌려 완료 전이를 일으킨다.
+
+    평소에는 잠그지 않고 읽는다. 잠금은 코드생성 결과가 도착해 전이가 실제로 일어날 때만 잡는다
+    (결과가 없으면 상태머신은 "생성 중"만 답하고 아무것도 바꾸지 않으므로 건너뛰어도 같다).
+    """
+    safe_id = _room_id(room_id)
+    room = store.read_room(safe_id)
+    if room is None:
+        raise RoomNotFound(room_id)
+    session = store.read_session(room["session_id"]) or {}
+    if session.get("state") == "GENERATING" and session.get("codegen") is not None:
+        with store.room_tx(safe_id) as (locked_room, locked_session):
+            # 잠금을 기다리는 사이 다른 요청이 이미 전이시켰을 수 있으므로 다시 확인한다.
+            if locked_session is not None and locked_session.get("state") == "GENERATING":
+                reply = chat_flow.process_turn(locked_room["session_id"], locked_session, "", base_url, room=locked_room)
+                if locked_session.get("state") != "GENERATING":
+                    _append(locked_room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+        room = store.read_room(safe_id)
+        session = store.read_session(room["session_id"]) or {}
     return {
-        "messages": room["messages"][since:],
+        "messages": store.read_messages(safe_id, since),
         "ai_status": room["ai_status"],
         "members": room["members"],
         "votes": room["votes"],

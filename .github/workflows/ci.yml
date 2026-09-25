@@ -15,9 +15,24 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: agt001
+          POSTGRES_PASSWORD: agt001
+          POSTGRES_DB: agt001_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
       NIM_API_KEY: ci-dummy
       PRECOMPUTE_EMBEDDINGS: "false"
+      TEST_DATABASE_URL: postgresql+psycopg://agt001:agt001@localhost:55432/agt001_test
     steps:
       - uses: actions/checkout@v7
       - name: Set up Python 3.11

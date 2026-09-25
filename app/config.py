@@ -38,5 +38,10 @@ class Settings(BaseSettings):
     # 설정하면 배포 URL을 요청 호스트 대신 이 값으로 만든다 (예: https://example.com).
     public_base_url: Optional[str] = None
 
+    # compose에서는 db 서비스를 가리킨다. 로컬 개발은 .env에서 덮어쓴다.
+    database_url: str = "postgresql+psycopg://agt001:agt001@localhost:5432/agt001"
+    # 기동 시 alembic upgrade head를 실행한다. 테스트는 픽스처가 직접 실행하므로 끈다.
+    run_migrations_on_startup: bool = True
+
 
 settings = Settings()

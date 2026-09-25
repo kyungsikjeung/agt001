@@ -75,7 +75,7 @@ def test_full_flow_to_done(client):
 
     # 폴링 → DONE + deploy_url이 /site/<id>/ 로 끝남
     assert d7["state"] == "DONE"
-    sess = store.sessions.get(s)
+    sess = store.read_session(s)
     assert sess["deploy_url"].endswith(f"/site/{sess['requirement_id']}/")
     assert d7["deploy_url"] == sess["deploy_url"]
 

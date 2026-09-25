@@ -3,7 +3,32 @@
 # 배포용 Dockerfile은 docs/hackathon/deployment/templates/Dockerfile.backend 를 재사용한다.
 # 팀원 B(정적 시안 페이지)·팀원 C(웹/워커)가 각자 서비스를 이 파일에 추가해 나간다 — 지금은 backend 서비스(팀원 A 담당 챗봇/게이트웨이) 골격만 있다.
 
+# 프로젝트 이름을 고정한다. 기본값은 디렉터리 이름이라, 서버 경로가 바뀌면 볼륨 이름
+# (agt001_pg_data, agt001_caddy_data)이 달라져 DB와 인증서가 빈 볼륨으로 바뀐다.
+name: agt001
+
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=agt001
+      - POSTGRES_DB=agt001
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD를 .env에 설정하세요}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    command:
+      - postgres
+      - -c
+      - shared_buffers=32MB
+      - -c
+      - max_connections=30
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agt001 -d agt001"]
+      interval: 5s
+      retries: 10
+
   backend:
     build:
       context: .
@@ -15,6 +40,10 @@ services:
       # 보내므로, 마운트 소스는 컨테이너 내부(/app) 경로가 아니라 이 호스트 실제 경로여야
       # 한다. compose가 실행되는 디렉토리(=이 파일이 있는 프로젝트 루트)를 그대로 넘긴다.
       - HOST_PROJECT_DIR=${PWD}
+      - DATABASE_URL=postgresql+psycopg://agt001:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD를 .env에 설정하세요}@db:5432/agt001
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8643:8643"
     volumes:
@@ -39,5 +68,6 @@ services:
       - caddy_config:/config
 
 volumes:
+  pg_data:
   caddy_data:
   caddy_config:

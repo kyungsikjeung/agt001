@@ -102,10 +102,12 @@ room_votes(room_id FK, member_id, vote, PK(room_id, member_id))
 
 지금은 두 참여자가 같은 방에 동시에 메시지를 보내면, 락 밖에서 같은 dict를 고치고 파일 전체를 덮어쓴다. 메시지 순번(seq)이 겹치거나 한쪽 변경이 사라질 수 있다.
 
-- **방 단위 직렬화:** 방에 쓰는 요청(`post_message`, 완료 전이를 일으키는 `get_messages`)은 트랜잭션 시작 시 `SELECT ... FROM rooms WHERE id=:id FOR UPDATE`로 방 행을 잠근다. 같은 방 요청은 순서대로, 다른 방은 병렬로 처리된다.
+- **방 단위 직렬화:** 방에 쓰는 요청(`post_message`, 완료 전이를 일으키는 `get_messages`)은 트랜잭션 시작 시 `pg_advisory_xact_lock(1, hashtext(room_id))`로 방을 잠근다. 같은 방 요청은 순서대로, 다른 방은 병렬로 처리된다.
+  - (구현 시 변경) 처음 설계한 `SELECT ... FOR UPDATE` 행 잠금은 쓰지 않는다. 긴 NIM 호출 전에 `ai_status`를 별도 트랜잭션으로 바로 커밋해야 폴링하는 참여자가 진행 상태를 보는데, 행 잠금이면 그 UPDATE가 자기 트랜잭션의 잠금에 막힌다.
+  - 최종 `ai_status`는 ORM 속성 대입이 아니라 명시적 UPDATE로 쓴다. 읽은 값과 같으면 ORM이 UPDATE를 생략해, 중간에 커밋된 `RAG_SEARCHING`이 남는 버그가 테스트에서 확인됐다.
 - **seq 부여:** 잠금 안에서 `max(seq)+1`. `UNIQUE(room_id, seq)`가 최종 안전장치다.
-- **1:1 세션:** `sessions` 행을 `FOR UPDATE`로 잠근다.
-- **코드생성 결과 기록:** 백그라운드 작업은 `UPDATE sessions SET codegen=... WHERE id=...`만 한다. 완료 전이(DONE)는 여전히 요청 경로가 잠금 안에서 수행한다.
+- **1:1 세션:** `pg_advisory_xact_lock(2, hashtext(session_id))`. 잠금 순서는 항상 방 → 세션.
+- **코드생성 결과 기록:** 백그라운드 작업도 세션 잠금을 잡고 `UPDATE sessions SET codegen=... WHERE id=... AND state='GENERATING'`만 한다. 완료 전이(DONE)는 여전히 요청 경로가 잠금 안에서 수행한다. 코드생성 스레드는 요청 트랜잭션이 커밋된 뒤(`store.after_commit`) 시작한다.
 - **긴 NIM 호출과 잠금:** RAG·견적 호출(수 초)을 잠금 안에서 하면 같은 방의 폴링이 그동안 대기한다. 이는 "한 방에서 AI 응답은 한 번에 하나"라는 현재 의미와 같으므로 허용한다. 폴링 GET은 완료 전이가 필요 없을 때 잠금 없이 읽는다.
 
 ### 6.4 코드 구조 변화

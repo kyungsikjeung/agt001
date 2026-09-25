@@ -8,8 +8,8 @@
 3. 네트워크는 열어 둔다. Hermes가 NIM API를 호출해야 코드를 만들 수 있기 때문이다.
 4. 하드 타임아웃을 건다.
 5. 모델이 "성공했다"고 말하는 것을 믿지 않고 실제 파일이 생겼는지 확인한다.
-6. 스레드로 던지고 즉시 반환하며, 결과는 세션의 codegen 필드로 폴링한다.
-   (0-3 단계에서 작업 큐로 교체한다.)
+6. 요청 트랜잭션이 커밋된 뒤 스레드로 던지고 즉시 반환한다. 결과는 세션의 codegen 필드에
+   기록되고 폴링으로 확인한다. (0-3 단계에서 작업 큐로 교체한다.)
 """
 import logging
 import os
@@ -47,33 +47,27 @@ def _mount_source(workdir: Path) -> str:
     return str(resolved)
 
 
-def _set_result(session: dict, result: dict) -> None:
-    session["codegen"] = result
-    # 사용자가 폴링하기 전에 서버가 재시작돼도 결과가 남도록 즉시 저장한다.
-    store.sessions.save()
+def _set_result(session_id: str, result: dict) -> None:
+    store.set_codegen(session_id, result)
 
 
 def run_job(session_id: str, requirement_id: str, spec_text: str) -> None:
-    session = store.sessions.get(session_id)
-    if session is None:
-        return
-
     docker_bin = shutil.which("docker")
     if not docker_bin:
-        session["codegen"] = {"status": "unavailable", "note": "이 환경에 docker가 없어 코드생성을 건너뛰었습니다."}
+        _set_result(session_id, {"status": "unavailable", "note": "이 환경에 docker가 없어 코드생성을 건너뛰었습니다."})
         return
 
     api_key = settings.nvidia_api_key or settings.nim_api_key
     if not api_key:
-        session["codegen"] = {
+        _set_result(session_id, {
             "status": "unavailable",
             "note": "NVIDIA_API_KEY/NIM_API_KEY 환경변수가 없어 코드생성을 건너뛰었습니다.",
-        }
+        })
         return
 
     safe_req_id = sanitize_token(requirement_id)
     if not safe_req_id:
-        session["codegen"] = {"status": "error", "message": "invalid requirement_id"}
+        _set_result(session_id, {"status": "error", "message": "invalid requirement_id"})
         return
 
     workdir = settings.generated_dir / safe_req_id / "web"
@@ -94,19 +88,23 @@ def run_job(session_id: str, requirement_id: str, spec_text: str) -> None:
     try:
         subprocess.run(cmd, timeout=settings.codegen_timeout_sec, capture_output=True, text=True, env=child_env)
     except subprocess.TimeoutExpired:
-        _set_result(session, {"status": "timeout", "dir": str(workdir)})
+        _set_result(session_id, {"status": "timeout", "dir": str(workdir)})
         return
     except Exception as e:
         log.exception("코드생성 실행 실패")
-        _set_result(session, {"status": "error", "message": str(e), "dir": str(workdir)})
+        _set_result(session_id, {"status": "error", "message": str(e), "dir": str(workdir)})
         return
 
     created_files = [str(p.relative_to(workdir)) for p in workdir.rglob("*") if p.is_file()]
     if not created_files:
-        _set_result(session, {"status": "no_files_created", "dir": str(workdir)})
+        _set_result(session_id, {"status": "no_files_created", "dir": str(workdir)})
         return
-    _set_result(session, {"status": "done", "dir": str(workdir), "files": created_files})
+    _set_result(session_id, {"status": "done", "dir": str(workdir), "files": created_files})
 
 
 def start(session_id: str, requirement_id: str, spec_text: str) -> None:
-    threading.Thread(target=run_job, args=(session_id, requirement_id, spec_text), daemon=True).start()
+    def _launch() -> None:
+        threading.Thread(target=run_job, args=(session_id, requirement_id, spec_text), daemon=True).start()
+
+    # 커밋 전에 시작하면 스레드가 아직 GENERATING으로 저장되지 않은 세션에 결과를 쓰려다 버려진다.
+    store.after_commit(_launch)
