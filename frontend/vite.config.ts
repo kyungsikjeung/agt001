@@ -7,7 +7,11 @@ const backend = process.env.BACKEND_URL ?? 'http://localhost:8650';
 
 export default defineConfig({
   plugins: [react()],
-  build: { outDir: 'dist', emptyOutDir: true },
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true,
+    rollupOptions: { input: { main: 'index.html', editor: 'editor.html' } },
+  },
   server: {
     proxy: Object.fromEntries(
       ['/room', '/room.html', '/events', '/chat', '/design', '/site', '/health'].map((p) => [p, backend]),

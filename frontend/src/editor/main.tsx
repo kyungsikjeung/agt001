@@ -1,0 +1,11 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import EditorPage from './EditorPage';
+import '../styles.css';
+import './editor.css';
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <EditorPage />
+  </StrictMode>,
+);

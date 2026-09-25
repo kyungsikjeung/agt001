@@ -1,0 +1,395 @@
+/* WP P-10a 사장님용 직접 편집 화면 (목업, 서버 연결 없음).
+   휴대폰 우선 · 터치 44px · 본문 대비 4.5:1.
+   토큰 출발값: SECTION_LIBRARY_SPEC §1.6 forest(펜션 기본). */
+
+.ed-page {
+  --ed-ground: #faf7f2;
+  --ed-card: #ffffff;
+  --ed-ink: #1f2622;
+  --ed-primary: #2f5d50;
+  --ed-on-primary: #ffffff;
+  --ed-accent-line: #8a6d2b;
+  --ed-slot-bg: #fff6df;
+  --ed-slot-ink: #4f3f00;
+  --ed-note: #33413c;
+  --ed-line: rgba(31, 38, 34, 0.14);
+  --ed-focus: #0f7aa8;
+  min-height: 100dvh;
+  background: var(--ed-ground);
+  color: var(--ed-ink);
+  font-size: 16px;
+  line-height: 1.625;
+}
+
+.ed-page :focus-visible {
+  outline: 3px solid var(--ed-focus);
+  outline-offset: 2px;
+}
+
+.ed-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--ed-card);
+  border-bottom: 1px solid var(--ed-line);
+  padding: calc(8px + env(safe-area-inset-top, 0px)) 12px 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.ed-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ed-shop {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.4;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ed-saved {
+  font-size: 13px;
+  color: var(--ed-note);
+  white-space: nowrap;
+}
+
+.ed-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ed-btn {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ed-primary);
+  background: var(--ed-card);
+  color: var(--ed-primary);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ed-btn[aria-pressed='true'] {
+  background: var(--ed-primary);
+  color: var(--ed-on-primary);
+}
+
+.ed-btn:disabled {
+  opacity: 0.4;
+}
+
+.ed-btn--primary {
+  background: var(--ed-primary);
+  color: var(--ed-on-primary);
+}
+
+.ed-mock-switch {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+
+.ed-mock-switch button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ed-line);
+  background: var(--ed-card);
+  font-size: 14px;
+}
+
+.ed-mock-switch button[aria-pressed='true'] {
+  border-color: var(--ed-primary);
+  color: var(--ed-primary);
+  font-weight: 700;
+}
+
+.ed-banner {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  text-align: left;
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--ed-accent-line);
+  background: var(--ed-slot-bg);
+  color: var(--ed-slot-ink);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ed-banner-ok {
+  margin: 12px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #e7f2ea;
+  color: #1e4d38;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ed-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 12px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+.ed-example-tag {
+  display: inline-block;
+  margin: 12px 0 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--ed-primary);
+  color: var(--ed-on-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* 섹션 미리보기 (SPEC §2 클래스 규칙 s-<type>--<variant>) */
+.ed-main section[class*='s-'] {
+  background: var(--ed-card);
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+  padding: 20px 16px;
+  margin: 12px 0;
+}
+
+.ed-main .s-hero {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ed-main .s-hero--photo-overlay .s-hero__body {
+  background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), var(--ed-primary);
+  color: #ffffff;
+  padding: 28px 16px;
+}
+
+.ed-main .s-hero__body {
+  padding: 24px 16px;
+}
+
+.ed-main .s-kicker {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ed-main .s-title {
+  margin: 0 0 8px;
+  font-size: 24px;
+  line-height: 1.25;
+}
+
+.ed-main .s-lead {
+  margin: 0 0 12px;
+}
+
+.ed-main h2 {
+  margin: 0 0 10px;
+  font-size: 19px;
+}
+
+.ed-main dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.ed-main dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ed-note);
+}
+
+.ed-main dd {
+  margin: 0;
+}
+
+.ed-main ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+}
+
+.ed-main li {
+  border: 1px solid var(--ed-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.ed-main a {
+  color: var(--ed-primary);
+}
+
+/* 편집 가능한 글자 */
+.ed-field {
+  display: inline;
+  min-height: 44px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  border: 1.5px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  text-decoration: underline dotted;
+  text-underline-offset: 4px;
+}
+
+.ed-field--slot {
+  border: 1.5px dashed var(--ed-accent-line);
+  background: var(--ed-slot-bg);
+  color: var(--ed-slot-ink);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.ed-lock {
+  font-style: normal;
+  margin-left: 4px;
+}
+
+.ed-fact-note {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+
+/* AI 부탁 자리 */
+.ed-ai-box {
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--ed-card);
+  border: 1px solid var(--ed-line);
+  display: grid;
+  gap: 6px;
+}
+
+.ed-ai-box p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ed-note);
+}
+
+.ed-ai-box a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 10px;
+  background: var(--ed-primary);
+  color: var(--ed-on-primary);
+  font-weight: 700;
+  text-decoration: none;
+  padding: 10px 16px;
+}
+
+/* 바텀시트·대화상자 (화면 안, window.confirm 금지) */
+.ed-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ed-sheet {
+  width: 100%;
+  max-width: 720px;
+  max-height: 85dvh;
+  overflow: auto;
+  background: var(--ed-card);
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 10px;
+}
+
+.ed-sheet h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.ed-sheet label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ed-sheet input,
+.ed-sheet textarea {
+  width: 100%;
+  min-height: 44px;
+  font: inherit;
+  padding: 10px 12px;
+  border: 1.5px solid var(--ed-primary);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ed-ink);
+}
+
+.ed-sheet textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.ed-sheet-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ed-sheet-row .ed-btn {
+  flex: 1;
+}
+
+.ed-error {
+  margin: 0;
+  font-size: 14px;
+  color: #8c2f2f;
+  font-weight: 600;
+}
+
+.ed-dialog {
+  width: calc(100% - 48px);
+  max-width: 440px;
+  margin-bottom: 15dvh;
+  background: var(--ed-card);
+  border-radius: 16px;
+  padding: 20px 16px;
+  display: grid;
+  gap: 10px;
+}
+
+.ed-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.ed-dialog p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.ed-history {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--ed-note);
+}

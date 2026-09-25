@@ -38,6 +38,15 @@ def home():
     return FileResponse(index if index.is_file() else settings.static_dir / "index.html")
 
 
+@router.get("/editor", include_in_schema=False)
+def editor():
+    # 사장님용 직접 편집 화면(P-10a). 지금은 목업 데이터로만 동작하는 프로토타입이다.
+    page = settings.frontend_dist_dir / "editor.html"
+    if not page.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(page)
+
+
 @router.get("/landing.html", include_in_schema=False)
 def old_landing():
     # 예전 랜딩 주소로 공유된 링크를 새 랜딩으로 보낸다.
