@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from sqlalchemy import literal_column  # noqa: E402
 from sqlalchemy.dialects.postgresql import insert as pg_insert  # noqa: E402
 
 from app.config import settings  # noqa: E402
@@ -70,9 +71,13 @@ def main() -> int:
     inserted = collections.Counter()
     skipped = collections.Counter()
     with get_sessionmaker()() as db, db.begin():
+        def record(stmt, key):
+            # ON CONFLICT DO NOTHING의 rowcount는 드라이버에 따라 -1이 나온다. RETURNING 행 유무로 판정한다.
+            added = db.execute(stmt.returning(literal_column("1"))).first() is not None
+            (inserted if added else skipped)[key] += 1
+
         def put(model, key, values, conflict_cols):
-            result = db.execute(pg_insert(model).values(**values).on_conflict_do_nothing(index_elements=conflict_cols))
-            (inserted if result.rowcount else skipped)[key] += 1
+            record(pg_insert(model).values(**values).on_conflict_do_nothing(index_elements=conflict_cols), key)
 
         for session_id, s in sessions.items():
             if not s.get("requirement_id") or not s.get("state"):
@@ -86,8 +91,7 @@ def main() -> int:
             values.update(id=session_id, state=state, codegen=codegen,
                           design_url_unsent=bool(s.get("design_url_unsent")))
             # requirement_id 충돌(다른 id가 같은 값)도 건너뛴다 — 산출물 디렉터리가 겹치면 안 된다.
-            result = db.execute(pg_insert(SessionRow).values(**values).on_conflict_do_nothing())
-            (inserted if result.rowcount else skipped)["session"] += 1
+            record(pg_insert(SessionRow).values(**values).on_conflict_do_nothing(), "session")
 
         for room_id, r in rooms.items():
             if r.get("session_id") not in sessions:

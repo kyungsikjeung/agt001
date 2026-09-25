@@ -49,8 +49,14 @@ def test_migrate_is_idempotent_and_applies_recovery(client, monkeypatch, capsys)
     assert "old_key" in out
     assert store.read_session("s-room") is None  # dry-run은 쓰지 않는다
 
+    capsys.readouterr()
     _run(monkeypatch)
+    first = capsys.readouterr().out
+    assert "추가: {'session': 2, 'room': 1, 'member': 2, 'message': 2, 'vote': 1}" in first
     _run(monkeypatch)  # 두 번째는 전부 건너뜀
+    second = capsys.readouterr().out
+    assert "추가: {}" in second
+    assert "'session': 2" in second and "'message': 2" in second
 
     assert store.read_session("s-room")["last_request"] == "펜션 홈페이지"
     gen = store.read_session("s-gen")
