@@ -127,6 +127,7 @@
   <div id="choiceBar" aria-live="polite"><p class="hint" id="choiceHint"></p><div class="choices" id="choices"></div></div>
   <div id="row">
     <input id="input" placeholder="메시지를 입력하세요..." autocomplete="off">
+    <button id="micBtn" type="button" aria-label="말로 입력" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:0;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;padding:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button>
     <button id="sendBtn" onclick="send()">보내기</button>
   </div>
   <div id="shareRow"><button id="shareBtn" onclick="shareInvite()">카카오톡으로 초대하기</button></div>
@@ -423,5 +424,6 @@ if (nickname) {
 }
 // nickname 없을 때는 #nicknameJoinBtn의 inline onclick="joinRoom()"이 처리한다 (중복 리스너 금지).
 </script>
+<script src="/voice.js" defer></script>
 </body>
 </html>

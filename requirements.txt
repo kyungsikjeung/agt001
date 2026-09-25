@@ -10,3 +10,5 @@ playwright==1.63.0
 sqlalchemy==2.1.0
 alembic==1.20.0
 psycopg[binary]==3.3.6
+python-multipart==0.0.32
+nvidia-riva-client==2.27.0

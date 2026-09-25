@@ -1,0 +1,38 @@
+{
+  "forest": {
+    "primary": "#2f5d50",
+    "accent": "#b97f26",
+    "ground": "#faf7f2",
+    "ink": "#1f2622"
+  },
+  "coffee": {
+    "primary": "#6f4e37",
+    "accent": "#a86a1f",
+    "ground": "#fbf6ef",
+    "ink": "#2a2320"
+  },
+  "brick": {
+    "primary": "#8c2f2f",
+    "accent": "#a86a1f",
+    "ground": "#fdf8f1",
+    "ink": "#26211e"
+  },
+  "charcoal-gold": {
+    "primary": "#3a3a3c",
+    "accent": "#8a6d2b",
+    "ground": "#fafaf8",
+    "ink": "#1e1e20"
+  },
+  "moss": {
+    "primary": "#4a6741",
+    "accent": "#8a6d2b",
+    "ground": "#f7f4ec",
+    "ink": "#23281f"
+  },
+  "navy": {
+    "primary": "#2b4c9b",
+    "accent": "#0f7aa8",
+    "ground": "#f4f7fd",
+    "ink": "#1d2433"
+  }
+}

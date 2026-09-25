@@ -1,365 +1,181 @@
-# agt001
+# agt001 — 말하면 가게 사이트가 된다
 
-이 저장소는 두 가지 문서 묶음을 담고 있다.
+소상공인이 채팅(글·음성·사진)으로 원하는 것을 설명하면, AI가 요구사항을 정리해 확인받은 뒤 실제로 동작하는 웹사이트를 만들어 바로 공개해 주는 서비스.
 
-1. **`reqpipe`** — 기획서를 넣으면 요구사항 명세·아키텍처를 자동 생성하는 AI 드리븐 파이프라인의 기존 설계 문서
-2. **NVIDIA 해커톤 프로젝트** — `reqpipe`의 개념(요구사항 접수→검증→질의→게이트→RAG)을 챗봇형 멀티에이전트 시스템으로 확장한 신규 프로젝트 (제출 기한 2026-09-28)
+- 운영 주소: https://144.24.91.250.sslip.io
+- 직접 편집 화면: https://144.24.91.250.sslip.io/editor (프로토타입, 목업 데이터)
+- 1:1 채팅: https://144.24.91.250.sslip.io/ (정적 폴백) 또는 기존 채팅 위젯
+- 다인원 공유방: https://144.24.91.250.sslip.io/room.html
 
-두 묶음은 서로 다른 목적을 갖지만, 해커톤 프로젝트는 `reqpipe`의 게이트·RAG·감사 개념을 재사용하므로 함께 보관한다.
+## 30초 사용 흐름
 
-> **지금 진행 상황이 궁금하면 [STATUS.md](STATUS.md)를 보면 된다.** 단계별 완료/스텁/미착수 현황과 다음 할 일을 정리해 둔다.
+1. 랜딩 입력 — 가게와 원하는 것을 한 문장으로 입력한다 (`frontend/src/Landing.tsx`).
+2. 질문 몇 개 — 요구사항 엔진이 빈 칸 하나씩 최대 8회까지 되묻는다. 선택지 4개 이하 + 자유 입력 (`app/services/prd_engine.py`).
+3. 요약 확인 — 요구사항 카드를 보고 확정한다. 공유방은 과반 투표 (`app/services/rooms.py`).
+4. 견적 — 견적 3안과 산정 근거를 확인한다 (베타 무료, 외주를 맡길 때의 참고값) (`app/services/quote.py`).
+5. 시안 — 분위기가 다른 시안 후보를 보고 하나를 고른다 (진행 중, 현재는 1종 정적 템플릿).
+6. 코드생성 — 확정 요구사항으로 Hermes가 격리 샌드박스에서 사이트를 만든다 (`app/services/codegen.py`).
+7. 공개 사이트 — `/site/<id>/` 로 실제 접속 가능한 결과물을 받는다 (`app/api/public.py`).
 
-> **이 README는 진입점이다.** 아래 블루프린트와 시나리오는 "대략 어떻게 동작하는가"를 빠르게 보여주기 위한 간략 설명이며, 정식 요구사항(입력/출력/완료조건까지 정의된 `REQ-*` 목록)은 [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md)에, 그걸 어떻게 구현하는지는 [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md)에 따로 정리했다. 읽는 순서: **README(간략) → REQUIREMENTS.md(무엇을, 언제 완료로 볼지) → ARCHITECTURE.md(어떻게 만들지)**.
+## NVIDIA 기술을 쓴 곳
 
-## 시스템 블루프린트 (한눈에 보기)
+| 기술 | 용도 | 코드·문서 위치 | 상태 |
+|---|---|---|---|
+| NIM 대화 모델 `nvidia/nemotron-3-super-120b-a12b` | 요구사항 추출(`chat_json`), 대화 응답, 견적 3안 생성 | `app/llm.py` (`chat`, `chat_json`), `app/services/prd_engine.py`, `app/services/chat_flow.py`, `app/services/quote.py`, `.env.example` (`NIM_CHAT_MODEL`) | 동작 |
+| NIM 임베딩 `nvidia/nemotron-3-embed-1b` | 유사 프로젝트 확인 (RAG 코사인 유사도) | `app/llm.py` (`embed`), `app/services/rag.py`, `.env.example` (`NIM_EMBED_MODEL`) | 동작 |
+| Parakeet 1.1B RNNT 다국어 음성 인식 (NVIDIA 호스팅) | 채팅방 마이크 버튼: 녹음 → 16kHz 변환 → 한국어 전사 → 한글 숫자("공일공…")를 숫자로 → 입력창에 넣고 사장님이 고친 뒤 전송 | `app/services/stt.py`, `app/api/stt.py`(`POST /api/stt`), `static/voice.js`, `static/room.html` | 동작 |
+| Magpie TTS 다국어 (NVIDIA 호스팅) | 질문 읽어주기(선택 버튼) | `docs/product/VOICE_INPUT_PLAN.md` 부록 (실측) | 진행 중 (화면 연결 전) |
+| Hermes 코드생성 에이전트 | 확정 스펙으로 정적 웹 프로젝트 생성, 요청별 Docker 컨테이너(`--rm`, `/workspace`만 마운트)로 격리 | `app/services/codegen.py`, `app/config.py` (`hermes_sandbox_image`), `docker-compose.yml` (docker.sock 주석) | 동작 (로컬·OCI 검증, 작업 큐 전환 예정) |
 
-해커톤 프로젝트(고객 채팅 → 코드 산출물) 전체를 압축한 그림이다. 번호(①~⑱)는 [docs/hackathon/ARCHITECTURE.md §1](docs/hackathon/ARCHITECTURE.md#1-시스템-컨텍스트-전체-그림)의 전체 번호 체계와 동일하며, 상세 설명·팀원별 담당은 그 문서를 본다.
+음성 실측 (부록 `docs/product/VOICE_INPUT_PLAN.md` 부록, 2026-09-26, Claude 실측):
+
+- Parakeet 1.1B RNNT 다국어: 한국어 문장 약 9초 분량을 2.5초에 전사. "객실 세 개"를 "객실세계"로 오인식 1건, 전화번호는 한글 숫자("공일공 …")로 출력.
+- Magpie TTS 다국어: 7.4초 분량을 1.4초에 합성 (한국어 목소리 6개).
+- 합성 음성을 다시 전사한 왕복 확인: 원문과 거의 같음 (띄어쓰기만 차이).
+- 계획 변경 기록: 3단계 서버 전사의 기본 엔진을 Parakeet로 하며, 전사 결과는 입력창에 넣고 사용자가 고친 뒤 전송한다. 녹음 파일은 전사 직후 삭제. 호스팅 API의 운영 규모 이용 조건·요금·호출 한도는 NVIDIA 약관 확인이 필요하다.
+
+요구사항 추출 실측 (`docs/product/research/REQUIREMENTS_ENGINE_RESEARCH.md` §5):
+
+- `guided_json`·`response_format` 스키마 강제는 이 모델에서 형식을 깨뜨려 사용하지 않는다.
+- 채택: 추론 끔(`enable_thinking=false`) + 스키마를 프롬프트에 + 서버 검증. 발화 8개 시험에서 형식 통과 8/8, 지어낸 사실 0건, 평균 응답 3.4초.
+
+## 주최 요구 1~11 대응표
+
+원 요구 목록은 `docs/hackathon/REQUIREMENTS.md` §8, 상세 REQ는 같은 문서 §2~§7.
+
+| 요구 | 어떻게 | 코드·문서 위치 | 상태 |
+|---|---|---|---|
+| 1. 인프라 설계 + Mermaid + 역할분담 | 본 README 구조도 + `ARCHITECTURE.md` 시스템 컨텍스트 | `docs/hackathon/ARCHITECTURE.md` §1~§3 | 완료 |
+| 2. 채팅 요구사항 전달 | 1:1 `/chat` + 공유방 `/room/<id>/chat`, 4초 폴링 조회 | `app/api/chat.py`, `app/api/rooms.py`, `app/services/chat_flow.py`, `app/services/rooms.py`, `static/room.html` | 완료 |
+| 3. 접수/검증/질의(옵션+추천)/게이트 | PRD 엔진: 추출→규칙 검사→칸 점수→질문 1개, 최대 8회, 공유방 사실은 방장 확인 | `app/services/prd_engine.py`, `app/services/prd_schema.py`, `tests/unit/test_prd_engine.py` (13건) | 완료 (T3 시뮬레이션 성적표는 미실행) |
+| 4. RAG 사전확인 | NIM 임베딩 코사인 유사도, 임계값 미만은 신규, 실패해도 대화 중단 없음 | `app/services/rag.py`, `app/llm.py` (`embed`) | 완료 |
+| 5. 동작하는 산출물 (웹/안드로이드) | 웹 정적 사이트를 `/site/<id>/`로 직접 서빙. 안드로이드(React Native)는 미구현 | `app/services/codegen.py`, `app/services/deploy.py`, `app/api/public.py` (`serve_site`) | 부분 완료 (웹만 동작, 안드로이드 미착수) |
+| 6. 채팅 확인 필수 + 견적 근거 | 공유방 과반 투표 승인 게이트. 견적은 현재 AI 3안 JSON + 추천 (D25에서 규칙 계산 전환 결정, 미적용) | `app/services/rooms.py`, `app/services/quote.py`, `docs/product/DECISIONS.md` D25 | 완료 (견적 방식 전환은 진행 중) |
+| 7. UI 시안 선택 | 견적 승인 후 정적 HTML 템플릿 1종 렌더링 + Playwright 실제 스크린샷. 3안·취향 반영·부분 수정은 미구현 | `app/services/design.py`, `app/api/public.py` (`design_page`), `docs/product/DESIGN_PIPELINE_PLAN.md` §13 | 진행 중 |
+| 8. 시안 링크 전송 | 시안(`/design/<id>`)·배포(`/site/<id>/`) 링크를 카카오 초대·공유 흐름으로 전달. 사람 최종 검토 게이트는 설계만 | `app/services/rooms.py` (초대 링크), `app/api/public.py`, `docs/hackathon/REVIEW_GATE_DESIGN.md` | 부분 완료 (검토 게이트 미착수) |
+| 9. 에이전트 분리 + Flow 검토 산출물 | `app/services` 모듈 분리 (chat, prd, rag, quote, design, codegen, deploy). 실행 흐름 Mermaid 산출물은 미제출 | `app/services/`, `app/main.py` | 부분 완료 (FLOWDOC 미제출) |
+| 10. 동일 개발환경 | `docker compose up --build` 한 줄 기동, `.env.example` 템플릿, 비밀 키 미커밋 | `docker-compose.yml`, `.env.example`, `docs/hackathon/deployment/templates/Dockerfile.backend` | 완료 |
+| 11. 온보딩 가이드 | 배경/목적/핸즈온 3단 구조 문서, 로컬 셋업·배포 가이드 | `docs/hackathon/LOCAL_SETUP.md`, `docs/hackathon/ENVIRONMENT.md`, `docs/hackathon/deployment/RENDER_DEPLOY.md` | 완료 |
+
+추가 (REVIEW): 사람 최종 검토 게이트는 설계 문서(`docs/hackathon/REVIEW_GATE_DESIGN.md`)까지 완료, 구현은 미착수.
+
+## 구조도
 
 ```mermaid
 flowchart LR
-    CUST(("① 고객")) -->|채팅| CHAT["② 챗봇"]
-    CHAT --> RAG["③ RAG\n기존요구 확인"]
-    RAG --> INTAKE["④ 접수"] --> VALIDATE["⑤ 검증"] --> ASK["⑥ 질의\n3안+추천"]
-    ASK --> GATE{"⑦ 승인게이트"}
-    GATE -->|반려| ASK
-    GATE -->|승인| QUOTE["⑧ 견적+근거"]
-    QUOTE --> DESIGN["⑨ UI 시안"] --> LINK["⑩ 시안링크"]
-    GATE --> SPEC["⑫ 스펙생성"] --> PLAN["⑬ Hermes 플래너"]
-    PLAN --> WEB["⑭ 웹 코드"]
-    PLAN --> AND["⑮ 안드로이드 코드"]
-    WEB --> BUILD["⑯ 빌드/배포"]
-    AND --> BUILD
-    BUILD --> DEPLOY["⑰ 배포본"]
-    DEPLOY --> REVIEW{"⑱ 사람 최종 검토"}
-    REVIEW -->|문제 발견| BUILD
-    REVIEW -->|통과| DELIVER["⑪ 카카오링크 전송"]
-    LINK --> DELIVER
-    DELIVER --> CUST
-
-    classDef teamA fill:#e8f0fe,stroke:#4285f4
-    classDef teamB fill:#fef7e0,stroke:#f9ab00
-    classDef teamC fill:#e6f4ea,stroke:#34a853
-    classDef review fill:#fce8e6,stroke:#ea4335
-    class CHAT,RAG,INTAKE,VALIDATE,ASK,GATE,QUOTE teamA
-    class DESIGN,LINK,DELIVER teamB
-    class SPEC,PLAN,WEB,AND,BUILD,DEPLOY teamC
-    class REVIEW review
+    N1(["1 랜딩"]) --> N2(["2 1:1 채팅"])
+    N1 --> N3(["3 공유방"])
+    N2 --> N4["4 요구사항 엔진"]
+    N3 --> N4
+    N4 --> N5{"5 승인 게이트"}
+    N5 -->|반려·수정| N4
+    N5 -->|승인| N6["6 견적"]
+    N6 --> N7["7 시안"]
+    N7 --> N8["8 시안 선택"]
+    N5 --> N9["9 Hermes 코드생성"]
+    N9 --> N10["10 배포"]
+    N10 --> N11["11 공개 사이트"]
+    N11 --> N12["12 직접 편집"]
+    N4 --> N13["13 NIM 대화·임베딩"]
+    N9 --> N13
+    N4 -.-> N14["14 음성 입력"]
+    N3 --> N15["15 카카오 초대 링크"]
+    N7 --> N15
+    N11 --> N15
 ```
 
-> 파랑=팀원 A, 노랑=팀원 B, 초록=팀원 C, 빨강=사람이 직접 확인하는 검토 지점. 경계별 데이터 계약은 [INTEGRATION_STRATEGY.md §1](docs/hackathon/INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의)에 정의되어 있다.
+| 번호 | 노드 | 설명 |
+|---|---|---|
+| 1 | 랜딩 | 가치 제안 + 입력창. React (`frontend/src/Landing.tsx`), `/` 에서 서빙 |
+| 2 | 1:1 채팅 | 개인 요청 흐름 (`app/api/chat.py`, `app/services/chat_flow.py`) |
+| 3 | 공유방 | 다인원 방, 과반 투표, 4초 폴링 (`app/api/rooms.py`, `app/services/rooms.py`, `static/room.html`) |
+| 4 | 요구사항 엔진 | 추출(NIM) + 규칙(질문 고르기·지어내기 차단). 최대 8회, 선택지 4개 이하 (`app/services/prd_engine.py`) |
+| 5 | 승인 게이트 | 확정 또는 과반 투표 통과 시에만 다음 단계 (`app/services/rooms.py`) |
+| 6 | 견적 | AI 3안 JSON + 추천. 규칙 계산 전환 결정됨 (D25) (`app/services/quote.py`) |
+| 7 | 시안 | 정적 템플릿 1종 렌더링 + 스크린샷 (`app/services/design.py`) |
+| 8 | 시안 선택 | 현재 단일 시안 확인. 3안 비교·투표는 진행 중 |
+| 9 | Hermes 코드생성 | Docker 샌드박스(`--rm`, `/workspace`만) 격리 실행 (`app/services/codegen.py`) |
+| 10 | 배포 | 산출물을 `generated/<id>/`에 기록, 백엔드가 직접 서빙 (`app/services/deploy.py`) |
+| 11 | 공개 사이트 | `/site/<id>/`, CSP sandbox 격리 (`app/api/public.py`) |
+| 12 | 직접 편집 | 명세 값 수정 프로토타입, 목업 데이터 (`frontend/src/editor/`, `/editor`) |
+| 13 | NIM 대화·임베딩 | 모든 LLM 호출의 단일 진입점 (`app/llm.py`) |
+| 14 | 음성 입력 | 1단계 키보드 안내부터. Parakeet 연동은 진행 중 (`docs/product/VOICE_INPUT_PLAN.md`) |
+| 15 | 카카오 초대 링크 | 방 초대·시안·배포 링크 공유. 그룹채팅 내 봇 동작은 공식 API로 불가하여 링크 공유 방식 |
 
-| 번호 | 노드 | 담당 | 설명 |
-|---|---|---|---|
-| ① | 고객 | - | 채팅으로 요구사항을 전달하고 시안·최종 링크를 받는 사용자 |
-| ② | 챗봇 | 팀원 A | 고객 채팅이 들어오는 창구 |
-| ③ | RAG | 팀원 A | 접수 전에 기존 프로젝트와 겹치는지 먼저 검색 |
-| ④ | 접수 | 팀원 A | 채팅 내용을 구조화된 요구사항으로 정리 |
-| ⑤ | 검증 | 팀원 A | 모호하거나 빠진 항목을 찾아냄 |
-| ⑥ | 질의 | 팀원 A | 애매한 항목을 옵션 3개+추천으로 되물음 |
-| ⑦ | 승인게이트 | 팀원 A | 고객이 반드시 채팅으로 확인해야 다음 단계로 진행 |
-| ⑧ | 견적+근거 | 팀원 A | 승인된 요구로 견적과 산정 근거를 생성 |
-| ⑨ | UI 시안 | 팀원 B | 커스텀 생성기로 시안 여러 종을 렌더링 |
-| ⑩ | 시안링크 | 팀원 B | 고객이 시안을 확인·선택할 수 있는 링크 |
-| ⑪ | 카카오링크 전송 | 팀원 B | 시안 링크와 최종 배포 링크를 고객에게 전송 |
-| ⑫ | 스펙생성 | 팀원 C | 승인된 요구사항을 개발용 스펙 문서로 변환 |
-| ⑬ | Hermes 플래너 | 팀원 C | 스펙을 작업 단위로 쪼개 코드생성 에이전트에 할당 |
-| ⑭ | 웹 코드 | 팀원 C | 웹 산출물 코드 생성 |
-| ⑮ | 안드로이드 코드 | 팀원 C | React Native 기반 코드 생성 |
-| ⑯ | 빌드/배포 | 팀원 C | 생성된 코드를 빌드해 배포 |
-| ⑰ | 배포본 | 팀원 C | 실제로 접속 가능한 최종 산출물 |
-| ⑱ | **사람 최종 검토** | 팀원 A/B/C 순번제 | 자동 헬스체크만으로는 부족 — 사람이 직접 열어 핵심 화면·핵심 기능·에러 여부를 확인해야 통과. 문제 발견 시 빌드(⑯)로 되돌아가 재작업 |
+## 품질
 
-> 각 노드의 상세 설명·입출력 계약은 [ARCHITECTURE.md §1 번호별 설명](docs/hackathon/ARCHITECTURE.md#번호별-설명)과 [INTEGRATION_STRATEGY.md §1](docs/hackathon/INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의)을 본다.
+테스트 수 (파일을 직접 세어 확인, 2026-09-26 기준):
 
-## 사용자 시나리오 예시
+- 단위 테스트: 77개 (`tests/unit`, 10개 파일: `test_chat` 5, `test_funnel` 6, `test_migrate_json` 2, `test_prd_engine` 13, `test_public` 8, `test_quote` 9, `test_rag` 3, `test_rooms` 14, `test_security` 8, `test_store` 9).
+- E2E 테스트: 5개 (`tests/e2e/test_room_e2e.py`: 입장→요청→투표→견적→시안→코드생성→배포 URL 흐름).
+- 프론트 테스트: 18개 (`frontend/src/editor/EditorPage.test.tsx` 3, `specReducer.test.ts` 15, vitest + jsdom).
 
-같은 시스템이 상황에 따라 어떻게 다르게 움직이는지, 대표 시나리오 5가지를 시퀀스로 그렸다.
+CI (`.github/workflows/ci.yml`):
 
-### 시나리오 1 — 정상 경로 (한 번에 승인, 신규 요구)
+- 백엔드 잡: Python 3.11, PostgreSQL 16 서비스, `compileall` + `pytest -q`.
+- 프론트 잡: Node 18, `tsc --noEmit` + `vite build` + `vitest run`.
 
-```mermaid
-sequenceDiagram
-    actor 고객
-    participant 챗봇 as ②챗봇
-    participant RAG as ③RAG
-    participant 게이트 as ⑦게이트
-    participant 견적 as ⑧견적
-    participant 시안 as ⑨시안
-    participant 배포 as ⑰배포
+보안 조치:
 
-    고객->>챗봇: 1. "쇼핑몰 웹사이트 만들고 싶어요"
-    챗봇->>RAG: 2. 기존 프로젝트 유사도 검색
-    RAG-->>챗봇: 3. 신규 요구 (유사 프로젝트 없음)
-    챗봇->>게이트: 4. 정리된 요구 + 확인 요청
-    고객->>게이트: 5. "네, 맞아요" (승인)
-    게이트->>견적: 6. 승인된 요구 전달
-    견적-->>고객: 7. 견적 + 산정 근거
-    게이트->>시안: 8. 개발 착수 트리거 (팀C 병렬 시작)
-    시안-->>고객: 9. 시안 링크 (카카오)
-    고객->>시안: 10. 시안 A 선택
-    배포-->>고객: 11. 최종 접속 링크 (카카오)
+- 생성 사이트·시안은 CSP `sandbox` 헤더로 서빙하여 앱 출처로 취급되지 않게 하고 저장소·쿠키 접근을 차단 (`app/api/public.py`). 별도 미리보기 호스트 분리는 로그인 전 필수 과제로 남음 (`docs/product/DESIGN_PIPELINE_PLAN.md` §13.5 S-1).
+- 방 참여자 본인 확인 값(`member_id`)은 응답에 노출하지 않고 SHA-256 앞 12자리 핸들로만 내보냄 (`app/services/rooms.py` `member_handle`).
+- `requirement_id`·`room_id`·`member_id`는 영숫자·하이픈·밑줄로 정제, 생성 사이트 경로는 산출물 디렉터리 안으로 제한 (`app/security.py`, `app/api/public.py`).
+- 코드생성 프롬프트에는 정제·길이제한된 스펙만 넣고, API 키는 환경변수로만 전달하여 프로세스 인자에 노출하지 않음 (`app/services/codegen.py`).
+- 말하지 않은 전화·주소·가격은 추출 단계에서 버리고, 확정 칸은 확인 없이 바꾸지 않음. `test_prd_engine.py`에서 규칙을 검사 (`app/services/prd_engine.py`).
+
+운영:
+
+- HTTPS: Caddy가 `144.24.91.250.sslip.io`로 들어오는 요청을 백엔드(8643)로 전달, 인증서 자동 발급 (`deploy/Caddyfile`).
+- DB: PostgreSQL 16 컨테이너 + Alembic 마이그레이션. 기동 시 마이그레이션·세션 복구 (`app/db/migrate.py`, `app/main.py` lifespan, `docker-compose.yml`).
+- 백업: `scripts/backup_db.sh` (cron 예시 포함, 최근 14개 보관). 복구 절차는 `docs/product/DB_OPERATIONS.md`.
+- 롤백: `scripts/deploy.sh` 배포 전 스냅샷(최근 5개 보관) + `scripts/rollback.sh`, 헬스체크 실패 시 자동 롤백 옵션.
+
+## 로컬 실행 방법
+
+`.env.example` 기준. `.env` 파일은 읽거나 커밋하지 않는다.
+
+```sh
+cp .env.example .env
+# .env에 POSTGRES_PASSWORD를 채운다 (로컬 개발용 임의 값, 예: openssl rand -hex 24)
+# NIM을 쓰려면 NIM_API_KEY도 채운다. 없으면 폴백 동작으로 실행된다
+docker compose up --build
 ```
 
-| 번호 | 무슨 일이 일어나는가 |
-|---|---|
-| 1 | 고객이 챗봇에 새 프로젝트를 요청한다 |
-| 2 | 챗봇이 기존 프로젝트 중 비슷한 것이 있는지 RAG로 먼저 검색한다 |
-| 3 | 검색 결과 유사한 기존 프로젝트가 없다고 확인된다 (신규 건) |
-| 4 | 정리된 요구사항을 고객에게 보여주고 확인을 요청한다 |
-| 5 | 고객이 승인한다 |
-| 6 | 승인된 요구사항이 견적 담당으로 넘어간다 |
-| 7 | 견적과 산정 근거가 고객에게 전달된다 |
-| 8 | 동시에 개발 착수가 트리거되어 팀 C가 코드 생성을 시작한다 |
-| 9 | 팀 B가 만든 UI 시안 링크가 카카오로 고객에게 전송된다 |
-| 10 | 고객이 여러 시안 중 하나를 선택한다 |
-| 11 | 개발이 끝나면 실제로 접속 가능한 최종 링크가 고객에게 전송된다 |
+- 1:1 채팅·랜딩: http://localhost:8643/
+- 공유방: http://localhost:8643/room.html
+- 편집기: 프론트 빌드 후 http://localhost:8643/editor (`frontend`에서 `npm ci && npm run build`)
+- 헬스체크: http://localhost:8643/health
+- 테스트: `pytest -q` (PostgreSQL 필요 시 `TEST_DATABASE_URL` 지정, CI 참고), 프론트는 `frontend`에서 `npm test`
 
-### 시나리오 2 — RAG가 기존 프로젝트를 발견 (재사용 경로)
-
-```mermaid
-sequenceDiagram
-    actor 고객
-    participant 챗봇 as ②챗봇
-    participant RAG as ③RAG
-    participant 질의 as ⑥질의
-
-    고객->>챗봇: 1. "지난번에 만든 예약 시스템에 결제만 추가해주세요"
-    챗봇->>RAG: 2. 기존 프로젝트 유사도 검색
-    RAG-->>챗봇: 3. 기존 요구 발견 (유사도 0.9, "예약 시스템 v1")
-    챗봇->>질의: 4. "기존 프로젝트를 확장하는 것이 맞습니까?" (옵션 3개+추천)
-    Note right of 질의: 옵션1: 기존 확장(추천)<br/>옵션2: 신규 별도 구축<br/>옵션3: 기존 마이그레이션 후 확장
-    고객->>질의: 5. 옵션1 선택
-    질의->>챗봇: 6. 기존 요구 위에 결제 기능만 증분 접수
-```
-
-| 번호 | 무슨 일이 일어나는가 |
-|---|---|
-| 1 | 고객이 기존 프로젝트를 확장해달라고 요청한다 |
-| 2 | 챗봇이 RAG로 기존 프로젝트가 있는지 검색한다 |
-| 3 | "예약 시스템 v1"이라는 기존 프로젝트가 90% 유사도로 발견된다 |
-| 4 | 그냥 넘어가지 않고, 기존 것을 확장하는 게 맞는지 옵션 3개+추천으로 되묻는다 |
-| 5 | 고객이 추천된 옵션(기존 확장)을 선택한다 |
-| 6 | 처음부터 다시 만들지 않고, 기존 요구 위에 결제 기능만 추가로 접수된다 |
-
-### 시나리오 3 — 검증 실패 → 재질의 → 승인 (반려 경로)
-
-```mermaid
-sequenceDiagram
-    actor 고객
-    participant 검증 as ⑤검증
-    participant 질의 as ⑥질의
-    participant 게이트 as ⑦게이트
-
-    고객->>검증: 1. "관리자 페이지도 있었으면 좋겠어요" (모호)
-    검증-->>질의: 2. 권한 범위 불명확
-    질의->>고객: 3. 옵션 3개 + 추천\n(1.전체관리자 2.제한관리자(추천) 3.관리자없음)
-    고객->>질의: 4. "2번이요"
-    질의->>게이트: 5. 확정안 제출
-    고객->>게이트: 6. 최종 확인 (승인)
-    게이트-->>고객: 7. 승인 완료, 다음 단계(견적) 진행
-```
-
-| 번호 | 무슨 일이 일어나는가 |
-|---|---|
-| 1 | 고객이 "관리자 페이지"라고만 말해, 권한 범위가 정해지지 않은 모호한 요구를 준다 |
-| 2 | 검증 단계가 이 모호함을 잡아내 질의 단계로 넘긴다 |
-| 3 | 질의 단계가 임의로 정하지 않고, 옵션 3개(+추천 1개)를 고객에게 되묻는다 |
-| 4 | 고객이 추천된 "제한관리자" 옵션을 선택한다 |
-| 5 | 명확해진 요구사항으로 확정안이 승인 게이트에 제출된다 |
-| 6 | 고객이 최종적으로 한 번 더 확인해준다 (채팅 확인 필수 원칙) |
-| 7 | 승인이 완료되어 다음 단계(견적)로 넘어간다 |
-
-### 시나리오 4 — 배포 실패 처리 (실패 경로)
-
-```mermaid
-sequenceDiagram
-    participant 빌드 as ⑯빌드/배포
-    participant 배포 as ⑰배포본
-    participant 전송 as ⑪전송
-    actor 고객
-
-    빌드->>빌드: 1. 코드 빌드 시도
-    Note over 빌드: 2. 빌드 실패 (의존성 오류)
-    빌드->>빌드: 3. 1회 재시도
-    Note over 빌드: 4. 재시도도 실패
-    빌드->>배포: 5. status: "failed" 전파
-    배포->>전송: 6. 실패 상태 + 사유
-    전송-->>고객: 7. "죄송합니다, 배포 중 문제가 발생해 확인 중입니다" (깨진 링크 대신 상태 안내)
-    Note over 전송,고객: 실패 시 링크를 보내지 않는 것이 핵심 (INTEGRATION_STRATEGY.md §5 리스크 참고)
-```
-
-| 번호 | 무슨 일이 일어나는가 |
-|---|---|
-| 1 | 생성된 코드를 빌드한다 |
-| 2 | 의존성 오류 등으로 빌드가 실패한다 |
-| 3 | 자동으로 한 번 더 재시도한다 |
-| 4 | 재시도도 실패한다 |
-| 5 | "실패했다"는 상태가 배포 컴포넌트로 전달된다 (성공한 척하지 않음) |
-| 6 | 실패 상태와 사유가 전송(카카오링크) 컴포넌트로 전달된다 |
-| 7 | 고객에게는 깨진 링크 대신, 문제가 발생했다는 안내 메시지가 전송된다 |
-
-### 시나리오 5 — 승인된 요구사항이 에이전트를 거쳐 카카오톡 링크로 도착하기까지 (개발~배포 상세)
-
-시나리오 1은 전체 흐름을 압축해서 보여줬다. 여기서는 "⑦ 승인게이트를 통과한 이후, 코드가 실제로 만들어지고 배포되어 고객 카카오톡에 링크가 뜨기까지" 구간만 떼어 자세히 그린다.
-
-```mermaid
-sequenceDiagram
-    participant 게이트 as ⑦승인게이트
-    participant 스펙 as ⑫스펙생성
-    participant 플래너 as ⑬Hermes플래너
-    participant 웹 as ⑭웹코드
-    participant 안드 as ⑮안드로이드코드
-    participant 빌드 as ⑯빌드/배포
-    participant 배포 as ⑰배포본
-    participant 검토 as ⑱사람최종검토
-    participant 카톡 as ⑪카카오링크전송
-    actor 고객
-
-    게이트->>스펙: 1. 승인된 요구사항 전달 (BND-3)
-    스펙->>스펙: 2. NIM으로 개발용 SRS/스펙 문서 생성
-    스펙->>플래너: 3. 스펙 문서 + 작업 목록 전달 (BND-6)
-    플래너->>플래너: 4. 작업을 웹/안드로이드 단위로 분해
-    플래너->>웹: 5. 웹 파트 작업 할당
-    플래너->>안드: 5. 안드로이드 파트 작업 할당 (병렬)
-    웹->>웹: 6. NIM 코드 모델로 웹 코드 생성
-    안드->>안드: 6. NIM 코드 모델로 React Native 코드 생성 (병렬)
-    웹->>빌드: 7. 생성된 코드 전달
-    안드->>빌드: 7. 생성된 코드 전달
-    빌드->>빌드: 8. 컨테이너 빌드 (백그라운드 워커)
-    빌드->>배포: 9. Render 등 컨테이너 PaaS로 배포
-    배포-->>플래너: 10. status: "ready" + 접속 URL (BND-5)
-    플래너->>검토: 11. 최종 검토 요청 (BND-5)
-    alt 검토 통과
-        검토->>검토: 12. 실제 접속해 핵심 화면·핵심 기능·에러 여부 확인
-        검토-->>플래너: 13. 승인 (BND-9 approved)
-        플래너->>카톡: 14. 배포 완료 통지
-        카톡->>고객: 15. "완성됐습니다! 여기서 확인하세요: https://...onrender.com" (카카오링크)
-    else 문제 발견
-        검토-->>플래너: 13. 반려 + 사유 (BND-9 rejected)
-        플래너->>빌드: 14. 재작업 지시 (7번 단계로 복귀)
-        Note over 카톡,고객: 검토를 통과하기 전까지 고객에게는 아무 링크도 가지 않는다
-    end
-```
-
-| 번호 | 무슨 일이 일어나는가 |
-|---|---|
-| 1 | 고객이 승인한 요구사항이 스펙생성 에이전트(팀원 C)로 넘어간다 |
-| 2 | 스펙생성 에이전트가 NIM을 호출해 개발자/AI가 코드로 옮길 수 있는 SRS/스펙 문서를 만든다 |
-| 3 | 완성된 스펙과 작업 목록이 Hermes 플래너에게 전달된다 |
-| 4 | 플래너가 이 작업을 "웹 만들기"와 "안드로이드 만들기"로 쪼갠다 |
-| 5 | 웹 코드 에이전트와 안드로이드 코드 에이전트에게 각자의 작업을 동시에(병렬로) 할당한다 |
-| 6 | 두 에이전트가 각각 NIM 코드 생성 모델을 불러 실제 코드를 만든다 (동시 진행) |
-| 7 | 완성된 코드가 빌드/배포 파이프라인으로 모인다 |
-| 8 | 코드를 컨테이너로 빌드한다 (오래 걸리는 작업이라 별도 백그라운드 워커에서 처리, §6-2 참고) |
-| 9 | 빌드된 컨테이너를 Render 같은 상시 배포 서비스에 올린다 |
-| 10 | 배포가 끝나면 "준비됨" 상태와 실제 접속 주소가 플래너에게 돌아온다 |
-| 11 | 플래너가 배포본을 사람 최종 검토자에게 넘긴다 — **여기서 자동화가 끝나고 사람이 개입한다** |
-| 12 | 검토자가 실제로 링크를 열어 핵심 화면이 뜨는지, 요구했던 핵심 기능이 동작하는지, 에러가 없는지 확인한다 |
-| 13 (통과) | 검토자가 승인한다 |
-| 13 (반려) | 검토자가 문제를 발견해 사유와 함께 반려한다 |
-| 14 (통과) | 플래너가 배포 완료를 전송(카카오링크) 컴포넌트에 알린다 |
-| 14 (반려) | 플래너가 빌드 파이프라인에 재작업을 지시한다 (7번 단계부터 다시) |
-| 15 | 고객의 카카오톡으로 실제 접속 가능한 링크가 도착한다 — 이때부터 요구 5)("배포된 최종산출물은 동작하는 것") 충족. **사람 검토를 통과하지 못하면 이 단계 자체가 일어나지 않는다** |
-
-> 위 5가지 시나리오에 등장한 모든 단계(그리고 여기 다 담지 못한 예외 케이스까지)는 [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md)에 `REQ-*` ID로 정식 정리되어 있다. 각 REQ는 Input/Output/완료조건(DoD)까지 명시한다.
-
-## 마일스톤 타임라인 (D0~D7, 9/28 제출)
-
-**목표: 2026-09-28 NVIDIA 해커톤 제출.** 상세 계획은 [docs/hackathon/INTEGRATION_STRATEGY.md §3](docs/hackathon/INTEGRATION_STRATEGY.md#3-상세-마일스톤-d0d7)에 있으며, 여기서는 남은 일수를 한눈에 보기 위한 타임라인만 요약한다.
-
-```mermaid
-gantt
-    title 해커톤 제출까지 (D0=2026-09-21 ~ D+7=2026-09-28)
-    dateFormat  YYYY-MM-DD
-    axisFormat  D+%d일
-    todayMarker on
-
-    section ① 계약/환경
-    ① 계약 스키마 확정 + 개발환경 세팅      :done, m1, 2026-09-21, 1d
-    section ② 워킹 스켈레톤
-    ② 워킹 스켈레톤 1회 관통 (가짜 데이터) :active, m2, 2026-09-22, 1d
-    section ③ 실연동
-    ③ NIM/RAG/카카오링크 실연동           : m3, 2026-09-23, 1d
-    section ④ 1차 통합
-    ④ 엔드투엔드 1회 통과 (실데이터)       : m4, 2026-09-24, 1d
-    section ⑤ 기능 확장
-    ⑤ 게이트·견적·시안 확장, 2차 통합      : m5, 2026-09-25, 1d
-    section ⑥ 예외 처리
-    ⑥ 예외/실패 경로 통합 테스트          : m6, 2026-09-26, 1d
-    section ⑦ 리허설
-    ⑦ 전체 리허설 + 백업 데모 영상         :crit, m7, 2026-09-27, 1d
-    section ⑧ 제출
-    ⑧ 워밍업 + 제출                      :crit, milestone, m8, 2026-09-28, 0d
-```
-
-| 번호 | 일자 | 마일스톤 | 무슨 일이 일어나는가 |
-|---|---|---|---|
-| ① | D0 (9/21) | 계약/환경 | 팀원 A/B/C가 경계 스키마([INTEGRATION_STRATEGY.md §1](docs/hackathon/INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의))에 서명하고 동일 개발환경을 세팅 |
-| ② | D+1 (9/22) | 워킹 스켈레톤 | 가짜 데이터로라도 고객 채팅→배포 링크까지 전 구간이 끊기지 않고 한 번 통과 |
-| ③ | D+2 (9/23) | 실연동 | NIM 챗/임베딩, RAG 실색인, 카카오링크 API를 실제로 붙임 (카카오는 최우선 리스크) |
-| ④ | D+3 (9/24) | 1차 통합 | 가짜 데이터가 아닌 실제 데이터로 엔드투엔드 1회 통과 |
-| ⑤ | D+4 (9/25) | 기능 확장 | 게이트·견적 근거·시안 다양화 등 완성도를 높이고 2차 통합 확인 |
-| ⑥ | D+5 (9/26) | 예외 처리 | 요구사항 불명확·배포 실패 같은 예외/실패 경로까지 통합 테스트 |
-| ⑦ | D+6 (9/27) | 리허설 | 전체 데모 리허설 1회 + 만약을 대비한 백업 데모 영상 촬영 |
-| ⑧ | D+7 (9/28) | 제출 | 발표 10~15분 전 [워밍업 스크립트](docs/hackathon/deployment/scripts/warmup.sh) 실행 후 최종 제출 |
-
-> 매일 저녁 15분 통합 체크(§4)를 지켜야 이 타임라인이 유지된다 — 생략하면 실패가 D+6로 몰린다.
-
-## 폴더 구조
+## 폴더 구조 요약
 
 ```
 agt001/
-├── README.md                          # 이 파일 — 전체 안내
-├── .env.example                       # 공통 환경변수 템플릿 (REQ-ENV-001, cp .env.example .env)
-├── docker-compose.yml                 # 팀원 공통 로컬 개발환경 (REQ-ENV-001)
-├── contracts/                         # 팀원 간 경계(BND-1~9) JSON 스키마 + 예시 데이터 (정본은 INTEGRATION_STRATEGY.md §1)
-│   └── examples/                      #   더미 데이터 (워킹 스켈레톤·목업 개발용)
-├── docs/
-│   ├── reqpipe/                       # 기존 reqpipe 시스템 문서 (읽는 순서: 01→02→03)
-│   │   ├── 01_OVERVIEW_AND_HISTORY.md #   버전 이력·결정 근거 아카이브
-│   │   ├── 02_REQUIREMENTS.md         #   ★ 정본 요구사항 ("시스템은 ~해야 한다", G01~G18)
-│   │   ├── 03_SPEC.md                 #   구현 스펙 (API/데이터모델/상태/배포 + 부록 RAG·환경·구현전략)
-│   │   ├── 04_REQUIREMENTS_DETAILED.md #  02의 REQ 114건 각각에 시퀀스 다이어그램·담당·Success Criteria 첨부
-│   │   └── archive/                   #   원본 근거자료 (CSV·mmd·toml 원문, 수정하지 않음)
-│   │       ├── ARCH_S3_v1.2/          #     아키텍처 설계 원본 (모듈89·인터페이스22·다이어그램)
-│   │       └── AI_pipeline_confirmed_v1.1/  # 결정 로그·파라미터 원본
-│   └── hackathon/                     # NVIDIA 해커톤 신규 프로젝트 문서
-│       ├── REQUIREMENTS.md            #   ★ 정본 요구사항 (REQ-* ID, Input/Output/완료조건)
-│       ├── ARCHITECTURE.md            #   ★ 전체 아키텍처 (팀 역할분담·Mermaid·에이전트 구성)
-│       ├── INTEGRATION_STRATEGY.md    #   팀원별 통합 전략 + 일자별 상세 마일스톤(D0~D7)
-│       ├── PM_ORCHESTRATION.md        #   ★ PM 감사 결과(병목·에러 포인트) + 실행 절차 + 인터페이스 규약 거버넌스
-│       ├── TEAM_A_SPEC.md             #   팀원 A 상세 스펙 (대화·요구사항·견적, ②~⑧)
-│       ├── TEAM_B_SPEC.md             #   팀원 B 상세 스펙 (디자인·전달, ⑨~⑪)
-│       ├── TEAM_C_SPEC.md             #   팀원 C 상세 스펙 (코드생성·배포, ⑫~⑰)
-│       └── deployment/
-│           ├── RENDER_DEPLOY.md       #     배포 가이드 (배경/목적/핸즈온, AI 에이전트 온보딩용)
-│           ├── templates/             #     Dockerfile·render.yaml 템플릿
-│           └── scripts/warmup.sh      #     콜드스타트 워밍업 스크립트
+├── app/                  # 백엔드 (FastAPI)
+│   ├── api/              # chat, rooms, public(시안·사이트 서빙), events
+│   ├── services/         # chat_flow, prd_engine, rag, quote, design, codegen, deploy, rooms, funnel
+│   ├── db/               # PostgreSQL 모델·세션·Alembic 마이그레이션
+│   ├── llm.py            # NIM 호출 단일 진입점
+│   └── security.py       # 토큰·스펙 정제
+├── frontend/src/         # 랜딩·편집기 (React + TypeScript + Vite)
+├── static/               # 기존 채팅·공유방 정적 화면 (index.html, room.html)
+├── templates/            # 시안 템플릿 (현재 1종)
+├── tests/unit, tests/e2e # 단위 77개·E2E 5개
+├── contracts/            # 팀원 간 경계(BND) 스키마 + 예시
+├── scripts/              # deploy.sh, rollback.sh, backup_db.sh
+├── deploy/Caddyfile      # HTTPS 리버스 프록시
+├── docker-compose.yml    # db + backend + caddy
+└── docs/                 # 문서 (아래 목록)
 ```
 
-## 읽는 순서
+## 문서 목록
 
-### 처음 합류하는 팀원 (해커톤 작업을 할 사람)
-
-1. 이 README — 전체 그림을 빠르게 파악(블루프린트+시나리오, 간략 버전)
-2. [docs/hackathon/REQUIREMENTS.md](docs/hackathon/REQUIREMENTS.md) — 무엇을 만들어야 하고 언제 "완료"로 볼지 (`REQ-*` ID, Input/Output/완료조건)
-3. [docs/hackathon/ARCHITECTURE.md](docs/hackathon/ARCHITECTURE.md) — 그것을 어떻게 만들지 (시스템 컨텍스트, 팀원별 역할, 확정된 기술 결정)
-4. [docs/hackathon/INTEGRATION_STRATEGY.md](docs/hackathon/INTEGRATION_STRATEGY.md) — 내가 맡은 파트를 오늘부터 어떻게 시작할지(D0~D7 마일스톤)
-5. 내 파트의 상세 설계: 팀원 A는 [TEAM_A_SPEC.md](docs/hackathon/TEAM_A_SPEC.md), 팀원 B는 [TEAM_B_SPEC.md](docs/hackathon/TEAM_B_SPEC.md), 팀원 C는 [TEAM_C_SPEC.md](docs/hackathon/TEAM_C_SPEC.md)
-6. [docs/hackathon/deployment/RENDER_DEPLOY.md](docs/hackathon/deployment/RENDER_DEPLOY.md) — 실제 배포를 맡았다면 여기까지
-7. [docs/hackathon/PM_ORCHESTRATION.md](docs/hackathon/PM_ORCHESTRATION.md) — 매일 아침/저녁 팀 전체가 확인하는 절차와 그날의 게이트 조건
-8. 필요 시 [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — 재사용 중인 게이트/RAG/감사 개념의 원래 정의를 참고
-
-### reqpipe 자체를 개발/검토할 사람
-
-1. [docs/reqpipe/02_REQUIREMENTS.md](docs/reqpipe/02_REQUIREMENTS.md) — ★ 정본. "무엇을 만들어야 하는가"
-2. [docs/reqpipe/04_REQUIREMENTS_DETAILED.md](docs/reqpipe/04_REQUIREMENTS_DETAILED.md) — 실제 구현 착수 전, REQ 항목별 시퀀스 다이어그램·담당 레이어·Success Criteria 확인
-3. [docs/reqpipe/03_SPEC.md](docs/reqpipe/03_SPEC.md) — "어떻게 코드로 옮기는가" (API·데이터모델·상태·배포)
-4. [docs/reqpipe/01_OVERVIEW_AND_HISTORY.md](docs/reqpipe/01_OVERVIEW_AND_HISTORY.md) — 왜 지금 이 모습인지 근거가 필요할 때만
-5. `docs/reqpipe/archive/` — 원본 CSV·다이어그램·결정 로그 (01/03 문서가 요약하며 링크하는 원본, 직접 열 필요는 거의 없음)
-
-## 문서 작성 규칙 (이 저장소 공통)
-
-- 각 문서는 상단에 **성격**(정본/아카이브/구현스펙 등)과 **개요**, **목차**, 필요 시 **용어집**을 둔다.
-- 같은 표·다이어그램을 두 곳에 복사하지 않는다. 원본 위치를 정하고, 다른 문서에서는 링크만 한다 (`docs/reqpipe/01_OVERVIEW_AND_HISTORY.md` §8·§11 참고 — 아키텍처 원본은 `archive/ARCH_S3_v1.2/`가 정본).
-- 용어는 [docs/reqpipe/02_REQUIREMENTS.md의 용어집](docs/reqpipe/02_REQUIREMENTS.md#02-용어집-한자어영어-약어-첫-등장-풀어쓰기)을 공통 정본으로 삼고, 각 하위 문서는 그 문서에서만 쓰는 용어만 추가로 정의한다 (예: [docs/hackathon/ARCHITECTURE.md §0.1](docs/hackathon/ARCHITECTURE.md#01-용어-이-문서-한정)).
+- 진행 상황: `STATUS.md`
+- 요구사항 정본·아키텍처: `docs/hackathon/REQUIREMENTS.md`, `docs/hackathon/ARCHITECTURE.md`
+- 제품 로드맵·결정: `docs/product/PRODUCT_ROADMAP.md`, `docs/product/DECISIONS.md`
+- 요구사항 엔진: `docs/product/REQUIREMENTS_ENGINE_PLAN.md`, `docs/product/research/REQUIREMENTS_ENGINE_RESEARCH.md`
+- 시안 파이프라인: `docs/product/DESIGN_PIPELINE_PLAN.md` (§13이 우선)
+- 음성 입력: `docs/product/VOICE_INPUT_PLAN.md` (부록에 Parakeet·Magpie 실측)
+- 검토 게이트 설계: `docs/hackathon/REVIEW_GATE_DESIGN.md`
+- 로컬 셋업·환경: `docs/hackathon/LOCAL_SETUP.md`, `docs/hackathon/ENVIRONMENT.md`
+- 배포·DB 운영: `docs/hackathon/deployment/RENDER_DEPLOY.md`, `docs/product/DB_OPERATIONS.md`

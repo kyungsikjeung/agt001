@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>voice.js 수동 시험 (가짜 녹음·가짜 fetch)</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 0; padding: 16px; }
+  #row { display: flex; gap: 8px; padding: 12px 0; }
+  #input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 1rem; }
+  label { font-size: 0.875rem; }
+  .note { font-size: 0.8125rem; color: #52525b; }
+</style>
+</head>
+<body>
+  <h1>voice.js 수동 시험</h1>
+  <p class="note">실제 마이크·서버 없이 흐름만 확인한다. 작업 폴더에서 정적 서버(예: <code>python3 -m http.server</code>)로 열고 <code>/voice-test.html</code>로 접속해야 <code>/voice.js</code>가 로드된다.</p>
+  <p>
+    <label for="scenario">가짜 /api/stt 응답:</label>
+    <select id="scenario">
+      <option value="digits">200 숫자 포함 ("010 1234 5678로 연락주세요") → 번호 확인 안내</option>
+      <option value="plain">200 숫자 없음 ("카페 예약하고 싶어요")</option>
+      <option value="e503">503 사용 불가</option>
+      <option value="e429">429 너무 잦음</option>
+      <option value="e413">413 너무 큼</option>
+    </select>
+  </p>
+  <div id="row">
+    <input id="input" placeholder="메시지를 입력하세요..." autocomplete="off">
+    <button id="micBtn" type="button" aria-label="말로 입력" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border:1px solid #e5e7eb;border-radius:8px;cursor:pointer;padding:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button>
+    <button id="sendBtn" onclick="document.getElementById('sent').textContent='전송됨: '+document.getElementById('input').value">보내기</button>
+  </div>
+  <p class="note">확인: ① 버튼→빨간 정지+초 표시→다시 누르면 "글자로 바꾸는 중…"→입력칸에 글자만(자동 전송 안 됨, 아래 sent 표시 그대로) ② 숫자 시나리오는 "번호와 금액이 맞는지 확인해 주세요" 표시 ③ 오류 시나리오별 문구.</p>
+  <p id="sent" class="note"></p>
+
+<script>
+// voice.js보다 먼저 로드되는 가짜 장치: 마이크 없이 녹음 흐름 확인용.
+(function () {
+  'use strict';
+  try {
+    localStorage.setItem('agt001_member_id', 'test-member');
+  } catch (e) { /* 무시 */ }
+
+  if (!navigator.mediaDevices) {
+    try { navigator.mediaDevices = {}; } catch (e) { /* 무시 */ }
+  }
+  if (navigator.mediaDevices && !navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia = function () {
+      return Promise.resolve({ getTracks: function () { return [{ stop: function () {} }]; } });
+    };
+  }
+
+  function FakeMediaRecorder(stream, opts) {
+    this.stream = stream;
+    this.mimeType = (opts && opts.mimeType) || 'audio/webm';
+    this.ondataavailable = null;
+    this.onstop = null;
+  }
+  FakeMediaRecorder.isTypeSupported = function () { return true; };
+  FakeMediaRecorder.prototype.start = function () {};
+  FakeMediaRecorder.prototype.stop = function () {
+    var self = this;
+    setTimeout(function () {
+      if (self.ondataavailable) self.ondataavailable({ data: new Blob(['fake-audio'], { type: 'audio/webm' }) });
+      if (self.onstop) self.onstop();
+    }, 50);
+  };
+  window.MediaRecorder = FakeMediaRecorder;
+
+  var TEXTS = {
+    digits: '010 1234 5678로 연락주세요',
+    plain: '카페 예약하고 싶어요'
+  };
+  var realFetch = window.fetch.bind(window);
+  window.fetch = function (url, opts) {
+    if (typeof url === 'string' && url.indexOf('/api/stt') !== -1) {
+      var sc = document.getElementById('scenario').value;
+      var status = 200;
+      var body = { text: TEXTS[sc] || TEXTS.plain };
+      if (sc === 'e503') { status = 503; body = {}; }
+      if (sc === 'e429') { status = 429; body = {}; }
+      if (sc === 'e413') { status = 413; body = {}; }
+      return Promise.resolve(new Response(JSON.stringify(body), {
+        status: status,
+        headers: { 'Content-Type': 'application/json' }
+      }));
+    }
+    return realFetch(url, opts);
+  };
+})();
+</script>
+<script src="/voice.js" defer></script>
+</body>
+</html>

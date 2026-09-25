@@ -6,8 +6,9 @@ FROM python:3.11-slim
 # 실측(Debian trixie/13): docker.io 패키지가 데몬(dockerd)만 담고, CLI 바이너리
 # (/usr/bin/docker)는 별도 docker-cli 패키지로 분리돼 있다 — docker.io만 설치하면
 # `shutil.which("docker")`가 실패해 팀C 코드생성이 "docker가 없다"며 건너뛰어진다.
+# ffmpeg: 휴대폰 녹음(webm/opus, iOS는 mp4/aac)을 음성 인식용 16kHz 모노 WAV로 바꾼다 (app/services/stt.py).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends docker.io docker-cli \
+    && apt-get install -y --no-install-recommends docker.io docker-cli ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

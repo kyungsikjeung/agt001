@@ -1,0 +1,18 @@
+<section class="s-offerings s-offerings--tabs" data-section-id="{{id}}" aria-labelledby="offerings-title-{{id}}">
+  <h2 id="offerings-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}메뉴{{/label}}</h2>
+  {{#has_items}}
+  <nav class="s-tabs__nav" aria-label="분류">
+    {{#items}}<a class="s-tabs__tab" href="#tab-{{id}}-{{index}}">{{#name}}{{name}}{{/name}}{{^name}}항목 {{index}}{{/name}}</a>{{/items}}
+  </nav>
+  {{#items}}
+  <div class="s-tabs__panel" id="tab-{{id}}-{{index}}" tabindex="0">
+    <strong class="s-card__name">{{#name}}{{name}}{{/name}}{{^name}}<span class="is-placeholder" aria-label="항목 이름: 아직 입력되지 않음">[이름 입력]</span>{{/name}}</strong>
+    {{#desc}}<p class="s-card__desc">{{desc}}</p>{{/desc}}
+    <p class="s-card__price">{{#price}}{{price}}{{/price}}{{^price}}<span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span>{{/price}}</p>
+  </div>
+  {{/items}}
+  {{/has_items}}
+  {{^has_items}}
+  <p><span class="is-placeholder" aria-label="상품·메뉴: 아직 입력되지 않음">[메뉴 입력]</span></p>
+  {{/has_items}}
+</section>

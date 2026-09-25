@@ -1,0 +1,15 @@
+<section class="s-intro s-intro--stats" data-section-id="{{id}}" aria-labelledby="intro-title-{{id}}">
+  <h2 id="intro-title-{{id}}">소개</h2>
+  {{#body}}<p>{{body}}</p>{{/body}}
+  {{#has_stats}}
+  <dl class="s-stats">
+    {{#stats}}
+    <div class="s-stats__item">
+      <dt>{{label}}</dt>
+      <dd>{{value}}</dd>
+    </div>
+    {{/stats}}
+  </dl>
+  {{/has_stats}}
+  {{^has_stats}}<p><span class="is-placeholder" aria-label="가게 숫자 정보: 아직 입력되지 않음">[숫자 정보 입력]</span></p>{{/has_stats}}
+</section>

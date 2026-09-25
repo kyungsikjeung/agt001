@@ -1,0 +1,26 @@
+{
+  "compact": {
+    "pad_y": 32,
+    "pad_y_mobile": 24,
+    "gap": 8,
+    "card_pad": 12,
+    "card_gap": 8,
+    "content_max": 720
+  },
+  "comfortable": {
+    "pad_y": 48,
+    "pad_y_mobile": 32,
+    "gap": 12,
+    "card_pad": 16,
+    "card_gap": 12,
+    "content_max": 720
+  },
+  "roomy": {
+    "pad_y": 64,
+    "pad_y_mobile": 40,
+    "gap": 16,
+    "card_pad": 24,
+    "card_gap": 16,
+    "content_max": 720
+  }
+}

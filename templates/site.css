@@ -1,0 +1,421 @@
+/* 섹션 부품 공통 스타일 (WP P-3).
+ * 색·글꼴·여백·모서리는 아래 CSS 변수만 사용한다. 렌더러가 tokens에서 :root 값을 채운다.
+ * --c-primary, --c-accent, --c-ground, --c-ink,
+ * --font-display, --font-body, --space-*, --radius-*.
+ * 예외: hero 오버레이의 검은 스크림(rgba(0,0,0,.45))과 그 위 흰 글자(#fff)는
+ * SPEC §2.1이 정한 고정값이다(어떤 팔레트에서도 4.5:1 보장용).
+ * 기준 너비 390px(1열), 760px 이상에서 넓은 배치. 본문 최대 너비 720px.
+ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--c-ground);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.625;
+}
+
+img { max-width: 100%; display: block; }
+
+/* 섹션 틀: density 토큰 → --space-section(상하 패딩), --space-gap(요소 간격) */
+section[class^="s-"] {
+  padding: var(--space-section) 16px;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+section[class^="s-"] h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 0 0 var(--space-gap);
+  padding-left: 10px;
+  border-left: 4px solid var(--c-primary);
+}
+
+section[class^="s-"] p { margin: 0 0 var(--space-gap); }
+section[class^="s-"] p:last-child { margin-bottom: 0; }
+
+.s-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  margin: 0 0 8px;
+}
+
+.s-lead { font-size: 16px; line-height: 1.625; margin: 0 0 16px; }
+
+.s-kicker {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--c-primary);
+  margin: 0 0 8px;
+}
+
+/* 버튼: 44px 터치 대상 */
+.s-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 22px;
+  background: var(--c-primary);
+  color: var(--c-ground);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: var(--radius-btn);
+  border: 2px solid var(--c-primary);
+}
+
+.s-btn--ghost {
+  background: transparent;
+  color: var(--c-primary);
+}
+
+.s-btn:visited { color: var(--c-ground); }
+.s-btn--ghost:visited { color: var(--c-primary); }
+
+/* 자리 표시: 점선 테두리 (장식용, 본문 대비 규칙 제외) */
+.is-placeholder {
+  display: inline-block;
+  border: 1.5px dashed color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));
+  border-radius: var(--radius-card);
+  padding: 6px 10px;
+  min-height: 44px;
+  line-height: 1.625;
+}
+
+a { color: var(--c-primary); text-underline-offset: 2px; }
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+/* ---- S1 hero ---- */
+.s-hero--photo-overlay {
+  position: relative;
+  max-width: none;
+  padding: 0;
+  min-height: 320px;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.s-hero--photo-overlay .s-media {
+  position: absolute;
+  inset: 0;
+}
+
+.s-hero--photo-overlay .s-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.s-hero--photo-overlay .s-media__empty { height: 320px; }
+
+.s-hero--photo-overlay .s-hero__body {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 24px 16px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.45) 40%);
+  color: #fff;
+}
+
+.s-hero--photo-overlay .s-title,
+.s-hero--photo-overlay .s-lead { color: #fff; }
+.s-hero--photo-overlay .s-kicker { color: #fff; }
+
+.s-hero--photo-side .s-media img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+
+.s-hero--photo-side .s-media__empty { height: 160px; }
+
+.s-media__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--c-ground) 50%, #fff);
+  border: 1.5px dashed color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));
+  border-radius: var(--radius-card);
+  min-height: 44px;
+}
+
+.s-hero__cta { margin-top: var(--space-gap); }
+
+/* ---- S2 intro ---- */
+.s-intro__owner { margin-top: var(--space-gap); }
+
+.s-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-gap);
+  margin: var(--space-gap) 0 0;
+  padding: 0;
+}
+
+.s-stats__item {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  text-align: center;
+  margin: 0;
+}
+
+.s-stats__item dd {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--c-primary);
+  order: -1;
+}
+
+.s-stats__item dt { font-size: 13px; }
+.s-stats__item { display: flex; flex-direction: column; }
+
+/* ---- S3 offerings ---- */
+.s-cards,
+.s-price-list,
+.s-gallery__list,
+.s-gallery__swipe,
+.s-around__list,
+.s-reviews__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-gap);
+  grid-template-columns: 1fr;
+}
+
+.s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr; }
+
+.s-card {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-top: 4px solid var(--c-accent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  overflow: hidden;
+}
+
+.s-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+  margin-bottom: 8px;
+}
+
+.s-card__name { display: block; font-size: 16px; margin-bottom: 4px; }
+.s-card__desc { font-size: 16px; margin: 0 0 4px; }
+.s-card__price { font-weight: 700; margin: 0; }
+
+.s-price-list__row {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.s-price-list__name { font-size: 16px; }
+.s-price-list__desc { flex-basis: 100%; font-size: 16px; }
+.s-price-list__price { margin-left: auto; font-weight: 700; white-space: nowrap; }
+
+/* tabs: CSS :target 만으로 동작, JS 없음 */
+.s-tabs__nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: var(--space-gap);
+}
+
+.s-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-btn);
+  color: var(--c-primary);
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.s-tabs__panel {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  margin-bottom: var(--space-gap);
+}
+
+.s-tabs__panel:target { border: 2px solid var(--c-accent); }
+
+/* ---- S4 gallery ---- */
+.s-gallery--grid .s-gallery__list { grid-template-columns: 1fr 1fr; }
+
+.s-gallery figure { margin: 0; }
+
+.s-gallery img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+
+.s-gallery figcaption { font-size: 13px; margin-top: 4px; }
+
+.s-gallery__swipe {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: var(--space-gap);
+  padding-bottom: 8px;
+}
+
+.s-gallery__swipe li {
+  flex: 0 0 240px;
+  scroll-snap-align: start;
+}
+
+.s-gallery__swipe img { height: 180px; }
+
+/* ---- S5 around ---- */
+.s-around__addr { font-style: normal; margin-bottom: var(--space-gap); }
+.s-around__map { margin-bottom: var(--space-gap); }
+.s-around__note { font-size: 16px; }
+
+.s-transit { margin: var(--space-gap) 0 0; padding: 0; }
+.s-transit__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+}
+.s-transit__row dt { font-weight: 700; }
+.s-transit__row dd { margin: 0; }
+
+/* ---- S6 contact ---- */
+.s-contact__list { margin: 0 0 var(--space-gap); }
+.s-contact__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+}
+.s-contact__row dt { font-weight: 700; }
+.s-contact__row dd { margin: 0; }
+.s-contact__row dd a {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
+
+.s-contact__sticky {
+  position: sticky;
+  bottom: 0;
+  margin: 0;
+  padding: 8px 0 12px;
+  background: var(--c-ground);
+}
+
+.s-contact__sticky .s-btn { width: 100%; min-height: 48px; }
+.s-contact__first { margin-bottom: var(--space-gap); }
+.s-contact__first .s-btn { width: 100%; min-height: 48px; }
+
+/* ---- S7 reviews ---- */
+.s-review {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+}
+
+.s-review blockquote { margin: 0 0 8px; font-size: 16px; line-height: 1.625; }
+.s-review__by { font-size: 13px; margin: 0; }
+.s-review__src { font-size: 13px; }
+
+/* ---- S8 cta ---- */
+.s-cta__btns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+}
+.s-cta__btns .s-btn { width: 100%; min-height: 48px; }
+
+/* ---- 760px 이상: 넓은 배치 ---- */
+@media (min-width: 760px) {
+  section[class^="s-"] { padding-inline: 24px; }
+  section[class^="s-"] h2 { font-size: 28px; }
+  .s-title { font-size: 32px; }
+
+  .s-hero--photo-overlay { min-height: 440px; }
+  .s-hero--photo-overlay .s-media__empty { height: 440px; }
+
+  .s-hero--photo-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .s-hero--photo-side .s-media img { height: 280px; }
+
+  .s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr 1fr; }
+  .s-offerings--list-price .s-price-list { grid-template-columns: 1fr 1fr; }
+  .s-gallery--grid .s-gallery__list { grid-template-columns: 1fr 1fr 1fr; }
+
+  .s-intro--stats .s-stats { grid-template-columns: repeat(4, 1fr); }
+
+  .s-around--map-list,
+  .s-around--transit {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+  }
+  .s-around--map-list h2,
+  .s-around--transit h2 { grid-column: 1 / -1; }
+
+  .s-cta__btns { flex-direction: row; }
+  .s-cta__btns .s-btn { width: auto; flex: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    transition: none;
+    animation: none;
+  }
+  .s-gallery__swipe { scroll-snap-type: none; }
+}

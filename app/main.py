@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import chat, events, public, rooms
+from app.api import chat, events, public, rooms, stt
 from app.config import settings
 from app.services import funnel, rag
 
@@ -30,6 +30,7 @@ def create_app() -> FastAPI:
     app.include_router(chat.router)
     app.include_router(rooms.router)
     app.include_router(events.router)
+    app.include_router(stt.router)
     # 라우터 뒤에 마운트해야 API 경로가 우선한다. html=True로 "/"에서 index.html을 준다.
     # React 빌드 자산. 빌드 전에도 기동은 되도록 디렉터리 확인을 끈다.
     app.mount("/assets", StaticFiles(directory=settings.frontend_dist_dir / "assets", check_dir=False), name="assets")

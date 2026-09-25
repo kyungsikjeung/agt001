@@ -1,0 +1,12 @@
+<section class="s-cta s-cta--external" data-section-id="{{id}}" aria-labelledby="cta-title-{{id}}">
+  <h2 id="cta-title-{{id}}">예약·문의</h2>
+  {{#booking_url}}
+  <p class="s-cta__btns">
+    <a class="s-btn" href="{{booking_url}}" target="_blank" rel="noopener noreferrer">예약하기</a>
+    {{#phone}}<a class="s-btn s-btn--ghost" href="tel:{{phone_digits}}" aria-label="가게에 전화하기">전화하기</a>{{/phone}}
+  </p>
+  {{/booking_url}}
+  {{^booking_url}}
+  <p><span class="is-placeholder" aria-label="예약 주소: 아직 입력되지 않음">[예약 주소 입력]</span></p>
+  {{/booking_url}}
+</section>

@@ -1,0 +1,14 @@
+<section class="s-around s-around--map-list" data-section-id="{{id}}" aria-labelledby="around-title-{{id}}">
+  <h2 id="around-title-{{id}}">오시는 길</h2>
+  <address class="s-around__addr">
+    {{#address}}{{address}}{{/address}}{{^address}}<span class="is-placeholder" aria-label="주소: 아직 입력되지 않음">[주소 입력]</span>{{/address}}
+  </address>
+  {{#map_url}}<p class="s-around__map"><a class="s-btn" href="{{map_url}}" target="_blank" rel="noopener noreferrer">지도로 보기</a></p>{{/map_url}}
+  {{#has_items}}
+  <ul class="s-around__list">
+    {{#items}}
+    <li><strong>{{name}}</strong>{{#note}}<span class="s-around__note"> {{note}}</span>{{/note}}</li>
+    {{/items}}
+  </ul>
+  {{/has_items}}
+</section>

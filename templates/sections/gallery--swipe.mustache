@@ -1,0 +1,8 @@
+<section class="s-gallery s-gallery--swipe" data-section-id="{{id}}" aria-labelledby="gallery-title-{{id}}">
+  <h2 id="gallery-title-{{id}}">사진첩</h2>
+  <ul class="s-gallery__swipe">
+    {{#items}}
+    <li><figure>{{#src}}<img src="{{src}}" alt="{{alt}}">{{/src}}{{^src}}<div class="s-media__empty is-placeholder" aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>{{/src}}{{#caption}}<figcaption>{{caption}}</figcaption>{{/caption}}</figure></li>
+    {{/items}}
+  </ul>
+</section>

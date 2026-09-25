@@ -1,0 +1,14 @@
+{
+  "sharp": {
+    "card": 2,
+    "btn": 2
+  },
+  "soft": {
+    "card": 12,
+    "btn": 999
+  },
+  "round": {
+    "card": 20,
+    "btn": 999
+  }
+}

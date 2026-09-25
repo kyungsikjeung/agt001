@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     # 호스트 경로여야 한다. docker-compose가 호스트의 프로젝트 루트를 넘겨준다.
     host_project_dir: Optional[str] = None
 
+    # NVIDIA 호스팅 음성 인식(Parakeet 1.1B RNNT 다국어). docs/product/VOICE_INPUT_PLAN.md 부록 실측.
+    stt_enabled: bool = True
+    stt_server: str = "grpc.nvcf.nvidia.com:443"
+    stt_function_id: str = "71203149-d3b7-4460-8231-1be2543a1fca"
+    stt_timeout_sec: float = 20.0
+
     # 설정하면 배포 URL을 요청 호스트 대신 이 값으로 만든다 (예: https://example.com).
     public_base_url: Optional[str] = None
 

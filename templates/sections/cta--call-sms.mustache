@@ -1,0 +1,12 @@
+<section class="s-cta s-cta--call-sms" data-section-id="{{id}}" aria-labelledby="cta-title-{{id}}">
+  <h2 id="cta-title-{{id}}">예약·문의</h2>
+  {{#phone}}
+  <p class="s-cta__btns">
+    <a class="s-btn" href="tel:{{phone_digits}}" aria-label="가게에 전화하기">전화하기</a>
+    <a class="s-btn s-btn--ghost" href="sms:{{phone_digits}}">문자로 문의</a>
+  </p>
+  {{/phone}}
+  {{^phone}}
+  <p><span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span></p>
+  {{/phone}}
+</section>

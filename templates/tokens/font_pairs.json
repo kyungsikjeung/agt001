@@ -1,0 +1,32 @@
+{
+  "serif-warm": {
+    "display": "Noto Serif KR",
+    "body": "Pretendard",
+    "css2_url": "https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600&display=swap"
+  },
+  "sans-clean": {
+    "display": "Pretendard",
+    "body": "Pretendard",
+    "css2_url": null
+  },
+  "serif-elegant": {
+    "display": "Gowun Batang",
+    "body": "Pretendard",
+    "css2_url": "https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&display=swap"
+  },
+  "round-soft": {
+    "display": "Gowun Dodum",
+    "body": "Gowun Dodum",
+    "css2_url": "https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap"
+  },
+  "gothic-strong": {
+    "display": "IBM Plex Sans KR",
+    "body": "IBM Plex Sans KR",
+    "css2_url": "https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap"
+  },
+  "pop-point": {
+    "display": "Jua",
+    "body": "Pretendard",
+    "css2_url": "https://fonts.googleapis.com/css2?family=Jua&display=swap"
+  }
+}

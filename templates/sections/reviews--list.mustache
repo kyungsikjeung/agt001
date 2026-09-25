@@ -1,0 +1,16 @@
+<section class="s-reviews s-reviews--list" data-section-id="{{id}}" aria-labelledby="reviews-title-{{id}}">
+  <h2 id="reviews-title-{{id}}">후기</h2>
+  {{#has_items}}
+  <ul class="s-reviews__list">
+    {{#items}}
+    <li class="s-review">
+      <blockquote>{{quote}}</blockquote>
+      <p class="s-review__by">{{#author}}{{author}}{{/author}}{{#source}}<span class="s-review__src"> · {{source}}</span>{{/source}}</p>
+    </li>
+    {{/items}}
+  </ul>
+  {{/has_items}}
+  {{^has_items}}
+  <p>후기가 모이면 여기에 표시됩니다.</p>
+  {{/has_items}}
+</section>

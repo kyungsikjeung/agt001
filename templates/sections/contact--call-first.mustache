@@ -1,0 +1,26 @@
+<section class="s-contact s-contact--call-first" data-section-id="{{id}}" aria-labelledby="contact-title-{{id}}">
+  <h2 id="contact-title-{{id}}">영업시간·연락</h2>
+  <dl class="s-contact__list">
+    <div class="s-contact__row">
+      <dt>전화</dt>
+      <dd>
+        {{#phone}}<a href="tel:{{phone_digits}}" aria-label="가게에 전화하기">{{phone}}</a>{{/phone}}
+        {{^phone}}<span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span>{{/phone}}
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>영업시간</dt>
+      <dd>
+        {{#hours}}{{hours}}{{/hours}}
+        {{^hours}}<span class="is-placeholder" aria-label="영업시간: 아직 입력되지 않음">[영업시간 입력]</span>{{/hours}}
+      </dd>
+    </div>
+    {{#address}}
+    <div class="s-contact__row">
+      <dt>주소</dt>
+      <dd>{{address}}</dd>
+    </div>
+    {{/address}}
+  </dl>
+  {{#phone}}<p class="s-contact__sticky"><a class="s-btn" href="tel:{{phone_digits}}" aria-label="가게에 전화하기">전화하기</a></p>{{/phone}}
+</section>

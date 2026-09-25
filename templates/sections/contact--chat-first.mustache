@@ -1,0 +1,27 @@
+<section class="s-contact s-contact--chat-first" data-section-id="{{id}}" aria-labelledby="contact-title-{{id}}">
+  <h2 id="contact-title-{{id}}">영업시간·연락</h2>
+  {{#channel_url}}<p class="s-contact__first"><a class="s-btn" href="{{channel_url}}" target="_blank" rel="noopener noreferrer">채널로 문의하기</a></p>{{/channel_url}}
+  {{^channel_url}}<p><span class="is-placeholder" aria-label="채널 주소: 아직 입력되지 않음">[채널 주소 입력]</span></p>{{/channel_url}}
+  <dl class="s-contact__list">
+    <div class="s-contact__row">
+      <dt>전화</dt>
+      <dd>
+        {{#phone}}<a href="tel:{{phone_digits}}" aria-label="가게에 전화하기">{{phone}}</a>{{/phone}}
+        {{^phone}}<span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span>{{/phone}}
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>영업시간</dt>
+      <dd>
+        {{#hours}}{{hours}}{{/hours}}
+        {{^hours}}<span class="is-placeholder" aria-label="영업시간: 아직 입력되지 않음">[영업시간 입력]</span>{{/hours}}
+      </dd>
+    </div>
+    {{#address}}
+    <div class="s-contact__row">
+      <dt>주소</dt>
+      <dd>{{address}}</dd>
+    </div>
+    {{/address}}
+  </dl>
+</section>
