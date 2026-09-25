@@ -48,13 +48,16 @@
 | 0-1c | CI 워크플로 | 검증 / OpenCode B | `.github/workflows/ci.yml` | 0-1b | ✅ GitHub Actions 통과 |
 | 0-1d | 브라우저 E2E | 검증 / OpenCode C | `tests/e2e/**` | 0-1a | ✅ 5/5 통과 |
 | 0-1e | OCI 배포·실측 (uvicorn, https 배포 URL) | 검증 / Claude | 배포 | 0-1b | ✅ 운영 E2E 5/5, 실제 코드생성 → https 배포 URL 200 |
-| 0-2a | DB 스키마·SQLAlchemy 모델·Alembic | 구현 / Claude | `app/db/**`, `alembic/**` | 0-1e | 🟢 설계 완료 (STAGE0_DESIGN §6) |
-| 0-2b | `store.py`를 PostgreSQL 구현으로 교체 | 구현 / Claude | `app/store.py` | 0-2a | ⏳ |
-| 0-2c | compose `db` 서비스·볼륨·일일 백업 | 구현 / OpenCode | `docker-compose.yml`, `scripts/backup_db.sh` | 0-2a | ⏳ |
+| 0-2a | DB 스키마·SQLAlchemy 모델·Alembic | 구현 / Claude | `app/db/**`, `alembic/**` | 0-1e | ✅ upgrade·downgrade·`alembic check` 통과 |
+| 0-2b | `store.py`를 PostgreSQL 구현으로 교체 + JSON 이전 스크립트 | 구현 / Claude | `app/store.py`, `scripts/migrate_json_to_pg.py` | 0-2a | 🔄 로컬 완료(단위 53, E2E 5/5, 실제 NIM). 운영 배포·데이터 이전 대기 |
+| 0-2c | compose `db` 서비스·볼륨·일일 백업·CI PostgreSQL | 구현 / OpenCode H | `docker-compose.yml`, `scripts/backup_db.sh`, `ci.yml` | 0-2a | ✅ (서버 cron 등록은 배포 때) |
 | 0-3a | 코드생성 작업 큐(Redis+RQ) + 워커 | 구현 / Claude | `app/services/codegen.py`, `app/worker.py` | 0-2b | ⏳ |
 | 0-3b | 샌드박스 제어: 컨테이너 이름·`docker stop`·메모리/CPU 제한·타임아웃 후 산출물 판정 | 구현 / Claude | `app/services/codegen.py` | 0-3a | ⏳ (실측 버그: 파일 생성 후 90초 초과 시 실패 판정) |
 | 0-4a | 배포 전 스냅샷 + `rollback.sh` | 구현 / OpenCode | `scripts/deploy.sh`, `scripts/rollback.sh` | — | ✅ 운영 배포에 적용 |
 | 0-4b | 스테이징 compose(별도 포트·DB) | 구현 / OpenCode | `docker-compose.staging.yml` | 0-2c | ⏳ |
+| 0-4c | 서버 GitHub 인증(읽기 전용 Deploy Key) + `deploy.sh` git 방식 전환 | 구현 / Claude | `scripts/deploy.sh` | — | 🟢 계획 완료 (GIT_PULL_ROOT_CAUSE.md §4), 사용자 승인 대기 |
+| 0-5a | OCI 비용 모니터링 리포트 | 검증 / OpenCode I | `scripts/oci_cost_report.sh` | — | ✅ 30일 0원, 무료 한도 대비 OCPU 50%·스토리지 23.5% |
+| 0-5b | 비용 일일 자동 점검 + 알림 | 구현 / Claude | cron·알림 | 0-5a | ⏳ |
 
 ### 1단계 — 계정·랜딩 (0단계와 겹쳐서 미리 준비)
 
@@ -73,7 +76,7 @@
 
 ## 5. 현재 레인 배치 (2026-09-25 갱신)
 
-- 계획 레인: 1-1·1-2 인증 설계(Claude, OAUTH_SETUP.md 기반)
-- 구현 레인: 0-2a·0-2b PostgreSQL 전환(Claude)
-- 검증 레인: OCI git pull 근본 원인 조사(OpenCode G)
+- 계획 레인: 채팅방 정책(초대·기록·종료/초기화·알림) 설계, 1-1·1-2 인증 설계
+- 구현 레인: 0-2b 운영 배포·데이터 이전, 0-4c Deploy Key 전환
+- 검증 레인: 비용 리포트(0-5a 완료), CI PostgreSQL 첫 실행
 - 사용자 대기: 1-6 카카오·구글 콘솔 작업, D2 도메인 구매 결정
