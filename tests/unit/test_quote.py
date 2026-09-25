@@ -87,3 +87,17 @@ def test_format_quote_text_ok():
 def test_format_quote_text_not_ok_returns_raw():
     q = {"ok": False, "raw": "자유 텍스트 견적"}
     assert format_quote_text(q) == "자유 텍스트 견적"
+
+
+def test_rule_quote_one_line_beta_free():
+    """D25: 규칙으로 계산한 한 줄 + 베타 무료. AI 호출 없음."""
+    from app.services import prd_engine as E, prd_schema as S
+    from app.services.quote import rule_quote
+
+    card = E.new_card("cafe")
+    card["features_judged"] = [{"id": "inquiry_form", "verdict": "ready"}, {"id": "payment_online", "verdict": "out_of_beta"}]
+    q = rule_quote(card)
+    sections = len(card["slots"]["sections"]["value"])
+    assert q["amount"] == round((600_000 + 80_000 * sections + 200_000) / 100_000) * 100_000
+    assert "베타 기간에는 무료" in format_quote_text(q) and "만 원" in format_quote_text(q)
+    assert "기능 1개" in q["basis"]  # 베타 밖 기능은 세지 않는다

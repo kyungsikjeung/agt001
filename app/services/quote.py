@@ -64,6 +64,8 @@ def build_quote(user_text: str) -> dict:
 
 
 def format_quote_text(quote: dict) -> str:
+    if quote.get("rule"):
+        return quote["raw"]
     if not quote["ok"]:
         return quote["raw"]
     lines = [f"{o['id']}: {o['weeks']}주, {o['amount']:,}원 – {o['desc']}" for o in quote["options"]]
@@ -77,3 +79,31 @@ def recommended_option(quote: dict) -> tuple[int, str]:
         rec = next(o for o in quote["options"] if o["id"] == quote["recommended"])
         return rec["amount"], rec["desc"]
     return 0, "견적 산정 실패 — 자유 텍스트 견적 참고"
+
+
+# ── 규칙 참고 견적 (D25·D13) ─────────────────────────────────────────
+# AI가 금액을 만들지 않는다. "외주로 맡기면 보통 이 정도" 참고값을 규칙으로 계산하고, 베타 기간 무료를 함께 알린다.
+# 값은 1인 외주 원페이지 시세를 보수적으로 잡은 것(확인 필요: 시세 조사로 갱신).
+RULE_BASE = {"individual": 500_000, "group": 500_000, "webservice": 1_200_000}
+RULE_BASE_DEFAULT = 600_000        # 가게·기타 원페이지
+RULE_PER_SECTION = 80_000          # 담을 내용 한 가지마다
+RULE_PER_FEATURE = {"ready": 100_000, "alternative": 150_000, "owner_setup": 100_000}
+RULE_INQUIRY_FORM = 200_000        # 문의 양식 + 알림 (C6)
+BETA_NOTE = "베타 기간에는 무료로 만들어 드려요."
+
+
+def rule_quote(card: dict) -> dict:
+    """요구사항 카드 → 참고 견적 한 줄. 기존 견적 dict 모양(options/recommended)도 맞춰 시안·흐름이 그대로 쓴다."""
+    from app.services import prd_engine as E
+
+    kind = E.industry_of(card).key
+    sections = (card["slots"].get("sections") or {}).get("value") or []
+    judged = [v for v in card.get("features_judged") or [] if v["verdict"] in RULE_PER_FEATURE]
+    amount = RULE_BASE.get(kind, RULE_BASE_DEFAULT) + RULE_PER_SECTION * len(sections)
+    amount += sum(RULE_INQUIRY_FORM if v.get("id") in ("inquiry_form", "kakao_form_bridge") else RULE_PER_FEATURE[v["verdict"]]
+                  for v in judged)
+    amount = max(100_000, round(amount / 100_000) * 100_000)
+    basis = f"한 페이지 사이트, 담을 내용 {len(sections)}가지" + (f", 기능 {len(judged)}개" if judged else "")
+    text = f"참고 견적: 외주로 맡기면 보통 약 {amount // 10_000:,}만 원 상당이에요({basis}). {BETA_NOTE}"
+    return {"ok": True, "rule": True, "amount": amount, "basis": basis,
+            "options": [{"id": "R", "weeks": 1, "amount": amount, "desc": basis}], "recommended": "R", "raw": text}

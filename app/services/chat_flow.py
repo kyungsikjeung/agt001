@@ -167,10 +167,15 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     elif state == "AWAIT_APPROVAL":
         if user_text in APPROVE_WORDS:
             _set_room_status(room, "QUOTING", persist=True)
-            q = quote.build_quote(session.get("last_request", ""))
+            # D25: 카드가 있으면 규칙 참고 견적 한 줄(AI가 금액을 만들지 않음). 예전 1:1 흐름만 AI 견적.
+            card = session.get("prd")
+            q = quote.rule_quote(card) if card and card.get("slots") else quote.build_quote(session.get("last_request", ""))
             session["quote"] = q
             session["state"] = "QUOTED"
-            reply = f"승인 감사합니다. 견적안입니다:\n\n{quote.format_quote_text(q)}\n\n이 견적으로 진행할까요? (진행/취소)"
+            if q.get("rule"):
+                reply = f"{quote.format_quote_text(q)}\n\n이대로 시안을 만들까요? (진행/취소)"
+            else:
+                reply = f"승인 감사합니다. 견적안입니다:\n\n{quote.format_quote_text(q)}\n\n이 견적으로 진행할까요? (진행/취소)"
             _set_room_status(room, "IDLE")
         elif user_text in REJECT_WORDS:
             session["state"] = "GATHERING"
