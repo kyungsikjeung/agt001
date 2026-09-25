@@ -89,8 +89,35 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             reply = f"코드 생성에 실패했습니다 ({cg['status']}). 다시 '진행'을 보내 재시도할 수 있습니다."
 
     elif not user_text:
-        reply = "안녕하세요! 어떤 프로젝트를 원하시나요? (예: 예산, 원하는 기능을 알려주세요)"
-        session["state"] = "GATHERING"
+        # B-1: 빈 메시지가 승인 대기·견적·완료 상태를 날리지 않게 상태별로 유지한다.
+        # 방 폴링·입장 확인용 빈 호출은 대화를 진전시키지 않는다.
+        if state == "GREETING":
+            reply = "안녕하세요! 어떤 프로젝트를 원하시나요? (예: 예산, 원하는 기능을 알려주세요)"
+            session["state"] = "GATHERING"
+        elif state == "GATHERING":
+            card = session.get("prd") or prd_engine.new_card()
+            result = prd_engine.turn(card, "", by=by, is_owner=is_owner)
+            engine_trace = result.get("trace")
+            session["prd"] = card
+            if result["done"]:
+                _set_room_status(room, "RAG_SEARCHING", persist=True)
+                spec = prd_engine.spec_text(card)
+                session["last_request"] = spec
+                reply = (
+                    f"정리했어요.\n{prd_engine.summary_text(card)}\n\n{_rag_note(spec)}\n\n"
+                    "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
+                )
+                session["state"] = "AWAIT_APPROVAL"
+            else:
+                reply = prd_engine.format_question(card, result["question"])
+                session["state"] = "GATHERING"
+            _set_room_status(room, "IDLE")
+        elif state == "AWAIT_APPROVAL":
+            reply = "승인 또는 거절로 답해주세요."
+        elif state == "QUOTED":
+            reply = "이 견적으로 진행할까요? (진행/취소)"
+        else:  # DONE: 빈 메시지로 재시작하지 않고 완료 상태를 유지한다
+            reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
 
     elif state in ("GREETING", "GATHERING"):
         # 요구사항 엔진 (REQUIREMENTS_ENGINE_PLAN.md): 빠진 정보를 선택지와 함께 하나씩 묻고, 다 모이면 요약한다.

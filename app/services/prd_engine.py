@@ -7,19 +7,57 @@ import json
 import logging
 import re
 import time
+import unicodedata
 from typing import Optional
 
 from app import llm
 from app.services import prd_schema as S
+from app.services.stt import normalize_digits as _stt_normalize_digits
 
 log = logging.getLogger(__name__)
 
 SKIP_PHRASES = ("시안 먼저", "나머지는 알아서", "나머지 알아서", "그만 물어", "바로 만들어", "이제 보여")
-YES_WORDS = ("네", "예", "응", "맞아요", "맞아", "맞습니다", "좋아요", "yes")
-NO_WORDS = ("아니요", "아니오", "아니", "no", "틀려요")
+YES_WORDS = ("네", "예", "응", "맞아요", "맞아", "맞습니다", "좋아요", "yes",
+             "넵", "네네", "넹", "ㅇㅇ", "응응", "웅", "그래", "그래요", "오케이", "ok")
+NO_WORDS = ("아니요", "아니오", "아니", "no", "틀려요", "아니야", "싫어", "별로")
 NONE_WORDS = ("없음", "없어요", "해당 없음", "없습니다", "다 없어요")
 LATER = "나중에 넣을게요"
+LATER_NORMS = frozenset(("나중에넣을게요", "나중에넣을게", "나중에"))
+# 건너뛰기 핵심어 (B-6): 정규화 후 부분일치로 본다. "알아서" 단독은 LET_AI이므로 넣지 않는다.
+SKIP_KEYWORDS = ("시안먼저", "나머지알아서", "그만물어", "그만", "바로만들어", "바로만들",
+                 "이제보여", "건너뛰", "시안보여", "먼저보여", "먼저볼게", "패스", "스킵")
+# 거절 표현 (B-7).
+# NEEDLESS("필요 없어요" 계열): 칸 자체를 묻지 않겠다는 뜻이라, 칸 언급이 없어도 대기 칸을 REJECTED로 한다.
+# REMOVE("빼주세요/제외" 계열): 뺄 항목을 가리키므로 칸 이름이 함께 언급될 때만 REJECTED로 하고,
+#   항목(섹션 등) 제거는 추출 exclude 흐름에 맡긴다 ("바비큐는 빼주세요"가 가게 이름 거절이 되면 안 된다).
+REJECT_NEEDLESS = ("필요없", "없어도", "안해도", "안할래", "안할게")
+REJECT_REMOVE = ("빼주세요", "빼줘", "빼주세", "제외해", "제외", "없애", "제거", "빼고")
+REJECT_PATTERNS = REJECT_NEEDLESS + REJECT_REMOVE
+# 부정 표현 (B-3): 숨은 항목 라벨 주변(정규화 후 앞뒤 8자)에 있으면 미선택으로 본다.
+# 한 글자("안" 등) 부분일치는 오탐("안내")이 나므로 두 글자 이상 패턴만 둔다.
+NEG_NORMS = ("안돼", "안되", "안됨", "안해", "안함", "못해", "못가", "못하",
+             "없어", "없다", "아니", "별로", "싫", "불가", "빼", "제외")
+# 잡담 판정 (B-4): 정규화 후 이 길이를 넘는데 추출·규칙에 안 걸리면 주제 이탈로 보고 예산을 쓰지 않는다.
+CHATTER_LEN = 5
+# 같은 칸을 못 채운 채 이 횟수만큼 물으면 가정·자리 표시로 넘어간다 (INTAKE_GATE_DESIGN §5).
+STUCK_LIMIT = 3
 _SATISFIED = (S.FILLED, S.ASSUMED, S.PLACEHOLDER, S.REJECTED)
+
+
+def _norm(s: str) -> str:
+    """공백·문장부호·이모지 제거 + 소문자 + NFKC (B-6 비교용). 한글·영숫자만 남긴다."""
+    return re.sub(r"[^가-힣a-z0-9]", "", unicodedata.normalize("NFKC", (s or "").lower()))
+
+
+def _norm_text(s: str) -> str:
+    """근거 판정·저장용 정규화 (B-5): NFKC(전각→반각) + 한글 숫자→아라비아 숫자."""
+    return _stt_normalize_digits(unicodedata.normalize("NFKC", s or ""))
+
+
+YES_NORMS = frozenset(_norm(w) for w in YES_WORDS)
+NO_NORMS = frozenset(_norm(w) for w in NO_WORDS)
+NONE_NORMS = frozenset(_norm(w) for w in NONE_WORDS)
+SKIP_NORMS = frozenset([_norm(p) for p in SKIP_PHRASES] + list(SKIP_KEYWORDS))
 
 
 # ── 카드 ──────────────────────────────────────────────────────────────
@@ -123,25 +161,62 @@ def extract(text: str, last_question: Optional[str]) -> list[dict]:
 # ── 규칙 ──────────────────────────────────────────────────────────────
 
 def _digits(s: str) -> str:
-    return re.sub(r"\D", "", s or "")
+    # B-5: NFKC(전각→반각) + 한글 숫자 정규화를 먼저 해서 비교한다.
+    return re.sub(r"\D", "", _norm_text(s))
 
 
 def grounded(slot: str, value: str, text: str) -> bool:
     """사실 칸 값이 사장님 메시지에 근거가 있는지. 없으면 AI가 지어낸 것으로 보고 버린다."""
     if slot not in S.FACT_SLOTS:
         return True
-    d = _digits(value)
+    norm_text = _norm_text(text)
+    norm_value = _norm_text(value)
+    d = _digits(norm_value)
     if d:
-        return d in _digits(text)
+        return d in _digits(norm_text)
     # 숫자 없는 사실(예: 지역명)은 두 글자 이상 낱말 하나 이상이 메시지에 있어야 한다.
-    words = [w for w in re.split(r"[\s,·/]+", value) if len(w) >= 2]
-    return bool(words) and any(w in text for w in words)
+    words = [w for w in re.split(r"[\s,·/]+", norm_value) if len(w) >= 2]
+    return bool(words) and any(w in norm_text for w in words)
 
 
 def _split_items(value) -> list[str]:
     if isinstance(value, list):
         return [v for v in value if v]
     return [p.strip() for p in re.split(r"[,·/]|그리고|랑|와|과", value or "") if p.strip()]
+
+
+_EXCLUDE_SUFFIX = re.compile(
+    r"(은|는|이|가|을|를|도|만|에서|에게|한테)?\s*"
+    r"(빼\s*(주세요|줘|주|고)?|제외(\s*해\s*(주세요|줘)?)?|없애\s*(주세요|줘)?|제거(\s*해\s*(주세요|줘)?)?|빼고)"
+    r"\s*[.!~요]*$")
+_PARTICLE_SUFFIX = re.compile(r"(은|는|이|가|을|를|도|만|랑|이랑|하고|와|과|아|야)$")
+_LEADING_FILLER = re.compile(r"^(아|어|음|저|그|자)\s*[, ]\s*")
+
+
+def _clean_exclude_term(value: str) -> str:
+    """B-13: AI가 조사·문장까지 붙여 돌려줘도 핵심어만 남긴다 ("바비큐는 빼주세요"→"바비큐")."""
+    s = unicodedata.normalize("NFKC", (value or "").strip())
+    s = _LEADING_FILLER.sub("", s)
+    s = _EXCLUDE_SUFFIX.sub("", s).strip()
+    s = _PARTICLE_SUFFIX.sub("", s).strip()
+    return s
+
+
+def _refresh_assumed_sections(card: dict, old_ind_key: Optional[str]) -> None:
+    """B-12: 업종이 바뀌면 사장님이 직접 말한(FILLED) 섹션은 두고, 가정(ASSUMED)만 새 기본값으로 교체."""
+    new_ind_key = card.get("industry")
+    if not old_ind_key or old_ind_key == new_ind_key:
+        return
+    cur = _slot(card, "sections")
+    if cur["status"] == S.ASSUMED:
+        _put(card, "sections", list(S.INDUSTRIES[new_ind_key].default_sections), S.ASSUMED)
+
+
+def _slot_label_hit(ind, slot_key: str, norm_text: str) -> bool:
+    """메시지가 특정 칸을 가리키는지 (라벨 토큰 2자 이상 포함). B-7의 '목적은 필요 없어요'→goal 판정에 쓴다."""
+    label = S.label_for(ind, slot_key)
+    tokens = [tok for tok in re.findall(r"[가-힣a-z0-9]{2,}", label.lower())]
+    return any(tok in norm_text for tok in tokens)
 
 
 def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=True) -> list[str]:
@@ -155,20 +230,40 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             continue
         spec = S.SLOTS[key]
         if key == "exclude":
-            excl = set(_split_items(_slot(card, "exclude").get("value")) + _split_items(value))
-            _put(card, "exclude", sorted(excl), S.FILLED, turn, by)
+            terms = [_clean_exclude_term(v) for v in _split_items(value)]
+            terms = [v for v in terms if v]
+            # B-7: 제외어가 칸 이름 자체면(예: "가격은 빼주세요"→"가격") 그 칸을 REJECTED로 한다.
+            ind = industry_of(card)
+            rejected_any = False
+            rest = []
+            for term in terms:
+                hit = next((k for k in S.SLOTS if k != "exclude"
+                            and (S.label_for(ind, k) == term or term == S.SLOTS[k].label
+                                 or (len(term) >= 2 and term in S.label_for(ind, k)))), None)
+                if hit:
+                    _put(card, hit, None, S.REJECTED, turn, by)
+                    applied.append(hit)
+                    rejected_any = True
+                else:
+                    rest.append(term)
+            excl = set(_split_items(_slot(card, "exclude").get("value")) + rest)
+            if rest or not rejected_any:
+                _put(card, "exclude", sorted(excl), S.FILLED, turn, by)
             for k in ("sections", "offerings"):
                 cur = _slot(card, k)
                 if cur.get("value"):
+                    # B-16: 부분일치 제거는 의도된 동작이다 ("바비큐" 제외가 "바비큐장" 섹션을 치운다).
                     kept = [v for v in cur["value"] if not any(e in v for e in excl)]
                     card["slots"][k]["value"] = kept
             applied.append(key)
             continue
         if spec.fact and not is_owner:
             # D24: 공유방에서 방장이 아닌 사람이 말한 사실은 방장이 확인해야 카드에 들어간다.
-            _put(card, key, value, S.PENDING_OWNER, turn, by)
+            _put(card, key, _norm_text(value), S.PENDING_OWNER, turn, by)
             applied.append(key)
             continue
+        if spec.fact and isinstance(value, str):
+            value = _norm_text(value)  # B-5: 사실은 정규화된 값으로 저장한다
         if spec.multi:
             cur = _slot(card, key)
             items = list(cur["value"]) if cur["status"] == S.FILLED and cur.get("value") else []
@@ -181,7 +276,9 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
         else:
             _put(card, key, value, S.FILLED, turn, by)
         if key == "business_type":
+            old_ind = card.get("industry")
             card["industry"] = S.industry_for(value).key
+            _refresh_assumed_sections(card, old_ind)  # B-12
         applied.append(key)
     return applied
 
@@ -198,54 +295,117 @@ def _default_for(card, key):
     return real[0] if real else None
 
 
+def _is_reject_message(normed: str) -> bool:
+    """B-7: '필요 없어요/빼주세요' 계열의 거절 표현이 있는지."""
+    return any(p in normed for p in REJECT_PATTERNS)
+
+
+def _negated_around(normed: str, idx: int, length: int) -> bool:
+    """B-3: 라벨 위치 주변 8자에 부정 패턴이 있는지."""
+    window = normed[max(0, idx - 8):idx + length + 8]
+    return any(p in window for p in NEG_NORMS)
+
+
 def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]:
     """직전 질문의 선택지·예/아니오 대답을 AI 없이 처리한다. 처리했으면 True, 선택지 대답이 아니면 None."""
     p = card.get("pending")
     if not p:
         return None
     t = text.strip()
+    n = _norm(t)
     key = p.get("slot")
     if p["kind"] == "owner_confirm":
         if not is_owner:
             return None
-        if t in YES_WORDS:
-            card["slots"][key]["status"] = S.FILLED
-        elif t in NO_WORDS:
+        # B-6: 대소문자 무시·공백/문장부호 제거 후 비교. "네, 맞아요" 같은 공손한 답도 승인으로 본다.
+        # 거절을 먼저 본다 ("아니요"가 "네"를 품지 않지만, 혼합 답에서 거절을 우선한다).
+        if n in NO_NORMS or (len(t) <= 12 and any(w in n for w in NO_NORMS)):
             card["slots"].pop(key, None)
+        elif n in YES_NORMS or (len(t) <= 12 and any(w in n for w in YES_NORMS)):
+            card["slots"][key]["status"] = S.FILLED
         else:
             return None
         card["pending"] = None
         return True
     if p["kind"] == "multi":
-        if any(w in t for w in NONE_WORDS):
-            selected = []
-        else:
-            selected = [k for k, label in industry_of(card).hidden if label in t or label.split("·")[0] in t]
-            if not selected:
-                return None  # 목록 밖 대답은 자유 대답으로 추출한다
-        card["hidden"] = {"asked": True, "selected": selected}
-        card["pending"] = None
-        return True
+        hidden = industry_of(card).hidden
+        # B-2: "없음"은 메시지 전체가 없음 계열일 때만. 고른 항목이 있으면 선택을 먼저 살린다.
+        labels = [(k, label) for k, label in hidden]
+        selected = []
+        for k, label in labels:
+            core = label.split("·")[0]
+            hit = None
+            for cand in (label, core):
+                c = _norm(cand)
+                idx = n.find(c) if len(c) >= 2 else -1
+                if idx >= 0 and not _negated_around(n, idx, len(c)):
+                    hit = k
+                    break
+            if hit and hit not in selected:
+                selected.append(hit)
+        if selected:
+            card["hidden"] = {"asked": True, "selected": selected}
+            card["pending"] = None
+            return True
+        if n in NONE_NORMS:
+            card["hidden"] = {"asked": True, "selected": []}
+            card["pending"] = None
+            return True
+        return None  # 목록 밖 대답은 자유 대답으로 추출한다
     # 한 칸 질문
-    if t == S.LET_AI:
+    # B-7: 거절 표현이면 그 칸을 REJECTED로 한다 (D23의 "이 항목 빼기"에 해당, 사실 칸 포함).
+    # "빼주세요" 계열은 칸 이름이 함께 있어야 거절로 본다 (B-13 제외 흐름과 충돌 방지).
+    if any(p in n for p in REJECT_PATTERNS):
+        ind = industry_of(card)
+        target = next((k for k in S.SLOTS if k != "exclude" and _slot_label_hit(ind, k, n)), None)
+        if target is not None or any(p in n for p in REJECT_NEEDLESS):
+            reject_slot = target or key
+            _put(card, reject_slot, None, S.REJECTED, card["turn"], by)
+            card["pending"] = None
+            return True
+        return None
+    # B-6: "알아서 해줘/알아서" 변형, "나중에" 변형, 공백·문장부호·대소문자 무시.
+    if n == _norm(S.LET_AI) or "알아서" in n:
         if S.SLOTS[key].fact or key == "shop_name":
             _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
         else:
             _put(card, key, _default_for(card, key), S.ASSUMED, card["turn"], by)
-    elif t == LATER:
+    elif t == LATER or n in LATER_NORMS:
         _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
-    elif t in p.get("options", []):
+    elif t in p.get("options", []) or _fuzzy_option_match(n, t, p.get("options", [])) is not None:
+        o = t if t in p.get("options", []) else _fuzzy_option_match(n, t, p.get("options", []))
         if S.SLOTS[key].fact and not is_owner:
-            _put(card, key, t, S.PENDING_OWNER, card["turn"], by)
+            _put(card, key, _norm_text(o), S.PENDING_OWNER, card["turn"], by)
         else:
-            value = [t] if S.SLOTS[key].multi else t
+            value = [o] if S.SLOTS[key].multi else o
             _put(card, key, value, S.FILLED, card["turn"], by)
             if key == "business_type":
-                card["industry"] = S.industry_for(t).key
+                old_ind = card.get("industry")
+                card["industry"] = S.industry_for(o).key
+                _refresh_assumed_sections(card, old_ind)  # B-12
     else:
         return None
     card["pending"] = None
     return True
+
+
+def _fuzzy_option_match(normed: str, raw: str, options: list) -> Optional[str]:
+    """B-6: 선택지 변형 인식. 정규화 동등 → 짧은 답(10자 이하)이 선택지를 품거나 그 반대 → 선택지 낱말 포함 순."""
+    if not normed:
+        return None
+    for o in options:
+        if _norm(o) == normed:
+            return o
+    if len(raw.strip()) <= 10:
+        for o in options:
+            ono = _norm(o)
+            if ono and (ono in normed or normed in ono):
+                return o
+        for o in options:
+            words = [w for w in re.findall(r"[가-힣a-z0-9]{2,}", o.lower())]
+            if any(w in normed for w in words):
+                return o
+    return None
 
 
 def next_question(card: dict) -> Optional[dict]:
@@ -263,7 +423,8 @@ def next_question(card: dict) -> Optional[dict]:
     #    업종을 모르면(기타) 묻지 않는다 — 일반 목록("주차·배송")은 엉뚱한 질문이 된다.
     if (ind.key != "other" and not card["hidden"]["asked"] and ind.hidden
             and (done_count >= 3 or not missing)):
-        labels = [label for _, label in ind.hidden]
+        # B-11: 선택지 합계 4개 이하 (조사 #9) — 상위 3개 + 없음. 판정은 전체 목록으로 한다.
+        labels = [label for _, label in ind.hidden[:3]]
         return {"slot": None, "kind": "multi", "options": labels + ["없음"],
                 "text": "해당되는 것을 모두 골라 주세요. 사이트에 안내해 드릴게요."}
     if missing:
@@ -295,18 +456,44 @@ def finalize(card: dict) -> None:
     card["done"] = True
 
 
+def _stuck_key(pending: Optional[dict]) -> Optional[str]:
+    """같은 칸 반복 판정용 키 (B-4). 방장 확인은 엔진에서 해소할 수 없어 제외한다 (B-9)."""
+    if not pending:
+        return None
+    if pending.get("kind") == "multi":
+        return "multi:"
+    if pending.get("kind") == "owner_confirm":
+        return None
+    return f"single:{pending.get('slot')}"
+
+
+def _assume_slot(card: dict, slot_key: str, by=None) -> None:
+    """B-4/INTAKE_GATE_DESIGN §5: 같은 칸을 3번 물어도 못 채우면 가정(사실 칸은 자리 표시)으로 두고 넘어간다."""
+    if S.SLOTS[slot_key].fact or slot_key == "shop_name":
+        _put(card, slot_key, None, S.PLACEHOLDER, card["turn"], by)
+    else:
+        _put(card, slot_key, _default_for(card, slot_key), S.ASSUMED, card["turn"], by)
+
+
 def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     """사장님 메시지 하나를 처리하고 다음에 할 말을 돌려준다."""
     card["turn"] += 1
     t = (text or "").strip()
+    n = _norm(t)
     applied: list[str] = []
     # 대화 턴 기록(chat_turns)에 남길 엔진 판단. 원문은 기록하는 쪽이 따로 남긴다.
     trace = {"answered_by_rule": False, "extract_ok": None, "extract_ms": None, "extract_attempts": 0,
              "extracted": [], "skip": False, "asked_slot": (card.get("pending") or {}).get("slot"),
              "asked_kind": (card.get("pending") or {}).get("kind")}
-    wants_skip = any(p in t for p in SKIP_PHRASES)
+    wants_skip = bool(n) and any(p in n for p in SKIP_NORMS)
     trace["skip"] = wants_skip
-    if t and not wants_skip:
+    if not t:
+        # B-4: 빈 메시지는 질문 예산을 쓰지 않고 직전 질문을 그대로 둔다.
+        return _repeat_pending(card, applied, trace, from_empty=True)
+    if not wants_skip:
+        prev_pending = card.get("pending")
+        prev_owner_slot = (prev_pending.get("slot") if prev_pending
+                           and prev_pending.get("kind") == "owner_confirm" else None)
         answered = _answer_pending(card, t, by, is_owner)
         trace["answered_by_rule"] = bool(answered)
         if not answered:
@@ -315,7 +502,34 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             trace.update(extract_ok=ok, extract_ms=ms, extract_attempts=attempts,
                          extracted=[u["slot"] for u in ups])
             applied = apply_updates(card, ups, t, by, is_owner)
+            # B-8: 방장 확인 대기 중 같은 칸의 자유 대답은 대기값을 갱신하되 확인 질문을 유지한다.
+            if (prev_owner_slot and prev_owner_slot in applied
+                    and _slot(card, prev_owner_slot)["status"] == S.FILLED and is_owner):
+                card["slots"][prev_owner_slot]["status"] = S.PENDING_OWNER
             card["pending"] = None if applied else card.get("pending")
+        progress = bool(answered) or bool(applied)
+        if progress:
+            card["stuck"] = {"slot": None, "count": 0}
+            return _ask_next(card, applied, trace)
+        # 진전 없음: 같은 칸 반복이면 stuck을 셈다 (INTAKE_GATE_DESIGN §5).
+        key = _stuck_key(card.get("pending"))
+        stuck = card.get("stuck") or {"slot": None, "count": 0}
+        stuck = {"slot": key, "count": stuck["count"] + 1 if stuck["slot"] == key else 1} if key else {"slot": None, "count": 0}
+        card["stuck"] = stuck
+        if key and key.startswith("single:") and stuck["count"] >= STUCK_LIMIT:
+            _assume_slot(card, key.split(":", 1)[1], by)
+            card["stuck"] = {"slot": None, "count": 0}
+            card["pending"] = None
+            return _ask_next(card, applied, trace)
+        if key and key == "multi:" and stuck["count"] >= STUCK_LIMIT:
+            card["hidden"] = {"asked": True, "selected": []}
+            card["stuck"] = {"slot": None, "count": 0}
+            card["pending"] = None
+            return _ask_next(card, applied, trace)
+        if len(t) > CHATTER_LEN:
+            # B-4: 주제 이탈(잡담)은 예산을 쓰지 않고 같은 질문을 다시 보인다.
+            return _repeat_pending(card, applied, trace)
+        return _ask_next(card, applied, trace, same_question=True)
     trace["applied"] = applied
     q = None if wants_skip or card["asked"] >= S.MAX_QUESTIONS else next_question(card)
     if q is None:
@@ -328,6 +542,51 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     trace.update(next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
     return {"done": False, "question": q, "applied": applied, "trace": trace}
 
+
+def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool = False) -> dict:
+    """다음 질문을 등록한다. same_question이면 (짧은 실패 답) 같은 질문을 예산을 써서 다시 보인다."""
+    trace["applied"] = applied
+    if card["asked"] >= S.MAX_QUESTIONS:
+        finalize(card)
+        trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
+        return {"done": True, "question": None, "applied": applied, "trace": trace}
+    if same_question:
+        q = card.get("pending") or next_question(card)
+    else:
+        q = next_question(card)
+    if q is None:
+        finalize(card)
+        trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
+        return {"done": True, "question": None, "applied": applied, "trace": trace}
+    card["asked"] += 1
+    card["pending"] = q
+    card["done"] = False
+    trace.update(next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
+    return {"done": False, "question": q, "applied": applied, "trace": trace}
+
+
+def _repeat_pending(card: dict, applied: list[str], trace: dict, from_empty: bool = False) -> dict:
+    """B-4: 빈 메시지·잡담은 직전 질문을 예산 없이 다시 보인다.
+
+    빈 메시지(폴링·입장)로 처음 띄운 질문은 세지 않고 두었다가, 사장님이 실제로 말한 첫 턴에 센다.
+    """
+    q = card.get("pending")
+    if q is None:
+        if not from_empty:
+            return _ask_next(card, applied, trace)
+        q = next_question(card)
+        if q is None:
+            finalize(card)
+            trace.update(applied=applied, next_slot=None, next_kind=None, done=True, asked=card["asked"])
+            return {"done": True, "question": None, "applied": applied, "trace": trace}
+        q["counted"] = False
+        card["pending"] = q
+    elif not from_empty and q.get("counted") is False:
+        card["asked"] += 1
+        q["counted"] = True
+    card["done"] = False
+    trace.update(applied=applied, next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
+    return {"done": False, "question": q, "applied": applied, "trace": trace}
 
 # ── 사람이 읽는 형태 ────────────────────────────────────────────────
 

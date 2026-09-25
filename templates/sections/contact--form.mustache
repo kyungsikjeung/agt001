@@ -1,0 +1,28 @@
+<section class="s-contact s-contact--form" data-section-id="{{id}}" aria-labelledby="contact-title-{{id}}">
+  <h2 id="contact-title-{{id}}">문의하기</h2>
+  <form class="s-form" method="post" action="/api/inquiries/{{site_key}}" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="inquiry-name-{{id}}">이름 (선택)</label>
+      <input id="inquiry-name-{{id}}" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-contact-{{id}}">연락처 (필수)</label>
+      <input id="inquiry-contact-{{id}}" name="contact" type="text" maxlength="100" required aria-describedby="inquiry-contact-hint-{{id}}">
+      <span class="s-form__hint" id="inquiry-contact-hint-{{id}}">전화번호 또는 이메일</span>
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-message-{{id}}">문의 내용 (필수)</label>
+      <textarea id="inquiry-message-{{id}}" name="message" rows="5" maxlength="1000" required></textarea>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·연락처·문의 내용은 문의 답변을 위해 가게에 전달되며, {{retention_days}}일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="inquiry-agree-{{id}}" name="agree" type="checkbox" value="yes" required>
+      <label for="inquiry-agree-{{id}}">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="inquiry-website-{{id}}">웹사이트는 비워 두세요</label>
+      <input id="inquiry-website-{{id}}" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">문의 보내기</button></p>
+  </form>
+</section>

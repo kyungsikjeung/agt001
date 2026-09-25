@@ -23,10 +23,11 @@
   가게 사실(이름·전화·주소·가격)은 비워 둔다(D26): `title`/`phone`/`address`/`price` 계열은
   `""` 또는 `[]`로 두고, 렌더 시 템플릿의 `[… 입력]` 자리 표시가 노출된다.
   `locked`는 빈 배열로 시작한다.
-- 섹션 `type`/`variant`는 `templates/sections/<type>--<variant>.mustache` 파일이
-  존재하는 조합만 허용한다(20종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
-- 금지(소유 파일 공통): 삼중 중괄호, 스크립트 태그, 아이프레임 태그, 폼 태그,
+- `sections[].type` / `variant`는 `templates/sections/<type>--<variant>.mustache` 파일이
+  존재하는 조합만 허용한다(22종: SPEC §2 20종 + 문의 공용 2종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
+- 금지(소유 파일 공통): 삼중 중괄호, 스크립트 태그, 아이프레임 태그,
   `http:` 평문 URL 없음. 외부 링크는 `https://`만.
+  폼 태그는 `contact--form` 1종에만 허용(§5 서버 계약의 일반 HTML form 전송용).
   Mustache는 `{{ }}` 이중 중괄호만 쓴다(HTML 이스케이프 유지).
 
 ## 2. 토큰 → CSS 변수 (렌더러 주입, site.css가 소비)
@@ -60,6 +61,8 @@
 - `contact--call-first`: `id`, `phone`, `phone_digits`, `hours`, `address`
 - `contact--booking-first`: `id`, `booking_url`, `phone`, `phone_digits`, `hours`, `address`
 - `contact--chat-first`: `id`, `channel_url`, `phone`, `phone_digits`, `hours`, `address`
+- `contact--form`: `id`, `site_key`, `retention_days` (§5 서버 계약용. SPEC §2 외 플랫폼 공용 ①)
+- `contact--kakao-channel`: `id`, `kakao_channel_url` (SPEC §2 외 플랫폼 공용 ①)
 - `cta--call-sms`: `id`, `phone`, `phone_digits`
 - `cta--external`: `id`, `booking_url`, `phone`, `phone_digits`
 - `reviews--list`: `id`, `has_items`, `items[].quote`, `items[].author`, `items[].source`
@@ -97,3 +100,16 @@ AI·제작물은 파생값을 직접 지정할 수 없다.
   `--ground-soft` (`color-mix(in srgb, var(--ground) 50%, #FFFFFF)` + 구형 대체값),
   `--card` (항상 `#FFFFFF`), `--line` (`ink` 14% + `rgba()` 대체값),
   `--focus` (`accent` 3px 실선 + 2px 오프셋), `--muted` (`ink` 60%, 장식 전용).
+
+## 5. 플랫폼 공용 ① "문의 받기" 서버 계약 요약 (구현 소유: Claude — 바꾸지 마라)
+
+- 전송: `POST /api/inquiries/{site_key}` (`application/x-www-form-urlencoded`,
+  일반 HTML form 전송 — 스크립트 불필요).
+- 필드: `name`(선택, 40자), `contact`(필수, 전화 또는 이메일, 100자),
+  `message`(필수, 1000자), `agree`(필수 체크 `"yes"` — 개인정보 수집 동의),
+  `website`(비워 둬야 하는 스팸 방지용 숨김 칸).
+- 성공: `303` → `/api/inquiries/{site_key}/done`
+  (서버가 만든 "문의가 전달됐어요" 페이지, 사이트로 돌아가기 링크).
+- 실패: `400` 페이지(무엇이 틀렸는지), 너무 잦으면 `429`.
+- 생성 사이트는 CSP sandbox로 열리므로(`app/api/public.py` `_SITE_HEADERS`)
+  두 부품은 스크립트 없이 동작해야 한다.

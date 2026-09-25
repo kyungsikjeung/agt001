@@ -353,6 +353,55 @@ button:focus-visible,
 .s-contact__first { margin-bottom: var(--space-gap); }
 .s-contact__first .s-btn { width: 100%; min-height: 48px; }
 
+/* ---- S6 contact form (플랫폼 공용 ① 문의 받기, 스크립트 없이 동작) ---- */
+.s-form__row { margin: 0 0 var(--space-gap); }
+.s-form__row label { display: block; font-weight: 700; margin-bottom: 4px; }
+.s-form__row input[type="text"],
+.s-form__row textarea {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1.5px solid var(--c-ink);
+  border-radius: var(--radius-card);
+}
+.s-form__row textarea { min-height: 132px; resize: vertical; }
+.s-form__hint { display: block; font-size: 13px; margin-top: 4px; }
+.s-form__notice { font-size: 13px; margin: 0 0 var(--space-gap); }
+.s-form__agree { display: flex; align-items: flex-start; gap: 8px; }
+.s-form__agree input[type="checkbox"] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 12px;
+  accent-color: var(--c-primary);
+}
+.s-form__agree label { display: flex; align-items: center; min-height: 44px; margin-bottom: 0; }
+/* 스팸 방지용 숨김 칸: 사람은 못 보고, 일반 HTML form 전송에는 그대로 실린다 */
+.s-form__hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: 0;
+}
+.s-form__submit { margin: var(--space-gap) 0 0; }
+.s-form__submit .s-btn {
+  width: 100%;
+  min-height: 48px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+/* ---- S6 contact kakao-channel (플랫폼 공용 ① 문의 받기) ---- */
+.s-contact--kakao-channel .s-btn { width: 100%; min-height: 48px; }
+
 /* ---- S7 reviews ---- */
 .s-review {
   background: #fff;

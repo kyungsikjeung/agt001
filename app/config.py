@@ -43,6 +43,13 @@ class Settings(BaseSettings):
     stt_function_id: str = "71203149-d3b7-4460-8231-1be2543a1fca"
     stt_timeout_sec: float = 20.0
 
+    # 카카오·구글 로그인 (1-2). 값은 scripts/set_oauth_secrets.sh로 서버 .env에만 넣는다 (D10).
+    kakao_rest_api_key: Optional[str] = None
+    kakao_client_secret: Optional[str] = None
+    google_client_id: Optional[str] = None
+    google_client_secret: Optional[str] = None
+    login_session_days: int = 30
+
     # 설정하면 배포 URL을 요청 호스트 대신 이 값으로 만든다 (예: https://example.com).
     public_base_url: Optional[str] = None
 

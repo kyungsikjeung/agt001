@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PLACEHOLDERS, TEMPLATES, type Template } from './templates';
+import { logout, me, startLogin, type MeUser } from './auth';
 import { startRoom, track } from './api';
 
 const MAX_LEN = 2000; // 서버 메시지 상한 (app/services/rooms.py MAX_MESSAGE_LEN)
@@ -11,11 +12,29 @@ export default function Landing() {
   const [error, setError] = useState<string | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
+  const [user, setUser] = useState<MeUser | null>(null);
   const [hint, setHint] = useState(0);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     track('landing_view');
+    me().then(setUser).catch(() => setUser(null));
+    // 로그인 실패·구글 테스트 사용자 아님: 서버가 /?login_error=<제공자>_<사유>로 되돌린다 (D9).
+    const params = new URLSearchParams(location.search);
+    const loginError = params.get('login_error');
+    if (loginError) {
+      setToast(
+        loginError.endsWith('_not_ready')
+          ? '로그인은 곧 열립니다. 지금은 로그인 없이 바로 시작할 수 있어요.'
+          : loginError.startsWith('google')
+            ? '구글 로그인은 현재 초대된 분만 가능해요. 카카오로 시작해 주세요.'
+            : '로그인에 실패했어요. 다시 시도해 주세요.',
+      );
+      window.setTimeout(() => setToast(null), 4000);
+      params.delete('login_error');
+      const rest = params.toString();
+      history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : ''));
+    }
   }, []);
 
   // 비어 있을 때만 안내 문구를 돌린다. 입력 중에는 바꾸지 않는다.
@@ -53,11 +72,18 @@ export default function Landing() {
     inputRef.current?.focus();
   }
 
-  function onLogin() {
+  function onLogin(provider: 'kakao' | 'google') {
     track('login_click');
     setLoginOpen(false);
-    setToast('로그인은 곧 열립니다. 지금은 로그인 없이 바로 시작할 수 있어요.');
-    window.setTimeout(() => setToast(null), 3500);
+    startLogin(provider, location.pathname + location.search);
+  }
+
+  async function onLogout() {
+    setLoginOpen(false);
+    await logout();
+    setUser(null);
+    setToast('로그아웃했어요.');
+    window.setTimeout(() => setToast(null), 2500);
   }
 
   return (
@@ -67,15 +93,29 @@ export default function Landing() {
           agt001
         </a>
         <div className="login-wrap">
-          <button className="ghost" type="button" onClick={() => setLoginOpen((v) => !v)} aria-expanded={loginOpen}>
-            로그인
-          </button>
-          {loginOpen && (
+          <nav className="top-links" aria-label="계정">
+            <a className="projects-link" href="/projects">
+              내 프로젝트
+            </a>
+            {user ? (
+              <>
+                <span className="nickname">{user.nickname}</span>
+                <button className="ghost" type="button" onClick={onLogout}>
+                  로그아웃
+                </button>
+              </>
+            ) : (
+              <button className="ghost" type="button" onClick={() => setLoginOpen((v) => !v)} aria-expanded={loginOpen}>
+                로그인
+              </button>
+            )}
+          </nav>
+          {loginOpen && !user && (
             <div className="login-menu" role="menu">
-              <button className="kakao" type="button" role="menuitem" onClick={onLogin}>
+              <button className="kakao" type="button" role="menuitem" onClick={() => onLogin('kakao')}>
                 카카오로 계속하기
               </button>
-              <button className="google" type="button" role="menuitem" onClick={onLogin}>
+              <button className="google" type="button" role="menuitem" onClick={() => onLogin('google')}>
                 Google로 계속하기
               </button>
               <p className="login-note">구글 로그인은 지금 초대된 분만 쓸 수 있어요.</p>

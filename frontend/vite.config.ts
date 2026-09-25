@@ -10,7 +10,7 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    rollupOptions: { input: { main: 'index.html', editor: 'editor.html' } },
+    rollupOptions: { input: { main: 'index.html', editor: 'editor.html', projects: 'projects.html' } },
   },
   server: {
     proxy: Object.fromEntries(

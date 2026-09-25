@@ -123,3 +123,59 @@ class ChatTurnRow(Base):
     state_before: Mapped[str] = mapped_column(Text, nullable=False)
     state_after: Mapped[str] = mapped_column(Text, nullable=False)
     meta: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+
+# ── 계정 (1-1, DECISIONS.md D9·UQ-2: users + oauth_accounts 분리형, 제공자 토큰은 저장하지 않음) ──
+
+class UserRow(Base):
+    __tablename__ = "users"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    nickname: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
+    last_login_at: Mapped[datetime.datetime] = _now_col()
+    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class OAuthAccountRow(Base):
+    __tablename__ = "oauth_accounts"
+
+    provider: Mapped[str] = mapped_column(Text, primary_key=True)          # kakao | google
+    provider_user_id: Mapped[str] = mapped_column(Text, primary_key=True)  # 카카오 회원번호 / 구글 sub
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class LoginSessionRow(Base):
+    """쿠키에는 무작위 토큰, DB에는 그 해시만 둔다(유출돼도 세션을 만들 수 없게)."""
+
+    __tablename__ = "login_sessions"
+
+    token_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class OAuthStateRow(Base):
+    """로그인 도중의 state(로그인 CSRF 방지)와 PKCE 검증값. 10분 뒤 무효."""
+
+    __tablename__ = "oauth_states"
+
+    state_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    code_verifier: Mapped[str] = mapped_column(Text, nullable=False)
+    next_path: Mapped[str] = mapped_column(Text, nullable=False)
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class UserRoomRow(Base):
+    """로그인 전에 이 기기로 쓰던 방을 계정으로 옮긴 기록(1-3). 다른 기기에서도 목록에 보인다."""
+
+    __tablename__ = "user_rooms"
+
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    room_id: Mapped[str] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), primary_key=True)
+    member_id: Mapped[str] = mapped_column(Text, nullable=False)
+    claimed_at: Mapped[datetime.datetime] = _now_col()
