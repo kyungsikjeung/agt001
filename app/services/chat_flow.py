@@ -3,6 +3,7 @@
 상태: GREETING → GATHERING → AWAIT_APPROVAL → QUOTED → GENERATING → DONE
 room을 넘기면 주요 전이마다 room["ai_status"]를 갱신해 다른 참여자가 AI 진행 상황을 보게 한다.
 """
+import logging
 import uuid
 from typing import Optional
 
@@ -11,6 +12,8 @@ from app.services import codegen, deploy, design, funnel, quote, rag
 
 APPROVE_WORDS = ("승인", "네", "yes", "approve", "예")
 REJECT_WORDS = ("거절", "아니오", "no", "reject")
+log = logging.getLogger(__name__)
+
 PROCEED_WORDS = ("진행", "네", "yes", "proceed", "예")
 
 
@@ -80,11 +83,13 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
 
     elif state in ("GREETING", "GATHERING"):
         _set_room_status(room, "RAG_SEARCHING", persist=True)
-        rag_result = rag.precheck(user_text)
+        # 유사 프로젝트 판정은 내부 참고용이다. 결과(내부 문서 이름)를 사용자에게 보여주지 않는다.
+        log.info("유사 프로젝트 판정: %s", rag.precheck(user_text))
         session["last_request"] = user_text
+        summary = user_text if len(user_text) <= 120 else user_text[:120] + "…"
         reply = (
-            f"{rag_result}\n\n"
-            "요청하신 내용을 검토했습니다. 이 요구사항으로 견적을 진행할까요? (승인/거절로 답해주세요)"
+            f"이렇게 이해했어요.\n“{summary}”\n\n"
+            "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
         )
         session["state"] = "AWAIT_APPROVAL"
         _set_room_status(room, "IDLE")

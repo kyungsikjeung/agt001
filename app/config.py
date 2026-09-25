@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     project_root: Path = PROJECT_ROOT
     generated_dir: Path = PROJECT_ROOT / "generated"
     static_dir: Path = PROJECT_ROOT / "static"
+    # React 빌드 결과 (frontend/, `npm run build`). 없으면 "/"는 기존 static/index.html로 폴백한다.
+    frontend_dist_dir: Path = PROJECT_ROOT / "frontend" / "dist"
     templates_dir: Path = PROJECT_ROOT / "templates"
 
     rag_top_k: int = 1

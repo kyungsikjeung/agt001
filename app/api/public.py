@@ -15,6 +15,19 @@ def _project_dir(requirement_id: str, sub: str):
     return settings.generated_dir / safe_id / sub
 
 
+@router.get("/", include_in_schema=False)
+def home():
+    # 랜딩(React). 빌드 전(단위 테스트·CI)에는 기존 1:1 채팅 화면으로 폴백한다.
+    index = settings.frontend_dist_dir / "index.html"
+    return FileResponse(index if index.is_file() else settings.static_dir / "index.html")
+
+
+@router.get("/landing.html", include_in_schema=False)
+def old_landing():
+    # 예전 랜딩 주소로 공유된 링크를 새 랜딩으로 보낸다.
+    return RedirectResponse("/", status_code=308)
+
+
 @router.get("/health")
 def health():
     return {"status": "ok"}

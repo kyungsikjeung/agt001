@@ -80,6 +80,14 @@ if [ "$MODE" = "git" ]; then
   fi
 fi
 
+# 프론트엔드(React) 빌드. 결과(frontend/dist)는 git에 없으므로 배포할 커밋 그대로 여기서 빌드해 올린다.
+# git 모드는 위에서 작업 트리가 깨끗한지 확인했으므로 빌드 입력 = 배포 커밋이다.
+if [ -f frontend/package.json ]; then
+  echo "0/4) 프론트엔드 빌드 (npm ci && npm run build)"
+  (cd frontend && npm ci --no-audit --no-fund --silent && npm run build --silent) >/dev/null
+  [ -f frontend/dist/index.html ] || { echo "프론트엔드 빌드 결과가 없습니다" >&2; exit 1; }
+fi
+
 SNAPSHOT_TS="$(date -u +%Y%m%d-%H%M%S)"
 
 echo "1/4) 배포 전 스냅샷 ($REMOTE_RELEASES_DIR/$SNAPSHOT_TS, generated·.env 제외, 최근 $KEEP_SNAPSHOTS개 보관)"
@@ -116,6 +124,10 @@ if [ "$MODE" = "git" ]; then
     git reset -q --hard $DEPLOY_SHA
     echo \"   서버 HEAD: \$(git rev-parse --short HEAD)\"
   "
+  if [ -d frontend/dist ]; then
+    rsync -az --delete -e "ssh -i $SSH_KEY" frontend/dist/ "$REMOTE_HOST:$REMOTE_DIR/frontend/dist/"
+    echo "   프론트엔드 빌드 결과 전송 완료"
+  fi
 else
   echo "2/4) rsync로 코드 전송 (.env/generated/.git 등 제외)"
   rsync -avz --delete \

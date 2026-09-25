@@ -324,7 +324,12 @@ async function startRoom() {
   // 참여자가 아니면 기록을 조회할 수 없으므로(ROOM_POLICY.md R-0), 새 방인지는
   // 입장 응답의 fresh(입장 전 메시지가 하나도 없었는지)로 판단한다.
   const joined = await sendRoomMessage('');
-  if (joined && joined.fresh) showOnboarding();
+  if (pending) {
+    // 랜딩에서 적은 내용을 첫 메시지로 보낸다. 사용자가 이미 설명했으므로 안내 메시지는 생략한다.
+    await sendRoomMessage(pending.text);
+  } else if (joined && joined.fresh) {
+    showOnboarding();
+  }
   pollTimer = setInterval(pollMessages, 4000);
 }
 
@@ -347,6 +352,19 @@ function showOnboarding() {
 }
 
 document.getElementById('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+// 랜딩(frontend/src/api.ts)에서 넘어온 첫 메시지. 이 방의 것일 때만 한 번 쓰고 지운다.
+let pending = null;
+try {
+  const raw = sessionStorage.getItem('agt001_pending_message');
+  if (raw) {
+    const p = JSON.parse(raw);
+    if (p && p.roomId === roomId && typeof p.text === 'string') pending = p;
+    sessionStorage.removeItem('agt001_pending_message');
+  }
+} catch (e) { /* 저장소를 못 쓰면 평소처럼 시작 */ }
+// 랜딩에서 바로 온 사람은 닉네임 입력 없이 시작한다(저장하지 않아 다른 방에는 영향 없음).
+if (!nickname && pending) nickname = '사장님';
 
 if (nickname) {
   document.getElementById('nicknameOverlay').remove();
