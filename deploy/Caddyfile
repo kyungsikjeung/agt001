@@ -1,0 +1,5 @@
+# 144.24.91.250.sslip.io 로 들어오는 HTTPS를 Flask(backend:8643)로 전달한다.
+# Let's Encrypt 인증서는 Caddy가 자동 발급/갱신한다(80/443 포트 개방 필요).
+144.24.91.250.sslip.io {
+	reverse_proxy backend:8643
+}

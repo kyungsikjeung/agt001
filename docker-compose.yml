@@ -24,3 +24,20 @@ services:
       # 주의: 이 소켓에 접근 가능한 프로세스는 사실상 호스트에 대한 루트급 권한과 동급이다 —
       # backend 컨테이너 자체가 신뢰된 코드(우리 자신의 백엔드)만 실행한다는 전제에서만 안전하다.
       - /var/run/docker.sock:/var/run/docker.sock
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
