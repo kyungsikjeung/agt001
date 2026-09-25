@@ -232,7 +232,7 @@
       <a href="#flow">이용 흐름</a>
       <a href="#examples">예시 결과물</a>
       <a href="#together">함께 쓰기</a>
-      <a class="nav-cta" href="/room.html">지금 시작하기</a>
+      <a class="nav-cta" href="/room.html" data-funnel="start_click">지금 시작하기</a>
     </nav>
   </div>
 </header>
@@ -243,18 +243,18 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-grid">
         <div>
-          <p class="eyebrow">소상공인용 웹사이트 제작</p>
+          <p class="eyebrow">소상공인용 웹사이트 제작 · 베타 기간 무료</p>
           <h1 id="hero-title">말로 설명하고 사진만 올리면, 확인한 그대로 웹사이트가 공개됩니다</h1>
           <p class="sub">채팅과 음성, 사진으로 설명하면 AI가 요구사항을 정리합니다. 확인한 내용만 실제 사이트로 만듭니다.</p>
           <div class="cta-row" role="group" aria-label="시작 방법">
-            <a class="btn btn-primary" href="/room.html">지금 시작하기</a>
+            <a class="btn btn-primary" href="/room.html" data-funnel="start_click">지금 시작하기</a>
             <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
-            <a class="btn btn-kakao" href="/auth/kakao" data-auth-pending>카카오로 시작</a>
+            <a class="btn btn-kakao" href="/auth/kakao" data-auth-pending data-funnel="login_click">카카오로 시작</a>
             <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
-            <a class="btn btn-google" href="/auth/google" data-auth-pending>Google로 시작</a>
+            <a class="btn btn-google" href="/auth/google" data-auth-pending data-funnel="login_click">Google로 시작</a>
           </div>
           <p class="auth-note">로그인 없이도 바로 시작할 수 있습니다. 기록을 저장하고 싶을 때 로그인하면 됩니다.</p>
-          <p class="trust-line"><strong>비밀번호를 저장하지 않습니다.</strong> 카카오는 노란 버튼 정책에 맞추어 검은 글자로 표기합니다. 휴대폰에서 그대로 이용할 수 있습니다.</p>
+          <p class="trust-line"><strong>베타 기간에는 제작 비용이 없습니다.</strong> 비밀번호를 저장하지 않고, 휴대폰에서 그대로 이용할 수 있습니다.</p>
         </div>
         <div class="chat-sample" aria-label="대화 예시">
           <h2>대화 예시</h2>
@@ -358,11 +358,11 @@
         <h2 class="section-title" id="start-title">지금 바로 만들어 보세요</h2>
         <p class="section-sub">공유방이 바로 열립니다. 로그인은 나중에 해도 됩니다.</p>
         <div class="cta-row" role="group" aria-label="시작 방법">
-          <a class="btn btn-primary" href="/room.html">지금 시작하기</a>
+          <a class="btn btn-primary" href="/room.html" data-funnel="start_click">지금 시작하기</a>
           <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
-          <a class="btn btn-kakao" href="/auth/kakao" data-auth-pending>카카오로 시작</a>
+          <a class="btn btn-kakao" href="/auth/kakao" data-auth-pending data-funnel="login_click">카카오로 시작</a>
           <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
-          <a class="btn btn-google" href="/auth/google" data-auth-pending>Google로 시작</a>
+          <a class="btn btn-google" href="/auth/google" data-auth-pending data-funnel="login_click">Google로 시작</a>
         </div>
         <p id="authToast" role="status"></p>
       </div>
@@ -390,6 +390,36 @@ document.querySelectorAll('[data-auth-pending]').forEach(function (el) {
     toast.classList.add('show');
   });
 });
+
+// 유입 측정 (DECISIONS.md D16): 익명 방문자 ID와 단계만 보낸다. 이름·연락처·IP는 보내지 않는다.
+(function () {
+  function visitorId() {
+    try {
+      var id = localStorage.getItem('agt001_visitor_id');
+      if (!id) {
+        id = 'v-' + (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2));
+        localStorage.setItem('agt001_visitor_id', id);
+      }
+      return id;
+    } catch (e) { return null; }
+  }
+  var params = new URLSearchParams(location.search);
+  var source = params.get('utm_source');
+  if (!source && document.referrer) {
+    try { source = new URL(document.referrer).hostname; } catch (e) { source = null; }
+  }
+  var base = { visitor_id: visitorId(), source: source, campaign: params.get('utm_campaign') };
+  function send(event) {
+    var body = JSON.stringify(Object.assign({ event: event }, base));
+    // 페이지를 떠나는 클릭에서도 전송되도록 keepalive. 실패해도 화면 동작에는 영향이 없다.
+    fetch('/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true })
+      .catch(function () {});
+  }
+  send('landing_view');
+  document.querySelectorAll('[data-funnel]').forEach(function (el) {
+    el.addEventListener('click', function () { send(el.getAttribute('data-funnel')); });
+  });
+})();
 </script>
 </body>
 </html>
