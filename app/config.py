@@ -11,6 +11,11 @@ class Settings(BaseSettings):
 
     nim_api_key: str
     nim_chat_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    # 주 모델이 과부하(503)·요청 제한(429)·시간 초과일 때 차례로 쓸 대비 모델 (D28). 실측 2026-09-26:
+    # ultra 2.2초(기능 칸까지 정확), lightning 1.7초. 쉼표로 구분.
+    nim_chat_fallback_models: str = "nvidia/nemotron-3-ultra-550b-a55b,nvidia/nemotron-3.5-lightning-30b-a3b"
+    # 실패한 모델은 이 시간 동안 건너뛰고 다음 모델로 바로 간다(매 요청마다 실패를 기다리지 않게).
+    nim_fallback_cooldown_sec: float = 60.0
     nim_base_url: str = "https://integrate.api.nvidia.com/v1"
     nim_embed_model: str = "nvidia/nemotron-3-embed-1b"
     # 타임아웃이 없으면(openai 기본값은 수 분) NIM이 멈출 때 요청 스레드가 같이 묶인다.
