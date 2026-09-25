@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="agt001. 말로 설명하고 사진만 올리면 AI가 요구사항을 정리하고 확인한 그대로 웹사이트를 만들어 공개합니다.">
+<title>agt001. 말하면 웹사이트가 됩니다</title>
+<style>
+  /* Design tokens: static/room.html과 동일. 버튼과 입력 8px, 패널 12px. */
+  :root {
+    --accent: #6366f1;
+    --accent-dark: #4338ca;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2328;
+    --text-muted: #52525b;
+    --tint: #eef2ff;
+    --kakao-bg: #fee500;
+    --kakao-text: #191919;
+    --radius-panel: 12px;
+    --radius-control: 8px;
+    --maxw: 960px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #121214;
+      --surface: #1c1c1f;
+      --border: #333338;
+      --text: #f4f4f5;
+      --text-muted: #c2c2c9;
+      --tint: #23233a;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+    margin: 0; background: var(--bg); color: var(--text);
+    line-height: 1.6;
+  }
+  .skip {
+    position: absolute; left: 12px; top: -48px; z-index: 20;
+    background: var(--text); color: var(--bg);
+    padding: 8px 14px; border-radius: var(--radius-control);
+    transition: top 0.15s ease;
+  }
+  .skip:focus { top: 12px; }
+  a { color: var(--accent-dark); }
+  @media (prefers-color-scheme: dark) {
+    a { color: #c7d2fe; }
+  }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 20px; }
+
+  /* Header: 한 줄 내비, 높이 64px */
+  .site-header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .site-header .wrap {
+    display: flex; align-items: center; gap: 16px;
+    height: 64px;
+  }
+  .brand { font-weight: 800; font-size: 1.125rem; color: var(--text); text-decoration: none; white-space: nowrap; }
+  .brand small { font-weight: 600; color: var(--text-muted); font-size: 0.8125rem; margin-left: 6px; }
+  .nav { display: flex; gap: 16px; margin-left: auto; align-items: center; }
+  .nav a { font-size: 0.875rem; color: var(--text-muted); text-decoration: none; white-space: nowrap; }
+  .nav a:hover { color: var(--text); text-decoration: underline; }
+  .nav .nav-cta {
+    color: #fff; background: var(--accent-dark);
+    padding: 8px 14px; border-radius: var(--radius-control);
+    font-weight: 700; text-decoration: none;
+  }
+  .nav .nav-cta:hover { color: #fff; text-decoration: none; }
+  @media (max-width: 560px) {
+    .nav a:not(.nav-cta) { display: none; }
+  }
+
+  main { display: block; }
+  section { padding: 56px 0; }
+  section + section { border-top: 1px solid var(--border); }
+
+  /* Hero: 왼쪽 정렬,见标题 최대 2줄 */
+  .hero { padding: 64px 0 48px; }
+  .eyebrow {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--accent-dark); margin: 0 0 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    .eyebrow { color: #c7d2fe; }
+  }
+  .hero h1 {
+    font-size: 2rem; line-height: 1.25; letter-spacing: -0.01em;
+    margin: 0 0 12px; max-width: 22ch;
+  }
+  .hero .sub {
+    margin: 0 0 24px; max-width: 44ch;
+    color: var(--text-muted); font-size: 1rem;
+  }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 48px; padding: 12px 20px;
+    border-radius: var(--radius-control);
+    font-size: 1rem; font-weight: 700; text-decoration: none;
+    border: 1px solid transparent; cursor: pointer; white-space: nowrap;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--accent-dark); color: #fff; }
+  .btn-primary:hover { color: #fff; }
+  .btn-kakao { background: var(--kakao-bg); color: var(--kakao-text); }
+  .btn-kakao:hover { color: var(--kakao-text); }
+  .btn-google { background: var(--surface); color: var(--text); border-color: var(--border); }
+  .auth-note { font-size: 0.875rem; color: var(--text-muted); margin: 14px 0 0; }
+  .trust-line {
+    margin: 28px 0 0; padding: 12px 16px;
+    background: var(--tint); border: 1px solid var(--border);
+    border-radius: var(--radius-panel); font-size: 0.875rem;
+  }
+  .trust-line strong { font-weight: 700; }
+  @media (min-width: 860px) {
+    .hero-grid { display: grid; grid-template-columns: 7fr 5fr; gap: 40px; align-items: start; }
+    .hero h1 { font-size: 2.5rem; }
+  }
+
+  /* 대화 예시: 실제 컴포넌트 미리보기 형태의 인용, 가짜 스크린샷 아님 */
+  .chat-sample {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-panel); padding: 16px;
+    font-size: 0.9375rem;
+  }
+  .chat-sample h2 { font-size: 0.8125rem; color: var(--text-muted); margin: 0 0 12px; font-weight: 700; }
+  .chat-sample blockquote { margin: 0 0 10px; padding: 10px 12px; border-radius: var(--radius-control); background: var(--bg); }
+  .chat-sample blockquote.ai { border: 1px solid var(--border); background: var(--surface); }
+  .chat-sample cite { display: block; font-style: normal; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 4px; }
+
+  h2.section-title { font-size: 1.375rem; line-height: 1.35; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .section-sub { margin: 0 0 28px; color: var(--text-muted); max-width: 52ch; }
+
+  /* 이용 흐름: 번호형 세로 타임라인. 3단 균등 카드 사용 안 함. */
+  .steps { list-style: none; margin: 0; padding: 0; }
+  .steps li {
+    display: grid; grid-template-columns: 48px 1fr; gap: 16px;
+    padding: 20px 0; border-top: 1px solid var(--border);
+  }
+  .steps li:last-child { border-bottom: 1px solid var(--border); }
+  .step-num {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--accent-dark); color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 1.125rem; flex: none;
+  }
+  .steps h3 { margin: 2px 0 6px; font-size: 1.0625rem; }
+  .steps p { margin: 0; color: var(--text-muted); font-size: 0.9375rem; max-width: 56ch; }
+  @media (min-width: 860px) {
+    .steps li { grid-template-columns: 64px 1fr; padding: 24px 0; }
+  }
+
+  /* 예시 결과물: 플레이스홀더 슬롯. 가짜 UI 금지. 첫 항목 와이드, 나머지 2열. */
+  .examples { list-style: none; margin: 0; padding: 0; display: grid; gap: 28px; }
+  .examples figure { margin: 0; }
+  .ph {
+    border: 2px dashed var(--border); border-radius: var(--radius-panel);
+    background: var(--surface); color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 0.875rem; padding: 24px; min-height: 180px;
+  }
+  .ph-wide { aspect-ratio: 16 / 8; }
+  .ph-half { aspect-ratio: 4 / 3; }
+  .examples figcaption { margin-top: 10px; }
+  .examples h3 { margin: 0 0 4px; font-size: 1rem; }
+  .examples p { margin: 0; font-size: 0.875rem; color: var(--text-muted); max-width: 52ch; }
+  .examples .tag {
+    display: inline-block; font-size: 0.75rem; font-weight: 700;
+    border: 1px solid var(--border); border-radius: 999px;
+    padding: 2px 10px; margin-bottom: 8px; color: var(--text-muted);
+    background: var(--surface);
+  }
+  @media (min-width: 720px) {
+    .examples { grid-template-columns: 1fr 1fr; }
+    .examples li:first-child { grid-column: 1 / -1; }
+  }
+
+  /* 함께 쓰기: 구분선으로 나눈 2단, 카드 속 카드 금지 */
+  .together-grid {
+    display: grid; gap: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-panel); overflow: hidden;
+  }
+  .together-grid > div { padding: 20px; }
+  .together-grid > div + div { border-top: 1px solid var(--border); }
+  .together-grid h3 { margin: 0 0 6px; font-size: 1rem; }
+  .together-grid p { margin: 0; font-size: 0.9375rem; color: var(--text-muted); }
+  @media (min-width: 720px) {
+    .together-grid { grid-template-columns: 1fr 1fr; }
+    .together-grid > div + div { border-top: none; border-left: 1px solid var(--border); }
+  }
+
+  /* 시작하기 */
+  .start-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius-panel); padding: 24px;
+  }
+  .start-box .cta-row { margin-top: 16px; }
+  #authToast {
+    display: none; margin-top: 12px; font-size: 0.875rem;
+    background: var(--tint); border: 1px solid var(--border);
+    border-radius: var(--radius-control); padding: 10px 12px;
+  }
+  #authToast.show { display: block; }
+
+  footer { border-top: 1px solid var(--border); padding: 24px 0 40px; font-size: 0.8125rem; color: var(--text-muted); }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; }
+  footer a { color: inherit; }
+  footer .spacer { flex: 1; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+    html { scroll-behavior: auto; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="/landing.html">agt001 <small>말하면 웹사이트가 됩니다</small></a>
+    <nav class="nav" aria-label="페이지 내 이동">
+      <a href="#flow">이용 흐름</a>
+      <a href="#examples">예시 결과물</a>
+      <a href="#together">함께 쓰기</a>
+      <a class="nav-cta" href="/room.html">지금 시작하기</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">소상공인용 웹사이트 제작</p>
+          <h1 id="hero-title">말로 설명하고 사진만 올리면, 확인한 그대로 웹사이트가 공개됩니다</h1>
+          <p class="sub">채팅과 음성, 사진으로 설명하면 AI가 요구사항을 정리합니다. 확인한 내용만 실제 사이트로 만듭니다.</p>
+          <div class="cta-row" role="group" aria-label="시작 방법">
+            <a class="btn btn-primary" href="/room.html">지금 시작하기</a>
+            <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
+            <a class="btn btn-kakao" href="/auth/kakao" data-auth-pending>카카오로 시작</a>
+            <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
+            <a class="btn btn-google" href="/auth/google" data-auth-pending>Google로 시작</a>
+          </div>
+          <p class="auth-note">로그인 없이도 바로 시작할 수 있습니다. 기록을 저장하고 싶을 때 로그인하면 됩니다.</p>
+          <p class="trust-line"><strong>비밀번호를 저장하지 않습니다.</strong> 카카오는 노란 버튼 정책에 맞추어 검은 글자로 표기합니다. 휴대폰에서 그대로 이용할 수 있습니다.</p>
+        </div>
+        <div class="chat-sample" aria-label="대화 예시">
+          <h2>대화 예시</h2>
+          <blockquote>
+            <cite>사장님</cite>
+            바닷가 근처 작은 펜션이에요. 객실 세 개랑 바비큐 자리 소개하고 싶어요. 사진도 있어요.
+          </blockquote>
+          <blockquote class="ai">
+            <cite>AI 어시스턴트</cite>
+            정리해 보았습니다. 객실 안내, 요금과 예약 문의, 오시는 길을 넣으면 될까요. 맞으면 확인을 눌러주세요.
+          </blockquote>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow" aria-labelledby="flow-title">
+      <h2 class="section-title" id="flow-title">이렇게 진행됩니다</h2>
+      <p class="section-sub">어려운 설정은 없습니다. 말하고, 확인하고, 공개하면 끝입니다.</p>
+      <ol class="steps">
+        <li>
+          <span class="step-num" aria-hidden="true">1</span>
+          <div>
+            <h3>말하기, 사진 올리기</h3>
+            <p>채팅이나 음성으로 원하는 것을 설명하고, 가게 사진을 올립니다. 휴대폰에서 바로 할 수 있습니다.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num" aria-hidden="true">2</span>
+          <div>
+            <h3>요구사항 확인</h3>
+            <p>AI가 정리한 내용을 보여주면, 그대로 만들지 직접 확인합니다. 확정하기 전에는 코드를 만들지 않습니다.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-num" aria-hidden="true">3</span>
+          <div>
+            <h3>사이트 완성, 공개</h3>
+            <p>확정한 내용으로 실제 웹사이트를 만들어 공개 주소로 보여줍니다. 이후에도 대화로 고칠 수 있습니다.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section id="examples" aria-labelledby="examples-title">
+      <h2 class="section-title" id="examples-title">이런 사이트를 만들 수 있습니다</h2>
+      <p class="section-sub">아래는 자리 표시입니다. 실제 예시 화면이 준비되면 이 자리에 들어갑니다.</p>
+      <ul class="examples">
+        <li>
+          <figure>
+            <!-- TODO: 펜션 예시 이미지, 1200x600. 실제 스크린샷 또는 생성 이미지로 교체 -->
+            <div class="ph ph-wide" role="img" aria-label="펜션 예시 이미지 준비 중">펜션 예시 이미지 준비 중<br>(1200x600)</div>
+            <figcaption>
+              <span class="tag">펜션</span>
+              <h3>객실과 요금, 오시는 길을 담은 펜션 소개</h3>
+              <p>객실 사진, 바비큐 자리 안내, 예약 문의 버튼이 들어갑니다.</p>
+            </figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <!-- TODO: 카페 예시 이미지, 800x600. 실제 스크린샷 또는 생성 이미지로 교체 -->
+            <div class="ph ph-half" role="img" aria-label="카페 예시 이미지 준비 중">카페 예시 이미지 준비 중<br>(800x600)</div>
+            <figcaption>
+              <span class="tag">카페</span>
+              <h3>메뉴와 영업시간을 알리는 카페 소개</h3>
+              <p>대표 메뉴 사진, 영업시간, 지도와 문의 방법이 들어갑니다.</p>
+            </figcaption>
+          </figure>
+        </li>
+        <li>
+          <figure>
+            <!-- TODO: 공방 예시 이미지, 800x600. 실제 스크린샷 또는 생성 이미지로 교체 -->
+            <div class="ph ph-half" role="img" aria-label="공방 예시 이미지 준비 중">공방 예시 이미지 준비 중<br>(800x600)</div>
+            <figcaption>
+              <span class="tag">공방</span>
+              <h3>수업과 작품을 보여주는 공방 소개</h3>
+              <p>수업 일정, 작품 사진, 신청 문의 버튼이 들어갑니다.</p>
+            </figcaption>
+          </figure>
+        </li>
+      </ul>
+    </section>
+
+    <section id="together" aria-labelledby="together-title">
+      <h2 class="section-title" id="together-title">혼자 써도, 여럿이 함께 정해도 됩니다</h2>
+      <p class="section-sub">초대 링크 하나로 같은 방에서 이어서 정리할 수 있습니다.</p>
+      <div class="together-grid">
+        <div>
+          <h3>혼자 시작하기</h3>
+          <p>초대 없이 혼자 시작해도 됩니다. 나중에 링크를 공유하면 같은 방에서 이어서 정리할 수 있어요.</p>
+        </div>
+        <div>
+          <h3>함께 정하기</h3>
+          <p>가족이나 직원과 함께 이야기하고, 정리된 내용이 맞는지 투표로 확정합니다. 누가 확인했는지 기록에 남습니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="start" aria-labelledby="start-title">
+      <div class="start-box">
+        <h2 class="section-title" id="start-title">지금 바로 만들어 보세요</h2>
+        <p class="section-sub">공유방이 바로 열립니다. 로그인은 나중에 해도 됩니다.</p>
+        <div class="cta-row" role="group" aria-label="시작 방법">
+          <a class="btn btn-primary" href="/room.html">지금 시작하기</a>
+          <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
+          <a class="btn btn-kakao" href="/auth/kakao" data-auth-pending>카카오로 시작</a>
+          <!-- 1-2 WP에서 연결: 백엔드 OAuth 라우트와 연결하기 전까지 href와 data-auth-pending 유지 -->
+          <a class="btn btn-google" href="/auth/google" data-auth-pending>Google로 시작</a>
+        </div>
+        <p id="authToast" role="status"></p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="/room.html">공유방 열기</a>
+    <span class="spacer"></span>
+    <span>&copy; <span id="year">2026</span> agt001</span>
+  </div>
+</footer>
+
+<script>
+// 최소 JS: 연도 표기와 로그인 준비 중 안내만 담당한다.
+document.getElementById('year').textContent = new Date().getFullYear();
+document.querySelectorAll('[data-auth-pending]').forEach(function (el) {
+  el.addEventListener('click', function (ev) {
+    ev.preventDefault();
+    var toast = document.getElementById('authToast');
+    toast.textContent = '로그인은 곧 열립니다. 지금은 로그인 없이 바로 시작할 수 있어요.';
+    toast.classList.add('show');
+  });
+});
+</script>
+</body>
+</html>

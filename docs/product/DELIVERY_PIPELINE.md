@@ -32,7 +32,8 @@
 4. **검증은 자동이 기본.** 단위 테스트(`tests/unit`), CI(`.github/workflows/ci.yml`), 브라우저 E2E(`tests/e2e`)를 매 WP마다 돌린다. 사람 확인은 자동화할 수 없는 것만 한다.
 5. **동시 진행 상한(WIP).** 구현 레인에 핵심 WP는 동시에 1개, 주변 WP(프론트 초안, 스크립트, 문서)는 최대 3개까지.
 6. **막히면 바로 다음 WP로.** 외부 요인(콘솔 설정, 사용자 결정)으로 막힌 WP는 대기열 뒤로 보내고 다음 준비 완료 WP를 시작한다. 막힌 이유는 `STATUS.md`에 적는다.
-7. **검토는 diff 단위.** OpenCode 결과물은 Claude가 diff를 읽고 테스트를 돌린 뒤에만 커밋한다.
+7. **운영 상태 변경 금지.** OpenCode는 `scripts/deploy.sh`, `scripts/rollback.sh`를 `--help`·`--list` 외에 실행하지 않는다. SSH·OCI CLI는 읽기 전용 명령만 허용한다. 배포·롤백은 Claude만 한다. (2026-09-25: 빈 `REMOTE_DIR` 방어 테스트가 기본값으로 대체되어 실제 운영 배포가 실행된 사고가 있었다.)
+8. **검토는 diff 단위.** OpenCode 결과물은 Claude가 diff를 읽고 테스트를 돌린 뒤에만 커밋한다.
 
 ## 4. 작업 패키지 대기열
 
@@ -43,35 +44,36 @@
 | WP | 내용 | 레인/담당 | 소유 파일 | 의존 | 상태 |
 |---|---|---|---|---|---|
 | 0-1a | Flask → FastAPI 이식, 모듈 분리 | 구현 / Claude | `app/**` | — | ✅ 로컬 실측(실제 NIM·투표·E2E 5/5) |
-| 0-1b | 단위·API 테스트 스위트 | 검증 / OpenCode A | `tests/unit/**` | 0-1a | 🔄 |
-| 0-1c | CI 워크플로 | 검증 / OpenCode B | `.github/workflows/ci.yml` | 0-1b | ✅ 작성 (첫 실행은 커밋 후) |
+| 0-1b | 단위·API 테스트 스위트 | 검증 / OpenCode A | `tests/unit/**` | 0-1a | ✅ 47개 통과 |
+| 0-1c | CI 워크플로 | 검증 / OpenCode B | `.github/workflows/ci.yml` | 0-1b | ✅ GitHub Actions 통과 |
 | 0-1d | 브라우저 E2E | 검증 / OpenCode C | `tests/e2e/**` | 0-1a | ✅ 5/5 통과 |
-| 0-1e | OCI 배포·실측 (uvicorn, https 배포 URL) | 검증 / Claude | 배포 | 0-1b | 🟢 |
-| 0-2a | DB 스키마·SQLAlchemy 모델·Alembic | 구현 / Claude | `app/db/**`, `alembic/**` | 0-1e | ⏳ |
+| 0-1e | OCI 배포·실측 (uvicorn, https 배포 URL) | 검증 / Claude | 배포 | 0-1b | ✅ 운영 E2E 5/5, 실제 코드생성 → https 배포 URL 200 |
+| 0-2a | DB 스키마·SQLAlchemy 모델·Alembic | 구현 / Claude | `app/db/**`, `alembic/**` | 0-1e | 🟢 설계 완료 (STAGE0_DESIGN §6) |
 | 0-2b | `store.py`를 PostgreSQL 구현으로 교체 | 구현 / Claude | `app/store.py` | 0-2a | ⏳ |
 | 0-2c | compose `db` 서비스·볼륨·일일 백업 | 구현 / OpenCode | `docker-compose.yml`, `scripts/backup_db.sh` | 0-2a | ⏳ |
 | 0-3a | 코드생성 작업 큐(Redis+RQ) + 워커 | 구현 / Claude | `app/services/codegen.py`, `app/worker.py` | 0-2b | ⏳ |
 | 0-3b | 샌드박스 제어: 컨테이너 이름·`docker stop`·메모리/CPU 제한·타임아웃 후 산출물 판정 | 구현 / Claude | `app/services/codegen.py` | 0-3a | ⏳ (실측 버그: 파일 생성 후 90초 초과 시 실패 판정) |
-| 0-4a | 배포 전 스냅샷 + `rollback.sh` | 구현 / OpenCode | `scripts/deploy.sh`, `scripts/rollback.sh` | — | 🟢 |
+| 0-4a | 배포 전 스냅샷 + `rollback.sh` | 구현 / OpenCode | `scripts/deploy.sh`, `scripts/rollback.sh` | — | ✅ 운영 배포에 적용 |
 | 0-4b | 스테이징 compose(별도 포트·DB) | 구현 / OpenCode | `docker-compose.staging.yml` | 0-2c | ⏳ |
 
 ### 1단계 — 계정·랜딩 (0단계와 겹쳐서 미리 준비)
 
 | WP | 내용 | 레인/담당 | 소유 파일 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| 1-0a | 카카오·구글 OAuth 조사: 엔드포인트, 콘솔 설정 절차, 리다이렉트 URI, 필요한 동의항목, 테스트 계정 방식 | 계획 / OpenCode | `docs/product/OAUTH_SETUP.md` | — | 🟢 |
-| 1-0b | 랜딩 페이지 정적 초안 (가치 제안, 예시, 시작하기, 로그인 버튼 자리) | 구현 / OpenCode | `static/landing.html` | — | 🟢 |
+| 1-0a | 카카오·구글 OAuth 조사: 엔드포인트, 콘솔 설정 절차, 리다이렉트 URI, 필요한 동의항목, 테스트 계정 방식 | 계획 / OpenCode | `docs/product/OAUTH_SETUP.md` | — | ✅ (구글은 sslip.io로 테스트 모드만 가능 → 공개 전 도메인 구매 필요) |
+| 1-0b | 랜딩 페이지 정적 초안 (가치 제안, 예시, 시작하기, 로그인 버튼 자리) | 구현 / OpenCode | `static/landing.html` | — | ✅ `/landing.html` (예시 이미지 슬롯은 실제 결과물로 교체 예정) |
 | 1-1 | users·oauth_accounts·room_members 스키마 | 구현 / Claude | `app/db/**` | 0-2a | ⏳ |
 | 1-2 | OAuth 라우트(state 검증), 세션 쿠키, `/me`, `/logout` | 구현 / Claude | `app/auth/**`, `app/api/auth.py` | 1-1, 1-0a | ⏳ |
 | 1-3 | 게스트 방 귀속(claim), 내 프로젝트 목록 | 구현 / Claude | `app/services/rooms.py`, `app/api/me.py` | 1-2 | ⏳ |
 | 1-4 | 랜딩·로그인·내 프로젝트 화면 연결 | 구현 / OpenCode → Claude 검토 | `static/landing.html`, `static/projects.html` | 1-2, 1-0b | ⏳ |
 | 1-5 | 인증 테스트(단위·E2E) | 검증 / OpenCode | `tests/**` | 1-2 | ⏳ |
-| 1-6 | 사용자 작업: 카카오 로그인 활성화, 구글 OAuth 클라이언트 발급 | 사용자 | 콘솔 | 1-0a | ⏳ |
+| 1-6 | 사용자 작업: 카카오 로그인 활성화, 구글 OAuth 클라이언트 발급 (절차: OAUTH_SETUP.md §5) | 사용자 | 콘솔 | 1-0a | 🟢 사용자 작업 대기 |
 
 2단계(PRD 엔진) 이후 WP는 1단계 구현이 시작될 때 계획 레인에서 이 표에 추가한다.
 
-## 5. 현재 레인 배치 (2026-09-25)
+## 5. 현재 레인 배치 (2026-09-25 갱신)
 
-- 계획 레인: 0-2 DB 설계(Claude), 1-0a OAuth 조사(OpenCode)
-- 구현 레인: 0-4a 롤백 스크립트(OpenCode), 1-0b 랜딩 초안(OpenCode)
-- 검증 레인: 0-1b 단위 테스트(OpenCode A) → 끝나면 0-1e OCI 배포·실측(Claude)
+- 계획 레인: 1-1·1-2 인증 설계(Claude, OAUTH_SETUP.md 기반)
+- 구현 레인: 0-2a·0-2b PostgreSQL 전환(Claude)
+- 검증 레인: OCI git pull 근본 원인 조사(OpenCode G)
+- 사용자 대기: 1-6 카카오·구글 콘솔 작업, D2 도메인 구매 결정
