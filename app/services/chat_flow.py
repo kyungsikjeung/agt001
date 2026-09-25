@@ -152,11 +152,16 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["state"] = "GATHERING"
         elif result["done"]:
             _set_room_status(room, "RAG_SEARCHING", persist=True)
+            # 리뷰어 에이전트: 요약 직전 한 번, 원문과 카드를 대조해 빠진 요구를 채운다.
+            rv = prd_engine.review(card)
+            if engine_trace is not None:
+                engine_trace["review"] = {"ok": rv["ok"], "added": rv["added"], "conflicts": len(rv["conflicts"]), "ms": rv["ms"]}
             spec = prd_engine.spec_text(card)
             session["last_request"] = spec
+            note = prd_engine.review_text(card)
             reply = (
-                f"정리했어요.\n{prd_engine.summary_text(card)}\n\n{_rag_note(spec)}\n\n"
-                "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
+                f"정리했어요.\n{prd_engine.summary_text(card)}\n\n" + (f"{note}\n\n" if note else "")
+                + f"{_rag_note(spec)}\n\n이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
             )
             session["state"] = "AWAIT_APPROVAL"
         else:

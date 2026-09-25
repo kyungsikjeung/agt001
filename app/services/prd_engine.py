@@ -40,6 +40,8 @@ NEG_NORMS = ("안돼", "안되", "안됨", "안해", "안함", "못해", "못가
              "없어", "없다", "아니", "별로", "싫", "불가", "빼", "제외")
 # 잡담 판정 (B-4): 정규화 후 이 길이를 넘는데 추출·규칙에 안 걸리면 주제 이탈로 보고 예산을 쓰지 않는다.
 CHATTER_LEN = 5
+# 리뷰어 에이전트(요약 직전 1회)가 보는 원문 범위
+SAID_MAX, SAID_CHARS = 40, 300
 # 같은 칸을 못 채운 채 이 횟수만큼 물으면 가정·자리 표시로 넘어간다 (INTAKE_GATE_DESIGN §5).
 STUCK_LIMIT = 3
 _SATISFIED = (S.FILLED, S.ASSUMED, S.PLACEHOLDER, S.REJECTED)
@@ -555,6 +557,10 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
         return {"done": False, "question": card.get("pending"), "applied": [], "trace": trace, "blocked": reason}
     wants_skip = bool(n) and any(p in n for p in SKIP_NORMS)
     trace["skip"] = wants_skip
+    # 리뷰어가 대조할 사장님 원문(최근 SAID_MAX개). 금지 요청은 위에서 이미 돌려보내 여기 남지 않는다.
+    said = card.setdefault("said", [])
+    said.append(t[:SAID_CHARS])
+    del said[:-SAID_MAX]
     if not t:
         # B-4: 빈 메시지는 질문 예산을 쓰지 않고 직전 질문을 그대로 둔다.
         return _repeat_pending(card, applied, trace, from_empty=True)
@@ -655,6 +661,106 @@ def _repeat_pending(card: dict, applied: list[str], trace: dict, from_empty: boo
     card["done"] = False
     trace.update(applied=applied, next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
     return {"done": False, "question": q, "applied": applied, "trace": trace}
+
+# ── 리뷰어 에이전트 (요약 직전 1회) ────────────────────────────────
+# 규칙 엔진과 추출기가 놓친 요구를 찾는다(첼로 사례: 카카오톡 문의 요구가 버려짐).
+# 빠진 것은 원문 인용이 실제 원문에 있을 때만 채우고, 어긋난 것은 고치지 않고 사장님께 묻는다.
+
+_REVIEW_SCHEMA = {
+    "type": "object", "required": ["missing", "conflicts"],
+    "properties": {
+        "missing": {"type": "array", "items": {"type": "object", "required": ["slot", "value", "quote"], "properties": {
+            "slot": {"type": "string", "enum": [k for k in S.SLOTS]}, "value": {"type": "string"}, "quote": {"type": "string"}}}},
+        "conflicts": {"type": "array", "items": {"type": "object", "required": ["slot", "said", "quote"], "properties": {
+            "slot": {"type": "string", "enum": [k for k in S.SLOTS]}, "said": {"type": "string"}, "quote": {"type": "string"}}}},
+    },
+}
+
+
+def _review_prompt() -> str:
+    lines = "\n".join(f"- {s.key}: {s.describe}" for s in S.SLOTS.values())
+    return (
+        "너는 웹사이트 요구사항 검토자다. [사장님 원문]과 [정리된 카드]를 비교한다.\n"
+        "missing: 원문에서 사장님이 분명히 요구했는데 카드에 없는 것. 특히 기능·연동 요구(예: '문의가 카톡으로 오게')를 놓치지 마라.\n"
+        "conflicts: 카드 값이 원문과 다르게 정리된 것(사장님이 말한 값을 said에).\n"
+        "규칙: quote에는 원문을 한 글자도 바꾸지 말고 그대로 옮긴다(짧게, 20자 안팎). 원문에 없는 것은 절대 만들지 않는다. "
+        "(가정)으로 표시된 값은 사장님이 말하지 않은 기본값이므로 conflicts가 아니다. 없으면 빈 배열. JSON만 출력한다.\n"
+        f"칸 정의:\n{lines}\n출력 형식(JSON 스키마):\n{json.dumps(_REVIEW_SCHEMA, ensure_ascii=False)}"
+    )
+
+
+def _parse_review(raw: str, said_text: str) -> tuple[list[dict], list[dict]]:
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        m = re.search(r"\{.*\}", raw or "", re.S)
+        data = json.loads(m.group(0)) if m else {}
+    norm_said = _norm(said_text)
+
+    def quoted(item) -> bool:
+        q = _norm(str(item.get("quote") or ""))
+        return len(q) >= 2 and q in norm_said  # 인용이 원문에 없으면 AI가 지어낸 것으로 보고 버린다
+
+    missing = [m for m in data.get("missing") or [] if isinstance(m, dict) and m.get("slot") in S.SLOTS
+               and m.get("slot") != "exclude" and str(m.get("value") or "").strip() and quoted(m)]
+    conflicts = [c for c in data.get("conflicts") or [] if isinstance(c, dict) and c.get("slot") in S.SLOTS
+                 and str(c.get("said") or "").strip() and quoted(c)]
+    return missing[:5], conflicts[:3]
+
+
+def review(card: dict, timeout_sec: float = 15.0) -> dict:
+    """요약 직전 검토. 빠진 요구는 카드에 넣고(근거 확인), 어긋난 값은 목록으로 돌려준다. 실패하면 조용히 건너뛴다."""
+    said = card.get("said") or []
+    result = {"ok": False, "added": [], "conflicts": [], "ms": 0}
+    if not said:
+        return result
+    said_text = "\n".join(f"- {x}" for x in said)
+    user = f"[사장님 원문]\n{said_text}\n\n[정리된 카드]\n{summary_text(card)}"
+    started = time.monotonic()
+    try:
+        missing, conflicts = _parse_review(llm.chat_json(_review_prompt(), user, timeout_sec=timeout_sec), said_text)
+    except Exception:
+        log.exception("요구사항 검토 실패(건너뜀)")
+        result["ms"] = int((time.monotonic() - started) * 1000)
+        return result
+    # 어긋남은 사장님이 채운 칸(FILLED)에서, 말한 값이 카드 값과 실제로 다를 때만 본다.
+    # (가정) 기본값을 "다르다"고 짚는 오탐을 막는다(실측: 가정값 3건을 모두 어긋남으로 보고).
+    def real_conflict(c) -> bool:
+        slot = _slot(card, c["slot"])
+        said_n = _norm(c["said"])
+        cur = slot.get("value")
+        cur_n = _norm(", ".join(cur) if isinstance(cur, list) else str(cur or ""))
+        return (slot["status"] == S.FILLED and "가정" not in c["said"] and bool(said_n)
+                and said_n not in cur_n and cur_n not in said_n)
+    conflicts = [c for c in conflicts if real_conflict(c)]
+    turn = card["turn"]
+    before = {k: (v.get("status"), json.dumps(v.get("value"), ensure_ascii=False)) for k, v in card["slots"].items()}
+    ups = []
+    for m in missing:
+        slot = _slot(card, m["slot"])
+        if slot["status"] in (S.FILLED, S.PENDING_OWNER, S.REJECTED) and not S.SLOTS[m["slot"]].multi:
+            continue  # 이미 사장님 말로 채운 한 칸은 덮지 않는다(어긋나면 conflicts로 온다)
+        ups.append({"slot": m["slot"], "value": m["value"].strip()[:200]})
+    # 사실 칸은 원문 근거(grounded)를 한 번 더 본다: apply_updates가 같은 규칙을 쓴다.
+    applied = apply_updates(card, ups, " ".join(said), by="reviewer") if ups else []
+    added = [k for k in dict.fromkeys(applied)
+             if before.get(k) != (card["slots"][k].get("status"), json.dumps(card["slots"][k].get("value"), ensure_ascii=False))]
+    card["review"] = {"turn": turn, "added": added, "conflicts": conflicts}
+    result.update(ok=True, added=added, conflicts=conflicts, ms=int((time.monotonic() - started) * 1000))
+    return result
+
+
+def review_text(card: dict) -> str:
+    """검토 결과를 사장님께 알리는 말. 추가한 것은 알리고, 어긋난 것은 확인을 부탁한다."""
+    r = card.get("review") or {}
+    ind = industry_of(card)
+    parts = []
+    if r.get("added"):
+        parts.append("다시 읽어 보니 빠진 게 있어 넣었어요: " + ", ".join(S.label_for(ind, k) for k in r["added"]))
+    for c in r.get("conflicts") or []:
+        parts.append(f"확인해 주세요: {S.label_for(ind, c['slot'])}을(를) '{c['said']}'(이)라고 하셨는데 정리가 다를 수 있어요.")
+    return "\n".join(parts)
+
 
 # ── 사람이 읽는 형태 ────────────────────────────────────────────────
 
