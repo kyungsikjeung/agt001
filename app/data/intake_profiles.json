@@ -1,1 +1,458 @@
-{"ambiguous": {"ask": "어떤 사이트를 만들고 싶으세요? 하나만 골라 주세요.", "options": ["가게·매장", "개인·전문가", "단체·모임", "기능이 있는 웹서비스"]}, "blocked": [{"description": "유명 가게·연예인·기관을 사칭하는 사이트. 상표권·초상권 침해와 사기 위험이 있다", "keywords": ["사칭", "따라 만들기", "유명 가게인 척", "공식인 척", "연예인", "관공서", "은행", "경찰"]}, {"description": "로그인·결제 정보를 빼내는 가짜 페이지. 만든 즉시 범죄 도구가 된다", "keywords": ["피싱", "가짜 로그인", "계정 수집", "비밀번호 모으기", "카드번호 수집", "인증번호"]}, {"description": "도박·불법 베팅 사이트와 홍보 페이지. 불법 영업에 해당한다", "keywords": ["도박", "카지노", "토토", "홀덤", "바카라", "베팅", "슬롯"]}, {"description": "성매매·음란물 등 성인 불법 영업. 미성년 보호를 위해 거절한다", "keywords": ["성매매", "음란", "성인 광고", "조건만남", "오피", "유흥업소 알선"]}, {"description": "마약·불법 의약품·위험물 거래. 형사 처벌 대상이다", "keywords": ["마약", "대마", "향정", "불법 약", "처방전 없이", "위험물 판매"]}, {"description": "보이스피싱·불법 대출·사기성 투자 권유. 금융 범죄 도구 offer를 막는다", "keywords": ["보이스피싱", "대포통장", "불법 대출", "작업대출", "원금 보장", "고수익 보장", "리딩방"]}, {"description": "타인의 글·사진·영상을 허락 없이 파는 유통 사이트. 저작권 침해이다", "keywords": ["불법 복제", "크랙", "해킹 도구", "무단 배포", "저작권 회피"]}], "group": {"default_sections": ["단체 소개", "활동 안내", "일정·공지", "가입·문의"], "description": "동호회·교회·동네 행사·비영리 단체. 소개·활동·일정·가입 안내 중심", "hidden": [["regular", "정기 모임 시간"], ["fee", "회비"], ["join", "가입 조건"], ["parking", "주차·오시는 길"], ["sponsor", "후원 안내"]], "label": "단체·모임", "labels": {"offerings": "활동 내용", "shop_name": "단체 이름", "target": "함께할 사람"}, "questions": {"business_type": {"ask": "어떤 모임·단체인가요? 예: 독서 모임, 교회, 동네 축구회처럼 적어 주세요.", "options": []}, "contact_method": {"ask": "가입·문의는 어떻게 받으실까요?", "options": ["전화", "카카오톡 채널", "방문·대면"]}, "goal": {"ask": "사이트로 가장 이루고 싶은 것은 무엇인가요?", "options": ["새 회원 늘리기", "단체 알리기", "일정·공지 안내"]}, "hours": {"ask": "정기 모임 시간이 있나요?", "options": ["있어요", "때마다 달라요", "나중에 넣을게요"]}, "location": {"ask": "주로 어디서 모이나요? 동네만 알려 주셔도 돼요.", "options": ["나중에 넣을게요"]}, "offerings": {"ask": "어떤 활동을 하나요?", "options": []}, "phone": {"ask": "연락받을 전화번호를 알려 주세요.", "options": ["나중에 넣을게요"]}, "shop_name": {"ask": "단체 이름이 무엇인가요?", "options": []}, "target": {"ask": "어떤 분이 함께하면 좋을까요?", "options": ["누구나", "성인", "청소년·어린이"]}}, "required": ["business_type", "shop_name", "offerings", "target", "contact_method", "goal"]}, "individual": {"default_sections": ["소개", "경력·작품", "레슨·서비스 안내", "일정", "문의"], "description": "첼로 레슨·연주자·강사·사진작가·프리랜서. 소개·경력·작품·일정·문의 중심", "hidden": [["career", "경력·이력"], ["portfolio", "작품·실적"], ["trial", "체험·상담"], ["online", "온라인 수업"], ["fee", "수강료·의뢰료"]], "label": "개인·전문가", "labels": {"hours": "가능 시간", "offerings": "레슨·서비스 내용", "price": "수강료·의뢰료", "shop_name": "활동명·이름", "target": "대상"}, "questions": {"business_type": {"ask": "어떤 일을 하시나요? 예: 첼로 레슨, 사진작가처럼 적어 주세요.", "options": []}, "contact_method": {"ask": "상담·문의는 어떻게 받으실까요?", "options": ["전화", "카카오톡 채널", "이메일"]}, "goal": {"ask": "사이트로 가장 이루고 싶은 것은 무엇인가요?", "options": ["상담·문의 늘리기", "이름 알리기", "수업·가격 안내"]}, "hours": {"ask": "가능한 요일·시간이 있나요?", "options": ["있어요", "협의해요", "나중에 넣을게요"]}, "location": {"ask": "어디서 만날 수 있나요? 동네만 알려 주셔도 돼요.", "options": ["방문·출장해요", "온라인만 해요", "나중에 넣을게요"]}, "offerings": {"ask": "어떤 수업·서비스를 하시나요?", "options": []}, "phone": {"ask": "연락받을 전화번호를 알려 주세요.", "options": ["나중에 넣을게요"]}, "price": {"ask": "비용을 알려 주세요. 모르시면 나중에 넣으셔도 돼요.", "options": ["나중에 넣을게요"]}, "shop_name": {"ask": "활동명·이름을 알려 주세요.", "options": []}, "target": {"ask": "어떤 분을 주로 가르치·도와드리나요?", "options": ["어린이", "청소년·성인", "누구나"]}}, "required": ["business_type", "shop_name", "offerings", "target", "contact_method", "goal"]}, "shop": {"industries": ["pension", "cafe", "restaurant", "salon", "workshop", "academy"], "label": "가게·매장", "note": "가게·매장은 기존 6업종 표가 담당하므로 이 파일에 중복 정의하지 않는다. 필수 칸·숨은 항목·질문·기본 섹션은 app/services/prd_schema.py의 INDUSTRIES를 그대로 쓴다", "ref": "app/services/prd_schema.py:INDUSTRIES", "ref_only": true}, "version": 1, "webservice": {"blocked_features_note": "회원가입·결제·예약 관리 같은 기능 요구가 오면 기능 사례집(app/data/feature_catalog.json) 판정대로 안내하고 나중 목록에 기록한다", "default_sections": ["서비스 소개", "기능 안내", "이용 안내", "문의"], "description": "회원가입·결제·예약 관리가 있는 쇼핑몰·앱. 소개 사이트는 만들고 기능은 사례집 판정", "hidden": [["price_model", "요금제"], ["notice", "공지"], ["support", "고객 지원 창구"], ["platform", "지원 기기"]], "label": "기능 중심 웹서비스", "labels": {"features": "필요한 기능", "goal": "서비스 목적", "shop_name": "서비스 이름"}, "questions": {"business_type": {"ask": "어떤 서비스를 만들고 싶으세요? 예: 꽃 정기배송 쇼핑몰처럼 적어 주세요.", "options": []}, "contact_method": {"ask": "이용 문의는 어떻게 받으실까요?", "options": ["전화", "카카오톡 채널", "이메일"]}, "features": {"ask": "어떤 기능이 필요하세요? 예: 회원가입, 결제, 예약처럼 적어 주세요.", "options": []}, "goal": {"ask": "이 서비스로 이루고 싶은 것은 무엇인가요?", "options": ["소개 페이지 만들기", "이용자 모으기", "기능 상담하기"]}, "shop_name": {"ask": "서비스 이름이 무엇인가요?", "options": []}}, "required": ["business_type", "shop_name", "goal", "features", "contact_method"]}}
+{
+ "ambiguous": {
+  "ask": "어떤 사이트를 만들고 싶으세요? 하나만 골라 주세요.",
+  "keys": [
+   "other",
+   "individual",
+   "group",
+   "webservice"
+  ],
+  "options": [
+   "가게·매장",
+   "개인·전문가",
+   "단체·모임",
+   "기능이 있는 웹서비스"
+  ]
+ },
+ "blocked": [
+  {
+   "description": "유명 가게·연예인·기관을 사칭하는 사이트. 상표권·초상권 침해와 사기 위험이 있다",
+   "keywords": [
+    "사칭",
+    "따라 만들기",
+    "유명 가게인 척",
+    "공식인 척",
+    "연예인",
+    "관공서",
+    "은행",
+    "경찰"
+   ]
+  },
+  {
+   "description": "로그인·결제 정보를 빼내는 가짜 페이지. 만든 즉시 범죄 도구가 된다",
+   "keywords": [
+    "피싱",
+    "가짜 로그인",
+    "계정 수집",
+    "비밀번호 모으기",
+    "카드번호 수집",
+    "인증번호"
+   ]
+  },
+  {
+   "description": "도박·불법 베팅 사이트와 홍보 페이지. 불법 영업에 해당한다",
+   "keywords": [
+    "도박",
+    "카지노",
+    "토토",
+    "홀덤",
+    "바카라",
+    "베팅",
+    "슬롯"
+   ]
+  },
+  {
+   "description": "성매매·음란물 등 성인 불법 영업. 미성년 보호를 위해 거절한다",
+   "keywords": [
+    "성매매",
+    "음란",
+    "성인 광고",
+    "조건만남",
+    "오피",
+    "유흥업소 알선"
+   ]
+  },
+  {
+   "description": "마약·불법 의약품·위험물 거래. 형사 처벌 대상이다",
+   "keywords": [
+    "마약",
+    "대마",
+    "향정",
+    "불법 약",
+    "처방전 없이",
+    "위험물 판매"
+   ]
+  },
+  {
+   "description": "보이스피싱·불법 대출·사기성 투자 권유. 금융 범죄 도구 offer를 막는다",
+   "keywords": [
+    "보이스피싱",
+    "대포통장",
+    "불법 대출",
+    "작업대출",
+    "원금 보장",
+    "고수익 보장",
+    "리딩방"
+   ]
+  },
+  {
+   "description": "타인의 글·사진·영상을 허락 없이 파는 유통 사이트. 저작권 침해이다",
+   "keywords": [
+    "불법 복제",
+    "크랙",
+    "해킹 도구",
+    "무단 배포",
+    "저작권 회피"
+   ]
+  }
+ ],
+ "group": {
+  "aliases": [
+   "동호회",
+   "모임",
+   "교회",
+   "성당",
+   "사찰",
+   "단체",
+   "협회",
+   "동아리",
+   "봉사",
+   "비영리",
+   "행사",
+   "축제",
+   "클럽",
+   "동문회",
+   "향우회",
+   "부녀회"
+  ],
+  "budget": 8,
+  "default_sections": [
+   "단체 소개",
+   "활동 안내",
+   "일정·공지",
+   "가입·문의"
+  ],
+  "description": "동호회·교회·동네 행사·비영리 단체. 소개·활동·일정·가입 안내 중심",
+  "hidden": [
+   [
+    "regular",
+    "정기 모임 시간"
+   ],
+   [
+    "fee",
+    "회비"
+   ],
+   [
+    "join",
+    "가입 조건"
+   ],
+   [
+    "parking",
+    "주차·오시는 길"
+   ],
+   [
+    "sponsor",
+    "후원 안내"
+   ]
+  ],
+  "label": "단체·모임",
+  "labels": {
+   "offerings": "활동 내용",
+   "shop_name": "단체 이름",
+   "target": "함께할 사람"
+  },
+  "questions": {
+   "business_type": {
+    "ask": "어떤 모임·단체인가요? 예: 독서 모임, 교회, 동네 축구회처럼 적어 주세요.",
+    "options": []
+   },
+   "contact_method": {
+    "ask": "가입·문의는 어떻게 받으실까요?",
+    "options": [
+     "전화",
+     "카카오톡 채널",
+     "방문·대면"
+    ]
+   },
+   "goal": {
+    "ask": "사이트로 가장 이루고 싶은 것은 무엇인가요?",
+    "options": [
+     "새 회원 늘리기",
+     "단체 알리기",
+     "일정·공지 안내"
+    ]
+   },
+   "hours": {
+    "ask": "정기 모임 시간이 있나요?",
+    "options": [
+     "있어요",
+     "때마다 달라요",
+     "나중에 넣을게요"
+    ]
+   },
+   "location": {
+    "ask": "주로 어디서 모이나요? 동네만 알려 주셔도 돼요.",
+    "options": [
+     "나중에 넣을게요"
+    ]
+   },
+   "offerings": {
+    "ask": "어떤 활동을 하나요?",
+    "options": []
+   },
+   "phone": {
+    "ask": "연락받을 전화번호를 알려 주세요.",
+    "options": [
+     "나중에 넣을게요"
+    ]
+   },
+   "shop_name": {
+    "ask": "단체 이름이 무엇인가요?",
+    "options": []
+   },
+   "target": {
+    "ask": "어떤 분이 함께하면 좋을까요?",
+    "options": [
+     "누구나",
+     "성인",
+     "청소년·어린이"
+    ]
+   }
+  },
+  "required": [
+   "business_type",
+   "shop_name",
+   "offerings",
+   "target",
+   "contact_method",
+   "goal"
+  ]
+ },
+ "individual": {
+  "aliases": [
+   "레슨",
+   "연주",
+   "연주자",
+   "강사",
+   "작가",
+   "사진작가",
+   "프리랜서",
+   "포트폴리오",
+   "개인",
+   "1인",
+   "코칭",
+   "코치",
+   "트레이너",
+   "튜터",
+   "디자이너",
+   "일러스트",
+   "작곡",
+   "상담사",
+   "통역",
+   "번역"
+  ],
+  "budget": 7,
+  "default_sections": [
+   "소개",
+   "경력·작품",
+   "레슨·서비스 안내",
+   "일정",
+   "문의"
+  ],
+  "description": "첼로 레슨·연주자·강사·사진작가·프리랜서. 소개·경력·작품·일정·문의 중심",
+  "hidden": [
+   [
+    "career",
+    "경력·이력"
+   ],
+   [
+    "portfolio",
+    "작품·실적"
+   ],
+   [
+    "trial",
+    "체험·상담"
+   ],
+   [
+    "online",
+    "온라인 수업"
+   ],
+   [
+    "fee",
+    "수강료·의뢰료"
+   ]
+  ],
+  "label": "개인·전문가",
+  "labels": {
+   "hours": "가능 시간",
+   "offerings": "레슨·서비스 내용",
+   "price": "수강료·의뢰료",
+   "shop_name": "활동명·이름",
+   "target": "대상"
+  },
+  "questions": {
+   "business_type": {
+    "ask": "어떤 일을 하시나요? 예: 첼로 레슨, 사진작가처럼 적어 주세요.",
+    "options": []
+   },
+   "contact_method": {
+    "ask": "상담·문의는 어떻게 받으실까요?",
+    "options": [
+     "전화",
+     "카카오톡 채널",
+     "이메일"
+    ]
+   },
+   "goal": {
+    "ask": "사이트로 가장 이루고 싶은 것은 무엇인가요?",
+    "options": [
+     "상담·문의 늘리기",
+     "이름 알리기",
+     "수업·가격 안내"
+    ]
+   },
+   "hours": {
+    "ask": "가능한 요일·시간이 있나요?",
+    "options": [
+     "있어요",
+     "협의해요",
+     "나중에 넣을게요"
+    ]
+   },
+   "location": {
+    "ask": "어디서 만날 수 있나요? 동네만 알려 주셔도 돼요.",
+    "options": [
+     "방문·출장해요",
+     "온라인만 해요",
+     "나중에 넣을게요"
+    ]
+   },
+   "offerings": {
+    "ask": "어떤 수업·서비스를 하시나요?",
+    "options": []
+   },
+   "phone": {
+    "ask": "연락받을 전화번호를 알려 주세요.",
+    "options": [
+     "나중에 넣을게요"
+    ]
+   },
+   "price": {
+    "ask": "비용을 알려 주세요. 모르시면 나중에 넣으셔도 돼요.",
+    "options": [
+     "나중에 넣을게요"
+    ]
+   },
+   "shop_name": {
+    "ask": "활동명·이름을 알려 주세요.",
+    "options": []
+   },
+   "target": {
+    "ask": "어떤 분을 주로 가르치·도와드리나요?",
+    "options": [
+     "어린이",
+     "청소년·성인",
+     "누구나"
+    ]
+   }
+  },
+  "required": [
+   "business_type",
+   "shop_name",
+   "offerings",
+   "target",
+   "contact_method",
+   "goal"
+  ]
+ },
+ "shop": {
+  "industries": [
+   "pension",
+   "cafe",
+   "restaurant",
+   "salon",
+   "workshop",
+   "academy"
+  ],
+  "label": "가게·매장",
+  "note": "가게·매장은 기존 6업종 표가 담당하므로 이 파일에 중복 정의하지 않는다. 필수 칸·숨은 항목·질문·기본 섹션은 app/services/prd_schema.py의 INDUSTRIES를 그대로 쓴다",
+  "ref": "app/services/prd_schema.py:INDUSTRIES",
+  "ref_only": true
+ },
+ "version": 1,
+ "webservice": {
+  "aliases": [
+   "웹서비스",
+   "플랫폼",
+   "쇼핑몰",
+   "회원가입",
+   "커뮤니티",
+   "매칭",
+   "앱",
+   "어플",
+   "SaaS",
+   "중고거래",
+   "구독 서비스"
+  ],
+  "blocked_features_note": "회원가입·결제·예약 관리 같은 기능 요구가 오면 기능 사례집(app/data/feature_catalog.json) 판정대로 안내하고 나중 목록에 기록한다",
+  "budget": 12,
+  "default_sections": [
+   "서비스 소개",
+   "기능 안내",
+   "이용 안내",
+   "문의"
+  ],
+  "description": "회원가입·결제·예약 관리가 있는 쇼핑몰·앱. 소개 사이트는 만들고 기능은 사례집 판정",
+  "hidden": [
+   [
+    "price_model",
+    "요금제"
+   ],
+   [
+    "notice",
+    "공지"
+   ],
+   [
+    "support",
+    "고객 지원 창구"
+   ],
+   [
+    "platform",
+    "지원 기기"
+   ]
+  ],
+  "label": "기능 중심 웹서비스",
+  "labels": {
+   "features": "필요한 기능",
+   "goal": "서비스 목적",
+   "shop_name": "서비스 이름"
+  },
+  "questions": {
+   "business_type": {
+    "ask": "어떤 서비스를 만들고 싶으세요? 예: 꽃 정기배송 쇼핑몰처럼 적어 주세요.",
+    "options": []
+   },
+   "contact_method": {
+    "ask": "이용 문의는 어떻게 받으실까요?",
+    "options": [
+     "전화",
+     "카카오톡 채널",
+     "이메일"
+    ]
+   },
+   "features": {
+    "ask": "어떤 기능이 필요하세요? 예: 회원가입, 결제, 예약처럼 적어 주세요.",
+    "options": []
+   },
+   "goal": {
+    "ask": "이 서비스로 이루고 싶은 것은 무엇인가요?",
+    "options": [
+     "소개 페이지 만들기",
+     "이용자 모으기",
+     "기능 상담하기"
+    ]
+   },
+   "shop_name": {
+    "ask": "서비스 이름이 무엇인가요?",
+    "options": []
+   }
+  },
+  "required": [
+   "business_type",
+   "shop_name",
+   "goal",
+   "features",
+   "contact_method"
+  ]
+ }
+}

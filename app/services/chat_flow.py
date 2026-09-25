@@ -126,7 +126,13 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         result = prd_engine.turn(card, user_text, by=by, is_owner=is_owner)
         engine_trace = result.get("trace")
         session["prd"] = card
-        if result["done"]:
+        if result.get("blocked"):
+            # 입구 게이트 §2 ④: 금지 요청은 이유를 밝혀 거절하고, 하던 질문이 있으면 이어서 묻는다.
+            reply = f"죄송하지만 이 요청은 만들어 드릴 수 없어요. ({result['blocked']})"
+            if result.get("question"):
+                reply += "\n\n" + prd_engine.format_question(card, result["question"])
+            session["state"] = "GATHERING"
+        elif result["done"]:
             _set_room_status(room, "RAG_SEARCHING", persist=True)
             spec = prd_engine.spec_text(card)
             session["last_request"] = spec

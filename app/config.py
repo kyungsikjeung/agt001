@@ -43,6 +43,12 @@ class Settings(BaseSettings):
     stt_function_id: str = "71203149-d3b7-4460-8231-1be2543a1fca"
     stt_timeout_sec: float = 20.0
 
+    # NVIDIA 호스팅 음성 합성(Magpie TTS 다국어). 키는 인식과 같은 nim_api_key를 쓴다.
+    tts_enabled: bool = True
+    tts_function_id: str = "877104f7-e885-42b9-8de8-f6e4c6303969"
+    tts_voice: str = "Magpie-Multilingual.KO-KR.Aria"
+    tts_timeout_sec: float = 15.0
+
     # 카카오·구글 로그인 (1-2). 값은 scripts/set_oauth_secrets.sh로 서버 .env에만 넣는다 (D10).
     kakao_rest_api_key: Optional[str] = None
     kakao_client_secret: Optional[str] = None

@@ -166,3 +166,41 @@ def question_for(ind: Industry, slot: str) -> Question:
 
 def label_for(ind: Industry, slot: str) -> str:
     return ind.labels.get(slot, SLOTS[slot].label)
+
+
+# ── 문의 종류별 프로필 (INTAKE_GATE_DESIGN.md §3, D29) ──────────────────
+# 가게·매장은 위 6업종 표가 맡고, 개인·단체·웹서비스는 app/data/intake_profiles.json에서 읽는다.
+
+def _load_profiles() -> dict:
+    import json
+    from pathlib import Path
+    return json.loads((Path(__file__).resolve().parents[1] / "data" / "intake_profiles.json").read_text(encoding="utf-8"))
+
+
+PROFILES = _load_profiles()
+
+for _key in ("individual", "group", "webservice"):
+    _p = PROFILES[_key]
+    _qs = {}
+    for _slot, _q in (_p.get("questions") or {}).items():
+        if isinstance(_q, dict) and _slot in SLOTS:
+            _qs[_slot] = Question(_slot, _q["ask"], options=tuple(_q.get("options") or ())[:MAX_OPTIONS])
+    INDUSTRIES[_key] = Industry(
+        _key, _p["label"], tuple(_p.get("aliases") or ()),
+        required=tuple(k for k in _p["required"] if k in SLOTS),
+        labels=dict(_p.get("labels") or {}),
+        default_sections=tuple(_p.get("default_sections") or ()),
+        hidden=tuple((h[0], h[1]) for h in _p.get("hidden") or ()),
+        questions=_qs,
+    )
+
+# 질문 예산(§6): 가게 8(D20), 개인 7, 단체 8, 웹서비스 12. 확인이 필요한 기능마다 +1, 최대 +4.
+BUDGETS = {k: PROFILES[k].get("budget", MAX_QUESTIONS) for k in ("individual", "group", "webservice")}
+FEATURE_BONUS_MAX = 4
+KIND_QUESTION = PROFILES["ambiguous"]["ask"]
+KIND_OPTIONS = tuple(PROFILES["ambiguous"]["options"])
+KIND_KEYS = tuple(PROFILES["ambiguous"]["keys"])
+
+
+def budget_for(industry_key: str | None) -> int:
+    return BUDGETS.get(industry_key or "", MAX_QUESTIONS)

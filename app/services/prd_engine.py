@@ -11,6 +11,7 @@ import unicodedata
 from typing import Optional
 
 from app import llm
+from app.services import intake
 from app.services import prd_schema as S
 from app.services.stt import normalize_digits as _stt_normalize_digits
 
@@ -84,6 +85,12 @@ def _slot(card, key) -> dict:
 
 def _satisfied(card, key) -> bool:
     return _slot(card, key)["status"] in _SATISFIED
+
+
+def budget(card) -> int:
+    """질문 예산 (INTAKE_GATE_DESIGN §6): 종류별 기본값 + 확인이 필요한 기능마다 1 (최대 4)."""
+    confirm = sum(1 for v in card.get("features_judged") or [] if v["verdict"] in intake.NEEDS_CONFIRM)
+    return S.budget_for(industry_of(card).key) + min(confirm, S.FEATURE_BONUS_MAX)
 
 
 def industry_of(card) -> S.Industry:
@@ -219,6 +226,31 @@ def _slot_label_hit(ind, slot_key: str, norm_text: str) -> bool:
     return any(tok in norm_text for tok in tokens)
 
 
+def _judge_features(card: dict) -> None:
+    """새로 들어온 기능 요구를 사례집으로 판정한다 (§2 ⑧~⑬). 확인 질문은 줄에 세우고, 알림은 이번 턴 메모로 남긴다."""
+    judged = card.setdefault("features_judged", [])
+    seen = {v["text"] for v in judged}
+    ids = {v["id"] for v in judged if v.get("id")}
+    notes = card.setdefault("notes", {"turn": card["turn"], "items": []})
+    if notes["turn"] != card["turn"]:
+        card["notes"] = notes = {"turn": card["turn"], "items": []}
+    for text in _slot(card, "features").get("value") or []:
+        if text in seen:
+            continue
+        v = intake.judge(text)
+        if v.get("id") and v["id"] in ids:
+            continue  # 같은 기능을 다르게 말한 경우
+        judged.append(v)
+        seen.add(text)
+        if v.get("id"):
+            ids.add(v["id"])
+        notes["items"].append(intake.note_for(v))
+        if v.get("question"):
+            card.setdefault("feature_queue", []).append(v["id"])
+        if v["verdict"] == intake.OUT_OF_BETA:
+            card.setdefault("later", []).append(v.get("name") or text)
+
+
 def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=True) -> list[str]:
     """추출 결과를 규칙에 맞춰 카드에 넣는다. 반영한 칸 키 목록을 돌려준다."""
     turn = card["turn"]
@@ -277,8 +309,13 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             _put(card, key, value, S.FILLED, turn, by)
         if key == "business_type":
             old_ind = card.get("industry")
-            card["industry"] = S.industry_for(value).key
+            new_ind = S.industry_for(value).key
+            # 종류 질문으로 정한 개인·단체 등을 '기타'가 덮지 않게 한다.
+            if not (new_ind == "other" and old_ind not in (None, "other")):
+                card["industry"] = new_ind
             _refresh_assumed_sections(card, old_ind)  # B-12
+        if key == "features":
+            _judge_features(card)
         applied.append(key)
     return applied
 
@@ -327,6 +364,23 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             return None
         card["pending"] = None
         return True
+    if p["kind"] == "site_kind":
+        # 목록 밖 대답이어도 다시 묻지 않는다(자유 대답은 추출로 넘긴다).
+        card["kind_asked"] = True
+        o = t if t in p["options"] else _fuzzy_option_match(n, t, p["options"])
+        if o is None:
+            card["pending"] = None
+            return None
+        card["industry"] = S.KIND_KEYS[S.KIND_OPTIONS.index(o)]
+        card["pending"] = None
+        return True
+    if p["kind"] == "feature":
+        fid = p.get("feature")
+        card["feature_queue"] = [f for f in card.get("feature_queue") or [] if f != fid]
+        o = t if t in p["options"] else _fuzzy_option_match(n, t, p["options"])
+        card.setdefault("feature_answers", {})[fid] = o or t[:200]
+        card["pending"] = None
+        return True if o is not None else None
     if p["kind"] == "multi":
         hidden = industry_of(card).hidden
         # B-2: "없음"은 메시지 전체가 없음 계열일 때만. 고른 항목이 있으면 선택을 먼저 살린다.
@@ -416,6 +470,15 @@ def next_question(card: dict) -> Optional[dict]:
         if slot["status"] == S.PENDING_OWNER:
             return {"slot": key, "kind": "owner_confirm", "options": ["네", "아니요"],
                     "text": f"{S.label_for(ind, key)}을(를) '{slot['value']}'(으)로 받았어요. 방장님, 맞나요?"}
+    # 1-1) 문의 종류가 모호하면 한 번 묻는다 (§2 ⑤): 업종을 들었는데 가게 6업종·프로필 어디에도 안 맞을 때
+    if ind.key == "other" and not card.get("kind_asked") and _slot(card, "business_type")["status"] == S.FILLED:
+        return {"slot": None, "kind": "site_kind", "options": list(S.KIND_OPTIONS), "text": S.KIND_QUESTION}
+    # 1-2) 확인이 필요한 기능 (§2 ⑪⑫): 사장님이 먼저 말한 요구라 필수 칸보다 앞에 묻는다
+    for fid in card.get("feature_queue") or []:
+        v = next((x for x in card.get("features_judged") or [] if x.get("id") == fid), None)
+        if v and v.get("question"):
+            return {"slot": None, "kind": "feature", "feature": fid, "options": list(v["question"]["options"]),
+                    "text": v["question"]["ask"]}
     # 2) 필수 칸 (업종별 순서)
     missing = [k for k in ind.required if not _satisfied(card, k)]
     done_count = len(ind.required) - len(missing)
@@ -462,8 +525,8 @@ def _stuck_key(pending: Optional[dict]) -> Optional[str]:
         return None
     if pending.get("kind") == "multi":
         return "multi:"
-    if pending.get("kind") == "owner_confirm":
-        return None
+    if pending.get("kind") in ("owner_confirm", "site_kind", "feature"):
+        return None  # 대답하면 바로 풀리는 질문(목록 밖 대답도 다시 묻지 않음)
     return f"single:{pending.get('slot')}"
 
 
@@ -485,6 +548,11 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     trace = {"answered_by_rule": False, "extract_ok": None, "extract_ms": None, "extract_attempts": 0,
              "extracted": [], "skip": False, "asked_slot": (card.get("pending") or {}).get("slot"),
              "asked_kind": (card.get("pending") or {}).get("kind")}
+    reason = intake.blocked_reason(t) if t else None
+    if reason:
+        # §2 ④: 금지 요청은 카드에 넣지 않고 이유를 밝혀 거절한다. 질문 예산도 쓰지 않는다.
+        trace.update(blocked=True, done=False, asked=card["asked"])
+        return {"done": False, "question": card.get("pending"), "applied": [], "trace": trace, "blocked": reason}
     wants_skip = bool(n) and any(p in n for p in SKIP_NORMS)
     trace["skip"] = wants_skip
     if not t:
@@ -531,7 +599,7 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             return _repeat_pending(card, applied, trace)
         return _ask_next(card, applied, trace, same_question=True)
     trace["applied"] = applied
-    q = None if wants_skip or card["asked"] >= S.MAX_QUESTIONS else next_question(card)
+    q = None if wants_skip or card["asked"] >= budget(card) else next_question(card)
     if q is None:
         finalize(card)
         trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
@@ -546,7 +614,7 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
 def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool = False) -> dict:
     """다음 질문을 등록한다. same_question이면 (짧은 실패 답) 같은 질문을 예산을 써서 다시 보인다."""
     trace["applied"] = applied
-    if card["asked"] >= S.MAX_QUESTIONS:
+    if card["asked"] >= budget(card):
         finalize(card)
         trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
         return {"done": True, "question": None, "applied": applied, "trace": trace}
@@ -596,7 +664,7 @@ def format_question(card: dict, q: dict) -> str:
         body = f"{q['text']}\n{opts}"
     else:
         body = q["text"] + "\n" + "  ".join(f"{i + 1}) {o}" for i, o in enumerate(q["options"]))
-    return f"{body}\n\n(질문 {card['asked']}/{S.MAX_QUESTIONS} · '시안 먼저'라고 하시면 나머지는 알아서 채울게요)"
+    return f"{body}\n\n(질문 {card['asked']}/{budget(card)} · '시안 먼저'라고 하시면 나머지는 알아서 채울게요)"
 
 
 def _display(ind, key, slot) -> str:
@@ -623,7 +691,11 @@ def ack_text(card: dict, applied: list[str]) -> str:
             continue
         value = ", ".join(slot["value"]) if isinstance(slot["value"], list) else slot["value"]
         parts.append(f"{S.label_for(ind, key)} '{value}'")
-    return ("이렇게 이해했어요: " + " · ".join(parts) + "\n\n") if parts else ""
+    out = ("이렇게 이해했어요: " + " · ".join(parts) + "\n\n") if parts else ""
+    notes = card.get("notes") or {}
+    if notes.get("turn") == card["turn"] and notes.get("items"):
+        out += "\n".join(notes["items"]) + "\n\n"
+    return out
 
 
 def summary_text(card: dict) -> str:
@@ -633,9 +705,20 @@ def summary_text(card: dict) -> str:
     hidden = [label for key, label in ind.hidden if key in card["hidden"]["selected"]]
     if hidden:
         lines.append(f"• 안내할 것: {', '.join(hidden)}")
+    for v in card.get("features_judged") or []:
+        answer = (card.get("feature_answers") or {}).get(v.get("id"))
+        how = {intake.READY: "넣음", intake.OWNER_SETUP: "사장님 준비 필요", intake.ALTERNATIVE: "대체안",
+               intake.OUT_OF_BETA: "베타 뒤", "unknown": "확인 필요"}[v["verdict"]]
+        lines.append(f"• 기능 '{v.get('name') or v['text']}': {how}" + (f" — {answer}" if answer else ""))
+    if card.get("later"):
+        lines.append(f"• 나중 할 일: {', '.join(card['later'])}")
     return "\n".join(lines)
 
 
 def spec_text(card: dict) -> str:
     """코드생성에 넘길 요구사항 요약. 자리 표시 칸은 [..]로 남겨 지어내지 못하게 한다."""
-    return "요구사항 카드:\n" + summary_text(card) + "\n(가정)은 기본값, [..] 자리는 비워 두고 자리 표시로 남길 것."
+    hows = [f"- {v.get('name') or v['text']}: {v['how']}" for v in card.get("features_judged") or []
+            if v["verdict"] in (intake.READY, intake.OWNER_SETUP, intake.ALTERNATIVE) and v.get("how")]
+    extra = ("\n기능 구현 방법(사례집):\n" + "\n".join(hows)) if hows else ""
+    return ("요구사항 카드:\n" + summary_text(card) + extra
+            + "\n(가정)은 기본값, [..] 자리는 비워 두고 자리 표시로 남길 것. '베타 뒤' 기능은 만들지 말 것.")

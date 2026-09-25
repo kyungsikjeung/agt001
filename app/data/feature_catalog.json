@@ -1,1 +1,1616 @@
-{"items": [{"alternatives": [{"name": "전화 걸기 버튼", "note": "채널이 없어도 바로 쓸 수 있다", "verdict": "ready"}, {"name": "문자 보내기 버튼", "note": "채널이 없어도 바로 쓸 수 있다", "verdict": "ready"}], "aliases": ["카톡으로 문의 받기", "톡으로 연락 받기", "카카오톡 상담", "카톡 채널 연결", "카카오 채널 버튼", "톡 상담 버튼"], "category": "contact", "cost": "채널 개설·1:1 채팅 무료. 알림톡·친구톡 등 유료 메시지와 다름", "how": "사장님의 카카오톡 채널로 바로 채팅이 열리는 버튼을 사이트에 둔다. 개발자 키가 필요 없는 링크 방식이다", "id": "kakao_channel_chat", "name": "카카오톡 채널 1:1 채팅 버튼", "needs_keys": false, "owner_tasks": ["카카오톡 채널 만들기(무료, 약 5분)", "채널 주소를 알려주기"], "questions": [{"ask": "카카오톡 채널이 있나요?", "options": ["있어요", "없어요, 만드는 법 알려주세요", "전화로 받을게요"]}], "risk": "채널 주소는 공개 정보. 사장님 개인 카톡 ID를 사이트에 올리지 않게 안내한다", "sources": ["https://developers.kakao.com/docs/latest/ko/kakaologin/prerequisite", "docs/product/INTAKE_GATE_DESIGN.md"], "verdict": "owner_setup"}, {"alternatives": [{"name": "카카오톡 채널 1:1 채팅 버튼", "note": "사장님 채널 주소만 있으면 된다", "verdict": "owner_setup"}, {"name": "전화·문자 버튼", "note": "바로 만들 수 있다", "verdict": "ready"}], "aliases": ["문의 글을 카톡으로 받기", "홈페이지 문의를 톡으로", "폼 내용을 카톡 전송", "문의 접수 알림", "나에게 보내기 연동", "카톡으로 문의 전달"], "category": "contact", "cost": "구현 비용 외 추가 과금 없음. 다만 백엔드 구현 자체가 베타 뒤 과제", "how": "지금은 만들지 않는다. 베타 뒤에 우리 카카오 앱에 사장님이 한 번 로그인·동의하면 문의 글을 사장님 카카오톡으로 보내는 방식을 검토한다", "id": "kakao_form_bridge", "name": "사이트 문의 양식 → 사장님 카카오톡 전달", "needs_keys": true, "owner_tasks": ["베타 뒤 안내 예정(우리 앱 로그인·동의 1회 예상)"], "questions": [{"ask": "문의 글이 오면 어디로 받고 싶으세요?", "options": ["내 카톡으로 왔으면 좋겠어요", "전화·채널 링크로 충분해요", "나중에 정할게요"]}], "risk": "문의 양식 저장 자체가 베타 제외(UQ-4) 결정과 부딪힌다. 방문자 연락처를 다루게 되면 개인정보처리방침·보관·파기 의무가 생긴다", "sources": ["docs/product/INTAKE_GATE_DESIGN.md", "docs/product/USER_DB_PLAN.md"], "verdict": "out_of_beta"}, {"alternatives": [{"name": "카카오톡 채널 1:1 채팅 버튼", "note": "1:1 상담은 이걸로 충분하다", "verdict": "owner_setup"}], "aliases": ["알림톡 보내기", "카톡 자동 문자", "예약 확정 알림", "주문 알림 카톡", "자동 안내 톡", "비즈니스 메시지"], "category": "contact", "cost": "비즈니스 채널 + 발송 대행사 + 템플릿 심사 + 건당 과금 — 확인 필요", "how": "베타에서는 만들지 않는다(D6 보류). 비즈니스 채널 개설·발송 대행사 계약·템플릿 심사가 필요하고 건당 과금이 든다", "id": "kakao_alimtalk", "name": "카카오 알림톡 발송", "needs_keys": true, "owner_tasks": ["베타 뒤 안내 예정(비즈니스 채널·대행사·템플릿 심사)"], "questions": [{"ask": "예약 확정 같은 자동 알림이 필요하세요?", "options": ["나중에 알아볼게요", "채널 채팅으로 충분해요"]}], "risk": "발송 대행사 약관·과금·템플릿 심사 조건을 따르게 된다. 조건 세부 확인 필요", "sources": ["https://business.kakao.com/", "docs/product/DECISIONS.md"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["전화 버튼", "전화 걸기", "바로 전화", "클릭하면 전화", "통화 버튼", "연락처 누르면 전화"], "category": "contact", "cost": "추가 비용 없음(사장님 기존 전화요금만)", "how": "누르면 바로 전화가 걸리는 버튼을 둔다(모바일 하단 고정 포함). 번호는 사장님이 말한 값만 쓴다", "id": "phone_call_button", "name": "전화 걸기 버튼", "needs_keys": false, "owner_tasks": ["연락받을 전화번호 알려주기"], "questions": [{"ask": "연락받을 전화번호를 알려 주세요.", "options": ["나중에 넣을게요"]}], "risk": "번호 오기입 시 엉뚱한 사람에게 전화가 간다. 공개 전 자리 표시 확인(D23)", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["문자 버튼", "문자로 문의", "SMS 보내기", "문자 남기기", "문자로 예약", "문자 상담"], "category": "contact", "cost": "추가 비용 없음(발신자 요금제 따름)", "how": "누르면 문자 앱이 열리는 버튼을 둔다. 전화하기 부담스러운 손님용이다", "id": "sms_button", "name": "문자 보내기 버튼", "needs_keys": false, "owner_tasks": ["연락받을 전화번호 알려주기"], "questions": [{"ask": "문자로도 문의를 받으실까요?", "options": ["네, 전화번호로 받게요", "전화만 받을게요"]}], "risk": "스팸 문자가 올 수 있다. 번호 공개 범위를 사장님과 확인한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["이메일로 문의", "메일 보내기", "이메일 남기기", "메일 상담", "이메일 주소 올리기", "메일로 연락"], "category": "contact", "cost": "추가 비용 없음", "how": "누르면 메일 앱이 열리는 이메일 링크를 둔다. 문의 글이 서버에 저장되지 않는다", "id": "email_inquiry", "name": "이메일 문의 링크", "needs_keys": false, "owner_tasks": ["문의받을 이메일 주소 알려주기"], "questions": [{"ask": "문의받을 이메일이 있나요?", "options": ["있어요", "없어요, 전화로만 받을게요"]}], "risk": "이메일 주소는 스팸 수집 대상이 된다. 공개 여부를 사장님과 확인한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [{"name": "전화·문자 버튼", "note": "바로 만들 수 있다", "verdict": "ready"}, {"name": "카카오톡 채널 채팅 버튼", "note": "채널 주소만 있으면 된다", "verdict": "owner_setup"}, {"name": "외부 폼 링크", "note": "구글 폼 등 외부에 저장", "verdict": "alternative"}], "aliases": ["문의 게시판", "문의 남기기", "문의 폼", "질문 남기기", "글 남기기", "상담 신청 폼"], "category": "contact", "cost": "베타 뒤 구현 시 추가 비용 $0(기존 DB 안)이나 스팸 대응·개인정보 의무가 따른다", "how": "베타에서는 만들지 않는다. 방문자 글을 저장하면 개인정보 보관·스팸 대응 책임이 생기기 때문이다(UQ-4 베타 제외)", "id": "inquiry_form", "name": "사이트 문의 양식(방문자 글 저장)", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정(보관 기간·스팸 설정 함께 정하기)"], "questions": [{"ask": "손님이 사이트에 글을 남기게 하고 싶으세요?", "options": ["네, 필요해요", "전화·카톡으로 충분해요"]}], "risk": "방문자 이름·연락처는 개인정보. 보관 기간·열람·삭제·파기 규칙이 필요하고 스팸이 사장님 알림을 오염시킬 수 있다", "sources": ["docs/product/USER_DB_PLAN.md", "https://www.pipc.go.kr"], "verdict": "out_of_beta"}, {"alternatives": [{"name": "카카오톡 채널 채팅 버튼", "note": "실시간 상담은 이걸로 대신한다", "verdict": "owner_setup"}, {"name": "전화·문자 버튼", "note": "바로 만들 수 있다", "verdict": "ready"}], "aliases": ["채팅 상담", "실시간 채팅", "채팅창 달기", "상담 위젯", "채널톡 같은 거", "톡 상담창"], "category": "contact", "cost": "외부 서비스 요금은 해당 서비스 약관 따름 — 확인 필요", "how": "사이트 안에 뜨는 채팅창은 외부 스크립트가 필요해서 베타 생성물 규격에 맞지 않는다. 대신 채널·전화 버튼으로 연결한다", "id": "chat_widget", "name": "채팅 상담 위젯(실시간 채팅창)", "needs_keys": true, "owner_tasks": ["외부 채팅 서비스 계정 만들기(쓰려면, 베타 뒤)"], "questions": [{"ask": "실시간 채팅창이 필요하세요?", "options": ["카톡 채널로 충분해요", "외부 서비스로 알아볼게요"]}], "risk": "외부 위젯은 추적기·광고가 따라붙을 수 있다. 외부 스크립트 조건 확인 필요", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md", "docs/product/USER_DB_PLAN.md"], "verdict": "alternative"}, {"alternatives": [], "aliases": ["네이버 예약 연결", "예약 링크 걸기", "외부 예약 사이트", "예약 페이지 연결", "네이버로 예약받기", "예약 사이트 버튼"], "category": "booking", "cost": "링크 자체 무료. 예약 서비스 수수료는 해당 서비스 약관 따름 — 확인 필요", "how": "네이버 예약 같은 예약 페이지로 가는 버튼을 둔다(새 탭). 예약 관리는 그 서비스에서 한다", "id": "external_booking_link", "name": "온라인 예약(외부 예약 링크)", "needs_keys": false, "owner_tasks": ["예약 페이지 주소 알려주기(네이버 예약 등)"], "questions": [{"ask": "쓰시는 예약 페이지가 있나요?", "options": ["있어요", "없어요, 전화로 받을게요"]}], "risk": "외부 서비스 장애·약관 변경은 우리가 책임질 수 없다", "sources": ["https://booking.naver.com", "docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [{"name": "온라인 예약(외부 예약 링크)", "note": "지금 바로 쓸 수 있다", "verdict": "ready"}, {"name": "레슨 일정표(정적 표)", "note": "시간 안내만이면 충분하다", "verdict": "ready"}], "aliases": ["예약 달력", "직접 예약 기능", "날짜 골라 예약", "예약 관리 기능", "빈자리 달력", "스케줄 예약"], "category": "booking", "cost": "구현·운영 비용은 베타 뒤 산정. 중복 방지·알림까지 가면 커진다", "how": "베타에서는 만들지 않는다. 날짜 선택·빈자리 관리·중복 방지는 저장 기능이 필요해서 정적 사이트 범위를 넘는다", "id": "booking_calendar_custom", "name": "예약 캘린더 자체 구현", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정(외부 예약 링크로 먼저 시작 권장)"], "questions": [{"ask": "달력에서 날짜를 골라 예약하게 하고 싶으세요?", "options": ["네, 필요해요", "외부 예약 링크로 할게요"]}], "risk": "중복 예약·노쇼·개인정보 보관 문제가 생긴다. 베타 뒤 별도 설계 필요", "sources": ["docs/product/USER_DB_PLAN.md"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["수업 시간표", "레슨 시간 안내", "일정표 올리기", "수업 요일 안내", "시간표 페이지", "운영 일정"], "category": "booking", "cost": "추가 비용 없음", "how": "요일·시간을 적은 표를 페이지에 둔다. 예약 기능 없이 안내만 한다", "id": "lesson_schedule", "name": "레슨 일정표(시간 안내 표)", "needs_keys": false, "owner_tasks": ["요일·시간 알려주기"], "questions": [{"ask": "수업·운영 시간을 알려 주세요.", "options": ["나중에 넣을게요"]}], "risk": "시간은 사실 칸. 사장님이 말한 값만 쓰고 변경 시 직접 편집으로 고친다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [{"name": "외부 폼 링크(구글 폼 등)", "note": "신청서 저장은 외부에 맡긴다", "verdict": "alternative"}, {"name": "전화·카톡 신청 안내", "note": "바로 만들 수 있다", "verdict": "ready"}], "aliases": ["수강 신청 받기", "신청서 받기", "강좌 신청", "수업 신청", "등록 신청", "신청 폼"], "category": "booking", "cost": "외부 폼 무료 한도는 해당 서비스 약관 따름 — 확인 필요", "how": "신청서 저장은 우리 사이트에서 못 하므로 외부 폼 링크 버튼으로 연결한다. 신청 방법은 전화·카톡 안내와 함께 둔다", "id": "class_enrollment", "name": "수강 신청", "needs_keys": false, "owner_tasks": ["외부 신청 폼 주소 알려주기(없으면 만드는 법 안내)"], "questions": [{"ask": "수강 신청은 어떻게 받으실까요?", "options": ["외부 폼 링크로 받을게요", "전화·카톡으로 받을게요"]}], "risk": "외부 폼에 모인 개인정보는 그 서비스 약관을 따른다. 한도·약관 확인 필요", "sources": ["https://www.google.com/forms/about/", "docs/product/USER_DB_PLAN.md"], "verdict": "alternative"}, {"alternatives": [{"name": "외부 폼 링크", "note": "신청서 저장은 외부에 맡긴다", "verdict": "alternative"}, {"name": "전화·카톡 신청 안내", "note": "바로 만들 수 있다", "verdict": "ready"}], "aliases": ["행사 접수", "모임 신청", "참가 신청", "이벤트 신청", "세미나 접수", "신청 받기"], "category": "booking", "cost": "외부 폼 무료 한도는 해당 서비스 약관 따름 — 확인 필요", "how": "행사 신청서 저장은 외부 폼 링크 버튼으로 연결한다. 행사 안내 페이지는 정적으로 만든다", "id": "event_application", "name": "행사 신청", "needs_keys": false, "owner_tasks": ["행사 날짜·장소·신청 폼 주소 알려주기"], "questions": [{"ask": "행사 신청은 어떻게 받으실까요?", "options": ["외부 폼 링크로 받을게요", "전화·카톡으로 받을게요"]}], "risk": "모집 인원 초과·개인정보 보관 규칙을 미리 정해야 한다", "sources": ["https://www.google.com/forms/about/"], "verdict": "alternative"}, {"alternatives": [{"name": "온라인 예약(외부 예약 링크)", "note": "예약 자체는 외부에서 받는다", "verdict": "ready"}], "aliases": ["예약금 받기", "선금 결제", "계약금 받기", "보증금 받기", "노쇼 방지금", "선수금"], "category": "booking", "cost": "PG 수수료·정산 조건은 베타 뒤 안내 — 확인 필요", "how": "베타에서는 만들지 않는다. 돈을 받는 기능은 결제(D13 제외)와 같아서 계좌 안내 문구만 둘 수 있다", "id": "deposit_reservation", "name": "예약금 받기", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정(그전엔 계좌 안내 문구만 가능)"], "questions": [{"ask": "예약금을 미리 받으실까요?", "options": ["네, 필요해요", "아니요, 현장에서 받을게요"]}], "risk": "환불·전자상거래 고지 의무가 따른다. 베타 무료 단계에서는 취급하지 않는다", "sources": ["docs/product/DECISIONS.md"], "verdict": "out_of_beta"}, {"alternatives": [{"name": "전화·카톡 예약 확인 안내", "note": "바로 만들 수 있다", "verdict": "ready"}], "aliases": ["예약 확인", "예약 조회", "내 예약 보기", "예약 번호 조회", "예약 상태 확인", "접수 확인"], "category": "booking", "cost": "베타 뒤 구현 시 추가 비용 $0(기존 DB 안) 예상 — 확인 필요", "how": "베타에서는 만들지 않는다. 예약 내역 조회는 저장된 예약 데이터가 있어야 해서 범위를 넘는다", "id": "reservation_lookup", "name": "예약 확인·조회", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정"], "questions": [{"ask": "손님이 자기 예약을 직접 확인하게 하고 싶으세요?", "options": ["네, 필요해요", "전화로 확인해 줄게요"]}], "risk": "본인 확인 없는 조회는 개인정보 노출 위험. 베타 뒤 별도 설계 필요", "sources": ["docs/product/USER_DB_PLAN.md"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["카드 결제", "온라인 결제", "계좌이체 결제", "상품 판매", "온라인 주문", "결제 기능"], "category": "commerce", "cost": "PG 수수료·정산·환불 고지 전부 베타 뒤 과제 — 확인 필요", "how": "베타에서는 만들지 않는다. 베타 기간 무료·결제 없음(D13)이라 돈 받는 버튼을 달지 않는다", "id": "payment_online", "name": "결제·온라인 판매", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정"], "questions": [{"ask": "사이트에서 바로 돈을 받고 싶으세요?", "options": ["네, 필요해요", "아니요, 현장·계좌로 받을게요"]}], "risk": "결제·환불·전자상거래 고지 의무가 따른다. 베타에서는 취급하지 않는다", "sources": ["docs/product/DECISIONS.md"], "verdict": "out_of_beta"}, {"alternatives": [{"name": "외부 스토어 링크", "note": "스마트스토어 등으로 연결한다", "verdict": "alternative"}, {"name": "메뉴판·가격표 페이지", "note": "바로 만들 수 있다", "verdict": "ready"}], "aliases": ["쇼핑몰 만들기", "인터넷 쇼핑몰", "온라인 스토어", "상품 목록 판매", "장바구니 기능", "스토어 열기"], "category": "commerce", "cost": "외부 스토어 수수료는 해당 서비스 약관 따름 — 확인 필요", "how": "베타에서는 만들지 않는다. 장바구니·주문·재고는 저장 기능이 필요해서 범위를 넘는다. 파는 물건 안내는 메뉴판·가격표로 만든다", "id": "shopping_mall", "name": "쇼핑몰(장바구니·주문)", "needs_keys": false, "owner_tasks": ["파는 물건 목록·가격 알려주기(안내 페이지용)"], "questions": [{"ask": "물건을 사이트에서 바로 팔고 싶으세요?", "options": ["네, 필요해요", "안내만 하고 외부에서 팔게요"]}], "risk": "주문·배송·환불·재고 책임이 따른다. 베타에서는 취급하지 않는다", "sources": ["docs/product/DECISIONS.md"], "verdict": "out_of_beta"}, {"alternatives": [{"name": "이벤트 안내 페이지", "note": "안내문은 바로 만들 수 있다", "verdict": "ready"}, {"name": "외부 예약·스토어 쿠폰", "note": "발급은 외부 서비스에서", "verdict": "alternative"}], "aliases": ["쿠폰 만들기", "할인 쿠폰", "이벤트 열기", "프로모션", "할인 행사 안내", "쿠폰 발급"], "category": "commerce", "cost": "외부 서비스 쿠폰 수수료는 해당 약관 따름 — 확인 필요", "how": "쿠폰 발급·사용 처리는 못 하고 행사 안내 페이지는 만든다. 발급이 필요하면 외부 서비스 링크로 연결한다", "id": "coupon_event", "name": "쿠폰·이벤트", "needs_keys": false, "owner_tasks": ["행사 내용·기간·조건 알려주기"], "questions": [{"ask": "쿠폰이나 할인 행사를 하시나요?", "options": ["안내만 올릴게요", "발급 기능이 필요해요", "안 해요"]}], "risk": "쿠폰 사용 조건·유효기간을 분명히 적지 않으면 분쟁이 생긴다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "alternative"}, {"alternatives": [], "aliases": ["가격 안내", "요금표", "이용 요금", "수강료 안내", "시술 가격", "객실 요금"], "category": "commerce", "cost": "추가 비용 없음", "how": "가격을 적은 목록을 페이지에 둔다. 값이 비면 자리 표시([가격 입력])로 두고 공개 전에 채운다", "id": "price_list", "name": "가격표", "needs_keys": false, "owner_tasks": ["가격 알려주기(모르면 자리 표시로 둠)"], "questions": [{"ask": "가격을 알려 주세요. 메뉴만 말씀하셔도 돼요.", "options": ["나중에 넣을게요"]}], "risk": "가격은 사실 칸. 지어내지 않고 공개 전 필수 확인(D23)", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["메뉴 올리기", "음식 메뉴", "메뉴 소개", "시술 메뉴", "메뉴 사진", "메뉴 목록"], "category": "commerce", "cost": "추가 비용 없음", "how": "메뉴·시술·수업 목록을 사진·설명과 함께 둔다. 업종에 따라 표시 이름만 바뀐다(메뉴·시술·반 구성)", "id": "menu_board", "name": "메뉴판", "needs_keys": false, "owner_tasks": ["메뉴 이름·설명·가격 알려주기"], "questions": [{"ask": "대표 메뉴는 무엇인가요?", "options": ["나중에 넣을게요"]}], "risk": "가격이 딸린 메뉴는 사실 칸. 사진은 사장님 제공분만 쓴다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [{"name": "우리 플랫폼 공용 로그인으로 이용하기", "note": "사장님 키 발급 없이 검토 중인 대안", "verdict": "alternative"}], "aliases": ["회원가입 기능", "로그인 기능", "카카오 로그인 달기", "구글 로그인 달기", "회원제 사이트", "계정 만들기"], "category": "account", "cost": "키 발급 자체는 무료. 검수(구글 브랜드 검수 등) 절차가 따름 — 확인 필요", "how": "베타에서는 만들지 않는다. 사장님이 카카오·구글 개발자 콘솔에서 키를 직접 받는 과정이 어렵고(OAUTH_SETUP §5), 방문자 계정 저장은 개인정보 책임이 따른다. 대안으로 우리 플랫폼 공용 로그인을 베타 뒤 검토한다", "id": "member_login", "name": "회원가입·로그인(방문자 계정)", "needs_keys": true, "owner_tasks": ["베타 뒤 안내 예정(콘솔 키 발급은 직접 해야 함)"], "questions": [{"ask": "손님이 회원가입·로그인을 하게 하고 싶으세요?", "options": ["네, 필요해요", "아니요, 비회원으로 충분해요"]}], "risk": "계정·이메일 저장은 개인정보. 동의·방침·탈퇴·보관 의무가 생기고 키 유출 시 보안 사고로 이어진다", "sources": ["docs/product/OAUTH_SETUP.md", "https://developers.google.com/identity/protocols/oauth2/policies"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["비밀번호 바꾸기", "주기적 변경", "비밀번호 만료", "90일 변경", "보안 정책", "비밀번호 정책"], "category": "account", "cost": "해당 없음(기능 자체를 권장하지 않음)", "how": "만들지 않는다. 로그인 기능 자체가 베타 밖이고, 설령 계정이 있어도 강제 주기 변경은 NIST SP 800-63B가 비권장으로 바꾼 방식이다. 유출이 의심될 때만 바꾸게 안내한다", "id": "password_rotation", "name": "비밀번호 주기 변경 강제", "needs_keys": false, "owner_tasks": [], "questions": [{"ask": "비밀번호를 주기적으로 바꾸게 하고 싶으세요?", "options": ["권장 기준대로 할게요", "자세히 설명해 주세요"]}], "risk": "강제 주기 변경은 오히려 쉬운 비밀번호를 유발한다(NIST SP 800-63B §5.1.1.2). 근거와 함께 비권장을 안내한다", "sources": ["https://pages.nist.gov/800-63-3/sp800-63b.html", "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["블로그 연결", "공지사항 올리기", "소식 전하기", "새 소식", "공지 올리기", "블로그 글"], "category": "content", "cost": "추가 비용 없음. 직접 편집 화면에서 글을 고친다", "how": "공지·소식 글을 올리는 정적 목록을 둔다. 새 글은 직접 편집 화면에서 사장님이 고친다", "id": "blog_notices", "name": "블로그·공지사항", "needs_keys": false, "owner_tasks": ["올릴 공지·소식 글 알려주기"], "questions": [{"ask": "공지나 소식을 올리실까요?", "options": ["네, 올릴게요", "아니요, 빼주세요"]}], "risk": "날짜 지난 공지를 방치하면 신뢰가 떨어진다. 직접 편집으로 지우는 법을 안내한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["리뷰 올리기", "손님 평가", "별점 보여주기", "이용 후기", "후기 모음", "칭찬 글"], "category": "content", "cost": "추가 비용 없음", "how": "사장님이 준 실제 후기 문구만 올린다. 후기가 없으면 자리 문구 1줄만 둔다. 가짜 후기는 절대 지어내지 않는다", "id": "reviews_display", "name": "후기 보여주기(실제 문구만)", "needs_keys": false, "owner_tasks": ["실제 후기 문구·출처 알려주기(없으면 자리만 둠)"], "questions": [{"ask": "올릴 만한 실제 후기가 있나요?", "options": ["있어요", "없어요, 자리만 둬 주세요"]}], "risk": "가짜 후기는 표시광고법 위반 소지가 있다. 출처·동의가 확인된 문구만 올린다 — 확인 필요", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md", "https://www.law.go.kr"], "verdict": "ready"}, {"alternatives": [{"name": "후기 보여주기(실제 문구만)", "note": "모은 후기를 대신 올려준다", "verdict": "ready"}], "aliases": ["후기 쓰기", "리뷰 남기기", "별점 주기", "손님이 글 남기기", "방명록 쓰기", "평가 남기기"], "category": "content", "cost": "베타 뒤 구현 시 스팸 대응·개인정보 의무가 따른다", "how": "베타에서는 만들지 않는다. 손님이 직접 글을 남기려면 저장 기능이 필요해서 문의 양식과 같은 이유(UQ-4)로 제외한다", "id": "review_write", "name": "후기 작성 폼(손님이 남기기)", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정"], "questions": [{"ask": "손님이 직접 후기를 남기게 하고 싶으세요?", "options": ["네, 필요해요", "모은 후기만 올릴게요"]}], "risk": "악성·허위 후기·스팸 대응과 작성자 개인정보 문제가 생긴다", "sources": ["docs/product/USER_DB_PLAN.md"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["갤러리", "사진 올리기", "매장 사진", "작품 사진", "사진 모음", "포토"], "category": "content", "cost": "추가 비용 없음", "how": "사진 격자·가로 넘기기를 둔다. 사진이 없으면 섹션을 숨긴다. 얼굴 자리표시 이미지는 쓰지 않는다", "id": "photo_album", "name": "사진첩", "needs_keys": false, "owner_tasks": ["올릴 사진 보내주기"], "questions": [{"ask": "올릴 사진이 있나요?", "options": ["있어요", "없어요, 나중에 넣을게요"]}], "risk": "남의 사진·얼굴이 나오면 초상권·저작권 문제. 제공 사진·동의 확인 + EXIF 제거", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["작품 모음", "작업 사례", "실적 소개", "결과물 보여주기", "연주 영상 모음", "작업 갤러리"], "category": "content", "cost": "추가 비용 없음", "how": "작품·사례를 사진·설명과 함께 둔다. 사진첩 부품을 같은 형식으로 쓴다", "id": "portfolio", "name": "포트폴리오", "needs_keys": false, "owner_tasks": ["작품 사진·설명 알려주기"], "questions": [{"ask": "보여줄 작품·사례가 있나요?", "options": ["있어요", "없어요, 나중에 넣을게요"]}], "risk": "고객 작품·학생 사진은 당사자 동의가 있어야 올린다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["자료 올리기", "파일 받기", "안내문 다운로드", "신청서 양식", "PDF 올리기", "자료실"], "category": "content", "cost": "추가 비용 없음", "how": "안내문·신청서 같은 파일을 내려받기 링크로 둔다. 올릴 수 있는 형식·용량은 제한을 둔다", "id": "file_download", "name": "파일 다운로드(안내문)", "needs_keys": false, "owner_tasks": ["올릴 파일 보내주기"], "questions": [{"ask": "내려받게 할 자료가 있나요?", "options": ["있어요", "없어요"]}], "risk": "실행 파일·매크로 문서는 악성코드 위험. 안내문·서식 위주로 받고 형식 제한을 둔다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["질문 모음", "자주 묻는 말", "FAQ", "궁금한 점", "Q&A 올리기", "문의 전 보기"], "category": "content", "cost": "추가 비용 없음", "how": "자주 묻는 질문·답을 접기 목록으로 둔다. 전화 문의를 줄이는 데 도움이 된다", "id": "faq", "name": "자주 묻는 질문", "needs_keys": false, "owner_tasks": ["자주 받는 질문·답 알려주기"], "questions": [{"ask": "자주 받는 질문이 있나요?", "options": ["있어요", "없어요, 빼주세요"]}], "risk": "가격·시간이 바뀌면 함께 고쳐야 한다. 직접 편집으로 고치는 법을 안내한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["팝업 공지", "배너 달기", "이벤트 배너", "휴무 공지", "띠 배너", "알림 글"], "category": "content", "cost": "추가 비용 없음", "how": "휴무·행사 같은 한 줄 공지를 페이지 위에 둔다. 자동 팝업(새 창)은 쓰지 않는다", "id": "notice_banner", "name": "공지 배너·띠", "needs_keys": false, "owner_tasks": ["알릴 내용·기간 알려주기"], "questions": [{"ask": "알릴 공지가 있나요?", "options": ["있어요", "없어요"]}], "risk": "끝난 공지를 방치하면 혼란이 생긴다. 끝난 공지는 지우는 법을 안내한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [{"name": "외국어 병기 정적 페이지", "note": "사장님이 준 번역문 그대로 올린다", "verdict": "alternative"}], "aliases": ["영어 페이지", "외국어 지원", "영문 안내", "번역 기능", "다국어 지원", "외국인 안내"], "category": "content", "cost": "번역문 제작 비용은 사장님 부담(번역기·외주). 자동 번역 위젯은 베타 밖", "how": "자동 번역 버튼은 못 달고, 사장님이 준 외국어 문안을 그대로 올린 안내 페이지는 만든다", "id": "multilingual", "name": "다국어 안내", "needs_keys": false, "owner_tasks": ["외국어 문안 보내주기(없으면 한국어만 시작)"], "questions": [{"ask": "어떤 언어로 안내가 필요하세요?", "options": ["영어", "중국어·일본어", "한국어만 할게요"]}], "risk": "기계 번역 그대로 올리면 오역 책임이 생긴다. 번역문 검토를 사장님께 맡긴다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "alternative"}, {"alternatives": [{"name": "SNS 바로가기 버튼", "note": "프로필 링크로 바로 연결한다", "verdict": "ready"}], "aliases": ["인스타 연동", "인스타그램 가져오기", "SNS 피드", "인스타 사진 자동", "인스타 최신 글", "그램 보여주기"], "category": "media", "cost": "자동 연동 시 심사·토큰 관리 부담. 링크 방식은 무료", "how": "인스타 글이 자동 뜨는 박스는 못 만든다(API 토큰·심사 + 임베드 스크립트 제한). 대신 인스타 프로필 링크 버튼을 두고 대표 사진은 직접 올린다", "id": "instagram_feed", "name": "인스타그램 피드 자동 표시", "needs_keys": true, "owner_tasks": ["인스타 주소 알려주기"], "questions": [{"ask": "인스타 글을 사이트에 띄우고 싶으세요?", "options": ["링크 버튼으로 할게요", "자동으로 뜨게 해 주세요"]}], "risk": "자동 연동은 토큰 유출·권한 심사·추적기 문제를 동반한다. 조건 세부 확인 필요", "sources": ["https://developers.facebook.com/docs/instagram-platform/", "docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "alternative"}, {"alternatives": [{"name": "유튜브 링크 버튼", "note": "썸네일 카드 + 새 탭으로 연결한다", "verdict": "ready"}], "aliases": ["유튜브 넣기", "영상 올리기", "동영상 재생", "유튜브 영상 틀기", "홍보 영상", "연주 영상"], "category": "media", "cost": "추가 비용 없음", "how": "페이지 안에서 바로 재생하는 틀은 못 넣는다(iframe 금지). 대신 썸네일 카드를 눌러 유튜브로 가는 버튼을 둔다", "id": "youtube_video", "name": "유튜브 영상 넣기", "needs_keys": false, "owner_tasks": ["유튜브 영상 주소 알려주기"], "questions": [{"ask": "올릴 영상이 있나요?", "options": ["있어요", "없어요"]}], "risk": "남의 영상을 올리면 저작권 문제. 본인·동의된 영상만 연결한다", "sources": ["https://developers.google.com/youtube/player_parameters", "docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "alternative"}, {"alternatives": [], "aliases": ["오시는 길", "위치 안내", "지도 보기", "찾아오는 길", "주소 안내", "길찾기 링크"], "category": "map", "cost": "추가 비용 없음(링크 방식, 키 불필요)", "how": "주소와 함께 카카오맵·구글지도·네이버지도 바로가기 버튼을 둔다. 지도를 페이지 안에 박지 않는다", "id": "map_directions_link", "name": "지도·오시는 길(지도 링크)", "needs_keys": false, "owner_tasks": ["주소·지역 알려주기"], "questions": [{"ask": "가게는 어디에 있나요? 지역만 알려 주셔도 돼요.", "options": ["나중에 넣을게요"]}], "risk": "주소는 사실 칸. 사장님이 말한 값만 쓰고 좌표를 지어내지 않는다", "sources": ["https://map.kakao.com", "https://maps.google.com", "docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [{"name": "지도·오시는 길(지도 링크)", "note": "키 없이 바로 만들 수 있다", "verdict": "ready"}], "aliases": ["지도 박기", "지도를 페이지에", "지도 API", "움직이는 지도", "네이버 지도 넣기", "약도 자동"], "category": "map", "cost": "지도 API 요금·한도는 제공사 약관 따름 — 확인 필요", "how": "베타에서는 만들지 않는다. 페이지 안에 박는 지도는 iframe이라 생성물 규격에서 금지되고 API 키도 필요하다", "id": "map_api_embed", "name": "지도 임베드(API 키 방식)", "needs_keys": true, "owner_tasks": ["베타 뒤 안내 예정"], "questions": [{"ask": "지도가 페이지 안에 박히게 하고 싶으세요?", "options": ["링크 버튼으로 충분해요", "나중에 알아볼게요"]}], "risk": "API 키를 페이지에 노출하면 도용 과금 위험. 키 제한 설정이 필수라 베타 뒤 과제로 둔다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["SNS 연결", "인스타 링크", "유튜브 링크", "블로그 링크", "SNS 아이콘", "채널 바로가기"], "category": "integration", "cost": "추가 비용 없음", "how": "인스타·유튜브·블로그 주소로 가는 버튼을 둔다(새 탭). 자동 불러오기가 아니라 단순 연결이다", "id": "sns_link_buttons", "name": "SNS 바로가기 버튼", "needs_keys": false, "owner_tasks": ["SNS 주소 알려주기"], "questions": [{"ask": "연결할 SNS가 있나요?", "options": ["있어요", "없어요"]}], "risk": "연결된 SNS의 게시물은 사장님 책임. 문제 게시물은 링크를 떼는 법을 안내한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["구글 캘린더 연결", "일정 달력 링크", "수업 달력", "행사일정 달력", "캘린더 보기", "외부 일정"], "category": "integration", "cost": "추가 비용 없음", "how": "구글 캘린더 같은 공개 일정 링크 버튼을 둔다. 일정 관리는 그 서비스에서 한다", "id": "external_calendar_link", "name": "외부 일정 달력 링크", "needs_keys": false, "owner_tasks": ["공개 일정 주소 알려주기"], "questions": [{"ask": "공개 중인 일정 달력이 있나요?", "options": ["있어요", "없어요"]}], "risk": "공개 달력에 개인정보(학생 이름 등)가 섞이지 않게 확인한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "ready"}, {"alternatives": [], "aliases": ["사이트 검색", "검색창 달기", "글 찾기", "메뉴 찾기", "페이지 검색", "검색 기능"], "category": "integration", "cost": "해당 없음", "how": "베타에서는 만들지 않는다. 한 페이지 안내 사이트에는 검색창이 필요 없고 CSS만으로는 검색이 안 된다", "id": "site_search", "name": "사이트 내 검색", "needs_keys": false, "owner_tasks": [], "questions": [{"ask": "사이트 안에서 검색이 필요하세요?", "options": ["네, 필요해요", "아니요, 괜찮아요"]}], "risk": "작은 사이트의 검색창은 쓸모없이 비는 경우가 많다. 메뉴가 많아지면 베타 뒤 검토한다", "sources": ["docs/product/SECTION_LIBRARY_SPEC.md"], "verdict": "out_of_beta"}, {"alternatives": [], "aliases": ["내 도메인 연결", "주소 바꾸기", "개인 도메인", "co.kr 연결", "도메인 사기", "사이트 주소 정하기"], "category": "integration", "cost": "도메인 구매·연장 비용은 사장님 부담(연 1~2만 원대 일반적 — 확인 필요)", "how": "지금은 임시 주소로 만들고 이름·도메인은 나중에 정한다(D2). 사장님이 도메인을 사 오면 연결해 준다", "id": "domain_connection", "name": "도메인 연결", "needs_keys": false, "owner_tasks": ["도메인 사기(구매)·주소 알려주기(베타 뒤)"], "questions": [{"ask": "사이트 주소를 정하셨나요?", "options": ["임시 주소로 시작할게요", "도메인이 있어요", "나중에 정할게요"]}], "risk": "도메인 명의·연장 관리는 사장님 책임. 만료되면 사이트가 끊긴다", "sources": ["docs/product/DECISIONS.md"], "verdict": "owner_setup"}, {"alternatives": [{"name": "공지·소식 글", "note": "새 소식은 직접 편집으로 올린다", "verdict": "ready"}], "aliases": ["뉴스레터 보내기", "메일 발송", "구독 신청", "소식지 보내기", "정기 메일", "메일링"], "category": "marketing", "cost": "외부 서비스 요금은 해당 약관 따름 — 확인 필요", "how": "구독자 명단 저장·정기 발송은 못 하므로 외부 뉴스레터 서비스 구독 링크 버튼으로 연결한다", "id": "newsletter", "name": "뉴스레터 구독·발송", "needs_keys": false, "owner_tasks": ["외부 뉴스레터 주소 알려주기"], "questions": [{"ask": "소식을 정기적으로 보내시나요?", "options": ["외부 서비스로 보낼게요", "안 보내요"]}], "risk": "수신 동의 없는 발송은 스팸·법 위반. 외부 서비스의 동의 절차를 따른다 — 확인 필요", "sources": ["https://www.pipc.go.kr"], "verdict": "alternative"}, {"alternatives": [], "aliases": ["네이버 검색", "구글 검색 노출", "검색에 나오기", "상위 노출", "SEO", "검색 등록"], "category": "marketing", "cost": "기본 대응 무료. 광고·유료 상위 노출은 범위 밖", "how": "제목·설명·모바일 대응을 기본으로 넣는다. 검색 등록(네이버 서치어드바이저 등)은 사장님이 직접 한다", "id": "seo_basic", "name": "검색 노출(SEO) 기본", "needs_keys": false, "owner_tasks": ["검색 등록 직접 하기(네이버 서치어드바이저 등, 안내 제공)"], "questions": [{"ask": "검색에 가게가 나오면 좋겠지요?", "options": ["네, 등록할게요", "나중에 할게요"]}], "risk": "상위 노출을 보장할 수 없다. 보장형 광고 제안은 사기가 많으니 주의 안내", "sources": ["https://searchadvisor.naver.com/"], "verdict": "ready"}, {"alternatives": [{"name": "외부 통계 도구 연결", "note": "추후 스크립트 허용 시 검토", "verdict": "alternative"}], "aliases": ["방문자 수 보기", "접속 통계", "조회수 확인", "유입 분석", "방문 기록", "통계 보기"], "category": "marketing", "cost": "외부 도구 요금은 해당 약관 따름 — 확인 필요", "how": "베타에서는 방문자 데이터를 저장하지 않으므로 사이트별 통계 화면을 못 만든다. 베타 뒤 외부 통계 연결로 검토한다", "id": "visitor_stats", "name": "방문자 통계", "needs_keys": false, "owner_tasks": ["베타 뒤 안내 예정"], "questions": [{"ask": "방문자가 몇 명 오는지 보고 싶으세요?", "options": ["네, 궁금해요", "아니요, 괜찮아요"]}], "risk": "방문자 추적은 개인정보 이슈(IP·쿠키). 도입 시 방침·동의가 필요하다", "sources": ["docs/product/DECISIONS.md", "https://www.pipc.go.kr"], "verdict": "alternative"}], "version": 1}
+{
+ "items": [
+  {
+   "aliases": [
+    "카톡으로 문의 받기",
+    "톡으로 연락 받기",
+    "카카오톡 상담",
+    "카톡 채널 연결",
+    "카카오 채널 버튼",
+    "톡 상담 버튼"
+   ],
+   "alternatives": [
+    {
+     "name": "전화 걸기 버튼",
+     "note": "채널이 없어도 바로 쓸 수 있다",
+     "verdict": "ready"
+    },
+    {
+     "name": "문자 보내기 버튼",
+     "note": "채널이 없어도 바로 쓸 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "contact",
+   "cost": "채널 개설·1:1 채팅 무료. 알림톡·친구톡 등 유료 메시지와 다름",
+   "how": "사장님의 카카오톡 채널로 바로 채팅이 열리는 버튼을 사이트에 둔다. 개발자 키가 필요 없는 링크 방식이다",
+   "id": "kakao_channel_chat",
+   "name": "카카오톡 채널 1:1 채팅 버튼",
+   "needs_keys": false,
+   "owner_tasks": [
+    "카카오톡 채널 만들기(무료, 약 5분)",
+    "채널 주소를 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "카카오톡 채널이 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 만드는 법 알려주세요",
+      "전화로 받을게요"
+     ]
+    }
+   ],
+   "risk": "채널 주소는 공개 정보. 사장님 개인 카톡 ID를 사이트에 올리지 않게 안내한다",
+   "sources": [
+    "https://developers.kakao.com/docs/latest/ko/kakaologin/prerequisite",
+    "docs/product/INTAKE_GATE_DESIGN.md"
+   ],
+   "verdict": "owner_setup"
+  },
+  {
+   "aliases": [
+    "나에게 보내기 연동",
+    "문의 글을 카톡으로 받기",
+    "문의 내용을 카카오톡으로 전송",
+    "문의 접수 알림",
+    "문의가 카톡으로 오게",
+    "카카오톡 채팅방으로 문의",
+    "카톡으로 문의 전달",
+    "폼 내용을 카톡 전송",
+    "홈페이지 문의를 톡으로"
+   ],
+   "alternatives": [
+    {
+     "name": "사이트 문의 양식 + 채팅방 알림",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    },
+    {
+     "name": "카카오톡 채널 1:1 채팅 버튼",
+     "note": "사장님 채널 주소만 있으면 된다",
+     "verdict": "owner_setup"
+    },
+    {
+     "name": "전화·문자 버튼",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "contact",
+   "cost": "구현 비용 외 추가 과금 없음. 다만 백엔드 구현 자체가 베타 뒤 과제",
+   "how": "지금은 사이트 문의 양식으로 받고 이 채팅방에 알려 드린다. 사장님 카카오톡으로 바로 보내기(카카오 로그인 후 '나에게 보내기')는 준비 중이다",
+   "id": "kakao_form_bridge",
+   "name": "사이트 문의 양식 → 사장님 카카오톡 전달",
+   "needs_keys": true,
+   "owner_tasks": [
+    "카카오톡 채널이 있으면 채널 주소를 알려 주기(선택)"
+   ],
+   "questions": [
+    {
+     "ask": "문의가 오면 어떻게 받으실까요? 사장님 카카오톡으로 바로 보내기는 준비 중이에요.",
+     "options": [
+      "사이트 문의 양식 + 채팅방 알림",
+      "카카오톡 채널 버튼",
+      "전화·문자 버튼"
+     ]
+    }
+   ],
+   "risk": "문의 양식 저장 자체가 베타 제외(UQ-4) 결정과 부딪힌다. 방문자 연락처를 다루게 되면 개인정보처리방침·보관·파기 의무가 생긴다",
+   "sources": [
+    "docs/product/INTAKE_GATE_DESIGN.md",
+    "docs/product/USER_DB_PLAN.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "알림톡 보내기",
+    "카톡 자동 문자",
+    "예약 확정 알림",
+    "주문 알림 카톡",
+    "자동 안내 톡",
+    "비즈니스 메시지"
+   ],
+   "alternatives": [
+    {
+     "name": "카카오톡 채널 1:1 채팅 버튼",
+     "note": "1:1 상담은 이걸로 충분하다",
+     "verdict": "owner_setup"
+    }
+   ],
+   "category": "contact",
+   "cost": "비즈니스 채널 + 발송 대행사 + 템플릿 심사 + 건당 과금 — 확인 필요",
+   "how": "베타에서는 만들지 않는다(D6 보류). 비즈니스 채널 개설·발송 대행사 계약·템플릿 심사가 필요하고 건당 과금이 든다",
+   "id": "kakao_alimtalk",
+   "name": "카카오 알림톡 발송",
+   "needs_keys": true,
+   "owner_tasks": [
+    "베타 뒤 안내 예정(비즈니스 채널·대행사·템플릿 심사)"
+   ],
+   "questions": [
+    {
+     "ask": "예약 확정 같은 자동 알림이 필요하세요?",
+     "options": [
+      "나중에 알아볼게요",
+      "채널 채팅으로 충분해요"
+     ]
+    }
+   ],
+   "risk": "발송 대행사 약관·과금·템플릿 심사 조건을 따르게 된다. 조건 세부 확인 필요",
+   "sources": [
+    "https://business.kakao.com/",
+    "docs/product/DECISIONS.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "전화 버튼",
+    "전화 걸기",
+    "바로 전화",
+    "클릭하면 전화",
+    "통화 버튼",
+    "연락처 누르면 전화"
+   ],
+   "alternatives": [],
+   "category": "contact",
+   "cost": "추가 비용 없음(사장님 기존 전화요금만)",
+   "how": "누르면 바로 전화가 걸리는 버튼을 둔다(모바일 하단 고정 포함). 번호는 사장님이 말한 값만 쓴다",
+   "id": "phone_call_button",
+   "name": "전화 걸기 버튼",
+   "needs_keys": false,
+   "owner_tasks": [
+    "연락받을 전화번호 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "연락받을 전화번호를 알려 주세요.",
+     "options": [
+      "나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "번호 오기입 시 엉뚱한 사람에게 전화가 간다. 공개 전 자리 표시 확인(D23)",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "문자 버튼",
+    "문자로 문의",
+    "SMS 보내기",
+    "문자 남기기",
+    "문자로 예약",
+    "문자 상담"
+   ],
+   "alternatives": [],
+   "category": "contact",
+   "cost": "추가 비용 없음(발신자 요금제 따름)",
+   "how": "누르면 문자 앱이 열리는 버튼을 둔다. 전화하기 부담스러운 손님용이다",
+   "id": "sms_button",
+   "name": "문자 보내기 버튼",
+   "needs_keys": false,
+   "owner_tasks": [
+    "연락받을 전화번호 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "문자로도 문의를 받으실까요?",
+     "options": [
+      "네, 전화번호로 받게요",
+      "전화만 받을게요"
+     ]
+    }
+   ],
+   "risk": "스팸 문자가 올 수 있다. 번호 공개 범위를 사장님과 확인한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "이메일로 문의",
+    "메일 보내기",
+    "이메일 남기기",
+    "메일 상담",
+    "이메일 주소 올리기",
+    "메일로 연락"
+   ],
+   "alternatives": [],
+   "category": "contact",
+   "cost": "추가 비용 없음",
+   "how": "누르면 메일 앱이 열리는 이메일 링크를 둔다. 문의 글이 서버에 저장되지 않는다",
+   "id": "email_inquiry",
+   "name": "이메일 문의 링크",
+   "needs_keys": false,
+   "owner_tasks": [
+    "문의받을 이메일 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "문의받을 이메일이 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 전화로만 받을게요"
+     ]
+    }
+   ],
+   "risk": "이메일 주소는 스팸 수집 대상이 된다. 공개 여부를 사장님과 확인한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "글 남기기",
+    "문의 게시판",
+    "문의 남기기",
+    "문의 받기",
+    "문의 양식",
+    "문의 폼",
+    "문의하기 폼",
+    "상담 신청 폼",
+    "질문 남기기"
+   ],
+   "alternatives": [
+    {
+     "name": "전화·문자 버튼",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    },
+    {
+     "name": "카카오톡 채널 채팅 버튼",
+     "note": "채널 주소만 있으면 된다",
+     "verdict": "owner_setup"
+    },
+    {
+     "name": "외부 폼 링크",
+     "note": "구글 폼 등 외부에 저장",
+     "verdict": "alternative"
+    }
+   ],
+   "category": "contact",
+   "cost": "추가 비용 없음(기존 DB 안)",
+   "how": "사이트에 문의 양식(이름·연락처·내용)을 두고, 들어온 문의를 이 채팅방에 바로 알려 드린다. 30일 보관 뒤 자동 삭제(C6)",
+   "id": "inquiry_form",
+   "name": "사이트 문의 양식(방문자 글 저장)",
+   "needs_keys": false,
+   "owner_tasks": [],
+   "questions": [],
+   "risk": "방문자 이름·연락처는 개인정보. 수집 동의 체크·30일 보관·스팸 숨김 칸·빈도 제한을 둔다",
+   "sources": [
+    "app/services/inquiries.py",
+    "templates/README.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "채팅 상담",
+    "실시간 채팅",
+    "채팅창 달기",
+    "상담 위젯",
+    "채널톡 같은 거",
+    "톡 상담창"
+   ],
+   "alternatives": [
+    {
+     "name": "카카오톡 채널 채팅 버튼",
+     "note": "실시간 상담은 이걸로 대신한다",
+     "verdict": "owner_setup"
+    },
+    {
+     "name": "전화·문자 버튼",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "contact",
+   "cost": "외부 서비스 요금은 해당 서비스 약관 따름 — 확인 필요",
+   "how": "사이트 안에 뜨는 채팅창은 외부 스크립트가 필요해서 베타 생성물 규격에 맞지 않는다. 대신 채널·전화 버튼으로 연결한다",
+   "id": "chat_widget",
+   "name": "채팅 상담 위젯(실시간 채팅창)",
+   "needs_keys": true,
+   "owner_tasks": [
+    "외부 채팅 서비스 계정 만들기(쓰려면, 베타 뒤)"
+   ],
+   "questions": [
+    {
+     "ask": "실시간 채팅창이 필요하세요?",
+     "options": [
+      "카톡 채널로 충분해요",
+      "외부 서비스로 알아볼게요"
+     ]
+    }
+   ],
+   "risk": "외부 위젯은 추적기·광고가 따라붙을 수 있다. 외부 스크립트 조건 확인 필요",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md",
+    "docs/product/USER_DB_PLAN.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "네이버 예약 연결",
+    "예약 링크 걸기",
+    "외부 예약 사이트",
+    "예약 페이지 연결",
+    "네이버로 예약받기",
+    "예약 사이트 버튼"
+   ],
+   "alternatives": [],
+   "category": "booking",
+   "cost": "링크 자체 무료. 예약 서비스 수수료는 해당 서비스 약관 따름 — 확인 필요",
+   "how": "네이버 예약 같은 예약 페이지로 가는 버튼을 둔다(새 탭). 예약 관리는 그 서비스에서 한다",
+   "id": "external_booking_link",
+   "name": "온라인 예약(외부 예약 링크)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "예약 페이지 주소 알려주기(네이버 예약 등)"
+   ],
+   "questions": [
+    {
+     "ask": "쓰시는 예약 페이지가 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 전화로 받을게요"
+     ]
+    }
+   ],
+   "risk": "외부 서비스 장애·약관 변경은 우리가 책임질 수 없다",
+   "sources": [
+    "https://booking.naver.com",
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "예약 달력",
+    "직접 예약 기능",
+    "날짜 골라 예약",
+    "예약 관리 기능",
+    "빈자리 달력",
+    "스케줄 예약"
+   ],
+   "alternatives": [
+    {
+     "name": "온라인 예약(외부 예약 링크)",
+     "note": "지금 바로 쓸 수 있다",
+     "verdict": "ready"
+    },
+    {
+     "name": "레슨 일정표(정적 표)",
+     "note": "시간 안내만이면 충분하다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "booking",
+   "cost": "구현·운영 비용은 베타 뒤 산정. 중복 방지·알림까지 가면 커진다",
+   "how": "베타에서는 만들지 않는다. 날짜 선택·빈자리 관리·중복 방지는 저장 기능이 필요해서 정적 사이트 범위를 넘는다",
+   "id": "booking_calendar_custom",
+   "name": "예약 캘린더 자체 구현",
+   "needs_keys": false,
+   "owner_tasks": [
+    "베타 뒤 안내 예정(외부 예약 링크로 먼저 시작 권장)"
+   ],
+   "questions": [
+    {
+     "ask": "달력에서 날짜를 골라 예약하게 하고 싶으세요?",
+     "options": [
+      "네, 필요해요",
+      "외부 예약 링크로 할게요"
+     ]
+    }
+   ],
+   "risk": "중복 예약·노쇼·개인정보 보관 문제가 생긴다. 베타 뒤 별도 설계 필요",
+   "sources": [
+    "docs/product/USER_DB_PLAN.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "수업 시간표",
+    "레슨 시간 안내",
+    "일정표 올리기",
+    "수업 요일 안내",
+    "시간표 페이지",
+    "운영 일정"
+   ],
+   "alternatives": [],
+   "category": "booking",
+   "cost": "추가 비용 없음",
+   "how": "요일·시간을 적은 표를 페이지에 둔다. 예약 기능 없이 안내만 한다",
+   "id": "lesson_schedule",
+   "name": "레슨 일정표(시간 안내 표)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "요일·시간 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "수업·운영 시간을 알려 주세요.",
+     "options": [
+      "나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "시간은 사실 칸. 사장님이 말한 값만 쓰고 변경 시 직접 편집으로 고친다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "수강 신청 받기",
+    "신청서 받기",
+    "강좌 신청",
+    "수업 신청",
+    "등록 신청",
+    "신청 폼"
+   ],
+   "alternatives": [
+    {
+     "name": "외부 폼 링크(구글 폼 등)",
+     "note": "신청서 저장은 외부에 맡긴다",
+     "verdict": "alternative"
+    },
+    {
+     "name": "전화·카톡 신청 안내",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "booking",
+   "cost": "외부 폼 무료 한도는 해당 서비스 약관 따름 — 확인 필요",
+   "how": "신청서 저장은 우리 사이트에서 못 하므로 외부 폼 링크 버튼으로 연결한다. 신청 방법은 전화·카톡 안내와 함께 둔다",
+   "id": "class_enrollment",
+   "name": "수강 신청",
+   "needs_keys": false,
+   "owner_tasks": [
+    "외부 신청 폼 주소 알려주기(없으면 만드는 법 안내)"
+   ],
+   "questions": [
+    {
+     "ask": "수강 신청은 어떻게 받으실까요?",
+     "options": [
+      "외부 폼 링크로 받을게요",
+      "전화·카톡으로 받을게요"
+     ]
+    }
+   ],
+   "risk": "외부 폼에 모인 개인정보는 그 서비스 약관을 따른다. 한도·약관 확인 필요",
+   "sources": [
+    "https://www.google.com/forms/about/",
+    "docs/product/USER_DB_PLAN.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "행사 접수",
+    "모임 신청",
+    "참가 신청",
+    "이벤트 신청",
+    "세미나 접수",
+    "신청 받기"
+   ],
+   "alternatives": [
+    {
+     "name": "외부 폼 링크",
+     "note": "신청서 저장은 외부에 맡긴다",
+     "verdict": "alternative"
+    },
+    {
+     "name": "전화·카톡 신청 안내",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "booking",
+   "cost": "외부 폼 무료 한도는 해당 서비스 약관 따름 — 확인 필요",
+   "how": "행사 신청서 저장은 외부 폼 링크 버튼으로 연결한다. 행사 안내 페이지는 정적으로 만든다",
+   "id": "event_application",
+   "name": "행사 신청",
+   "needs_keys": false,
+   "owner_tasks": [
+    "행사 날짜·장소·신청 폼 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "행사 신청은 어떻게 받으실까요?",
+     "options": [
+      "외부 폼 링크로 받을게요",
+      "전화·카톡으로 받을게요"
+     ]
+    }
+   ],
+   "risk": "모집 인원 초과·개인정보 보관 규칙을 미리 정해야 한다",
+   "sources": [
+    "https://www.google.com/forms/about/"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "예약금 받기",
+    "선금 결제",
+    "계약금 받기",
+    "보증금 받기",
+    "노쇼 방지금",
+    "선수금"
+   ],
+   "alternatives": [
+    {
+     "name": "온라인 예약(외부 예약 링크)",
+     "note": "예약 자체는 외부에서 받는다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "booking",
+   "cost": "PG 수수료·정산 조건은 베타 뒤 안내 — 확인 필요",
+   "how": "베타에서는 만들지 않는다. 돈을 받는 기능은 결제(D13 제외)와 같아서 계좌 안내 문구만 둘 수 있다",
+   "id": "deposit_reservation",
+   "name": "예약금 받기",
+   "needs_keys": false,
+   "owner_tasks": [
+    "베타 뒤 안내 예정(그전엔 계좌 안내 문구만 가능)"
+   ],
+   "questions": [
+    {
+     "ask": "예약금을 미리 받으실까요?",
+     "options": [
+      "네, 필요해요",
+      "아니요, 현장에서 받을게요"
+     ]
+    }
+   ],
+   "risk": "환불·전자상거래 고지 의무가 따른다. 베타 무료 단계에서는 취급하지 않는다",
+   "sources": [
+    "docs/product/DECISIONS.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "예약 확인",
+    "예약 조회",
+    "내 예약 보기",
+    "예약 번호 조회",
+    "예약 상태 확인",
+    "접수 확인"
+   ],
+   "alternatives": [
+    {
+     "name": "전화·카톡 예약 확인 안내",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "booking",
+   "cost": "베타 뒤 구현 시 추가 비용 $0(기존 DB 안) 예상 — 확인 필요",
+   "how": "베타에서는 만들지 않는다. 예약 내역 조회는 저장된 예약 데이터가 있어야 해서 범위를 넘는다",
+   "id": "reservation_lookup",
+   "name": "예약 확인·조회",
+   "needs_keys": false,
+   "owner_tasks": [
+    "베타 뒤 안내 예정"
+   ],
+   "questions": [
+    {
+     "ask": "손님이 자기 예약을 직접 확인하게 하고 싶으세요?",
+     "options": [
+      "네, 필요해요",
+      "전화로 확인해 줄게요"
+     ]
+    }
+   ],
+   "risk": "본인 확인 없는 조회는 개인정보 노출 위험. 베타 뒤 별도 설계 필요",
+   "sources": [
+    "docs/product/USER_DB_PLAN.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "카드 결제",
+    "온라인 결제",
+    "계좌이체 결제",
+    "상품 판매",
+    "온라인 주문",
+    "결제 기능"
+   ],
+   "alternatives": [],
+   "category": "commerce",
+   "cost": "PG 수수료·정산·환불 고지 전부 베타 뒤 과제 — 확인 필요",
+   "how": "베타에서는 만들지 않는다. 베타 기간 무료·결제 없음(D13)이라 돈 받는 버튼을 달지 않는다",
+   "id": "payment_online",
+   "name": "결제·온라인 판매",
+   "needs_keys": false,
+   "owner_tasks": [
+    "베타 뒤 안내 예정"
+   ],
+   "questions": [
+    {
+     "ask": "사이트에서 바로 돈을 받고 싶으세요?",
+     "options": [
+      "네, 필요해요",
+      "아니요, 현장·계좌로 받을게요"
+     ]
+    }
+   ],
+   "risk": "결제·환불·전자상거래 고지 의무가 따른다. 베타에서는 취급하지 않는다",
+   "sources": [
+    "docs/product/DECISIONS.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "쇼핑몰 만들기",
+    "인터넷 쇼핑몰",
+    "온라인 스토어",
+    "상품 목록 판매",
+    "장바구니 기능",
+    "스토어 열기"
+   ],
+   "alternatives": [
+    {
+     "name": "외부 스토어 링크",
+     "note": "스마트스토어 등으로 연결한다",
+     "verdict": "alternative"
+    },
+    {
+     "name": "메뉴판·가격표 페이지",
+     "note": "바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "commerce",
+   "cost": "외부 스토어 수수료는 해당 서비스 약관 따름 — 확인 필요",
+   "how": "베타에서는 만들지 않는다. 장바구니·주문·재고는 저장 기능이 필요해서 범위를 넘는다. 파는 물건 안내는 메뉴판·가격표로 만든다",
+   "id": "shopping_mall",
+   "name": "쇼핑몰(장바구니·주문)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "파는 물건 목록·가격 알려주기(안내 페이지용)"
+   ],
+   "questions": [
+    {
+     "ask": "물건을 사이트에서 바로 팔고 싶으세요?",
+     "options": [
+      "네, 필요해요",
+      "안내만 하고 외부에서 팔게요"
+     ]
+    }
+   ],
+   "risk": "주문·배송·환불·재고 책임이 따른다. 베타에서는 취급하지 않는다",
+   "sources": [
+    "docs/product/DECISIONS.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "쿠폰 만들기",
+    "할인 쿠폰",
+    "이벤트 열기",
+    "프로모션",
+    "할인 행사 안내",
+    "쿠폰 발급"
+   ],
+   "alternatives": [
+    {
+     "name": "이벤트 안내 페이지",
+     "note": "안내문은 바로 만들 수 있다",
+     "verdict": "ready"
+    },
+    {
+     "name": "외부 예약·스토어 쿠폰",
+     "note": "발급은 외부 서비스에서",
+     "verdict": "alternative"
+    }
+   ],
+   "category": "commerce",
+   "cost": "외부 서비스 쿠폰 수수료는 해당 약관 따름 — 확인 필요",
+   "how": "쿠폰 발급·사용 처리는 못 하고 행사 안내 페이지는 만든다. 발급이 필요하면 외부 서비스 링크로 연결한다",
+   "id": "coupon_event",
+   "name": "쿠폰·이벤트",
+   "needs_keys": false,
+   "owner_tasks": [
+    "행사 내용·기간·조건 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "쿠폰이나 할인 행사를 하시나요?",
+     "options": [
+      "안내만 올릴게요",
+      "발급 기능이 필요해요",
+      "안 해요"
+     ]
+    }
+   ],
+   "risk": "쿠폰 사용 조건·유효기간을 분명히 적지 않으면 분쟁이 생긴다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "가격 안내",
+    "요금표",
+    "이용 요금",
+    "수강료 안내",
+    "시술 가격",
+    "객실 요금"
+   ],
+   "alternatives": [],
+   "category": "commerce",
+   "cost": "추가 비용 없음",
+   "how": "가격을 적은 목록을 페이지에 둔다. 값이 비면 자리 표시([가격 입력])로 두고 공개 전에 채운다",
+   "id": "price_list",
+   "name": "가격표",
+   "needs_keys": false,
+   "owner_tasks": [
+    "가격 알려주기(모르면 자리 표시로 둠)"
+   ],
+   "questions": [
+    {
+     "ask": "가격을 알려 주세요. 메뉴만 말씀하셔도 돼요.",
+     "options": [
+      "나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "가격은 사실 칸. 지어내지 않고 공개 전 필수 확인(D23)",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "메뉴 올리기",
+    "음식 메뉴",
+    "메뉴 소개",
+    "시술 메뉴",
+    "메뉴 사진",
+    "메뉴 목록"
+   ],
+   "alternatives": [],
+   "category": "commerce",
+   "cost": "추가 비용 없음",
+   "how": "메뉴·시술·수업 목록을 사진·설명과 함께 둔다. 업종에 따라 표시 이름만 바뀐다(메뉴·시술·반 구성)",
+   "id": "menu_board",
+   "name": "메뉴판",
+   "needs_keys": false,
+   "owner_tasks": [
+    "메뉴 이름·설명·가격 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "대표 메뉴는 무엇인가요?",
+     "options": [
+      "나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "가격이 딸린 메뉴는 사실 칸. 사진은 사장님 제공분만 쓴다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "회원가입 기능",
+    "로그인 기능",
+    "카카오 로그인 달기",
+    "구글 로그인 달기",
+    "회원제 사이트",
+    "계정 만들기"
+   ],
+   "alternatives": [
+    {
+     "name": "우리 플랫폼 공용 로그인으로 이용하기",
+     "note": "사장님 키 발급 없이 검토 중인 대안",
+     "verdict": "alternative"
+    }
+   ],
+   "category": "account",
+   "cost": "키 발급 자체는 무료. 검수(구글 브랜드 검수 등) 절차가 따름 — 확인 필요",
+   "how": "베타에서는 만들지 않는다. 사장님이 카카오·구글 개발자 콘솔에서 키를 직접 받는 과정이 어렵고(OAUTH_SETUP §5), 방문자 계정 저장은 개인정보 책임이 따른다. 대안으로 우리 플랫폼 공용 로그인을 베타 뒤 검토한다",
+   "id": "member_login",
+   "name": "회원가입·로그인(방문자 계정)",
+   "needs_keys": true,
+   "owner_tasks": [
+    "베타 뒤 안내 예정(콘솔 키 발급은 직접 해야 함)"
+   ],
+   "questions": [
+    {
+     "ask": "손님이 회원가입·로그인을 하게 하고 싶으세요?",
+     "options": [
+      "네, 필요해요",
+      "아니요, 비회원으로 충분해요"
+     ]
+    }
+   ],
+   "risk": "계정·이메일 저장은 개인정보. 동의·방침·탈퇴·보관 의무가 생기고 키 유출 시 보안 사고로 이어진다",
+   "sources": [
+    "docs/product/OAUTH_SETUP.md",
+    "https://developers.google.com/identity/protocols/oauth2/policies"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "비밀번호 바꾸기",
+    "주기적 변경",
+    "비밀번호 만료",
+    "90일 변경",
+    "보안 정책",
+    "비밀번호 정책"
+   ],
+   "alternatives": [],
+   "category": "account",
+   "cost": "해당 없음(기능 자체를 권장하지 않음)",
+   "how": "만들지 않는다. 로그인 기능 자체가 베타 밖이고, 설령 계정이 있어도 강제 주기 변경은 NIST SP 800-63B가 비권장으로 바꾼 방식이다. 유출이 의심될 때만 바꾸게 안내한다",
+   "id": "password_rotation",
+   "name": "비밀번호 주기 변경 강제",
+   "needs_keys": false,
+   "owner_tasks": [],
+   "questions": [
+    {
+     "ask": "비밀번호를 주기적으로 바꾸게 하고 싶으세요?",
+     "options": [
+      "권장 기준대로 할게요",
+      "자세히 설명해 주세요"
+     ]
+    }
+   ],
+   "risk": "강제 주기 변경은 오히려 쉬운 비밀번호를 유발한다(NIST SP 800-63B §5.1.1.2). 근거와 함께 비권장을 안내한다",
+   "sources": [
+    "https://pages.nist.gov/800-63-3/sp800-63b.html",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "블로그 연결",
+    "공지사항 올리기",
+    "소식 전하기",
+    "새 소식",
+    "공지 올리기",
+    "블로그 글"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음. 직접 편집 화면에서 글을 고친다",
+   "how": "공지·소식 글을 올리는 정적 목록을 둔다. 새 글은 직접 편집 화면에서 사장님이 고친다",
+   "id": "blog_notices",
+   "name": "블로그·공지사항",
+   "needs_keys": false,
+   "owner_tasks": [
+    "올릴 공지·소식 글 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "공지나 소식을 올리실까요?",
+     "options": [
+      "네, 올릴게요",
+      "아니요, 빼주세요"
+     ]
+    }
+   ],
+   "risk": "날짜 지난 공지를 방치하면 신뢰가 떨어진다. 직접 편집으로 지우는 법을 안내한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "리뷰 올리기",
+    "손님 평가",
+    "별점 보여주기",
+    "이용 후기",
+    "후기 모음",
+    "칭찬 글"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음",
+   "how": "사장님이 준 실제 후기 문구만 올린다. 후기가 없으면 자리 문구 1줄만 둔다. 가짜 후기는 절대 지어내지 않는다",
+   "id": "reviews_display",
+   "name": "후기 보여주기(실제 문구만)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "실제 후기 문구·출처 알려주기(없으면 자리만 둠)"
+   ],
+   "questions": [
+    {
+     "ask": "올릴 만한 실제 후기가 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 자리만 둬 주세요"
+     ]
+    }
+   ],
+   "risk": "가짜 후기는 표시광고법 위반 소지가 있다. 출처·동의가 확인된 문구만 올린다 — 확인 필요",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md",
+    "https://www.law.go.kr"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "후기 쓰기",
+    "리뷰 남기기",
+    "별점 주기",
+    "손님이 글 남기기",
+    "방명록 쓰기",
+    "평가 남기기"
+   ],
+   "alternatives": [
+    {
+     "name": "후기 보여주기(실제 문구만)",
+     "note": "모은 후기를 대신 올려준다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "content",
+   "cost": "베타 뒤 구현 시 스팸 대응·개인정보 의무가 따른다",
+   "how": "베타에서는 만들지 않는다. 손님이 직접 글을 남기려면 저장 기능이 필요해서 문의 양식과 같은 이유(UQ-4)로 제외한다",
+   "id": "review_write",
+   "name": "후기 작성 폼(손님이 남기기)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "베타 뒤 안내 예정"
+   ],
+   "questions": [
+    {
+     "ask": "손님이 직접 후기를 남기게 하고 싶으세요?",
+     "options": [
+      "네, 필요해요",
+      "모은 후기만 올릴게요"
+     ]
+    }
+   ],
+   "risk": "악성·허위 후기·스팸 대응과 작성자 개인정보 문제가 생긴다",
+   "sources": [
+    "docs/product/USER_DB_PLAN.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "갤러리",
+    "사진 올리기",
+    "매장 사진",
+    "작품 사진",
+    "사진 모음",
+    "포토"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음",
+   "how": "사진 격자·가로 넘기기를 둔다. 사진이 없으면 섹션을 숨긴다. 얼굴 자리표시 이미지는 쓰지 않는다",
+   "id": "photo_album",
+   "name": "사진첩",
+   "needs_keys": false,
+   "owner_tasks": [
+    "올릴 사진 보내주기"
+   ],
+   "questions": [
+    {
+     "ask": "올릴 사진이 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "남의 사진·얼굴이 나오면 초상권·저작권 문제. 제공 사진·동의 확인 + EXIF 제거",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "작품 모음",
+    "작업 사례",
+    "실적 소개",
+    "결과물 보여주기",
+    "연주 영상 모음",
+    "작업 갤러리"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음",
+   "how": "작품·사례를 사진·설명과 함께 둔다. 사진첩 부품을 같은 형식으로 쓴다",
+   "id": "portfolio",
+   "name": "포트폴리오",
+   "needs_keys": false,
+   "owner_tasks": [
+    "작품 사진·설명 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "보여줄 작품·사례가 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "고객 작품·학생 사진은 당사자 동의가 있어야 올린다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "자료 올리기",
+    "파일 받기",
+    "안내문 다운로드",
+    "신청서 양식",
+    "PDF 올리기",
+    "자료실"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음",
+   "how": "안내문·신청서 같은 파일을 내려받기 링크로 둔다. 올릴 수 있는 형식·용량은 제한을 둔다",
+   "id": "file_download",
+   "name": "파일 다운로드(안내문)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "올릴 파일 보내주기"
+   ],
+   "questions": [
+    {
+     "ask": "내려받게 할 자료가 있나요?",
+     "options": [
+      "있어요",
+      "없어요"
+     ]
+    }
+   ],
+   "risk": "실행 파일·매크로 문서는 악성코드 위험. 안내문·서식 위주로 받고 형식 제한을 둔다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "질문 모음",
+    "자주 묻는 말",
+    "FAQ",
+    "궁금한 점",
+    "Q&A 올리기",
+    "문의 전 보기"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음",
+   "how": "자주 묻는 질문·답을 접기 목록으로 둔다. 전화 문의를 줄이는 데 도움이 된다",
+   "id": "faq",
+   "name": "자주 묻는 질문",
+   "needs_keys": false,
+   "owner_tasks": [
+    "자주 받는 질문·답 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "자주 받는 질문이 있나요?",
+     "options": [
+      "있어요",
+      "없어요, 빼주세요"
+     ]
+    }
+   ],
+   "risk": "가격·시간이 바뀌면 함께 고쳐야 한다. 직접 편집으로 고치는 법을 안내한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "팝업 공지",
+    "배너 달기",
+    "이벤트 배너",
+    "휴무 공지",
+    "띠 배너",
+    "알림 글"
+   ],
+   "alternatives": [],
+   "category": "content",
+   "cost": "추가 비용 없음",
+   "how": "휴무·행사 같은 한 줄 공지를 페이지 위에 둔다. 자동 팝업(새 창)은 쓰지 않는다",
+   "id": "notice_banner",
+   "name": "공지 배너·띠",
+   "needs_keys": false,
+   "owner_tasks": [
+    "알릴 내용·기간 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "알릴 공지가 있나요?",
+     "options": [
+      "있어요",
+      "없어요"
+     ]
+    }
+   ],
+   "risk": "끝난 공지를 방치하면 혼란이 생긴다. 끝난 공지는 지우는 법을 안내한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "영어 페이지",
+    "외국어 지원",
+    "영문 안내",
+    "번역 기능",
+    "다국어 지원",
+    "외국인 안내"
+   ],
+   "alternatives": [
+    {
+     "name": "외국어 병기 정적 페이지",
+     "note": "사장님이 준 번역문 그대로 올린다",
+     "verdict": "alternative"
+    }
+   ],
+   "category": "content",
+   "cost": "번역문 제작 비용은 사장님 부담(번역기·외주). 자동 번역 위젯은 베타 밖",
+   "how": "자동 번역 버튼은 못 달고, 사장님이 준 외국어 문안을 그대로 올린 안내 페이지는 만든다",
+   "id": "multilingual",
+   "name": "다국어 안내",
+   "needs_keys": false,
+   "owner_tasks": [
+    "외국어 문안 보내주기(없으면 한국어만 시작)"
+   ],
+   "questions": [
+    {
+     "ask": "어떤 언어로 안내가 필요하세요?",
+     "options": [
+      "영어",
+      "중국어·일본어",
+      "한국어만 할게요"
+     ]
+    }
+   ],
+   "risk": "기계 번역 그대로 올리면 오역 책임이 생긴다. 번역문 검토를 사장님께 맡긴다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "인스타 연동",
+    "인스타그램 가져오기",
+    "SNS 피드",
+    "인스타 사진 자동",
+    "인스타 최신 글",
+    "그램 보여주기"
+   ],
+   "alternatives": [
+    {
+     "name": "SNS 바로가기 버튼",
+     "note": "프로필 링크로 바로 연결한다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "media",
+   "cost": "자동 연동 시 심사·토큰 관리 부담. 링크 방식은 무료",
+   "how": "인스타 글이 자동 뜨는 박스는 못 만든다(API 토큰·심사 + 임베드 스크립트 제한). 대신 인스타 프로필 링크 버튼을 두고 대표 사진은 직접 올린다",
+   "id": "instagram_feed",
+   "name": "인스타그램 피드 자동 표시",
+   "needs_keys": true,
+   "owner_tasks": [
+    "인스타 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "인스타 글을 사이트에 띄우고 싶으세요?",
+     "options": [
+      "링크 버튼으로 할게요",
+      "자동으로 뜨게 해 주세요"
+     ]
+    }
+   ],
+   "risk": "자동 연동은 토큰 유출·권한 심사·추적기 문제를 동반한다. 조건 세부 확인 필요",
+   "sources": [
+    "https://developers.facebook.com/docs/instagram-platform/",
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "유튜브 넣기",
+    "영상 올리기",
+    "동영상 재생",
+    "유튜브 영상 틀기",
+    "홍보 영상",
+    "연주 영상"
+   ],
+   "alternatives": [
+    {
+     "name": "유튜브 링크 버튼",
+     "note": "썸네일 카드 + 새 탭으로 연결한다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "media",
+   "cost": "추가 비용 없음",
+   "how": "페이지 안에서 바로 재생하는 틀은 못 넣는다(iframe 금지). 대신 썸네일 카드를 눌러 유튜브로 가는 버튼을 둔다",
+   "id": "youtube_video",
+   "name": "유튜브 영상 넣기",
+   "needs_keys": false,
+   "owner_tasks": [
+    "유튜브 영상 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "올릴 영상이 있나요?",
+     "options": [
+      "있어요",
+      "없어요"
+     ]
+    }
+   ],
+   "risk": "남의 영상을 올리면 저작권 문제. 본인·동의된 영상만 연결한다",
+   "sources": [
+    "https://developers.google.com/youtube/player_parameters",
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "오시는 길",
+    "위치 안내",
+    "지도 보기",
+    "찾아오는 길",
+    "주소 안내",
+    "길찾기 링크"
+   ],
+   "alternatives": [],
+   "category": "map",
+   "cost": "추가 비용 없음(링크 방식, 키 불필요)",
+   "how": "주소와 함께 카카오맵·구글지도·네이버지도 바로가기 버튼을 둔다. 지도를 페이지 안에 박지 않는다",
+   "id": "map_directions_link",
+   "name": "지도·오시는 길(지도 링크)",
+   "needs_keys": false,
+   "owner_tasks": [
+    "주소·지역 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "가게는 어디에 있나요? 지역만 알려 주셔도 돼요.",
+     "options": [
+      "나중에 넣을게요"
+     ]
+    }
+   ],
+   "risk": "주소는 사실 칸. 사장님이 말한 값만 쓰고 좌표를 지어내지 않는다",
+   "sources": [
+    "https://map.kakao.com",
+    "https://maps.google.com",
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "지도 박기",
+    "지도를 페이지에",
+    "지도 API",
+    "움직이는 지도",
+    "네이버 지도 넣기",
+    "약도 자동"
+   ],
+   "alternatives": [
+    {
+     "name": "지도·오시는 길(지도 링크)",
+     "note": "키 없이 바로 만들 수 있다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "map",
+   "cost": "지도 API 요금·한도는 제공사 약관 따름 — 확인 필요",
+   "how": "베타에서는 만들지 않는다. 페이지 안에 박는 지도는 iframe이라 생성물 규격에서 금지되고 API 키도 필요하다",
+   "id": "map_api_embed",
+   "name": "지도 임베드(API 키 방식)",
+   "needs_keys": true,
+   "owner_tasks": [
+    "베타 뒤 안내 예정"
+   ],
+   "questions": [
+    {
+     "ask": "지도가 페이지 안에 박히게 하고 싶으세요?",
+     "options": [
+      "링크 버튼으로 충분해요",
+      "나중에 알아볼게요"
+     ]
+    }
+   ],
+   "risk": "API 키를 페이지에 노출하면 도용 과금 위험. 키 제한 설정이 필수라 베타 뒤 과제로 둔다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "SNS 연결",
+    "인스타 링크",
+    "유튜브 링크",
+    "블로그 링크",
+    "SNS 아이콘",
+    "채널 바로가기"
+   ],
+   "alternatives": [],
+   "category": "integration",
+   "cost": "추가 비용 없음",
+   "how": "인스타·유튜브·블로그 주소로 가는 버튼을 둔다(새 탭). 자동 불러오기가 아니라 단순 연결이다",
+   "id": "sns_link_buttons",
+   "name": "SNS 바로가기 버튼",
+   "needs_keys": false,
+   "owner_tasks": [
+    "SNS 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "연결할 SNS가 있나요?",
+     "options": [
+      "있어요",
+      "없어요"
+     ]
+    }
+   ],
+   "risk": "연결된 SNS의 게시물은 사장님 책임. 문제 게시물은 링크를 떼는 법을 안내한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "구글 캘린더 연결",
+    "일정 달력 링크",
+    "수업 달력",
+    "행사일정 달력",
+    "캘린더 보기",
+    "외부 일정"
+   ],
+   "alternatives": [],
+   "category": "integration",
+   "cost": "추가 비용 없음",
+   "how": "구글 캘린더 같은 공개 일정 링크 버튼을 둔다. 일정 관리는 그 서비스에서 한다",
+   "id": "external_calendar_link",
+   "name": "외부 일정 달력 링크",
+   "needs_keys": false,
+   "owner_tasks": [
+    "공개 일정 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "공개 중인 일정 달력이 있나요?",
+     "options": [
+      "있어요",
+      "없어요"
+     ]
+    }
+   ],
+   "risk": "공개 달력에 개인정보(학생 이름 등)가 섞이지 않게 확인한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "사이트 검색",
+    "검색창 달기",
+    "글 찾기",
+    "메뉴 찾기",
+    "페이지 검색",
+    "검색 기능"
+   ],
+   "alternatives": [],
+   "category": "integration",
+   "cost": "해당 없음",
+   "how": "베타에서는 만들지 않는다. 한 페이지 안내 사이트에는 검색창이 필요 없고 CSS만으로는 검색이 안 된다",
+   "id": "site_search",
+   "name": "사이트 내 검색",
+   "needs_keys": false,
+   "owner_tasks": [],
+   "questions": [
+    {
+     "ask": "사이트 안에서 검색이 필요하세요?",
+     "options": [
+      "네, 필요해요",
+      "아니요, 괜찮아요"
+     ]
+    }
+   ],
+   "risk": "작은 사이트의 검색창은 쓸모없이 비는 경우가 많다. 메뉴가 많아지면 베타 뒤 검토한다",
+   "sources": [
+    "docs/product/SECTION_LIBRARY_SPEC.md"
+   ],
+   "verdict": "out_of_beta"
+  },
+  {
+   "aliases": [
+    "내 도메인 연결",
+    "주소 바꾸기",
+    "개인 도메인",
+    "co.kr 연결",
+    "도메인 사기",
+    "사이트 주소 정하기"
+   ],
+   "alternatives": [],
+   "category": "integration",
+   "cost": "도메인 구매·연장 비용은 사장님 부담(연 1~2만 원대 일반적 — 확인 필요)",
+   "how": "지금은 임시 주소로 만들고 이름·도메인은 나중에 정한다(D2). 사장님이 도메인을 사 오면 연결해 준다",
+   "id": "domain_connection",
+   "name": "도메인 연결",
+   "needs_keys": false,
+   "owner_tasks": [
+    "도메인 사기(구매)·주소 알려주기(베타 뒤)"
+   ],
+   "questions": [
+    {
+     "ask": "사이트 주소를 정하셨나요?",
+     "options": [
+      "임시 주소로 시작할게요",
+      "도메인이 있어요",
+      "나중에 정할게요"
+     ]
+    }
+   ],
+   "risk": "도메인 명의·연장 관리는 사장님 책임. 만료되면 사이트가 끊긴다",
+   "sources": [
+    "docs/product/DECISIONS.md"
+   ],
+   "verdict": "owner_setup"
+  },
+  {
+   "aliases": [
+    "뉴스레터 보내기",
+    "메일 발송",
+    "구독 신청",
+    "소식지 보내기",
+    "정기 메일",
+    "메일링"
+   ],
+   "alternatives": [
+    {
+     "name": "공지·소식 글",
+     "note": "새 소식은 직접 편집으로 올린다",
+     "verdict": "ready"
+    }
+   ],
+   "category": "marketing",
+   "cost": "외부 서비스 요금은 해당 약관 따름 — 확인 필요",
+   "how": "구독자 명단 저장·정기 발송은 못 하므로 외부 뉴스레터 서비스 구독 링크 버튼으로 연결한다",
+   "id": "newsletter",
+   "name": "뉴스레터 구독·발송",
+   "needs_keys": false,
+   "owner_tasks": [
+    "외부 뉴스레터 주소 알려주기"
+   ],
+   "questions": [
+    {
+     "ask": "소식을 정기적으로 보내시나요?",
+     "options": [
+      "외부 서비스로 보낼게요",
+      "안 보내요"
+     ]
+    }
+   ],
+   "risk": "수신 동의 없는 발송은 스팸·법 위반. 외부 서비스의 동의 절차를 따른다 — 확인 필요",
+   "sources": [
+    "https://www.pipc.go.kr"
+   ],
+   "verdict": "alternative"
+  },
+  {
+   "aliases": [
+    "네이버 검색",
+    "구글 검색 노출",
+    "검색에 나오기",
+    "상위 노출",
+    "SEO",
+    "검색 등록"
+   ],
+   "alternatives": [],
+   "category": "marketing",
+   "cost": "기본 대응 무료. 광고·유료 상위 노출은 범위 밖",
+   "how": "제목·설명·모바일 대응을 기본으로 넣는다. 검색 등록(네이버 서치어드바이저 등)은 사장님이 직접 한다",
+   "id": "seo_basic",
+   "name": "검색 노출(SEO) 기본",
+   "needs_keys": false,
+   "owner_tasks": [
+    "검색 등록 직접 하기(네이버 서치어드바이저 등, 안내 제공)"
+   ],
+   "questions": [
+    {
+     "ask": "검색에 가게가 나오면 좋겠지요?",
+     "options": [
+      "네, 등록할게요",
+      "나중에 할게요"
+     ]
+    }
+   ],
+   "risk": "상위 노출을 보장할 수 없다. 보장형 광고 제안은 사기가 많으니 주의 안내",
+   "sources": [
+    "https://searchadvisor.naver.com/"
+   ],
+   "verdict": "ready"
+  },
+  {
+   "aliases": [
+    "방문자 수 보기",
+    "접속 통계",
+    "조회수 확인",
+    "유입 분석",
+    "방문 기록",
+    "통계 보기"
+   ],
+   "alternatives": [
+    {
+     "name": "외부 통계 도구 연결",
+     "note": "추후 스크립트 허용 시 검토",
+     "verdict": "alternative"
+    }
+   ],
+   "category": "marketing",
+   "cost": "외부 도구 요금은 해당 약관 따름 — 확인 필요",
+   "how": "베타에서는 방문자 데이터를 저장하지 않으므로 사이트별 통계 화면을 못 만든다. 베타 뒤 외부 통계 연결로 검토한다",
+   "id": "visitor_stats",
+   "name": "방문자 통계",
+   "needs_keys": false,
+   "owner_tasks": [
+    "베타 뒤 안내 예정"
+   ],
+   "questions": [
+    {
+     "ask": "방문자가 몇 명 오는지 보고 싶으세요?",
+     "options": [
+      "네, 궁금해요",
+      "아니요, 괜찮아요"
+     ]
+    }
+   ],
+   "risk": "방문자 추적은 개인정보 이슈(IP·쿠키). 도입 시 방침·동의가 필요하다",
+   "sources": [
+    "docs/product/DECISIONS.md",
+    "https://www.pipc.go.kr"
+   ],
+   "verdict": "alternative"
+  }
+ ],
+ "version": 1
+}

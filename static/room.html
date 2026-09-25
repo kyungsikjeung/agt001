@@ -228,6 +228,18 @@ function addMessage(m) {
   text.className = 'text';
   text.textContent = m.text;
   bubble.appendChild(text);
+  // AI 답장 말풍선에만 작은 "듣기" 버튼을 단다. 재생은 voice.js의 window.speakAiText가 맡는다.
+  if (m.kind === 'ai_reply') {
+    const listenBtn = document.createElement('button');
+    listenBtn.type = 'button';
+    listenBtn.textContent = '듣기';
+    listenBtn.setAttribute('aria-label', '답장 듣기');
+    listenBtn.style.cssText = 'margin-top:8px;font-size:0.75rem;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);color:var(--text);cursor:pointer;';
+    listenBtn.onclick = () => {
+      if (typeof window.speakAiText === 'function') window.speakAiText(m.text, listenBtn);
+    };
+    bubble.appendChild(listenBtn);
+  }
   row.appendChild(bubble);
   log.appendChild(row);
   log.scrollTop = log.scrollHeight;
