@@ -25,4 +25,5 @@ COPY . .
 ENV PORT=8643
 EXPOSE 8643
 
-CMD ["python", "backend.py"]
+# Caddy가 넘겨준 X-Forwarded-Proto를 신뢰해 배포 URL이 https로 나오게 한다.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8643", "--proxy-headers", "--forwarded-allow-ips", "*"]
