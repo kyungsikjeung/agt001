@@ -53,7 +53,7 @@ def _rag_note(spec: str) -> str:
     log.info("비슷한 사례: %s", names)
     if names:
         return "비슷한 사례를 참고해 설계할게요: " + ", ".join(names)
-    return "딱 맞는 사례는 없어서, 말씀하신 내용에 맞게 새로 설계할게요."
+    return "말씀하신 내용과 업종 기본 구성에 맞춰 설계할게요."
 
 
 _CHOICE = re.compile(r"(?<!\d)([1-3])\s*(?:안|번)")

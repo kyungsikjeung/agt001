@@ -95,7 +95,8 @@ def precheck(user_text: str) -> str:
 def similar(text: str) -> list[str]:
     """기준(rag_sim_threshold)을 넘는 비슷한 사례 이름. 1위와 가까운 것만, 최대 NOTE_MAX개. 장애면 빈 목록."""
     try:
-        chunks = query(text, top_k=NOTE_MAX + 2)["chunks"]
+        # 업종 문서끼리는 점수 차가 작아 엉뚱한 업종이 섞인다(첼로 → 식당). 업종은 카드가 정하므로 기능 사례만 본다.
+        chunks = [c for c in query(text, top_k=len(DOCS))["chunks"] if c["source"].startswith("feature:")]
     except Exception:
         log.exception("임베딩 검색 실패, 사례 없음으로 폴백")
         return []

@@ -30,7 +30,7 @@ def test_precheck_novel_when_dissimilar(monkeypatch):
 
 def test_similar_limits_to_close_top_items(monkeypatch):
     rag.reset_cache()
-    vecs = [[1.0, 0.0]] + [[0.0, 1.0]] * (len(rag.DOCS) - 1)
+    vecs = [[1.0, 0.0]] + [[0.0, 1.0]] * (len(rag.DOCS) - 1)  # DOCS[0]은 기능 사례
     monkeypatch.setattr(llm, "embed_many", lambda texts: vecs)
     monkeypatch.setattr(llm, "embed", lambda text: [1.0, 0.0])
     assert rag.similar("q") == [rag.DOCS[0]["name"]]
