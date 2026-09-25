@@ -14,8 +14,8 @@
 | M-5 | ✅ 결정 기록(RENDERER_NOTES §4) RENDERER 계약 5건 확정 (토큰형, image, alt, intro, focus) | RENDERER_NOTES §2·§3 | Claude | R1 | 1시간 |
 | M-6 | ✅ 완료 O5 시안 3안 선택 카드 연결 | DELIVERY O5, DESIGN P-5 | OpenCode | M-1 | 3시간 |
 | M-7 | ✅ 완료 T1 듣기 버튼 (운영 배포, 실측 2.25초, 자동재생 없음) | VOICE 부록, DELIVERY O6 | OpenCode | Claude 계약 | 2시간 |
-| M-8 | OAuth 키 서버 등록 (scripts/set_oauth_secrets.sh 실행) | DECISIONS D10, DELIVERY 1-6 | 사용자 | 없음 | 30분 |
-| M-9 | 구글 동의 화면 마지막 단계 확인 | README, OAUTH_SETUP | 사용자 | 없음 | 30분 |
+| M-8 | ✅ 완료 OAuth 키 서버 등록 (scripts/set_oauth_secrets.sh 실행) | DECISIONS D10, DELIVERY 1-6 | 사용자 | 없음 | 30분 |
+| M-9 | ✅ 완료 구글 동의 화면 마지막 단계 확인 | README, OAUTH_SETUP | 사용자 | 없음 | 30분 |
 | M-10 | 개인정보처리방침·약관 공개 (static 초안 게시) | USER_DB_PLAN §A-2, DECISIONS D14 | Claude | 사용자 확인 | 2시간 |
 | M-11 | ✅ 구현 T1 투표 24시간·T2 견적 7일·T4 30일 닫기·D8 10명 (읽기·쓰기 때 판정, 경고 알림은 아직) | ROOM_POLICY §4.2 | Claude | 없음 | 1시간, 확인 필요 |
 | M-12 | 저장소 공개 전환 (마지막에) | 지시문 마감 항목 | 사용자 | 전부 | 10분 |
