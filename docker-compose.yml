@@ -65,7 +65,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # 파일 하나가 아니라 폴더를 붙인다: git checkout이 파일을 새로 만들면 파일 바인드는 옛 파일을 계속 본다.
+      - ./deploy:/etc/caddy:ro
       - caddy_data:/data
       - caddy_config:/config
 
