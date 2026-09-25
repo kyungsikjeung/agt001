@@ -47,6 +47,15 @@ def editor():
     return FileResponse(page)
 
 
+@router.get("/projects", include_in_schema=False)
+def projects_page():
+    # 내 프로젝트(1-1b): 이 기기에서 연 방 + 로그인하면 계정에 옮긴 방.
+    page = settings.frontend_dist_dir / "projects.html"
+    if not page.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(page)
+
+
 @router.get("/landing.html", include_in_schema=False)
 def old_landing():
     # 예전 랜딩 주소로 공유된 링크를 새 랜딩으로 보낸다.

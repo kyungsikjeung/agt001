@@ -35,3 +35,22 @@ def test_summary_has_state_title_and_deploy(client):
 def test_requires_member_and_caps_list(client):
     assert client.post("/api/projects/summary", json={"room_ids": []}).status_code == 400
     assert _summary(client, "me", ["x"] * 200).json() == {"projects": []}
+
+
+def test_logged_in_includes_account_rooms_from_other_devices(client):
+    """다른 기기에서 계정에 옮긴 방도 보인다. 방의 본인 확인 값은 계정에 저장된 값으로 검사한다."""
+    from app.services import auth
+
+    room = _create_room(client)
+    _post(client, room, "phone-member", "")
+    user_id = "u-test"
+    from app.db.models import UserRow
+    from app.db.session import get_sessionmaker
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRow(id=user_id, nickname="사장님"))
+    assert auth.claim_rooms(user_id, "phone-member", [room]) == 1
+    client.cookies.set(auth.SESSION_COOKIE, auth.create_session(user_id))
+    # 이 기기(노트북)에는 방 기록도 본인 확인 값도 없다.
+    r = client.post("/api/projects/summary", json={"room_ids": []})
+    assert r.status_code == 200
+    assert [p["room_id"] for p in r.json()["projects"]] == [room]

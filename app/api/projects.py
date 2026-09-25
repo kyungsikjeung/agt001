@@ -1,16 +1,17 @@
 """내 프로젝트 목록 (ROOM_POLICY.md §3.2). 로그인 전에는 이 기기에서 들어간 방 목록으로 동작한다.
 
 브라우저가 기억한 방 ID와 본인 확인 값(X-Member-Id)을 보내면, 그 사람이 실제 참여자인 방만 요약해 돌려준다.
-참여자가 아닌 방은 조용히 빠진다(방이 있는지도 알려주지 않음). 로그인(1-2) 뒤에는 계정 기준 목록으로 바꾼다.
+참여자가 아닌 방은 조용히 빠진다(방이 있는지도 알려주지 않음).
+로그인하면 계정에 옮긴 방(user_rooms, 다른 기기에서 연 방 포함)도 함께 보여준다.
 """
 from typing import Optional
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from app import store
 from app.security import sanitize_token
-from app.services import prd_schema
+from app.services import auth, prd_schema
 
 router = APIRouter()
 
@@ -42,20 +43,24 @@ def _title(session: dict) -> str:
 
 
 @router.post("/api/projects/summary")
-def projects_summary(body: ProjectsIn, x_member_id: Optional[str] = Header(default=None)):
+def projects_summary(body: ProjectsIn, request: Request, x_member_id: Optional[str] = Header(default=None)):
     member_id = sanitize_token(x_member_id or "")
-    if not member_id:
+    user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
+    if not member_id and user is None:
         raise HTTPException(status_code=400, detail="member required")
+    # (방 ID, 그 방에서의 본인 확인 값): 이 기기의 방 + 계정에 옮긴 방
+    pairs = [(sanitize_token(raw), member_id) for raw in body.room_ids[:MAX_ROOMS]] if member_id else []
+    if user is not None:
+        pairs += auth.rooms_for_user(user["id"])[:MAX_ROOMS]
     out = []
     seen = set()
-    for raw in body.room_ids[:MAX_ROOMS]:
-        room_id = sanitize_token(raw)
-        if not room_id or room_id in seen:
+    for room_id, mid in pairs:
+        if not room_id or not mid or room_id in seen:
+            continue
+        room = store.read_room(room_id)
+        if room is None or not any(m["member_id"] == mid for m in room["members"]):
             continue
         seen.add(room_id)
-        room = store.read_room(room_id)
-        if room is None or not any(m["member_id"] == member_id for m in room["members"]):
-            continue
         session = store.read_session(room["session_id"]) or {}
         prd = session.get("prd") or {}
         industry = prd_schema.INDUSTRIES.get(prd.get("industry") or "")
