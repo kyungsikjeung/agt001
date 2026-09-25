@@ -366,6 +366,15 @@ function joinRoom() {
   startRoom();
 }
 
+// 이 기기에서 들어간 방을 기억한다("내 프로젝트" 화면이 읽는다, /projects). 최근 50개까지.
+function rememberRoom(id) {
+  try {
+    const list = JSON.parse(localStorage.getItem('agt001_rooms') || '[]').filter((r) => r !== id);
+    list.unshift(id);
+    localStorage.setItem('agt001_rooms', JSON.stringify(list.slice(0, 50)));
+  } catch (e) { /* 저장소를 못 쓰면 목록만 비어 있다 */ }
+}
+
 async function startRoom() {
   await ensureRoom();
   if (!memberId) {
@@ -375,6 +384,7 @@ async function startRoom() {
   // 온보딩 안내: 서버에 남기지 않는 프론트 1회성 표시. 정말 새 방일 때만 보여준다.
   // 참여자가 아니면 기록을 조회할 수 없으므로(ROOM_POLICY.md R-0), 새 방인지는
   // 입장 응답의 fresh(입장 전 메시지가 하나도 없었는지)로 판단한다.
+  rememberRoom(roomId);
   const joined = await sendRoomMessage('');
   if (pending) {
     // 랜딩에서 적은 내용을 첫 메시지로 보낸다. 사용자가 이미 설명했으므로 안내 메시지는 생략한다.
