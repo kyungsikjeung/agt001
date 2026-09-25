@@ -49,13 +49,13 @@
 | 0-1d | 브라우저 E2E | 검증 / OpenCode C | `tests/e2e/**` | 0-1a | ✅ 5/5 통과 |
 | 0-1e | OCI 배포·실측 (uvicorn, https 배포 URL) | 검증 / Claude | 배포 | 0-1b | ✅ 운영 E2E 5/5, 실제 코드생성 → https 배포 URL 200 |
 | 0-2a | DB 스키마·SQLAlchemy 모델·Alembic | 구현 / Claude | `app/db/**`, `alembic/**` | 0-1e | ✅ upgrade·downgrade·`alembic check` 통과 |
-| 0-2b | `store.py`를 PostgreSQL 구현으로 교체 + JSON 이전 스크립트 | 구현 / Claude | `app/store.py`, `scripts/migrate_json_to_pg.py` | 0-2a | 🔄 로컬 완료(단위 53, E2E 5/5, 실제 NIM). 운영 배포·데이터 이전 대기 |
+| 0-2b | `store.py`를 PostgreSQL 구현으로 교체 + JSON 이전 스크립트 | 구현 / Claude | `app/store.py`, `scripts/migrate_json_to_pg.py` | 0-2a | ✅ 운영 반영, 데이터 이전(세션 28·방 27·메시지 156) 일치, 일일 백업 cron |
 | 0-2c | compose `db` 서비스·볼륨·일일 백업·CI PostgreSQL | 구현 / OpenCode H | `docker-compose.yml`, `scripts/backup_db.sh`, `ci.yml` | 0-2a | ✅ (서버 cron 등록은 배포 때) |
 | 0-3a | 코드생성 작업 큐(Redis+RQ) + 워커 | 구현 / Claude | `app/services/codegen.py`, `app/worker.py` | 0-2b | ⏳ |
 | 0-3b | 샌드박스 제어: 컨테이너 이름·`docker stop`·메모리/CPU 제한·타임아웃 후 산출물 판정 | 구현 / Claude | `app/services/codegen.py` | 0-3a | ⏳ (실측 버그: 파일 생성 후 90초 초과 시 실패 판정) |
 | 0-4a | 배포 전 스냅샷 + `rollback.sh` | 구현 / OpenCode | `scripts/deploy.sh`, `scripts/rollback.sh` | — | ✅ 운영 배포에 적용 |
 | 0-4b | 스테이징 compose(별도 포트·DB) | 구현 / OpenCode | `docker-compose.staging.yml` | 0-2c | ⏳ |
-| 0-4c | 서버 GitHub 인증(읽기 전용 Deploy Key) + `deploy.sh` git 방식 전환 | 구현 / Claude | `scripts/deploy.sh` | — | 🟢 계획 완료 (GIT_PULL_ROOT_CAUSE.md §4), 사용자 승인 대기 |
+| 0-4c | 서버 GitHub 인증(읽기 전용 Deploy Key) + `deploy.sh` git 방식 전환 | 구현 / Claude | `scripts/deploy.sh` | — | ✅ 운영 적용, git 방식 배포 실측 |
 | 0-5a | OCI 비용 모니터링 리포트 | 검증 / OpenCode I | `scripts/oci_cost_report.sh` | — | ✅ 30일 0원, 무료 한도 대비 OCPU 50%·스토리지 23.5% |
 | 0-5b | 비용 일일 자동 점검 + 알림 | 구현 / Claude | cron·알림 | 0-5a | ⏳ |
 
@@ -89,8 +89,9 @@
 
 | WP | 내용 | 레인/담당 | 소유 파일 | 의존 | 상태 |
 |---|---|---|---|---|---|
-| 0-6a | 전화 발신 수단·에스컬레이션 조사 | 계획 / OpenCode J | `docs/product/DEV_DECISION_CALL.md` | — | 🔄 |
-| 0-6b | 음성(TTS·STT) 결정 판정 프로토콜 조사 | 계획 / OpenCode J2 | `docs/product/DEV_DECISION_VOICE.md` | — | 🔄 |
+| 0-6a | 전화 발신 수단·에스컬레이션 조사 | 계획 / OpenCode J | `docs/product/DEV_DECISION_CALL.md` | — | ✅ 추천: 텔레그램 먼저 → 무응답 시 Twilio 전화·키패드, 월 약 $8 |
+| 0-6b | 음성(TTS·STT) 결정 판정 프로토콜 조사 | 계획 / OpenCode J2 | `docs/product/DEV_DECISION_VOICE.md` | — | ✅ 복창 확인 필수, 돈·비가역 결정은 음성 확정 불가, 월 5천원대 |
+| 0-6c | 결정 요청 시스템 구현 (도입 결정 시) | 구현 / Claude | `app/api/decisions.py`, `scripts/dev-decision-request.sh` | 0-6a, 0-6b | ⏳ 경영진 결정 대기 |
 
 2단계(PRD 엔진) 이후 WP는 1단계 구현이 시작될 때 계획 레인에서 이 표에 추가한다.
 
