@@ -17,6 +17,32 @@
 6. 코드생성 — 확정 요구사항으로 Hermes가 격리 샌드박스에서 사이트를 만든다 (`app/services/codegen.py`).
 7. 공개 사이트 — `/site/<id>/` 로 실제 접속 가능한 결과물을 받는다 (`app/api/public.py`).
 
+## 지금 상태 (2026-09-26 갱신)
+
+**운영에서 바로 확인할 수 있는 것**
+
+| 기능 | 확인 방법 |
+|---|---|
+| 입력창 중심 랜딩 + 업종 템플릿 6개 | https://144.24.91.250.sslip.io |
+| 요구사항 질문 엔진: 선택지 버튼, 알아들은 내용 되짚기("이렇게 이해했어요"), 최대 8질문, "시안 먼저" 건너뛰기 | 랜딩에 입력 → 채팅방 |
+| 음성 입력(NVIDIA Parakeet 한국어): 마이크 버튼 → 글자로 바뀌어 입력창에 들어감(자동 전송 없음) | 채팅방 입력줄의 마이크 버튼 |
+| 공유방: 초대, 과반 투표, 본인 확인 값 비노출 | `/room.html` |
+| 사장님 직접 편집 화면(목업 데이터) | `/editor` |
+| 견적 → 시안(1종) → 코드생성 → 공개 사이트 | 채팅방에서 승인 → 진행 |
+
+**진행 중 (병렬 계획: [DELIVERY_PIPELINE.md §5.4](docs/product/DELIVERY_PIPELINE.md))**
+
+| 작업 | 상태 |
+|---|---|
+| 요구사항 엔진 결함 16건 수정 (독립 검증 결과, [검증 보고서](docs/product/reviews/REQUIREMENTS_ENGINE_VERIFICATION.md)) | 수정 중 — `tests/engine`이 재현 테스트 |
+| 입구 게이트: 문의 종류 분류(가게·개인·단체·웹서비스), 기능 가능성 판정, 질문 예산 ([설계](docs/product/INTAKE_GATE_DESIGN.md), [기능 사례집](docs/product/FEATURE_CATALOG.md)) | 설계·사례집 완료, 구현 중 |
+| 플랫폼 공용 기능 ① 문의 받기 + 사장님 알림 | 대기 |
+| 시안 3안(섹션 부품 20종 기반 렌더러) | 부품·토큰 완료, 렌더러 대기 |
+| 실제 대화 기록 기반 AI 성능 평가 (대화 턴 기록은 운영 적용 완료) | 평가 도구 작성 중 |
+| 내 프로젝트 목록 화면 (서버 API 완료) | 화면 대기 |
+
+**알려진 한계:** 업종·숨은 항목 표가 고정(가게 6업종)이라 표에 없는 문의는 입구 게이트 구현 전까지 일반 질문으로 처리됩니다. 시안은 아직 1종입니다. 견적은 AI가 만든 3안입니다(베타 참고값).
+
 ## NVIDIA 기술을 쓴 곳
 
 | 기술 | 용도 | 코드·문서 위치 | 상태 |
@@ -106,7 +132,9 @@ flowchart LR
 
 테스트 수 (파일을 직접 세어 확인, 2026-09-26 기준):
 
-- 단위 테스트: 77개 (`tests/unit`, 10개 파일: `test_chat` 5, `test_funnel` 6, `test_migrate_json` 2, `test_prd_engine` 13, `test_public` 8, `test_quote` 9, `test_rag` 3, `test_rooms` 14, `test_security` 8, `test_store` 9).
+- 단위 테스트: 89개 (`tests/unit`, 실제 PostgreSQL 위에서, CI에서 매 커밋 실행).
+- 엔진 검증 테스트: 31개 (`tests/engine`, 경계 조건. 15개 통과·16개는 결함 재현 — 수정 중).
+- 평가 도구 테스트: 17개 (`evals/tests`, 추출 평가·대화 시뮬레이션 실행기).
 - E2E 테스트: 5개 (`tests/e2e/test_room_e2e.py`: 입장→요청→투표→견적→시안→코드생성→배포 URL 흐름).
 - 프론트 테스트: 18개 (`frontend/src/editor/EditorPage.test.tsx` 3, `specReducer.test.ts` 15, vitest + jsdom).
 
@@ -160,7 +188,8 @@ agt001/
 ├── frontend/src/         # 랜딩·편집기 (React + TypeScript + Vite)
 ├── static/               # 기존 채팅·공유방 정적 화면 (index.html, room.html)
 ├── templates/            # 시안 템플릿 (현재 1종)
-├── tests/unit, tests/e2e # 단위 77개·E2E 5개
+├── tests/unit, tests/engine, tests/e2e # 단위 89개·엔진 검증 31개·E2E 5개
+├── evals/               # 시나리오 36개, 추출 평가 60개, 평가 실행기
 ├── contracts/            # 팀원 간 경계(BND) 스키마 + 예시
 ├── scripts/              # deploy.sh, rollback.sh, backup_db.sh
 ├── deploy/Caddyfile      # HTTPS 리버스 프록시
