@@ -83,7 +83,7 @@ def recommended_option(quote: dict) -> tuple[int, str]:
 
 # ── 규칙 참고 견적 (D25·D13) ─────────────────────────────────────────
 # AI가 금액을 만들지 않는다. "외주로 맡기면 보통 이 정도" 참고값을 규칙으로 계산하고, 베타 기간 무료를 함께 알린다.
-# 값은 1인 외주 원페이지 시세를 보수적으로 잡은 것(확인 필요: 시세 조사로 갱신).
+# 값은 1인 외주 원페이지 시세를 보수적으로 잡은 것. 근거: docs/product/research/RESEARCH_INFRA_COST.md §3(공개 가격표 7곳, 2026-09-26).
 RULE_BASE = {"individual": 500_000, "group": 500_000, "webservice": 1_200_000}
 RULE_BASE_DEFAULT = 600_000        # 가게·기타 원페이지
 RULE_PER_SECTION = 80_000          # 담을 내용 한 가지마다
