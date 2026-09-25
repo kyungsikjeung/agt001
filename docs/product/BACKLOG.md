@@ -12,7 +12,7 @@
 | M-3 | ✅ 완료 D25 규칙 견적 1줄로 교체 (AI 3안 제거). 운영 실측: 첼로에 150만~650만원·알림톡을 제안, 베타 무료(D13)와 모순 | DECISIONS D25, FIXES B-10 | Claude | 없음 | 2시간 |
 | M-4 | S-1 미리보기 별도 호스트 분리 | DESIGN §13.5 S-1, DELIVERY §5.2 | Claude | 없음 | 3시간 |
 | M-5 | RENDERER 계약 5건 확정 (토큰형, image, alt, intro, focus) | RENDERER_NOTES §2·§3 | Claude | R1 | 1시간 |
-| M-6 | O5 시안 3안 선택 카드 연결 | DELIVERY O5, DESIGN P-5 | OpenCode | M-1 | 3시간 |
+| M-6 | ✅ 완료 O5 시안 3안 선택 카드 연결 | DELIVERY O5, DESIGN P-5 | OpenCode | M-1 | 3시간 |
 | M-7 | ✅ 완료 T1 듣기 버튼 (운영 배포, 실측 2.25초, 자동재생 없음) | VOICE 부록, DELIVERY O6 | OpenCode | Claude 계약 | 2시간 |
 | M-8 | OAuth 키 서버 등록 (scripts/set_oauth_secrets.sh 실행) | DECISIONS D10, DELIVERY 1-6 | 사용자 | 없음 | 30분 |
 | M-9 | 구글 동의 화면 마지막 단계 확인 | README, OAUTH_SETUP | 사용자 | 없음 | 30분 |
