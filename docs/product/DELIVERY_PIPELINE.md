@@ -72,6 +72,26 @@
 | 1-5 | 인증 테스트(단위·E2E) | 검증 / OpenCode | `tests/**` | 1-2 | ⏳ |
 | 1-6 | 사용자 작업: 카카오 로그인 활성화, 구글 OAuth 클라이언트 발급 (절차: OAUTH_SETUP.md §5) | 사용자 | 콘솔 | 1-0a | 🟢 사용자 작업 대기 |
 
+### 채팅방 정책 — 초대·기록·종료/초기화·알림 ([ROOM_POLICY.md](ROOM_POLICY.md) §7)
+
+| WP | 내용 | 레인/담당 | 소유 파일 | 의존 | 상태 |
+|---|---|---|---|---|---|
+| R-0 | 보안: 비밀 토큰·공개 식별자 분리, 조회·전송 참여자 확인 | 구현 / Claude | `app/services/rooms.py`, `app/api/rooms.py`, `app/store.py` | 0-2b | 🟢 |
+| R-1 | Alembic 0002 스키마 | 구현 / Claude | `app/db/**`, `alembic/**` | R-0 | 🟢 |
+| R-2 | 초대 링크 API·입장 흐름·역할 | 구현 / Claude + OpenCode(화면) | `app/api/invites.py`, `static/room.html` | R-1 | 🟢 |
+| R-3 | 기록 페이지네이션·읽음·안 읽은 수 | 구현 / Claude + OpenCode(화면) | `app/api/rooms.py`, `static/room.html` | R-1 | 🟢 |
+| R-4 | 점검 작업·타이머 T1~T7 | 구현 / Claude | `app/services/lifecycle.py` | R-1 | 🟢 |
+| R-5 | 알림·웹 푸시 | 구현 / Claude + OpenCode | `app/services/notify.py`, `static/sw.js` | R-4 | ⏳ |
+| R-6 | 내 채팅방 목록·계정 귀속 | 구현 / Claude | `app/api/me.py` | 1-2, 1-3 | ⏳ |
+| R-7 | 정책 테스트 | 검증 / OpenCode | `tests/**` | 각 WP | ⏳ |
+
+### 개발자 결정 요청 (자동 개발 중 사람 결정 받기)
+
+| WP | 내용 | 레인/담당 | 소유 파일 | 의존 | 상태 |
+|---|---|---|---|---|---|
+| 0-6a | 전화 발신 수단·에스컬레이션 조사 | 계획 / OpenCode J | `docs/product/DEV_DECISION_CALL.md` | — | 🔄 |
+| 0-6b | 음성(TTS·STT) 결정 판정 프로토콜 조사 | 계획 / OpenCode J2 | `docs/product/DEV_DECISION_VOICE.md` | — | 🔄 |
+
 2단계(PRD 엔진) 이후 WP는 1단계 구현이 시작될 때 계획 레인에서 이 표에 추가한다.
 
 ## 5. 현재 레인 배치 (2026-09-25 갱신)
