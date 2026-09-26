@@ -269,8 +269,13 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         if intent(user_text, "proceed"):
             # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
             amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
+            card = session.get("prd")
+            if card and card.get("slots") and not card.get("copy"):
+                # 방안 3: 빈 소개·첫 화면 문구를 AI 초안으로(사실은 지어내지 않음). 실패하면 초안 없이 만든다.
+                from app.services import copywriter
+                card["copy"] = copywriter.generate(card)
             d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
-                                     card=session.get("prd"))
+                                     card=card)
             session["design_url"] = d["design_url"]
             session["design_preview_url"] = d["preview_url"]
             session["design_url_unsent"] = True
@@ -283,6 +288,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 f"시안 3안이 준비됐어요: {d['design_url']}\n"
                 + ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n"
                    if len(d.get("design_variants", [])) >= 3 else "\n") +
+                ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요. 사진을 올리면 시안에 들어가요.\n"
+                   if (card or {}).get("copy") else "") +
                 "뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
                 "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."
             )

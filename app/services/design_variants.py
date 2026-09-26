@@ -84,6 +84,7 @@ def base_spec(card: dict) -> dict:
     phone, hours, address = _fact(card, "phone"), _fact(card, "hours"), _fact(card, "location")
     offerings = _values(card, "offerings")
     detail = _fact(card, "detail")
+    draft = card.get("copy") or {}  # AI 문구 초안(app/services/copywriter.py). 사장님이 말한 소개가 우선
     excluded = " ".join(_values(card, "exclude"))
     photos = [p for p in card.get("photos") or [] if str(p.get("url", "")).startswith("/uploads/")]
     drop = {t for word, t in _EXCLUDE_TYPES.items() if word in excluded}
@@ -98,10 +99,10 @@ def base_spec(card: dict) -> dict:
                 c["image"] = photos[0]["url"]
                 c["image_alt"] = photos[0].get("caption") or f"{shop or '가게'} 대표 사진"
             c["title"] = shop
-            c["subtitle"] = detail or ", ".join(_values(card, "business_type"))
+            c["subtitle"] = detail or draft.get("tagline") or ", ".join(_values(card, "business_type"))
             c["cta"] = {"label": "전화 문의", "href": f"tel:{phone}"} if phone else {"label": "문의하기", "href": "#contact"}
         elif sec["type"] == "intro":
-            c["body"] = detail
+            c["body"] = detail or draft.get("intro") or ""
         elif sec["type"] == "gallery" and photos:
             # 대표로 쓴 첫 장 말고 나머지(한 장뿐이면 그 한 장)를 사진첩에
             c["items"] = [{"src": p["url"], "alt": p.get("caption") or f"사진 {i + 1}", "caption": p.get("caption") or ""}
@@ -109,7 +110,8 @@ def base_spec(card: dict) -> dict:
         elif sec["type"] == "offerings":
             c["label"] = S.label_for(ind, "offerings")
             # 이름만 넣는다. 가격은 사장님이 말한 가격표가 생기면 채운다(지어내지 않음).
-            c["items"] = [{"name": o, "desc": "", "price": ""} for o in offerings] or c.get("items", [])
+            descs = draft.get("items") or {}
+            c["items"] = [{"name": o, "desc": descs.get(o, ""), "price": ""} for o in offerings] or c.get("items", [])
         elif sec["type"] in ("contact", "cta", "around"):
             for k, v in (("phone", phone), ("hours", hours), ("address", address)):
                 if k in c:
