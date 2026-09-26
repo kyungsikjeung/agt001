@@ -124,9 +124,10 @@
   #toolBar {
     display: flex; gap: 8px; padding: 8px 12px; background: var(--surface);
     border-top: 1px solid var(--border); align-items: center; min-height: 60px;
+    flex-wrap: nowrap; overflow: hidden;
   }
   #inviteOpenBtn {
-    flex: 1; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
+    flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
     border-radius: 8px; background: #fee500; color: #191919; font-weight: 600;
     font-size: 0.875rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }

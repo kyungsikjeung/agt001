@@ -273,9 +273,33 @@ export default function SectionPreview({ spec, mode, placeholders, onEdit }: Pre
           const hoursSlot = placeholderFor(placeholders, section.id, 'hours');
           const addrSlot = placeholderFor(placeholders, section.id, 'address');
           const phone = str(c['phone']);
+          const channel = str(c['channel_url']);
+          const showChannel = mode === 'edit' || channel.trim() !== '';
           return (
             <SectionShell key={section.id} section={section}>
               <h2>영업시간·연락</h2>
+              {showChannel ? (
+                mode === 'edit' ? (
+                  <p>
+                    <Field
+                      label="카카오톡 채널 주소"
+                      text={channel}
+                      placeholder="[채널 주소 입력]"
+                      locked={locked('channel_url')}
+                      mode={mode}
+                      onEdit={edit(section.id, 'channel_url', '카카오톡 채널 주소', channel)}
+                    />
+                  </p>
+                ) : (
+                  <p>
+                    <a href={channel} target="_blank" rel="noopener noreferrer" aria-label="카카오톡 채널로 문의하기">
+                      카카오톡으로 문의하기
+                    </a>
+                  </p>
+                )
+              ) : (
+                <p className="ed-fact-note">채널이 없으면 전화·문자로 바로 받을 수 있어요</p>
+              )}
               <dl>
                 <dt>전화</dt>
                 <dd id={phoneSlot ? slotId(section.id, 'phone') : undefined}>
@@ -336,10 +360,29 @@ export default function SectionPreview({ spec, mode, placeholders, onEdit }: Pre
         }
         if (section.type === 'cta') {
           const phone = str(c['phone']);
+          const channel = str(c['channel_url']);
           const slot = placeholderFor(placeholders, section.id, 'phone');
           return (
             <SectionShell key={section.id} section={section}>
               <h2>예약·문의</h2>
+              {mode === 'edit' ? (
+                <p>
+                  <Field
+                    label="카카오톡 채널 주소"
+                    text={channel}
+                    placeholder="[채널 주소 입력]"
+                    locked={locked('channel_url')}
+                    mode={mode}
+                    onEdit={edit(section.id, 'channel_url', '카카오톡 채널 주소', channel)}
+                  />
+                </p>
+              ) : channel.trim() !== '' ? (
+                <p>
+                  <a href={channel} target="_blank" rel="noopener noreferrer" aria-label="카카오톡 채널로 문의하기">
+                    카카오톡으로 문의하기
+                  </a>
+                </p>
+              ) : null}
               <div id={slot ? slotId(section.id, 'phone') : undefined}>
                 {mode === 'edit' || phone.trim() === '' ? (
                   <Field
@@ -352,8 +395,8 @@ export default function SectionPreview({ spec, mode, placeholders, onEdit }: Pre
                   />
                 ) : (
                   <p>
-                    <a href={`tel:${phone.replace(/[^0-9+]/g, '')}`}>전화하기</a>{' '}
-                    <a href={`sms:${phone.replace(/[^0-9+]/g, '')}`}>문자로 문의</a>
+                    <a href={`tel:${phone.replace(/[^0-9+]/g, '')}`} aria-label="가게에 전화하기">전화하기</a>{' '}
+                    <a href={`sms:${phone.replace(/[^0-9+]/g, '')}`} aria-label="가게에 문자로 문의하기">문자로 문의</a>
                   </p>
                 )}
               </div>
