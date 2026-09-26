@@ -103,6 +103,13 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     v = DV.pick(card, variant_id)
     if v is None:
         raise ValueError(f"unknown variant {variant_id}")
+    # 가게 이름을 아직 안 정했으면 공개본 첫 화면 제목은 업종으로(빈 제목 방지, 9/26 점검)
+    import copy as _copy
+    v = _copy.deepcopy(v)
+    kind_name = ", ".join(DV._values(card, "business_type"))
+    for sec in v["spec"]["sections"]:
+        if sec["type"] == "hero" and not sec["content"].get("title") and kind_name:
+            sec["content"]["title"] = kind_name
     out = settings.generated_dir / requirement_id / "published"
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_text(

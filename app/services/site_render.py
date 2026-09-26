@@ -583,6 +583,9 @@ def _empty_for_public(section_type: str, variant: str, ctx: dict) -> bool:
         return not ctx.get("kakao_channel_url")
     if section_type == "around":
         return not (ctx.get("address") or ctx.get("has_items"))
+    if section_type == "contact" and variant in ("call-first", "booking-first", "chat-first"):
+        # 연락 줄이 모두 빈칸이면 제목만 남으므로 뺀다(9/26 휴대폰 점검)
+        return not any(ctx.get(k) for k in ("phone", "hours", "address", "booking_url", "channel_url"))
     return False
 
 
@@ -668,7 +671,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         bundle["site_css"],
         "</style>",
         "</head>",
-        '<body class="is-public">' if public else "<body>",
+        # 공개 사이트에서는 시안용 "예시" 표시도 숨긴다
+        '<body class="is-public"><style>.is-public .s-kicker{display:none}</style>' if public else "<body>",
         *rendered_parts,
         "</body>",
         "</html>",

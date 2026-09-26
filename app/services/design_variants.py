@@ -100,7 +100,8 @@ def base_spec(card: dict) -> dict:
                 c["image_alt"] = photos[0].get("caption") or f"{shop or '가게'} 대표 사진"
             c["title"] = shop
             c["subtitle"] = detail or draft.get("tagline") or ", ".join(_values(card, "business_type"))
-            c["cta"] = {"label": "전화 문의", "href": f"tel:{phone}"} if phone else {"label": "문의하기", "href": "#contact"}
+            # 전화가 없으면 문의 양식으로(양식은 기본 포함, 제목 id = contact-title-inquiry)
+            c["cta"] = {"label": "전화 문의", "href": f"tel:{phone}"} if phone else {"label": "문의하기", "href": "#contact-title-inquiry"}
         elif sec["type"] == "intro":
             c["body"] = detail or draft.get("intro") or ""
         elif sec["type"] == "gallery" and photos:
