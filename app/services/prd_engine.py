@@ -675,6 +675,43 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
     return None
 
 
+# V2 심화 질문 v0 (REQUIREMENTS_PIPELINE_V2 V2-1): 칸이 채워지면 끝이 아니라
+# 칸 종류별 후속 1~2개를 묻는다. 답 없으면 자리 표시로 닫고 넘어간다 (무한 질문 금지).
+# 형식: (방금 채워진 칸, 이어 물을 칸, 대상 업종(빈 튜플이면 전부), 방금 값에 있어야 할 말, 질문문)
+_FOLLOWUP_V0 = (
+    ("offerings", "price", ("cafe", "restaurant", "salon", "workshop", "pension", "academy"), (),
+     "각 메뉴·시술 가격은 어떻게 되나요? 예: 컷트 2만원, 염색 8만원. 모르면 '나중에 넣을게요'라고 해주세요."),
+    ("contact_method", "phone", (), ("전화",),
+     "전화로 받으시면 번호를 알려 주세요. 예: 010-0000-0000"),
+)
+
+
+def _maybe_followup(card: dict, applied: list[str]) -> None:
+    """V2-1: 방금 채워진 칸이 심화 규칙을 밟으면 물음표를 예약한다 (1칸당 1회).
+    한 칸만 채워진 턴은 다음에 바로 묻고(card['followup']), 여러 칸이 한꺼번에
+    들어온 턴은 큐에 쌓아 필수·숨은 질문이 끝난 뒤 묻는다(card['followup_queue']).
+    기존 흐름(필수 순서·숨은 항목)을 가로채지 않기 위해서다."""
+    if not applied:
+        return
+    asked = card.setdefault("followup_asked", [])
+    ind_key = industry_of(card).key
+    for trigger, ask_slot, industries, need_words, text in _FOLLOWUP_V0:
+        if trigger not in applied or ask_slot in asked or _satisfied(card, ask_slot):
+            continue
+        if industries and ind_key not in industries:
+            continue
+        if need_words:
+            trigger_text = str((_slot(card, trigger).get("value") or ""))
+            if not any(w in trigger_text for w in need_words):
+                continue
+        asked.append(ask_slot)
+        item = {"slot": ask_slot, "text": text}
+        if len(applied) == 1 and not card.get("followup"):
+            card["followup"] = item
+        else:
+            card.setdefault("followup_queue", []).append(item)
+
+
 def next_question(card: dict) -> Optional[dict]:
     """다음에 물을 것 하나. 없으면 None."""
     ind = industry_of(card)
@@ -707,6 +744,12 @@ def next_question(card: dict) -> Optional[dict]:
     if missing:
         q = S.question_for(ind, missing[0])
         return {"slot": missing[0], "kind": "single", "options": list(q.options) + [S.LET_AI], "text": q.ask}
+    # V2-1: 쌓아둔 심화 질문은 필수·숨은 질문이 끝난 뒤에 꺼낸다.
+    queue = card.get("followup_queue") or []
+    while queue:
+        item = queue.pop(0)
+        if not _satisfied(card, item["slot"]):
+            return {"slot": item["slot"], "kind": "followup", "options": [LATER], "text": item["text"]}
     return None
 
 
@@ -813,6 +856,7 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
         if progress:
             card["stuck"] = {"slot": None, "count": 0}
             card["chatter"] = 0
+            _maybe_followup(card, applied)  # V2-1: 심화 질문이 있으면 다음에 먼저 묻는다
             return _ask_next(card, applied, trace)
         # 진전 없음: 같은 칸 반복이면 stuck을 셈다 (INTAKE_GATE_DESIGN §5).
         key = _stuck_key(card.get("pending"))
