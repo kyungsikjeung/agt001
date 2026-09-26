@@ -86,6 +86,70 @@ _PROBE = r"""
     out.facts[k] = k === 'phone' ? !!document.querySelector(`a[href="tel:${v}"]`) || text.includes(v)
       : Array.isArray(v) ? v.every(x => text.includes(x)) : text.includes(v);
   }
+  // D37 6요소 (제목 대비·여백 리듬·사진·색·버튼·첫 화면 행동)
+  // 1. title_ratio: h1 글자 크기 / 본문(p) 대표 글자 크기(중앙값)
+  const h1El = [...document.querySelectorAll('h1')].find(e => vis(e));
+  const h1Size = h1El ? parseFloat(getComputedStyle(h1El).fontSize) : 0;
+  const pSizes = [...document.querySelectorAll('p')].filter(e => vis(e))
+    .map(e => parseFloat(getComputedStyle(e).fontSize)).filter(v => v > 0).sort((a, b) => a - b);
+  const pRep = pSizes.length ? pSizes[Math.floor(pSizes.length / 2)] : 0;
+  out.title_ratio = (h1Size && pRep) ? +((h1Size / pRep).toFixed(2)) : 0;
+  // 2. spacing_steps: section 위·아래 padding 값 종류 수(정수 px 기준)
+  const pads = new Set();
+  for (const sec of document.querySelectorAll('section')) {
+    const s = getComputedStyle(sec);
+    const pt = Math.round(parseFloat(s.paddingTop)), pb = Math.round(parseFloat(s.paddingBottom));
+    if (!Number.isNaN(pt)) pads.add(pt); if (!Number.isNaN(pb)) pads.add(pb);
+  }
+  out.spacing_steps = pads.size;
+  // 3. hero_visual: 첫 화면(창 높이 안) img·svg·배경그림 차지 넓이 비율(0~1, 참고값)
+  const vw = window.innerWidth, vh = window.innerHeight, vArea = vw * vh;
+  const clip = (r) => { const w = Math.max(0, Math.min(r.right, vw) - Math.max(r.left, 0));
+    const h = Math.max(0, Math.min(r.bottom, vh) - Math.max(r.top, 0)); return w * h; };
+  let heroArea = 0;
+  for (const el of document.querySelectorAll('img, svg')) {
+    if (!vis(el)) continue; const r = el.getBoundingClientRect();
+    if (r.bottom <= 0 || r.top >= vh) continue; heroArea += clip(r);
+  }
+  for (const el of document.querySelectorAll('*')) {
+    if (el.tagName === 'IMG' || el.closest('svg')) continue;
+    let s; try { s = getComputedStyle(el); } catch (e) { continue; }
+    if (!s.backgroundImage || s.backgroundImage === 'none') continue;
+    if (!vis(el)) continue; const r = el.getBoundingClientRect();
+    if (r.bottom <= 0 || r.top >= vh) continue; heroArea += clip(r);
+  }
+  out.hero_visual = vArea ? +Math.min(1, heroArea / vArea).toFixed(2) : 0;
+  // 4. color_count: 보이는 요소 글자색·배경색 중 무채색 제외 서로 다른 색 수(RGB 16단위 반올림)
+  const cols = new Set();
+  for (const el of document.querySelectorAll('body, body *')) {
+    if (!vis(el) || el.closest('svg')) continue;
+    const s = getComputedStyle(el);
+    for (const c of [rgb(s.color), rgb(s.backgroundColor)]) {
+      if (!c || c.a === 0) continue;
+      if (Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) < 24) continue;
+      cols.add([c.r, c.g, c.b].map(v => Math.min(255, Math.round(v / 16) * 16)).join(','));
+    }
+  }
+  out.color_count = cols.size;
+  // 5·6. 첫 화면 행동 버튼
+  const inFold = (el) => { const r = el.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight && r.width > 0 && r.height > 0; };
+  const isAction = (el) => { const t = (el.innerText || '') + ' ' + (el.getAttribute('aria-label') || '');
+    if (/문의|전화|예약|신청/.test(t)) return true;
+    const h = el.getAttribute('href') || ''; return h.startsWith('tel:'); };
+  const foldActions = [...document.querySelectorAll('a, button')].filter(e => vis(e) && inFold(e) && isAction(e));
+  out.first_screen_actions = foldActions.length;
+  const foldBtns = [...document.querySelectorAll('a, button')].filter(e => vis(e) && inFold(e));
+  const cta = foldActions[0]
+    || foldBtns.find(e => (e.tagName === 'BUTTON') || (e.tagName === 'A' && e.classList.contains('btn')))
+    || null;
+  if (cta) {
+    const r = cta.getBoundingClientRect(); const s = getComputedStyle(cta);
+    const rads = [s.borderTopLeftRadius, s.borderTopRightRadius, s.borderBottomLeftRadius, s.borderBottomRightRadius]
+      .map(v => parseFloat(v) || 0);
+    out.cta_shape = (r.height >= 48 && rads.some(v => v > 0));
+    out.cta_h = Math.round(r.height); out.cta_radius = s.borderTopLeftRadius;
+  } else { out.cta_shape = false; out.cta_h = 0; out.cta_radius = '0px'; }
   return out;
 }
 """
@@ -196,9 +260,21 @@ def contact_sheets(pages: list[dict], out_dir: Path) -> None:
             sheet.save(out_dir / f"sheet-{ind}-{level}.png")
 
 
+def _six(m: dict) -> dict:
+    """D37 6요소 통과 여부. hero_visual은 참고값이라 판정 없음."""
+    return {
+        "title": (m.get("title_ratio") or 0) >= 2.0,
+        "spacing": (m.get("spacing_steps") if m.get("spacing_steps") is not None else 99) <= 3,
+        "color": (m.get("color_count") if m.get("color_count") is not None else 99) <= 3,
+        "cta": bool(m.get("cta_shape")),
+        "actions": 1 <= (m.get("first_screen_actions") or 0) <= 2,
+    }
+
+
 def report(pages: list[dict], dist: dict) -> str:
     rows, issues = [], {"overflow": 0, "small": 0, "contrast": 0, "targets": 0, "broken": 0, "ph": 0, "facts": 0,
                         "fold_name": 0, "fold_cta": 0, "h1": 0}
+    six_rows, six_pass = [], {"title": 0, "spacing": 0, "color": 0, "cta": 0, "actions": 0}
     for pg in pages:
         m = pg["m"]
         missing = [k for k, ok in m["facts"].items() if not ok]
@@ -212,6 +288,17 @@ def report(pages: list[dict], dist: dict) -> str:
                     f"{len(m['smallText'])} | {len(m['lowContrast'])} | {len(m['smallTargets'])} | {m['brokenImages']} | "
                     f"{', '.join(m['placeholders']) or ('예시' if m['exampleLabel'] else '-')} | {', '.join(missing) or '-'} | "
                     f"{'O' if m['nameAboveFold'] else 'X'} | {'O' if m['ctaAboveFold'] else 'X'} | {m['h1']} | {m['height']} |")
+        s = _six(m)
+        for k, v in s.items():
+            six_pass[k] += bool(v)
+        name = f"{pg['industry']}-{pg['level']}-{pg['variant']}"
+        six_rows.append(
+            f"| {name} | {m.get('title_ratio', 0):.2f} {'O' if s['title'] else 'X'} | "
+            f"{m.get('spacing_steps', '-')} {'O' if s['spacing'] else 'X'} | "
+            f"{m.get('hero_visual', 0):.2f} | "
+            f"{m.get('color_count', '-')} {'O' if s['color'] else 'X'} | "
+            f"{'O' if s['cta'] else 'X'}({m.get('cta_h', 0)}px,{m.get('cta_radius', '-')}) | "
+            f"{m.get('first_screen_actions', '-')} {'O' if s['actions'] else 'X'} |")
     n = len(pages)
     detail = []
     for pg in pages:
@@ -235,8 +322,20 @@ def report(pages: list[dict], dist: dict) -> str:
             f"| 첫 화면 이름 | 첫 화면에 가게 이름 없음 | {issues['fold_name']}/{n} |\n"
             f"| 첫 화면 행동 | 첫 화면에 문의·전화·예약 버튼 없음 | {issues['fold_cta']}/{n} |\n"
             f"| 제목 구조 | h1이 정확히 1개가 아님 | {issues['h1']}/{n} |\n\n"
-            "## 3안 첫 화면 차이 (가장 비슷한 두 안의 픽셀 차이, 0=같음)\n\n| 업종-조건 | 최소 차이 |\n|---|---|\n"
-            + "\n".join(f"| {k} | {v} |" for k, v in dist.items()) +
+            "## 3안 첫 화면 차이 (가장 비슷한 두 안의 픽셀 차이, 0=같음, 8 이상 통과·미만 X)\n\n"
+            "| 업종-조건 | 최소 차이 | 판정 |\n|---|---|---|\n"
+            + "\n".join(f"| {k} | {v} | {'O' if v >= 8 else 'X'} |" for k, v in dist.items()) +
+            "\n\n## 6요소 점수 (D37 매일 회귀)\n\n"
+            "### 요약 (항목별 통과 쪽 수)\n\n| 항목 | 기준 | 통과 |\n|---|---|---|\n"
+            f"| 제목 대비(title_ratio) | h1/본문 2.0 이상 | {six_pass['title']}/{n} |\n"
+            f"| 여백 리듬(spacing_steps) | section 상·하 padding 종류 3개 이하 | {six_pass['spacing']}/{n} |\n"
+            f"| 사진(hero_visual) | 첫 화면 그림 넓이 비율(참고값, 판정 없음) | - |\n"
+            f"| 색(color_count) | 유채색 3개 이하 | {six_pass['color']}/{n} |\n"
+            f"| 카드·버튼(cta_shape) | 첫 화면 첫 버튼 높이 48px 이상·둥근 모서리 | {six_pass['cta']}/{n} |\n"
+            f"| 첫 화면 한 가지 행동(first_screen_actions) | 행동 버튼 1~2개 | {six_pass['actions']}/{n} |\n\n"
+            "### 쪽별\n\n| 쪽 | 제목비율 | 여백종류 | 첫화면그림 | 색수 | 버튼모양 | 첫화면행동 |\n"
+            "|---|---|---|---|---|---|---|\n"
+            + "\n".join(six_rows) +
             "\n\n## 쪽별\n\n| 쪽 | 넘침 | 작은 글자 | 대비 | 작은 칸 | 깨진 그림 | 빈칸 | 없는 사실 | 첫화면 이름 | 첫화면 버튼 | h1 | 높이 |\n"
             "|---|---|---|---|---|---|---|---|---|---|---|---|\n")
     return head + "\n".join(rows) + "\n\n## 세부\n\n" + "\n".join(detail) + "\n"

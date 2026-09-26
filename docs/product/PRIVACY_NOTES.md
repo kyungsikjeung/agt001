@@ -25,7 +25,7 @@
 | # | 항목 | 왜 필요한지 (조항 관점) | 상태 | 출처 URL |
 |---|---|---|---|---|
 | L1 | 개인정보처리방침 필수 기재 완성도 (수집 항목·목적·보관·파기·권리·책임자) | 개인정보보호법 제30조(처리방침 수립·공개), 정보통신망법 제27조의2(개인정보 처리방침 공개 — 확인 필요) | 초안 작성, 변호사 검토 전 | https://www.law.go.kr (개인정보 보호법), https://www.pipc.go.kr (개인정보보호위원회) |
-| L2 | 국외 이전 고지 (NVIDIA NIM: 이전 국가·항목·목적·보관 기간) | 개인정보보호법 제28조의8(국외 이전 시 고지·동의 — 확인 필요). 이전받는 곳 국가·보관 기간 미확인 | 확인 필요 (업체 문서 확인) | https://www.pipc.go.kr, https://www.law.go.kr |
+| L2 | 국외 이전 고지 (NVIDIA NIM + OpenCode Zen 경유 디자인 단계 유료 모델 비교(D39): 이전 국가·항목·목적·보관 기간) | 개인정보보호법 제28조의8(국외 이전 시 고지·동의 — 확인 필요). NIM: 이전받는 곳 국가·보관 기간 미확인. Zen 경유 시: 미국 호스팅, 제공사 무보관·학습 안 함 표기(https://opencode.ai/docs/zen/ §Privacy)이나, 보내는 항목은 업종·분위기·상품 이름·사진만(전화·주소 제외, D39). 확인 필요: Zen 상업 이용 약관, 이전 국가·보관 기간 | 확인 필요 (업체 문서 확인) | https://www.pipc.go.kr, https://www.law.go.kr, https://opencode.ai/docs/zen/ |
 | L3 | 구글 로그인 해외 이전 (Google LLC 인증 처리) | 위 L2와 동일. 구글 동의 화면 + 방침 링크로 충분한지 확인 | 확인 필요 | https://developers.google.com/identity/protocols/oauth2/policies, https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification |
 | L4 | 처리 위탁 고지 (OCI 보관 위탁 해당 여부) | 개인정보보호법 제26조(업무위탁 시 고지 — 확인 필요). 클라우드 인프라가 수탁자에 해당하는지 판단 필요 | 확인 필요 | https://www.law.go.kr, https://docs.oracle.com/en-us/iaas/Content/Block/Concepts/overview.htm |
 | L5 | 만 14세 미만 아동 처리 | 개인정보보호법 제22조(만 14세 미만 법정대리인 동의 — 확인 필요). 소상공인 대상이나 방치 금지 (USER_DB_PLAN §A-2 조치 #6) | 확인 필요 (연령 제한 방식) | https://www.law.go.kr, https://www.pipc.go.kr |
