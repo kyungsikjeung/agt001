@@ -76,6 +76,9 @@ def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str
         url = url_for(room_id, photo_id)
         if session.get("prd") is not None:
             session["prd"].setdefault("photos", []).append({"id": photo_id, "url": url, "caption": caption})
+        if session.get("design_url") and session.get("prd"):
+            # 시안이 이미 있으면 사진을 넣어 다시 만든다(스크린샷 때문에 몇 초 걸려 커밋 뒤 뒤에서).
+            store.after_commit(lambda: _refresh_designs_async(room_id, session["requirement_id"]))
         nickname = next(m["nickname"] for m in room["members"] if m["member_id"] == member_id)
         rooms._append(room, member_id, nickname, "사진을 올렸어요" + (f": {caption}" if caption else ""),
                       kind="photo", meta={"photo": {"id": photo_id, "url": url}})
@@ -102,3 +105,30 @@ def remove(room_id_raw: str, member_id_raw: str, photo_id_raw: str) -> None:
             db.execute(AttachmentRow.__table__.delete().where(AttachmentRow.id == photo_id))
         if session.get("prd"):
             session["prd"]["photos"] = [p for p in session["prd"].get("photos") or [] if p["id"] != photo_id]
+
+
+def _refresh_designs_async(room_id: str, requirement_id: str) -> None:
+    import threading
+    threading.Thread(target=refresh_designs, args=(room_id, requirement_id), daemon=True).start()
+
+
+def refresh_designs(room_id: str, requirement_id: str) -> None:
+    """올린 사진을 넣어 시안 3안을 다시 만들고, 공개했으면 공개본도 바꾼 뒤 방에 알린다."""
+    import logging
+    from app.services import design, rooms
+    log = logging.getLogger(__name__)
+    try:
+        room = store.read_room(room_id)
+        session = store.read_session(room["session_id"]) if room else None
+        card = (session or {}).get("prd")
+        if not card:
+            return
+        design.render_variants(requirement_id, card)
+        if card.get("published"):
+            design.publish_choice(requirement_id, card, card["published"])
+        with store.room_tx(room_id) as (r, _s):
+            if r is not None:
+                text = "사진을 시안에 넣었어요." + (" 공개 사이트에도 바로 반영했어요." if card.get("published") else "")
+                rooms._append(r, "system", "시스템", text, kind="system")
+    except Exception:
+        log.exception("사진 반영 실패 room=%s", room_id)

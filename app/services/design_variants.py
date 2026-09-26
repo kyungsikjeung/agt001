@@ -72,7 +72,7 @@ def _wants_form(card: dict) -> bool:
 def _wants_kakao_channel(card: dict) -> bool:
     contact = " ".join(_values(card, "contact_method"))
     answers = " ".join((card.get("feature_answers") or {}).values())
-    return ("카카오톡 채널" in contact or "카톡 채널" in contact or "채널 버튼" in answers
+    return (bool(card.get("kakao_channel_url")) or "카카오톡 채널" in contact or "카톡 채널" in contact or "채널 버튼" in answers
             or any(v.get("id") == "kakao_channel_chat" for v in card.get("features_judged") or []))
 
 
@@ -120,7 +120,8 @@ def base_spec(card: dict) -> dict:
 
     extra = []
     if _wants_kakao_channel(card):
-        extra.append({"id": "kakao", "type": "contact", "variant": "kakao-channel", "content": {"kakao_channel_url": ""}})
+        extra.append({"id": "kakao", "type": "contact", "variant": "kakao-channel",
+                      "content": {"kakao_channel_url": card.get("kakao_channel_url") or ""}})
     if _wants_form(card):
         extra.append({"id": "inquiry", "type": "contact", "variant": "form", "content": {}})
     # 문의 부품은 후기 앞(보통 맨 끝 바로 앞)에 둔다.

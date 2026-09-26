@@ -101,6 +101,10 @@ def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional
     return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요."
 
 
+_KAKAO_CHANNEL = re.compile(r"(?:https?://)?(pf\.kakao\.com/_[A-Za-z0-9]+)(?:/chat)?")
+PHOTO_ASK = "가게 사진이 있으면 📷 버튼으로 올려 주세요. 없으면 업종에 맞는 예시 그림으로 만들고, 나중에 올리셔도 바로 바뀌어요.\n\n"
+
+
 VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
 PUBLISH_WORDS = ("공개", "공개해줘", "공개해 주세요", "공개할게요", "그대로 공개")
 
@@ -139,6 +143,10 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     state = session["state"]
     engine_trace = None
 
+    channel = _KAKAO_CHANNEL.search(user_text or "")
+    if channel and session.get("prd") is not None:
+        # "채널이 있나요?"에 주소까지 받는다(워크플로 검토 9/26). 시안·공개본의 채널 버튼에 들어간다.
+        session["prd"]["kakao_channel_url"] = "https://" + channel.group(1)
     has_design = bool(session.get("design_url") and session.get("prd"))
     choice = _design_choice(user_text) if has_design else None
     publish_cmd = has_design and state in ("GENERATING", "DONE") and user_text.strip() in PUBLISH_WORDS
@@ -237,6 +245,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             note = prd_engine.review_text(card)
             reply = (
                 f"정리했어요.\n{prd_engine.summary_text(card)}\n\n" + (f"{note}\n\n" if note else "")
+                + (PHOTO_ASK if room is not None and not card.get("photos") else "")
                 + f"{_rag_note(spec)}\n\n이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
             )
             session["state"] = "AWAIT_APPROVAL"
@@ -288,8 +297,10 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 f"시안 3안이 준비됐어요: {d['design_url']}\n"
                 + ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n"
                    if len(d.get("design_variants", [])) >= 3 else "\n") +
-                ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요. 사진을 올리면 시안에 들어가요.\n"
+                ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
                    if (card or {}).get("copy") else "") +
+                ("지금은 사진 대신 예시 그림이 들어가 있어요. 📷 버튼으로 가게 사진을 올리면 시안에 바로 넣어 드려요.\n"
+                   if room is not None and card and not card.get("photos") else "") +
                 "뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
                 "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."
             )

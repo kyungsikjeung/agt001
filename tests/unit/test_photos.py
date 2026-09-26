@@ -76,3 +76,34 @@ def test_delete_by_uploader_or_owner(client):
 def test_upload_path_is_not_traversable(client):
     assert client.get("/uploads/abc/..%2F..%2Fetc.jpg").status_code == 404
     assert client.get("/uploads/abc/x.png").status_code == 404
+
+
+def test_photo_after_design_refreshes_designs_and_site(client):
+    """시안·공개 뒤에 올린 사진이 시안 3안과 공개본에 들어가고 방에 알린다(워크플로 검토 9/26)."""
+    from app.services import photos
+    rid = _room(client)
+    session = store.read_session(store.read_room(rid)["session_id"])
+    card = session["prd"]
+    design.render_design(session["requirement_id"], "web", [], 0, "", card=card)
+    design.publish_choice(session["requirement_id"], card, "v1")
+    client.post(f"/room/{rid}/photos", files={"file": ("a.jpg", _jpeg_with_gps((800, 600)), "image/jpeg")},
+                headers={"X-Member-Id": "owner"})
+    with store.session_tx(store.read_room(rid)["session_id"]) as s2:
+        s2["design_url"] = f"/design/{s2['requirement_id']}"
+        s2["prd"]["published"] = "v1"
+    photos.refresh_designs(rid, session["requirement_id"])
+    site = client.get(f"/site/{session['requirement_id']}/").text
+    assert "/uploads/" in site
+    msgs = client.get(f"/room/{rid}/messages", headers={"X-Member-Id": "owner"}).json()["messages"]
+    assert "사진을 시안에 넣었어요" in msgs[-1]["text"]
+
+
+def test_kakao_channel_link_is_captured(client):
+    rid = _room(client)
+    client.post(f"/room/{rid}/chat", json={"member_id": "owner", "nickname": "사장님",
+                                           "message": "채널은 https://pf.kakao.com/_abcDEF/chat 이에요"})
+    card = store.read_session(store.read_room(rid)["session_id"])["prd"]
+    assert card["kakao_channel_url"] == "https://pf.kakao.com/_abcDEF"
+    spec = DV.base_spec(card)
+    kakao = next(s for s in spec["sections"] if s["variant"] == "kakao-channel")
+    assert kakao["content"]["kakao_channel_url"] == "https://pf.kakao.com/_abcDEF"
