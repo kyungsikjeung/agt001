@@ -245,7 +245,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             )
             session["state"] = "AWAIT_APPROVAL"
         else:
-            reply = prd_engine.ack_text(card, result["applied"]) + prd_engine.format_question(card, result["question"])
+            nudge = "사이트 이야기로 돌아가 볼까요?\n" if result.get("nudge") else ""
+            reply = nudge + prd_engine.ack_text(card, result["applied"]) + prd_engine.format_question(card, result["question"])
             session["state"] = "GATHERING"
         _set_room_status(room, "IDLE")
 

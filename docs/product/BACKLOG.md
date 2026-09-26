@@ -27,7 +27,7 @@
 | S-1 | ✅ 완료 B-6 승인·투표 단어 정규화 완화 | FIXES §2-④, ROOM_POLICY | Claude | 없음 | 1시간 |
 | S-2 | B-9 방장 승계 (첫 입장자 자동 승계) | FIXES B-9, ROOM_POLICY §2 | Claude | 없음 | 2시간 |
 | S-3 | ✅ 완료 B-15 템플릿 시작 배선 (template_id 연결) | FIXES B-15, DECISIONS D26 | Claude | 없음 | 1시간 |
-| S-4 | B-4 잡담 2턴 넛지 문구 추가 | FIXES B-4 잔여, INTAKE §5 | Claude | 없음 | 1시간 |
+| S-4 | ✅ 완료 B-4 잡담 2턴 넛지 문구 추가 | FIXES B-4 잔여, INTAKE §5 | Claude | 없음 | 1시간 |
 | S-5 | S-2 sandbox iframe 자동 검사 | DESIGN §13.5 S-2 | Claude | 없음 | 1시간 |
 | S-6 | S-5 게시 전 검사 (외부 스크립트·폼 차단) | DESIGN §13.5 S-5 | Claude | 없음 | 2시간 |
 | S-7 | C3 평가 1회 실행 (추출 60개·시나리오 36개) | DELIVERY C3, DECISIONS D28 | Claude | O1 | 2시간 |

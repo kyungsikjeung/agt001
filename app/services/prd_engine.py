@@ -606,6 +606,7 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
         progress = bool(answered) or bool(applied)
         if progress:
             card["stuck"] = {"slot": None, "count": 0}
+            card["chatter"] = 0
             return _ask_next(card, applied, trace)
         # 진전 없음: 같은 칸 반복이면 stuck을 셈다 (INTAKE_GATE_DESIGN §5).
         key = _stuck_key(card.get("pending"))
@@ -624,7 +625,13 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             return _ask_next(card, applied, trace)
         if len(t) > CHATTER_LEN:
             # B-4: 주제 이탈(잡담)은 예산을 쓰지 않고 같은 질문을 다시 보인다.
-            return _repeat_pending(card, applied, trace)
+            # INTAKE_GATE_DESIGN §5: 잡담이 두 번 이어지면 사이트 이야기로 돌아가자고 한 번 말한다.
+            card["chatter"] = card.get("chatter", 0) + 1
+            result = _repeat_pending(card, applied, trace)
+            if card["chatter"] >= 2:
+                result["nudge"] = True
+                card["chatter"] = 0
+            return result
         return _ask_next(card, applied, trace, same_question=True)
     trace["applied"] = applied
     q = None if wants_skip or card["asked"] >= budget(card) else next_question(card)

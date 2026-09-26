@@ -120,3 +120,14 @@ def test_blocked_request_refused_without_spending_budget(fake_extract):
     card = E.new_card()
     r = E.turn(card, "바카라 홍보 사이트 만들어 주세요")
     assert r["blocked"] and card["asked"] == 0 and not card["slots"]
+
+
+def test_chatter_twice_nudges_once(fake_extract):
+    card = E.new_card()
+    E.turn(card, "")
+    r1 = E.turn(card, "오늘 날씨가 참 좋네요")
+    assert not r1.get("nudge")
+    r2 = E.turn(card, "점심은 뭐 먹을까요 고민이에요")
+    assert r2.get("nudge") and r2["question"]
+    r3 = E.turn(card, "저녁엔 비가 온대요 그렇죠")
+    assert not r3.get("nudge")  # 한 번 말했으면 다시 두 번 쌓일 때까지 조용히
