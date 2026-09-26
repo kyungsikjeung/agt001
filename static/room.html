@@ -121,24 +121,51 @@
   #sendBtn { padding: 10px 16px; font-size: 0.9375rem; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; cursor: pointer; white-space: nowrap; }
   #sendBtn:active { transform: scale(0.97); }
 
-  #shareRow { padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
-  #shareBtn { width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fee500; color: #191919; font-weight: 600; cursor: pointer; }
+  #toolBar {
+    display: flex; gap: 8px; padding: 8px 12px; background: var(--surface);
+    border-top: 1px solid var(--border); align-items: center; min-height: 60px;
+  }
+  #inviteOpenBtn {
+    flex: 1; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: #fee500; color: #191919; font-weight: 600;
+    font-size: 0.875rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #inviteOpenBtn[hidden] { display: none; }
+  #moreBtn {
+    flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--bg); font-size: 0.875rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  /* 무전기 줄은 더보기 안으로 옮기므로 본문에서는 숨긴다 (voice.js가 만든다) */
+  #walkieRow { display: none !important; }
+  #walkieSlot { display: flex; flex-direction: column; gap: 8px; }
+  #walkieSlot:empty { display: none; }
+  /* 더보기 펼침은 아래에서 올라오는 겹침 패널 (본문 높이에 더하지 않는다) */
+  #moreSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 25; display: flex; align-items: flex-end; justify-content: center; }
+  #moreSheetWrap[hidden] { display: none; }
+  #moreSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 70dvh; overflow-y: auto; }
+  #moreSheet h2 { margin: 0; font-size: 1rem; }
+  #moreSheet button, #moreSheet a.more-item { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; color: var(--text); text-decoration: none; display: flex; align-items: center; justify-content: center; }
+  #moreSheet a.more-item { background: var(--surface); color: var(--accent-dark); }
+  #moreSheet [hidden] { display: none !important; }
+  #talkNotifyBtn[disabled] { opacity: 0.7; cursor: default; }
+  #moreLeaveBtn { border-color: #f5c26b !important; background: #fff7e6 !important; color: #713f12 !important; }
   #inviteNotice { margin: 0; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
-  #inviteBox { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
-  #inviteBox[hidden] { display: none; }
+  /* 초대 대화상자는 화면 가운데 겹침 (본문 높이에 더하지 않는다) */
+  #inviteDialogWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #inviteDialogWrap[hidden] { display: none; }
+  #inviteDialog { background: var(--surface); border-radius: 12px; padding: 20px; max-width: 360px; width: 100%; display: flex; flex-direction: column; gap: 12px; max-height: 80dvh; overflow-y: auto; }
+  #inviteDialog h2 { margin: 0; font-size: 1rem; }
   #inviteFormRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   #inviteDays { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 0.875rem; background: var(--bg); }
   #inviteCreateBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  #inviteLastRow { display: flex; gap: 8px; }
+  #inviteLastRow button { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
   #inviteList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
   #inviteList li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.8125rem; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
   #inviteList li .info { flex: 1; min-width: 0; color: var(--text-muted); word-break: break-word; }
   #inviteList li button { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 12px; font-size: 0.8125rem; cursor: pointer; }
   #inviteMsg { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
-  #ownerTools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  #ownerTools[hidden] { display: none; }
-  #talkNotifyBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
-  #talkNotifyBtn[disabled] { opacity: 0.7; cursor: default; }
-  #editorLink { min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 0.875rem; font-weight: 600; color: var(--accent-dark); text-decoration: none; }
+  #inviteDialogClose { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-weight: 600; cursor: pointer; }
   #photoBtn { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); cursor: pointer; font-size: 1rem; padding: 0; }
   #photoStatus { padding: 8px 16px; font-size: 0.8125rem; color: var(--text-muted); background: var(--surface); border-top: 1px solid var(--border); display: none; }
   #photoStatus.show { display: block; }
@@ -178,11 +205,12 @@
 
   @media (max-width: 480px) {
     header { padding: 10px 12px; }
-    header h1 { font-size: 1rem; }
+    header h1 { font-size: 1.1875rem; } /* 본문 15px 대비 1.27배: 제목이 본문과 구분되게 */
     #log { padding: 12px; }
     .bubble { max-width: 86%; }
     #row { padding: 10px 12px; gap: 6px; }
     #sendBtn { padding: 10px 12px; }
+    #toolBar { padding: 8px 12px; min-height: 56px; }
     #memberPanel { width: 100%; }
     .photo-thumb { max-width: 200px; }
   }
@@ -217,14 +245,24 @@
     <button id="sendBtn" onclick="send()">보내기</button>
   </div>
   <div id="photoStatus" role="status" aria-live="polite"></div>
-  <div id="shareRow">
-    <button id="shareBtn" onclick="shareInvite()">카카오톡으로 초대하기</button>
-    <p id="inviteNotice" hidden>방장에게 초대 링크를 받아 주세요</p>
-    <div id="ownerTools" hidden>
+  <div id="toolBar">
+    <button id="inviteOpenBtn" type="button" hidden>초대하기</button>
+    <button id="moreBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreSheetWrap">⋯ 더보기</button>
+  </div>
+  <div id="moreSheetWrap" hidden>
+    <div id="moreSheet" role="dialog" aria-modal="true" aria-label="더보기">
+      <h2>더보기</h2>
+      <p id="inviteNotice" hidden>방장에게 초대 링크를 받아 주세요</p>
       <button id="talkNotifyBtn" type="button" hidden>문의를 카톡으로 받기</button>
-      <a id="editorLink" href="#" hidden>직접 고치기</a>
+      <a id="editorLink" class="more-item" href="#" hidden>직접 고치기</a>
+      <div id="walkieSlot"></div>
+      <button id="moreLeaveBtn" type="button">방에서 나가기</button>
+      <button id="moreCloseBtn" type="button">닫기</button>
     </div>
-    <div id="inviteBox" hidden>
+  </div>
+  <div id="inviteDialogWrap" hidden>
+    <div id="inviteDialog" role="dialog" aria-modal="true" aria-labelledby="inviteDialogTitle">
+      <h2 id="inviteDialogTitle">초대하기</h2>
       <div id="inviteFormRow">
         <label for="inviteDays">초대 기간</label>
         <select id="inviteDays">
@@ -233,10 +271,15 @@
           <option value="30">30일</option>
           <option value="0">무기한</option>
         </select>
-        <button id="inviteCreateBtn" type="button">초대하기</button>
+        <button id="inviteCreateBtn" type="button">링크 만들기</button>
+      </div>
+      <div id="inviteLastRow">
+        <button id="inviteShareLastBtn" type="button">카카오톡 공유</button>
+        <button id="inviteCopyLastBtn" type="button">링크 복사</button>
       </div>
       <ul id="inviteList"></ul>
       <p id="inviteMsg" role="status" aria-live="polite"></p>
+      <button id="inviteDialogClose" type="button">닫기</button>
     </div>
   </div>
 
@@ -689,8 +732,8 @@ function proceed(choice) { sendRoomMessage(choice); }
 
 function shareInviteUrl(absUrl) {
   if (!window.Kakao || !Kakao.isInitialized()) {
-    // 초대 박스가 보이면 그 안 안내에, 아니면 입력창 아래 안내에 남긴다.
-    const box = document.getElementById('inviteBox');
+    // 초대 대화상자가 열려 있으면 그 안 안내에, 아니면 입력창 아래 안내에 남긴다.
+    const box = document.getElementById('inviteDialogWrap');
     const inline = document.getElementById('inviteMsg');
     if (inline && box && !box.hidden) {
       inline.textContent = '카카오 SDK 로딩에 실패했어요. 링크를 복사해 공유해 주세요.';
@@ -785,6 +828,8 @@ function renderMembers() {
   }
   const leaveBtn = document.getElementById('leaveBtn');
   if (leaveBtn) leaveBtn.hidden = leaveUnsupported;
+  const moreLeaveBtn = document.getElementById('moreLeaveBtn');
+  if (moreLeaveBtn) moreLeaveBtn.hidden = leaveUnsupported;
 }
 
 function openMemberPanel() {
@@ -887,32 +932,23 @@ async function leaveRoom() {
   } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
 }
 
-// 초대 패널 보이기·숨기기. 방장이 아니면 공유 버튼 대신 안내 문구를 보여준다.
-// 서버가 내 정보(me)를 아직 안 주면 예전 공유 버튼 그대로 둔다.
+// 초대 도구막대 보이기·숨기기. 방장이 아니면 초대 버튼 대신 더보기 안 안내만 보여준다.
 function updateShareUI() {
   const owner = isOwner();
-  const shareBtn = document.getElementById('shareBtn');
+  const openBtn = document.getElementById('inviteOpenBtn');
   const notice = document.getElementById('inviteNotice');
-  const box = document.getElementById('inviteBox');
-  if (!shareBtn || !notice || !box) return;
+  if (!openBtn || !notice) return;
   if (!roomMe) {
-    shareBtn.hidden = false;
+    openBtn.hidden = false;
     notice.hidden = true;
-    box.hidden = true;
     return;
   }
-  if (owner && !invitesUnsupported) {
-    shareBtn.hidden = false;
+  if (owner) {
+    openBtn.hidden = false;
     notice.hidden = true;
-    box.hidden = false;
-  } else if (owner) {
-    shareBtn.hidden = false;
-    notice.hidden = true;
-    box.hidden = true;
   } else {
-    shareBtn.hidden = true;
+    openBtn.hidden = true;
     notice.hidden = false;
-    box.hidden = true;
   }
 }
 
@@ -1102,26 +1138,26 @@ async function uploadPhoto(file) {
   }
 }
 
-// 방장 도구: 카톡 알림 상태·직접 고치기 링크 (계약 §5·§6). 방장에게만 보인다.
+// 방장 도구: 더보기 안에서 카톡 알림·직접 고치기·나가기 (계약 §5·§6). 방장에게만 보인다.
 function updateOwnerTools() {
-  const tools = document.getElementById('ownerTools');
   const talkBtn = document.getElementById('talkNotifyBtn');
   const editor = document.getElementById('editorLink');
-  if (!tools || !talkBtn || !editor) return;
+  const moreLeave = document.getElementById('moreLeaveBtn');
+  if (!talkBtn || !editor) return;
   if (!isOwner()) {
-    tools.hidden = true;
     talkBtn.hidden = true;
     editor.hidden = true;
+    if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
     return;
   }
-  tools.hidden = false;
-  if (!notifyUnsupported) talkBtn.hidden = false;
+  talkBtn.hidden = !!notifyUnsupported;
   if (hasDesign) {
     editor.hidden = false;
     editor.href = '/editor?room=' + encodeURIComponent(roomId);
   } else {
     editor.hidden = true;
   }
+  if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
 }
 
 async function checkNotify() {
@@ -1247,6 +1283,92 @@ function showOnboarding() {
 
 document.getElementById('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
 
+// 입력줄 아래 1줄 정리: 초대 대화상자·더보기 펼침 (window.confirm/alert 사용 금지).
+let inviteReturnFocus = null;
+let moreReturnFocus = null;
+function focusablesIn(root) {
+  if (!root) return [];
+  const els = root.querySelectorAll('button, a[href], select, input');
+  const out = [];
+  for (const el of els) {
+    if (el.hidden || el.disabled) continue;
+    try {
+      if (el.getClientRects && el.getClientRects().length === 0) continue;
+    } catch (e) { /* 보이면 둔다 */ }
+    out.push(el);
+  }
+  return out;
+}
+function trapTab(e, root) {
+  if (!e || e.key !== 'Tab' || !root || root.hidden) return;
+  const f = focusablesIn(root);
+  if (!f.length) return;
+  const first = f[0];
+  const last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+function openInviteDialog() {
+  if (invitesUnsupported) { shareInvite(); return; }
+  inviteReturnFocus = document.activeElement;
+  const wrap = document.getElementById('inviteDialogWrap');
+  if (!wrap) return;
+  wrap.hidden = false;
+  refreshInvites();
+  const sel = document.getElementById('inviteDays');
+  const closeBtn = document.getElementById('inviteDialogClose');
+  const target = sel || closeBtn;
+  if (target) target.focus();
+}
+function closeInviteDialog() {
+  const wrap = document.getElementById('inviteDialogWrap');
+  if (wrap) wrap.hidden = true;
+  if (inviteReturnFocus && inviteReturnFocus.focus) inviteReturnFocus.focus();
+}
+function openMoreSheet() {
+  moreReturnFocus = document.activeElement;
+  const wrap = document.getElementById('moreSheetWrap');
+  if (!wrap) return;
+  relocateWalkie();
+  updateOwnerTools();
+  updateShareUI();
+  wrap.hidden = false;
+  const btn = document.getElementById('moreBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+  const sheet = document.getElementById('moreSheet');
+  const f = focusablesIn(sheet);
+  if (f.length) f[0].focus();
+  else {
+    const closeBtn = document.getElementById('moreCloseBtn');
+    if (closeBtn) closeBtn.focus();
+  }
+}
+function closeMoreSheet() {
+  const wrap = document.getElementById('moreSheetWrap');
+  if (wrap) wrap.hidden = true;
+  const btn = document.getElementById('moreBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  if (moreReturnFocus && moreReturnFocus.focus) moreReturnFocus.focus();
+}
+// voice.js가 입력줄 위에 만드는 무전기 스위치를 더보기 안으로 옮긴다 (fetch 변경 없음).
+function relocateWalkie() {
+  try {
+    const row = document.getElementById('walkieRow');
+    if (row) row.style.display = 'none';
+    const sw = document.getElementById('walkieSwitch');
+    const slot = document.getElementById('walkieSlot');
+    if (sw && slot && sw.parentNode !== slot) slot.appendChild(sw);
+  } catch (e) { /* 스위치 이동 실패해도 입력은 유지 */ }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocateWalkie);
+window.addEventListener('load', relocateWalkie);
+try {
+  const walkieObs = new MutationObserver(() => relocateWalkie());
+  walkieObs.observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(relocateWalkie, 500);
+  setTimeout(relocateWalkie, 1500);
+} catch (e) { /* 관찰자 실패해도 계속 진행 */ }
+
 // 참여자 패널·초대·사진·방장 도구 연결
 memberCountEl.addEventListener('click', () => {
   const wrap = document.getElementById('memberPanelWrap');
@@ -1262,12 +1384,41 @@ document.getElementById('ownerConfirmBtn').addEventListener('click', confirmOwne
 document.getElementById('ownerCancelBtn').addEventListener('click', closeOwnerDialog);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  const inviteWrap = document.getElementById('inviteDialogWrap');
+  if (inviteWrap && !inviteWrap.hidden) { closeInviteDialog(); return; }
+  const moreWrap = document.getElementById('moreSheetWrap');
+  if (moreWrap && !moreWrap.hidden) { closeMoreSheet(); return; }
   const ownerWrap = document.getElementById('ownerDialogWrap');
   if (ownerWrap && !ownerWrap.hidden) { closeOwnerDialog(); return; }
   const memberWrap = document.getElementById('memberPanelWrap');
   if (memberWrap && !memberWrap.hidden) closeMemberPanel();
 });
 document.getElementById('inviteCreateBtn').addEventListener('click', createInvite);
+document.getElementById('inviteOpenBtn').addEventListener('click', openInviteDialog);
+document.getElementById('inviteDialogClose').addEventListener('click', closeInviteDialog);
+document.getElementById('inviteDialogWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'inviteDialogWrap') closeInviteDialog();
+});
+document.getElementById('inviteDialogWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('inviteDialogWrap');
+  trapTab(e, wrap);
+});
+document.getElementById('inviteShareLastBtn').addEventListener('click', () => shareInviteLink());
+document.getElementById('inviteCopyLastBtn').addEventListener('click', () => copyInviteLink());
+document.getElementById('moreBtn').addEventListener('click', () => {
+  const wrap = document.getElementById('moreSheetWrap');
+  if (wrap && !wrap.hidden) closeMoreSheet();
+  else openMoreSheet();
+});
+document.getElementById('moreCloseBtn').addEventListener('click', closeMoreSheet);
+document.getElementById('moreSheetWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'moreSheetWrap') closeMoreSheet();
+});
+document.getElementById('moreSheetWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('moreSheetWrap');
+  trapTab(e, wrap);
+});
+document.getElementById('moreLeaveBtn').addEventListener('click', () => { closeMoreSheet(); leaveRoom(); });
 document.getElementById('photoBtn').addEventListener('click', () => {
   document.getElementById('photoInput').click();
 });
