@@ -423,6 +423,16 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
                 selected.append(hit)
         if selected:
             card["hidden"] = {"asked": True, "selected": selected}
+            # 고른 항목 말고 덧붙인 말("소형견만 돼요")은 버리지 않는다: 안내 메모로 남기고 칸 추출에도 넘긴다.
+            rest = t
+            for k, label in labels:
+                if k in selected:
+                    for cand in sorted((label, label.split("·")[0]), key=len, reverse=True):
+                        rest = rest.replace(cand, " ")
+            rest = re.sub(r"^[\s,·/\-—:()]+|[\s,·/\-—:()]+$", "", re.sub(r"\s+", " ", rest))
+            if len(_norm(rest)) >= 3:
+                card["hidden"]["note"] = rest[:200]
+                card["pending_remainder"] = rest[:200]
             card["pending"] = None
             return True
         if n in NONE_NORMS:
@@ -592,6 +602,12 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
                            and prev_pending.get("kind") == "owner_confirm" else None)
         answered = _answer_pending(card, t, by, is_owner)
         trace["answered_by_rule"] = bool(answered)
+        remainder = card.pop("pending_remainder", None)
+        if answered and remainder:
+            # 선택과 함께 쓴 말에서도 칸을 뽑는다(예: "주차, 전화는 010-…").
+            ups, ok, ms, attempts = extract_detail(remainder, None)
+            trace.update(extract_ok=ok, extract_ms=ms, extract_attempts=attempts, extracted=[u["slot"] for u in ups])
+            applied = apply_updates(card, ups, remainder, by, is_owner)
         if not answered:
             last_q = (card.get("pending") or {}).get("text")
             ups, ok, ms, attempts = extract_detail(t, last_q)
@@ -839,7 +855,8 @@ def summary_text(card: dict) -> str:
              for k in _SUMMARY_ORDER if k in card["slots"] and card["slots"][k]["status"] != S.REJECTED]
     hidden = [label for key, label in ind.hidden if key in card["hidden"]["selected"]]
     if hidden:
-        lines.append(f"• 안내할 것: {', '.join(hidden)}")
+        note = card["hidden"].get("note")
+        lines.append(f"• 안내할 것: {', '.join(hidden)}" + (f" ({note})" if note else ""))
     for v in card.get("features_judged") or []:
         answer = (card.get("feature_answers") or {}).get(v.get("id"))
         how = {intake.READY: "넣음", intake.OWNER_SETUP: "사장님 준비 필요", intake.ALTERNATIVE: "대체안",

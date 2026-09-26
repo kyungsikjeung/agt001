@@ -99,5 +99,5 @@ def test_rule_quote_one_line_beta_free():
     q = rule_quote(card)
     sections = len(card["slots"]["sections"]["value"])
     assert q["amount"] == round((600_000 + 80_000 * sections + 200_000) / 100_000) * 100_000
-    assert "베타 기간에는 무료" in format_quote_text(q) and "만 원" in format_quote_text(q)
+    assert "베타 시연이라 무료" in format_quote_text(q) and "만 원" in format_quote_text(q)
     assert "기능 1개" in q["basis"]  # 베타 밖 기능은 세지 않는다

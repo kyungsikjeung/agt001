@@ -66,6 +66,9 @@ def submit(site_key: str, name: Optional[str], contact: Optional[str], message: 
                             .where(SessionRow.requirement_id == key))
     if room_id:
         _notify_room(room_id, name_c, contact_c, message_c)
+        # 사장님 카톡 알림(켜져 있으면). 연락처는 카톡에도 보인다(사장님 본인에게만 가는 메모).
+        from app.services import notify
+        notify.owner_kakao(room_id, f"사이트로 새 문의가 왔어요.\n이름: {name_c or '(적지 않음)'}\n연락처: {contact_c}\n내용: {message_c[:120]}")
     return True
 
 

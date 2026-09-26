@@ -62,12 +62,16 @@ class Settings(BaseSettings):
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None
     login_session_days: int = 30
+    # 카카오 알림 토큰 암호화 키. 비우면 카카오 Client Secret에서 만든다(app/services/kakao_talk.py).
+    token_enc_key: Optional[str] = None
 
     # 채팅방 타이머·인원 (D7·D8, ROOM_POLICY §4.2). 점검 작업 대신 방을 읽거나 쓸 때 판정한다.
     room_vote_reset_hours: float = 24
     room_quote_expire_days: float = 7
     room_close_days: float = 30
     room_max_members: int = 10
+    # 새 방은 초대 링크로만 들어온다(ROOM_POLICY §3). 이전 방은 그대로 주소로 들어온다.
+    room_invite_required: bool = True
 
     # 설정하면 배포 URL을 요청 호스트 대신 이 값으로 만든다 (예: https://example.com).
     public_base_url: Optional[str] = None

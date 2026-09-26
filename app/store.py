@@ -24,7 +24,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session as DbSession
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.db.models import ChatTurnRow, RoomMemberRow, RoomMessageRow, RoomRow, RoomVoteRow, SessionRow
+from app.db.models import ChatTurnRow, RoomInviteRow, RoomMemberRow, RoomMessageRow, RoomRow, RoomVoteRow, SessionRow
 from app.db.session import get_sessionmaker
 
 log = logging.getLogger(__name__)
@@ -182,6 +182,7 @@ def _load_room(db: DbSession, row: RoomRow) -> dict:
         "session_id": row.session_id,
         "created_at": _iso(row.created_at),
         "ai_status": row.ai_status,
+        "invite_required": row.invite_required,
         "members": [
             {"member_id": m.member_id, "nickname": m.nickname,
              "joined_at": _iso(m.joined_at), "last_seen": _iso(m.last_seen)}
@@ -202,23 +203,75 @@ def _save_room(db: DbSession, row: RoomRow, room: dict) -> None:
         )
         db.execute(stmt.on_conflict_do_update(
             index_elements=["room_id", "member_id"],
-            set_={"nickname": stmt.excluded.nickname, "last_seen": stmt.excluded.last_seen},
+            # 순서(position)도 쓴다: 맨 앞이 방장이라 방장 넘기기는 순서 바꾸기다.
+            set_={"nickname": stmt.excluded.nickname, "last_seen": stmt.excluded.last_seen,
+                  "position": stmt.excluded.position},
         ))
+    # 나간 참여자는 지운다(그가 쓴 메시지는 남는다).
+    keep = [m["member_id"] for m in room["members"]]
+    db.execute(delete(RoomMemberRow).where(RoomMemberRow.room_id == row.id, RoomMemberRow.member_id.not_in(keep)))
     db.execute(delete(RoomVoteRow).where(RoomVoteRow.room_id == row.id))
     for member_id, vote in room["votes"].items():
         db.add(RoomVoteRow(room_id=row.id, member_id=member_id, vote=vote))
     for msg in room["new_messages"]:
         db.add(RoomMessageRow(
             room_id=row.id, seq=msg["seq"], member_id=msg["member_id"], nickname=msg["nickname"],
-            text=msg["text"], kind=msg["kind"], ts=_parse_ts(msg["ts"]),
+            text=msg["text"], kind=msg["kind"], ts=_parse_ts(msg["ts"]), meta=msg.get("meta"),
         ))
 
 
-def create_room(room_id: str, session_id: str, session: dict) -> None:
+def create_room(room_id: str, session_id: str, session: dict, invite_required: bool = False) -> None:
     with _transaction() as tx:
         tx.db.add(_new_session_row(session_id, session))
         tx.db.flush()
-        tx.db.add(RoomRow(id=room_id, session_id=session_id, ai_status="IDLE"))
+        tx.db.add(RoomRow(id=room_id, session_id=session_id, ai_status="IDLE", invite_required=invite_required))
+
+
+# ── 초대 링크 (ROOM_POLICY §3) ────────────────────────────────────────
+
+def _token_hash(token: str) -> str:
+    import hashlib
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def create_invite(room_id: str, created_by: str, days: int) -> tuple[str, str, Optional[str]]:
+    """(초대 ID, 토큰 원문, 만료 시각). 토큰 원문은 여기서만 나오고 저장하지 않는다."""
+    import secrets
+    token = secrets.token_urlsafe(18)
+    invite_id = secrets.token_hex(4)
+    expires = (datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=days)) if days else None
+    with _transaction() as tx:
+        tx.db.add(RoomInviteRow(id=invite_id, room_id=room_id, token_hash=_token_hash(token),
+                                created_by=created_by, expires_at=expires))
+    return invite_id, token, _iso(expires)
+
+
+def list_invites(room_id: str) -> list[dict]:
+    with get_sessionmaker()() as db:
+        rows = db.scalars(select(RoomInviteRow).where(RoomInviteRow.room_id == room_id)
+                          .order_by(RoomInviteRow.created_at.desc())).all()
+        return [{"invite_id": r.id, "created_at": _iso(r.created_at), "expires_at": _iso(r.expires_at),
+                 "revoked": r.revoked, "uses": r.uses} for r in rows]
+
+
+def revoke_invite(room_id: str, invite_id: str) -> bool:
+    with _transaction() as tx:
+        n = tx.db.execute(update(RoomInviteRow).where(RoomInviteRow.room_id == room_id, RoomInviteRow.id == invite_id)
+                          .values(revoked=True)).rowcount
+    return bool(n)
+
+
+def use_invite(room_id: str, token: str) -> bool:
+    """유효한 초대면 사용 횟수를 올리고 True. 틀림·폐기·만료면 False."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with _transaction() as tx:
+        n = tx.db.execute(
+            update(RoomInviteRow)
+            .where(RoomInviteRow.room_id == room_id, RoomInviteRow.token_hash == _token_hash(token or ""),
+                   RoomInviteRow.revoked.is_(False),
+                   (RoomInviteRow.expires_at.is_(None)) | (RoomInviteRow.expires_at > now))
+            .values(uses=RoomInviteRow.uses + 1)).rowcount
+    return bool(n)
 
 
 @contextmanager
@@ -259,20 +312,24 @@ def read_messages(room_id: str, since: int) -> list[dict]:
         ).all()
         return [
             {"seq": r.seq, "member_id": r.member_id, "nickname": r.nickname,
-             "text": r.text, "ts": _iso(r.ts), "kind": r.kind}
+             "text": r.text, "ts": _iso(r.ts), "kind": r.kind, **(r.meta or {})}
             for r in rows
         ]
 
 
-def _activity(db: DbSession, room_id: str) -> tuple[Optional[datetime.datetime], Optional[str]]:
+def _activity(db: DbSession, room_id: str) -> tuple[Optional[datetime.datetime], Optional[str], frozenset]:
+    """(마지막 사람 활동 시각, 마지막 메시지 글, 그 뒤에 남긴 경고 글들). 경고는 활동 뒤 한 번만 남기려고 본다."""
     last_act = db.scalar(select(func.max(RoomMessageRow.ts))
                          .where(RoomMessageRow.room_id == room_id, RoomMessageRow.kind.in_(("chat", "vote"))))
     last_text = db.scalar(select(RoomMessageRow.text).where(RoomMessageRow.room_id == room_id)
                           .order_by(RoomMessageRow.seq.desc()).limit(1))
-    return last_act, last_text
+    q = select(RoomMessageRow.text).where(RoomMessageRow.room_id == room_id, RoomMessageRow.kind == "warning")
+    if last_act is not None:
+        q = q.where(RoomMessageRow.ts > last_act)
+    return last_act, last_text, frozenset(db.scalars(q).all())
 
 
-def activity_info(room_id: str) -> tuple[Optional[datetime.datetime], Optional[str]]:
+def activity_info(room_id: str) -> tuple[Optional[datetime.datetime], Optional[str], frozenset]:
     """(마지막 사람 활동 시각, 마지막 메시지 글). 활동은 사람이 보낸 메시지와 투표(ROOM_POLICY §4.2).
     room_tx 안에서는 room["activity"]를 쓴다(잠금 중에 연결을 하나 더 잡으면 동시 요청에서 풀이 바닥난다)."""
     with get_sessionmaker()() as db:
@@ -330,4 +387,4 @@ def purge_chat_turns(now: Optional[datetime.datetime] = None) -> int:
 def reset_all() -> None:
     """테스트 전용: 모든 행을 지운다."""
     with get_sessionmaker()() as db, db.begin():
-        db.execute(text("TRUNCATE inquiries, user_rooms, login_sessions, oauth_states, oauth_accounts, users, chat_turns, funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))
+        db.execute(text("TRUNCATE attachments, room_invites, inquiries, user_rooms, login_sessions, oauth_states, oauth_accounts, users, chat_turns, funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))

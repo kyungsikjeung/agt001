@@ -68,7 +68,7 @@ def render_variants(requirement_id: str, card: dict) -> dict:
     items = DV.variants(card)
     shots = []
     for v in items:
-        page = site_render.render_site(v["spec"], site_key=requirement_id, title=title)
+        page = site_render.render_site(v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
         (design_dir / v["id"]).mkdir(exist_ok=True)
         (design_dir / v["id"] / "index.html").write_text(page, encoding="utf-8")
         shots.append((page, design_dir / f"{v['id']}.png"))
@@ -106,7 +106,8 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     out = settings.generated_dir / requirement_id / "published"
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_text(
-        site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card)), encoding="utf-8")
+        site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card), kind=DV.kind_for(card)),
+        encoding="utf-8")
 
 
 def render_design(requirement_id: str, platform: str, features: list[str], quote_amount: int, quote_basis: str,

@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import auth, chat, events, inquiries, projects, public, rooms, stt, tts
+from app.api import auth, card, chat, events, inquiries, projects, public, rooms, stt, tts
 from app.config import settings
 from app.services import funnel, rag
 from app.services import inquiries as inquiries_svc
@@ -29,8 +29,8 @@ async def lifespan(_app: FastAPI):
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/api/inquiries/", "/health")
-_GENERATED_PATHS = ("/site/", "/design/")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/api/inquiries/", "/health")
+_GENERATED_PATHS = ("/site/", "/design/", "/uploads/")
 
 
 async def _split_hosts(request: Request, call_next):
@@ -62,6 +62,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(inquiries.router)
     app.include_router(tts.router)
+    app.include_router(card.router)
     # 라우터 뒤에 마운트해야 API 경로가 우선한다. html=True로 "/"에서 index.html을 준다.
     # React 빌드 자산. 빌드 전에도 기동은 되도록 디렉터리 확인을 끈다.
     app.mount("/assets", StaticFiles(directory=settings.frontend_dist_dir / "assets", check_dir=False), name="assets")

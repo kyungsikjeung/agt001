@@ -31,13 +31,13 @@ def _set_cookie(resp: Response, name: str, value: str, max_age: int) -> None:
 
 
 @router.get("/auth/{provider}/start", include_in_schema=False)
-def auth_start(provider: str, request: Request, next: Optional[str] = None):
+def auth_start(provider: str, request: Request, next: Optional[str] = None, talk: Optional[int] = None):
     if provider not in auth.PROVIDERS:
         raise HTTPException(status_code=404)
     if not auth.configured(provider):
         # 키를 넣기 전(콘솔 설정 전)에는 안내로 돌려보낸다.
         return RedirectResponse(f"/?login_error={provider}_not_ready", status_code=303)
-    state, url = auth.begin(provider, next or "/", _redirect_uri(request, provider))
+    state, url = auth.begin(provider, next or "/", _redirect_uri(request, provider), talk=bool(talk) and provider == "kakao")
     resp = RedirectResponse(url, status_code=303)
     _set_cookie(resp, auth.STATE_COOKIE, state, int(auth.STATE_TTL.total_seconds()))
     return resp

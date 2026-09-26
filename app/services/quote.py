@@ -89,7 +89,7 @@ RULE_BASE_DEFAULT = 600_000        # 가게·기타 원페이지
 RULE_PER_SECTION = 80_000          # 담을 내용 한 가지마다
 RULE_PER_FEATURE = {"ready": 100_000, "alternative": 150_000, "owner_setup": 100_000}
 RULE_INQUIRY_FORM = 200_000        # 문의 양식 + 알림 (C6)
-BETA_NOTE = "베타 기간에는 무료로 만들어 드려요."
+BETA_NOTE = "지금은 베타 시연이라 무료로 만들어 드려요."
 
 
 def rule_quote(card: dict) -> dict:

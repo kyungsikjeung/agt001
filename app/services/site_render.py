@@ -24,17 +24,90 @@ class SiteSpecError(ValueError):
 
 
 # 허용 URL 앞부분 (href/src로 가는 값 전용, README §4·작업 지시).
-_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#")
+# "/uploads/"는 우리 사진 주소 전용 (contracts/ROOM_FEATURES_API.md §4).
+# 그 외 상대경로는 계속 막는다.
+_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/")
+
+# 업종별 예시 그림 키 (작업 A1, design_variants._SAMPLE_FOR 업종 키와 같음).
+KIND_KEYS = ("pension", "cafe", "restaurant", "salon", "workshop",
+             "academy", "individual", "group", "webservice", "other")
+
+# 사진 칸 대체 그림 용도 (대표 1장 + 사진첩용 2장).
+_ILLU_NAMES = ("hero", "gallery-1", "gallery-2")
+
+# 사진 있는 hero 템플릿 (text-only는 사진 칸이 없어 대상 아님).
+_HERO_PHOTO_VARIANTS = ("photo-overlay", "photo-side")
+
+# hero·gallery 템플릿의 빈 사진 자리 표시 (인라인 그림으로 갈아끼운다).
+_HERO_EMPTY_MARK = ('<div class="s-media__empty is-placeholder"'
+                    ' aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>')
 
 # image_style 선택지 (SPEC §1.5, 수치 파일 없음).
 _IMAGE_STYLES = ("full-bleed", "card", "circle-mini")
 
-# 파일 캐시 (settings.templates_dir 기준, 한 번만 읽는다).
-_CACHE: dict = {}
+# 예시 그림 원문 캐시 (종류·용도별 SVG, 인라인으로만 쓴다).
+_ILLUSTRATIONS: dict = {}
+
+
+def _normalize_kind(kind) -> str:
+    """업종 키를 10종 중 하나로 맞춘다. 모르면 other."""
+    if isinstance(kind, str) and kind.strip().lower() in KIND_KEYS:
+        return kind.strip().lower()
+    return "other"
+
+
+def _illustration_svg(kind: str, name: str) -> str:
+    """업종·용도별 예시 SVG 원문을 돌린다 (자체 제작, 외부 파일 호출 없음)."""
+    safe_kind = _normalize_kind(kind)
+    if name not in _ILLU_NAMES:
+        name = "hero"
+    key = f"{safe_kind}/{name}"
+    hit = _ILLUSTRATIONS.get(key)
+    if hit is not None:
+        return hit
+    path = _templates_dir() / "illustrations" / f"{safe_kind}-{name}.svg"
+    if not path.is_file():
+        path = _templates_dir() / "illustrations" / f"other-{name}.svg"
+    text = path.read_text(encoding="utf-8")
+    if "<script" in text.lower():
+        raise SiteSpecError(f"예시 그림에 스크립트가 있음: {key}")
+    _ILLUSTRATIONS[key] = text
+    return text
+
+
+def _illustration_block(kind: str, name: str) -> str:
+    """빈 사진 칸에 넣을 인라인 그림 + 예시 표시 한 묶음."""
+    return ('<div class="s-illu" role="img" aria-label="예시 이미지: 사장님 사진으로 바뀌어요">'
+            + _illustration_svg(kind, name)
+            + '<span class="s-illu-badge">예시 이미지</span></div>')
+
+
+def _gallery_example_html(section_id: str, variant: str, kind: str) -> str:
+    """사진 0장인 사진첩의 예시 그림 2장 + 안내 문구 (템플릿 구조와 같은 등급)."""
+    safe_id = html.escape(section_id, quote=True)
+    if variant not in ("grid", "swipe"):
+        variant = "grid"
+    list_class = "s-gallery__swipe" if variant == "swipe" else "s-gallery__list"
+    figures = "".join(
+        "<li><figure>" + _illustration_block(kind, name) + "</figure></li>"
+        for name in ("gallery-1", "gallery-2")
+    )
+    return (
+        f'<section class="s-gallery s-gallery--{variant}"'
+        f' data-section-id="{safe_id}" aria-labelledby="gallery-title-{safe_id}">'
+        f'<h2 id="gallery-title-{safe_id}">사진첩</h2>'
+        f'<ul class="{list_class}">{figures}</ul>'
+        '<p class="s-gallery__notice">사장님 사진으로 바뀌어요</p>'
+        "</section>"
+    )
 
 
 def _templates_dir() -> Path:
     return Path(settings.templates_dir)
+
+
+# 파일 캐시 (settings.templates_dir 기준, 한 번만 읽는다).
+_CACHE: dict = {}
 
 
 def _bundle() -> dict:
@@ -123,7 +196,11 @@ def list_variants() -> list:
 
 
 def _clean_url(value) -> str:
-    """허용 앞부분이 아니면 빈 값으로 돌린다 (자리 표시 분기용)."""
+    """허용 앞부분이 아니면 빈 값으로 돌린다 (자리 표시·예시 그림 분기용).
+
+    우리 사진 주소 "/uploads/"로 시작하는 값도 허용한다
+    (contracts/ROOM_FEATURES_API.md §4). 다른 상대경로는 계속 막는다.
+    """
     if not isinstance(value, str):
         return ""
     text = value.strip()
@@ -380,7 +457,8 @@ def _section_context(
 ) -> dict | None:
     """부품별 content → 템플릿 변수 매핑 (README §3·§4 그대로).
 
-    갤러리는 사진 0장이면 None을 돌려 섹션을 숨긴다 (SPEC §2.4).
+    갤러리는 사진 0장이면 예시 그림 표시용 {"is_example": True}를 돌린다
+    (작업 A1, SPEC §2.4 숨김 대신). render_site가 예시 HTML로 채운다.
     """
     key = f"{section_type}--{variant}"
     ctx: dict = {"id": section_id}
@@ -424,8 +502,8 @@ def _section_context(
         ctx["has_items"] = has_items
     elif section_type == "gallery":
         items = _gallery_items(content)
-        if not items:
-            return None
+        if not any(one.get("src") for one in items):
+            return {"id": section_id, "is_example": True}
         ctx["items"] = items
     elif section_type == "around":
         ctx["address"] = _text(content, "address")
@@ -493,8 +571,14 @@ def _section_context(
     return ctx
 
 
-def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30, title: str = "") -> str:
-    """명세를 완전한 HTML 문서 한 장으로 렌더한다 (스크립트 없음)."""
+def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
+                title: str = "", kind: str = "other") -> str:
+    """명세를 완전한 HTML 문서 한 장으로 렌더한다 (스크립트 없음).
+
+    kind는 업종 키 10종 중 하나 (모르면 other). 사진이 비었을 때
+    대표(hero) 사진 칸과 사진 0장인 사진첩에 업종별 예시 그림을
+    인라인 SVG로 넣는다. 사진이 있으면 그림을 쓰지 않는다.
+    """
     if not isinstance(spec, dict):
         raise SiteSpecError("명세는 dict 형태여야 함")
     bundle = _bundle()
@@ -512,6 +596,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30, tit
     sections = spec.get("sections", [])
     if not isinstance(sections, list):
         raise SiteSpecError("sections가 목록 형태가 아님")
+    kind = _normalize_kind(kind)
     rendered_parts = []
     for pos, section in enumerate(sections):
         if not isinstance(section, dict):
@@ -534,7 +619,16 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30, tit
         )
         if ctx is None:
             continue
-        rendered_parts.append(chevron.render(template, _safe(ctx)))
+        if ctx.pop("is_example", False):
+            rendered_parts.append(_gallery_example_html(str(section_id), variant, kind))
+            continue
+        part = chevron.render(template, _safe(ctx))
+        if (section_type == "hero" and variant in _HERO_PHOTO_VARIANTS
+                and not ctx.get("image_src")):
+            # 사진 없음: 빈 자리 표시를 업종별 예시 그림으로 갈아끼운다.
+            # 사진 있음: 그림을 쓰지 않는다.
+            part = part.replace(_HERO_EMPTY_MARK, _illustration_block(kind, "hero"), 1)
+        rendered_parts.append(part)
 
     page_title = title.strip() if isinstance(title, str) and title.strip() else "가게 홈페이지"
     css2_url = font_pair.get("css2_url") if isinstance(font_pair, dict) else None

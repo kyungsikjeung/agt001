@@ -44,6 +44,8 @@ class RoomRow(Base):
     session_id: Mapped[str] = mapped_column(ForeignKey("sessions.id"), nullable=False, unique=True)
     ai_status: Mapped[str] = mapped_column(Text, nullable=False, server_default="IDLE")
     created_at: Mapped[datetime.datetime] = _now_col()
+    # 새 방은 초대 링크로만 들어온다(ROOM_POLICY §3). 이 기능 전에 만든 방은 예전처럼 주소로 들어온다.
+    invite_required: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
 
 class RoomMemberRow(Base):
@@ -73,6 +75,7 @@ class RoomMessageRow(Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     kind: Mapped[str] = mapped_column(Text, nullable=False)
     ts: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    meta: Mapped[Optional[dict]] = mapped_column(JSONB)  # 예: 사진 메시지 {"photo": {"id", "url"}}
 
 
 class RoomVoteRow(Base):
@@ -145,6 +148,9 @@ class OAuthAccountRow(Base):
     provider_user_id: Mapped[str] = mapped_column(Text, primary_key=True)  # 카카오 회원번호 / 구글 sub
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     created_at: Mapped[datetime.datetime] = _now_col()
+    # 카카오 "나에게 보내기" 알림용 리프레시 토큰(암호화). 사장님이 알림을 켰을 때만 저장한다(UQ-1 예외, D32).
+    talk_refresh_enc: Mapped[Optional[str]] = mapped_column(Text)
+    talk_refresh_expires_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class LoginSessionRow(Base):
@@ -196,3 +202,32 @@ class InquiryRow(Base):
     name: Mapped[Optional[str]] = mapped_column(Text)
     contact: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class RoomInviteRow(Base):
+    """초대 링크(ROOM_POLICY §3). 토큰 원문은 저장하지 않는다."""
+
+    __tablename__ = "room_invites"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    room_id: Mapped[str] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_by: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()
+    expires_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    uses: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+
+class AttachmentRow(Base):
+    """채팅방에 올린 사진. 위치 정보를 지우고 줄인 JPEG만 보관한다(원본 없음, S-6)."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[str] = mapped_column(Text, primary_key=True)
+    room_id: Mapped[str] = mapped_column(ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    member_id: Mapped[str] = mapped_column(Text, nullable=False)
+    caption: Mapped[Optional[str]] = mapped_column(Text)
+    width: Mapped[int] = mapped_column(Integer, nullable=False)
+    height: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()

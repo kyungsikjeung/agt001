@@ -61,7 +61,7 @@ def safe_next(path: Optional[str]) -> str:
     return p
 
 
-def begin(provider: str, next_path: str, redirect_uri: str) -> tuple[str, str]:
+def begin(provider: str, next_path: str, redirect_uri: str, talk: bool = False) -> tuple[str, str]:
     """(state 원문, 제공자 로그인 주소). state 원문은 쿠키로도 내려 보낸다."""
     state = secrets.token_urlsafe(32)
     verifier = secrets.token_urlsafe(48)
@@ -70,10 +70,12 @@ def begin(provider: str, next_path: str, redirect_uri: str) -> tuple[str, str]:
         db.add(OAuthStateRow(state_hash=_hash(state), provider=provider, code_verifier=verifier,
                              next_path=safe_next(next_path), expires_at=_now() + STATE_TTL))
     if provider == "kakao":
-        url = "https://kauth.kakao.com/oauth/authorize?" + urlencode({
-            "response_type": "code", "client_id": settings.kakao_rest_api_key,
-            "redirect_uri": redirect_uri, "state": state,
-        })
+        params = {"response_type": "code", "client_id": settings.kakao_rest_api_key,
+                  "redirect_uri": redirect_uri, "state": state}
+        if talk:
+            # 문의 알림(나에게 보내기)용 추가 동의 (D32 ①, contracts/ROOM_FEATURES_API.md §6)
+            params["scope"] = "talk_message"
+        url = "https://kauth.kakao.com/oauth/authorize?" + urlencode(params)
     else:
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
         url = "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
@@ -84,8 +86,8 @@ def begin(provider: str, next_path: str, redirect_uri: str) -> tuple[str, str]:
     return state, url
 
 
-def exchange_code(provider: str, code: str, verifier: str, redirect_uri: str) -> str:
-    """인가 코드 → 제공자 액세스 토큰(저장하지 않음)."""
+def exchange_code(provider: str, code: str, verifier: str, redirect_uri: str) -> dict:
+    """인가 코드 → 제공자 토큰 응답. 액세스 토큰은 저장하지 않는다(카카오 알림 동의가 있으면 리프레시 토큰만 암호화 저장)."""
     if provider == "kakao":
         url, data = "https://kauth.kakao.com/oauth/token", {
             "grant_type": "authorization_code", "client_id": settings.kakao_rest_api_key,
@@ -100,7 +102,7 @@ def exchange_code(provider: str, code: str, verifier: str, redirect_uri: str) ->
     resp = httpx.post(url, data=data, timeout=10)
     if resp.status_code != 200 or "access_token" not in resp.json():
         raise AuthError("token")
-    return resp.json()["access_token"]
+    return resp.json()
 
 
 def fetch_profile(provider: str, access_token: str) -> tuple[str, str, Optional[str]]:
@@ -134,8 +136,8 @@ def finish(provider: str, state: str, state_cookie: Optional[str], code: str, re
     if row is None or row.provider != provider or row.expires_at < _now():
         raise AuthError("state")
     verifier, next_path = row.code_verifier, row.next_path
-    token = exchange_code(provider, code, verifier, redirect_uri)
-    provider_user_id, nickname, email = fetch_profile(provider, token)
+    tokens = exchange_code(provider, code, verifier, redirect_uri)
+    provider_user_id, nickname, email = fetch_profile(provider, tokens["access_token"])
     with get_sessionmaker()() as db, db.begin():
         account = db.get(OAuthAccountRow, (provider, provider_user_id))
         if account is None:
@@ -149,6 +151,9 @@ def finish(provider: str, state: str, state_cookie: Optional[str], code: str, re
             user = db.get(UserRow, user_id)
             user.nickname = nickname[:40]
             user.last_login_at = _now()
+    if provider == "kakao" and "talk_message" in str(tokens.get("scope", "")) and tokens.get("refresh_token"):
+        from app.services import kakao_talk
+        kakao_talk.save_refresh_token(provider_user_id, tokens["refresh_token"], tokens.get("refresh_token_expires_in"))
     return user_id, next_path
 
 

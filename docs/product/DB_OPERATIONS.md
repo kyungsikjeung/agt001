@@ -67,3 +67,34 @@ sudo docker compose exec -T db psql -U agt001 -d agt001 -c "SELECT relname, pg_s
 docker system df -v | grep -A3 pg_data
 df -h ~/agt001-backups
 ```
+
+## 6. 서버 밖 보관 (Mac 오프사이트, USER_DB_PLAN.md U-6)
+
+서버 디스크(`~/agt001-backups/`, §3)만 두면 디스크 손상·인스턴스 장애 때
+백업도 함께 잃는다. Mac에 1부를 더 둔다 (수동 E-2를 자동화한 형태).
+
+```bash
+# 1회 가져오기 (Mac에서, 서버 원본은 지우지 않는다)
+scripts/pull_backups.sh
+# 미리보기
+scripts/pull_backups.sh --dry-run
+
+# 매일 13:00 KST 자동 실행 등록 (서버 백업 03:30 KST 이후)
+# 실제 등록은 사용자가 직접 실행한다
+scripts/install_backup_pull.sh
+# 예약 해제
+scripts/install_backup_pull.sh --uninstall
+```
+
+| 항목 | 값 |
+|---|---|
+| 가져오기 | `rsync`로 서버 `~/agt001-backups/agt001-*.dump`만 가져온다 (`--delete` 없음, 서버 원본 유지) |
+| 서버 접속 | `SSH_KEY`(기본 `~/.ssh/oci_agt001`)·`REMOTE_HOST`(기본 `ubuntu@144.24.91.250`) 환경변수 (`deploy.sh`와 같은 방식) |
+| 로컬 보관 | `~/agt001-backups-offsite/`에 최근 30개만 (넘치는 것은 오래된 것부터 삭제) |
+| 무결성 | 파일마다 `pg_restore --list`로 읽힘 확인 (`pg_restore`가 없으면 크기로만 확인) |
+| 권한 | 폴더 `700`, 덤프 파일 `600` (사용자 데이터가 들어 있다) |
+| 기록 | 1줄씩 `~/agt001-backups-offsite/pull.log`에 남긴다 (시각·정상 수·깨짐 수·보관 수) |
+| 예약 | `~/Library/LaunchAgents/com.agt001.backup-pull.plist`, 매일 13:00 KST, 출력은 `pull-launchd.log` |
+
+로컬 덤프에서 복원할 때는 파일을 서버로 올린 뒤 §4와 같은 순서로 복원한다.
+복구 연습(분기 1회, 스테이징에만 복원)은 USER_DB_PLAN.md §A-3 절차를 따른다.

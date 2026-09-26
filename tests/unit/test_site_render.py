@@ -169,3 +169,98 @@ def test_list_variants_22종():
     assert "reviews--slot-only" in variants
     assert variants == sorted(variants)
     assert "contact--form" in site_render.list_variants()
+
+
+# ---- 작업 A1: 사진 없는 자리를 업종별 예시 그림으로 ----
+
+def _hero_빈사진(variant="photo-overlay"):
+    return {"id": "hero", "type": "hero", "variant": variant,
+            "content": {"title": "가게", "subtitle": "소개", "cta": {},
+                        "image": "", "image_alt": ""}}
+
+
+def _gallery_빈사진(variant="grid"):
+    return {"id": "gallery", "type": "gallery", "variant": variant,
+            "content": {"items": []}}
+
+
+def _bare_spec(sections):
+    spec = copy.deepcopy(_load_sample("cafe"))
+    spec["sections"] = sections
+    return spec
+
+
+def test_사진없음_예시그림과_예시표시():
+    out = render_site(_bare_spec([_hero_빈사진(), _gallery_빈사진()]), kind="cafe")
+    assert "<svg" in out
+    assert '<div class="s-illu"' in out
+    assert "예시 이미지" in out
+    assert "[사진 입력]" not in out
+    assert "사장님 사진으로 바뀌어요" in out
+    assert "<script" not in out
+    assert "{{" not in out
+    # 외부 파일을 부르지 않고 인라인으로 넣는다.
+    assert "/illustrations/" not in out
+
+
+def test_옆배치_대표도_빈사진이면_그림():
+    out = render_site(_bare_spec([_hero_빈사진("photo-side")]), kind="pension")
+    assert "<svg" in out
+    assert "예시 이미지" in out
+
+
+def test_글자만_대표는_그림없음():
+    out = render_site(_bare_spec(
+        [{"id": "hero", "type": "hero", "variant": "text-only",
+          "content": {"title": "가게", "subtitle": "소개", "cta": {}}}]), kind="cafe")
+    assert '<div class="s-illu"' not in out
+    assert "<svg" not in out
+
+
+def test_사진있음_예시그림없음():
+    hero = _hero_빈사진()
+    hero["content"]["image"] = "https://사진.example.com/대표.jpg"
+    gallery = {"id": "gallery", "type": "gallery", "variant": "grid",
+               "content": {"items": [{"src": "https://사진.example.com/1.jpg",
+                                      "alt": "내부", "caption": "홀"}]}}
+    out = render_site(_bare_spec([hero, gallery]), kind="cafe")
+    assert '<div class="s-illu"' not in out
+    assert "예시 이미지" not in out
+    assert "https://사진.example.com/대표.jpg" in out
+    assert "https://사진.example.com/1.jpg" in out
+
+
+def test_uploads_사진도_실사진으로():
+    hero = _hero_빈사진()
+    hero["content"]["image"] = "/uploads/방123/사진1.jpg"
+    out = render_site(_bare_spec([hero]), kind="cafe")
+    assert "/uploads/방123/사진1.jpg" in out
+    assert '<div class="s-illu"' not in out
+
+
+def test_clean_url_uploads허용_기타상대경로거부():
+    assert site_render._clean_url("/uploads/방1/가.jpg") == "/uploads/방1/가.jpg"
+    assert site_render._clean_url("/etc/passwd") == ""
+    assert site_render._clean_url("상대/경로.jpg") == ""
+    assert site_render._clean_url("../탈출.jpg") == ""
+    assert site_render._clean_url("/assets/방/1.jpg") == ""
+
+
+def test_설명만있고_사진없음_예시그림():
+    gallery = {"id": "gallery", "type": "gallery", "variant": "swipe",
+               "content": {"items": [{"src": "", "caption": "곧 사진이 와요"}]}}
+    out = render_site(_bare_spec([gallery]), kind="pension")
+    assert "사장님 사진으로 바뀌어요" in out
+    assert "s-gallery__swipe" in out
+
+
+def test_업종10종_모두렌더():
+    assert len(site_render.KIND_KEYS) == 10
+    for kind in site_render.KIND_KEYS:
+        out = render_site(_bare_spec([_hero_빈사진(), _gallery_빈사진()]), kind=kind)
+        assert "<svg" in out
+        assert "예시 이미지" in out
+        assert "사장님 사진으로 바뀌어요" in out
+    # 모르는 업종은 other 그림으로 렌더한다.
+    out = render_site(_bare_spec([_hero_빈사진()]), kind="없는업종")
+    assert "<svg" in out

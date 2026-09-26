@@ -105,6 +105,20 @@ def design_preview(requirement_id: str):
     return FileResponse(path, media_type="image/png", headers={"X-Content-Type-Options": "nosniff"})
 
 
+@router.get("/uploads/{room_id}/{filename}")
+def uploaded_photo(room_id: str, filename: str):
+    # 채팅방에 올린 사진(위치 정보 지운 JPEG). 생성물 전용 주소에서 연다(app/main.py _split_hosts).
+    safe_room = sanitize_token(room_id)
+    stem = filename[:-4] if filename.endswith(".jpg") else ""
+    if not safe_room or not stem or sanitize_token(stem) != stem:
+        raise HTTPException(status_code=404)
+    path = settings.generated_dir / "uploads" / safe_room / f"{stem}.jpg"
+    if not path.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(path, media_type="image/jpeg",
+                        headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"})
+
+
 @router.get("/site/{requirement_id}")
 def site_root_redirect(requirement_id: str):
     return RedirectResponse(url=f"/site/{requirement_id}/", status_code=308)

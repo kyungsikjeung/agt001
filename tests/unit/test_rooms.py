@@ -134,7 +134,7 @@ def test_room_polling_generating_to_done_exactly_once(client):
     assert first["state"] == "DONE"
 
     def completions(data):
-        return [m for m in data["messages"] if m["kind"] == "ai_reply" and "코드 생성이 완료됐습니다" in m["text"]]
+        return [m for m in data["messages"] if m["kind"] == "ai_reply" and "사이트 파일 만들기도 끝났어요" in m["text"]]
 
     assert len(completions(first)) == 1
     # 여러 번 폴링해도 완료 ai_reply가 중복 추가되지 않음

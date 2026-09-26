@@ -42,7 +42,7 @@ def _fake_provider(monkeypatch, provider_user_id="fake-user-1",
                    nickname="fake-nick-1", email="fake@example.com"):
     monkeypatch.setattr(
         auth_service, "exchange_code",
-        lambda provider, code, verifier, redirect_uri: "fake-access-token",
+        lambda provider, code, verifier, redirect_uri: {"access_token": "fake-access-token"},
     )
     monkeypatch.setattr(
         auth_service, "fetch_profile",

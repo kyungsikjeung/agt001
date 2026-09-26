@@ -161,6 +161,50 @@ button:focus-visible,
   min-height: 44px;
 }
 
+/* ---- 예시 그림 (사진이 없을 때 업종별 인라인 SVG, 사진이 오면 바뀐다) ---- */
+.s-illu {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--c-ground);
+}
+
+.s-illu svg { display: block; width: 100%; height: auto; }
+
+/* 옆 배치 대표와 사진첩은 사진과 같은 자리 크기로 맞춘다 */
+.s-hero--photo-side .s-media .s-illu svg { height: 220px; }
+.s-gallery .s-illu svg { height: 160px; }
+.s-gallery__swipe .s-illu svg { height: 180px; }
+
+/* 겹침형 대표는 배경 칸을 그대로 채운다 */
+.s-hero--photo-overlay .s-media .s-illu { position: absolute; inset: 0; }
+.s-hero--photo-overlay .s-media .s-illu svg { width: 100%; height: 100%; }
+
+/* 그림 위 작은 예시 표시 */
+.s-illu-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--c-ground);
+  background: var(--c-ink);
+  border-radius: var(--radius-btn);
+}
+
+/* 사진첩 예시 그림 아래 안내 문구 */
+.s-gallery__notice {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-primary);
+  margin: 8px 0 0;
+}
+
 .s-hero__cta { margin-top: var(--space-gap); }
 
 /* ---- S2 intro ---- */
@@ -438,6 +482,7 @@ button:focus-visible,
     align-items: center;
   }
   .s-hero--photo-side .s-media img { height: 280px; }
+  .s-hero--photo-side .s-media .s-illu svg { height: 280px; }
 
   .s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr 1fr; }
   .s-offerings--list-price .s-price-list { grid-template-columns: 1fr 1fr; }

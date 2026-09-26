@@ -65,7 +65,7 @@ def test_full_flow_to_done(client):
     _chat(client, "카페 예약 서비스 만들어줘", s)
     d4 = _chat(client, "승인", s)
     assert d4["state"] == "QUOTED"
-    assert "베타 기간에는 무료" in d4["reply"] and "참고 견적" in d4["reply"]  # D25 규칙 견적
+    assert "지금은 베타 시연이라 무료로 만들어 드려요" in d4["reply"] and "참고 견적" in d4["reply"]  # D25 규칙 견적
 
     # QUOTED에서 진행 외 텍스트 → GATHERING
     d5 = _chat(client, "취소", s)

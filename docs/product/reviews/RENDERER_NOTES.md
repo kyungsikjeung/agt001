@@ -65,3 +65,34 @@
 | 3 | 갤러리 `alt` 초안 | 지금은 `가게 사진 N` 유지. 사진 올리기와 함께 업종·캡션으로 만든다(P-6) |
 | 4 | `intro--short` 빈 본문 | **렌더 유지**(제목만). 3안 비교에서 구성이 흔들리지 않게. 공개 전 검사(S-5)에서 빈 소개를 경고로 띄운다 |
 | 5 | `--focus` 형태 | 색 값만. 모양은 `site.css`의 `:focus-visible`이 맡는다 |
+
+## 5. 예시 그림 (작업 A1, 2026-09-26)
+
+- 배경: 시안·공개 사이트의 사진 칸이 전부 점선 `[사진 입력]` 상자라 미완성처럼 보였다.
+  저작권 문제 없는 자체 제작 SVG(`templates/illustrations/`, 업종 10종 × 대표 1 + 사진첩용 2 = 30장)로
+  채우고 작게 `예시 이미지` 표시를 붙인다. 사장님 사진이 오면 그림 대신 사진이 난다.
+- 그림은 글자 없음, 파일당 4KB 이내, 색은 CSS 변수(`var(--c-primary)` 등)로만 칠해
+  3안마다 팔레트에 맞게 바뀐다. 외부 파일을 부르지 않고 렌더 결과에 인라인으로 넣는다
+  (생성물은 sandbox·스크립트 없이 열리므로, `img` 외부 참조·data URI가 아님).
+- `render_site(..., kind="<업종 키>")` 인자 추가(기본 `other`, 모르는 값도 `other`).
+  `KIND_KEYS` 10종: pension, cafe, restaurant, salon, workshop, academy,
+  individual, group, webservice, other.
+- 대표(hero, `photo-overlay`·`photo-side`): 사진이 비었을 때 빈 자리 표시를
+  인라인 그림 + `예시 이미지` 표시로 갈아끼운다. 사진이 있으면 그림을 쓰지 않는다.
+  `text-only`는 사진 칸이 없어 대상이 아니다.
+  mustache 파일은 다른 작업 소유라 고치지 않고, 렌더 뒤 문자열로 갈아끼웠다.
+- 사진첩(gallery): 사진 0장(주소가 있는 사진이 하나도 없음)이면 숨기지 않고
+  예시 그림 2장 + `사장님 사진으로 바뀌어요` 안내를 렌더한다.
+  사진이 있으면 예시 그림을 쓰지 않는다. 등급은 템플릿과 같은
+  `s-gallery--grid`·`s-gallery--swipe` 구조로 맞췄다.
+- `_clean_url`이 우리 사진 주소 `/uploads/`로 시작하는 값도 허용한다
+  (contracts/ROOM_FEATURES_API.md §4). 다른 상대경로(`/etc/...`, `../` 등)는 계속 막는다.
+- 모호했던 점 §4 표의 2번·3번 후속: 사진 올리기(P-6) 전에는 예시 그림이 자리 표시를 대신하고,
+  올리기가 생기면 `/uploads/` 사진이 예시 그림을 밀어낸다. 갤러리 `alt` 초안은 그대로 `가게 사진 N`.
+
+## 6. Claude에게 요청할 것 (작업 A1 후속)
+
+- `app/services/design_variants.py`·`app/services/design.py`에서
+  `render_site`에 `kind`를 넘기는 한 줄을 붙여 달라 (소유 밖이라 손대지 않음).
+  업종 키는 `design_variants._SAMPLE_FOR` 기준 10종이다.
+- 새 `type--variant`를 쓸 때는 mustache 파일을 먼저 추가해 달라 (기존 §3 유지).

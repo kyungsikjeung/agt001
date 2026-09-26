@@ -152,21 +152,19 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         reply = _publish(session, base_url, force=user_text.strip() == "그대로 공개")
     elif state == "GENERATING" and session.get("codegen") is None and user_text and session.get("prd"):
         # 제작 중에도 가게 정보를 고칠 수 있다(시안 공개 전후 모두).
-        reply = _edit_after_design(session, user_text, by, is_owner) or "코드 생성 중입니다... 잠시만 기다려주세요."
+        reply = _edit_after_design(session, user_text, by, is_owner) or "사이트 파일을 만들고 있어요. 잠시만 기다려 주세요."
     elif state == "GENERATING":
         cg = session.get("codegen")
         if cg is None:
-            reply = "코드 생성 중입니다... 잠시만 기다려주세요."
+            reply = "사이트 파일을 만들고 있어요. 잠시만 기다려 주세요."
         elif cg["status"] == "done":
             deploy_url = deploy.site_url(session["requirement_id"], base_url)
             session["state"] = "DONE"
             session["deploy_url"] = deploy_url
             files_list = ", ".join(cg["files"][:5])
             reply = (
-                "코드 생성이 완료됐습니다!\n\n"
-                f"- 생성된 파일: {files_list}\n"
-                f"- 배포 링크: {deploy_url}\n\n"
-                "파이프라인 뼈대 관통 완료 (팀C 실구현)."
+                f"사이트 파일 만들기도 끝났어요: {deploy_url}\n"
+                "지금 열린 사이트는 고르신 시안 그대로예요. 시안에서 번호를 고르고 '공개'라고 보내 주세요."
             )
             # 완료를 알리는 턴에 사장님이 고칠 말을 보냈으면 그것도 반영한다(말이 묻히지 않게).
             if user_text and session.get("prd"):
@@ -177,14 +175,12 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             # docker/키가 없어 생성을 못 돌린 경우 — 배포할 산출물도 없다.
             session["state"] = "DONE"
             reply = (
-                f"{cg['note']}\n\n"
-                f"- UI 시안: {session.get('design_url', '(없음)')}\n"
-                "- 배포 링크: (코드생성을 건너뛰어 배포할 산출물이 없습니다)\n\n"
-                "파이프라인 뼈대 관통 완료 (팀C 스텁 폴백)."
+                f"시안은 여기서 볼 수 있어요: {session.get('design_url', '(없음)')}\n"
+                "사이트 파일은 이번에는 만들지 못했어요. 시안에서 번호를 고르고 '공개'라고 보내 주세요."
             )
         else:  # timeout / error / no_files_created
             session["state"] = "QUOTED"
-            reply = f"코드 생성에 실패했습니다 ({cg['status']}). 다시 '진행'을 보내 재시도할 수 있습니다."
+            reply = "사이트 파일을 만들다가 실패했어요. 다시 '진행'이라고 보내 주세요."
 
     elif not user_text:
         # B-1: 빈 메시지가 승인 대기·견적·완료 상태를 날리지 않게 상태별로 유지한다.
@@ -284,11 +280,11 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             _set_room_status(room, "GENERATING")
             codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
             reply = (
-                f"진행합니다! UI 시안이 준비됐어요: {d['design_url']}\n"
+                f"시안 3안이 준비됐어요: {d['design_url']}\n"
                 + ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n"
                    if len(d.get("design_variants", [])) >= 3 else "\n") +
-                "팀C 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. "
-                "완료까지 최대 90초 정도 걸릴 수 있어요 — 잠시 후 아무 메시지나 보내시면 진행상황을 알려드립니다."
+                "뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
+                "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."
             )
         else:
             session["state"] = "GATHERING"

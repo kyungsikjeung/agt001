@@ -26,7 +26,14 @@
     padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   }
   header h1 { font-size: 1.25rem; margin: 0; font-weight: 700; }
-  #memberCount { font-size: 0.8125rem; color: var(--text-muted); }
+  #memberCount {
+    font-size: 0.8125rem; color: var(--text-muted);
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    padding: 8px 10px; min-height: 44px; cursor: pointer;
+  }
+  #memberCount:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
   #statusBar {
     padding: 8px 16px; font-size: 0.875rem; color: var(--accent-dark);
     background: #eef2ff; border-bottom: 1px solid var(--border);
@@ -56,6 +63,15 @@
   .kind-system .text, .kind-vote .text {
     color: var(--text-muted); font-size: 0.8125rem; text-align: center; background: none;
   }
+  /* 타이머 사전 경고 (노란 톤 시스템 메시지) */
+  .kind-warning { justify-content: center; }
+  .kind-warning .bubble { max-width: 90%; background: #fef9c3; border: 1px solid #f5c26b; border-radius: 10px; padding: 10px 12px; }
+  .kind-warning .text { color: #713f12; font-size: 0.8125rem; text-align: center; white-space: pre-wrap; }
+  /* 사진 메시지 썸네일 */
+  .kind-photo .bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kind-photo .avatar { background: #64748b; }
+  .photo-thumb { display: block; margin-top: 8px; border-radius: 8px; overflow: hidden; max-width: 240px; }
+  .photo-thumb img { width: 100%; height: auto; display: block; background: #e5e7eb; }
   /* 사이트 문의 알림 (플랫폼 공용 ①) */
   .kind-inquiry { justify-content: center; }
   .kind-inquiry .bubble { max-width: 90%; background: #fff7e6; border: 1px solid #f5c26b; border-radius: 10px; padding: 10px 12px; color: #3d2a00; }
@@ -105,8 +121,49 @@
   #sendBtn { padding: 10px 16px; font-size: 0.9375rem; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; cursor: pointer; white-space: nowrap; }
   #sendBtn:active { transform: scale(0.97); }
 
-  #shareRow { padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); }
-  #shareBtn { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fee500; color: #191919; font-weight: 600; cursor: pointer; }
+  #shareRow { padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
+  #shareBtn { width: 100%; min-height: 44px; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: #fee500; color: #191919; font-weight: 600; cursor: pointer; }
+  #inviteNotice { margin: 0; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
+  #inviteBox { display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; }
+  #inviteBox[hidden] { display: none; }
+  #inviteFormRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #inviteDays { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 0.875rem; background: var(--bg); }
+  #inviteCreateBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  #inviteList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #inviteList li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.8125rem; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+  #inviteList li .info { flex: 1; min-width: 0; color: var(--text-muted); word-break: break-word; }
+  #inviteList li button { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 12px; font-size: 0.8125rem; cursor: pointer; }
+  #inviteMsg { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
+  #ownerTools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  #ownerTools[hidden] { display: none; }
+  #talkNotifyBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  #talkNotifyBtn[disabled] { opacity: 0.7; cursor: default; }
+  #editorLink { min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 0.875rem; font-weight: 600; color: var(--accent-dark); text-decoration: none; }
+  #photoBtn { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); cursor: pointer; font-size: 1rem; padding: 0; }
+  #photoStatus { padding: 8px 16px; font-size: 0.8125rem; color: var(--text-muted); background: var(--surface); border-top: 1px solid var(--border); display: none; }
+  #photoStatus.show { display: block; }
+  /* 참여자 목록 패널 (머리글 인원 수 버튼으로 열림) */
+  #memberPanelWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 20; display: flex; justify-content: flex-end; padding: 0; }
+  #memberPanelWrap[hidden] { display: none; }
+  #memberPanel { background: var(--surface); width: min(320px, 100%); height: 100%; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  #memberPanelHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #memberPanelHead h2 { margin: 0; font-size: 1rem; }
+  #memberPanelClose { min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: pointer; }
+  #memberList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #memberList li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.875rem; }
+  #memberList .nick { flex: 1; min-width: 0; font-weight: 600; word-break: break-word; }
+  #memberList .transferBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 12px; font-size: 0.8125rem; cursor: pointer; }
+  #leaveBtn { min-height: 44px; border: 1px solid #f5c26b; border-radius: 8px; background: #fff7e6; color: #713f12; font-weight: 600; cursor: pointer; }
+  /* 화면 안 대화상자 (방장 넘기기 확인용, window.confirm 대신) */
+  #ownerDialogWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #ownerDialogWrap[hidden] { display: none; }
+  #ownerDialog { background: var(--surface); border-radius: 12px; padding: 20px; max-width: 320px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  #ownerDialog h2 { margin: 0; font-size: 1rem; }
+  #ownerDialog p { margin: 0; font-size: 0.875rem; color: var(--text-muted); }
+  #ownerDialogBtns { display: flex; gap: 8px; }
+  #ownerDialogBtns button { flex: 1; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: 0.875rem; font-weight: 600; }
+  #ownerConfirmBtn { border: 1px solid var(--accent-dark); background: var(--accent-dark); color: #fff; }
+  #ownerCancelBtn { border: 1px solid var(--border); background: var(--bg); }
 
   #nicknameOverlay {
     position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 16px;
@@ -121,8 +178,13 @@
 
   @media (max-width: 480px) {
     header { padding: 10px 12px; }
+    header h1 { font-size: 1rem; }
     #log { padding: 12px; }
     .bubble { max-width: 86%; }
+    #row { padding: 10px 12px; gap: 6px; }
+    #sendBtn { padding: 10px 12px; }
+    #memberPanel { width: 100%; }
+    .photo-thumb { max-width: 200px; }
   }
 </style>
     <link rel="manifest" href="/manifest.json" />
@@ -132,7 +194,7 @@
 <body>
   <header>
     <h1>agt001 요구사항 도출방</h1>
-    <span id="memberCount"></span>
+    <button id="memberCount" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="memberPanelWrap" aria-label="참여자 목록 열기"></button>
   </header>
   <div id="statusBar"><span class="dot"></span><span id="statusText"></span></div>
   <div id="log"></div>
@@ -148,11 +210,57 @@
   </div>
   <div id="choiceBar" aria-live="polite"><p class="hint" id="choiceHint"></p><div class="choices" id="choices"></div></div>
   <div id="row">
+    <button id="photoBtn" type="button" aria-label="사진 올리기">사진</button>
+    <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
     <input id="input" placeholder="메시지를 입력하세요..." autocomplete="off">
     <button id="micBtn" type="button" aria-label="말로 입력" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:0;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;padding:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button>
     <button id="sendBtn" onclick="send()">보내기</button>
   </div>
-  <div id="shareRow"><button id="shareBtn" onclick="shareInvite()">카카오톡으로 초대하기</button></div>
+  <div id="photoStatus" role="status" aria-live="polite"></div>
+  <div id="shareRow">
+    <button id="shareBtn" onclick="shareInvite()">카카오톡으로 초대하기</button>
+    <p id="inviteNotice" hidden>방장에게 초대 링크를 받아 주세요</p>
+    <div id="ownerTools" hidden>
+      <button id="talkNotifyBtn" type="button" hidden>문의를 카톡으로 받기</button>
+      <a id="editorLink" href="#" hidden>직접 고치기</a>
+    </div>
+    <div id="inviteBox" hidden>
+      <div id="inviteFormRow">
+        <label for="inviteDays">초대 기간</label>
+        <select id="inviteDays">
+          <option value="1">1일</option>
+          <option value="7" selected>7일</option>
+          <option value="30">30일</option>
+          <option value="0">무기한</option>
+        </select>
+        <button id="inviteCreateBtn" type="button">초대하기</button>
+      </div>
+      <ul id="inviteList"></ul>
+      <p id="inviteMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div id="memberPanelWrap" hidden>
+    <div id="memberPanel" role="dialog" aria-modal="true" aria-label="참여자 목록">
+      <div id="memberPanelHead">
+        <h2 id="memberPanelTitle">참여자</h2>
+        <button id="memberPanelClose" type="button" aria-label="참여자 목록 닫기">닫기</button>
+      </div>
+      <ul id="memberList"></ul>
+      <button id="leaveBtn" type="button">방에서 나가기</button>
+    </div>
+  </div>
+
+  <div id="ownerDialogWrap" hidden>
+    <div id="ownerDialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle">
+      <h2 id="ownerDialogTitle">방장 넘기기</h2>
+      <p id="ownerDialogText"></p>
+      <div id="ownerDialogBtns">
+        <button id="ownerConfirmBtn" type="button">넘기기</button>
+        <button id="ownerCancelBtn" type="button">취소</button>
+      </div>
+    </div>
+  </div>
 
   <div id="nicknameOverlay">
     <div id="nicknameCard">
@@ -199,6 +307,20 @@ let memberId = safeGet('agt001_member_id');
 let nickname = safeGet('agt001_nickname');
 let lastSeq = 0;
 let pollTimer = null;
+// 초대 토큰은 주소창 invite 값으로 들어오고 첫 입장 메시지에 한 번만 붙인다.
+let inviteToken = new URLSearchParams(location.search).get('invite') || '';
+let inviteAttached = false;
+// 방 조회에서 받은 참여자·내 정보·시안 여부 (계약 §1, 서버가 아직 안 주면 빈 값으로 둔다).
+let roomMembers = [];
+let roomMe = null;
+let hasDesign = false;
+let invitesUnsupported = false;
+let ownerApiUnsupported = false;
+let leaveUnsupported = false;
+let notifyUnsupported = false;
+let invitesLoaded = false;
+let notifyChecked = false;
+let claimTried = false;
 
 const STATUS_LABEL = {
   IDLE: '', RAG_SEARCHING: '🔍 과거 프로젝트를 검색 중...', THINKING: '🤖 AI가 생각 중...',
@@ -304,25 +426,26 @@ function hueFromString(s) {
 function addMessage(m) {
   const row = document.createElement('div');
   row.className = 'row kind-' + m.kind;
-  if (m.kind === 'chat' || m.kind === 'ai_reply') {
+  const safeName = (m.nickname || '').slice(0, 40);
+  if (m.kind === 'chat' || m.kind === 'ai_reply' || m.kind === 'photo') {
     const av = document.createElement('div');
     av.className = 'avatar';
     if (m.kind === 'ai_reply') {
       av.textContent = '🤖';
     } else {
-      av.textContent = m.nickname.slice(0, 1);
-      av.style.background = `hsl(${hueFromString(m.nickname)}, 55%, 45%)`;
+      av.textContent = safeName.slice(0, 1);
+      av.style.background = `hsl(${hueFromString(safeName || '?')}, 55%, 45%)`;
     }
     row.appendChild(av);
   }
   const bubble = document.createElement('div');
   bubble.className = 'bubble';
-  if (m.kind === 'chat' || m.kind === 'ai_reply') {
+  if (m.kind === 'chat' || m.kind === 'ai_reply' || m.kind === 'photo') {
     const meta = document.createElement('div');
     meta.className = 'meta';
     const nameSpan = document.createElement('span');
     nameSpan.className = 'name';
-    nameSpan.textContent = m.nickname;
+    nameSpan.textContent = safeName;
     meta.appendChild(nameSpan);
     if (m.kind === 'ai_reply') {
       const badge = document.createElement('span');
@@ -334,8 +457,22 @@ function addMessage(m) {
   }
   const text = document.createElement('div');
   text.className = 'text';
-  text.textContent = m.text;
+  text.textContent = m.text || '';
   bubble.appendChild(text);
+  // 사진 메시지는 썸네일로 보여주고 누르면 생성물 주소로 연다.
+  if (m.kind === 'photo' && m.photo && m.photo.url) {
+    const link = document.createElement('a');
+    link.className = 'photo-thumb';
+    link.href = m.photo.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = '올린 사진';
+    img.src = m.photo.url;
+    link.appendChild(img);
+    bubble.appendChild(link);
+  }
   // AI 답장 말풍선에만 작은 "듣기" 버튼을 단다. 재생은 voice.js의 window.speakAiText가 맡는다.
   if (m.kind === 'ai_reply') {
     const listenBtn = document.createElement('button');
@@ -431,25 +568,60 @@ async function pollMessages() {
     const res = await fetch(`/room/${roomId}/messages?since=${lastSeq}`, { headers: { 'X-Member-Id': memberId } });
     if (!res.ok) return;
     const data = await res.json();
-    for (const m of data.messages) addMessage(m);
+    for (const m of data.messages) {
+      addMessage(m);
+      if (m.kind === 'ai_reply' && findDesignId(m.text)) hasDesign = true;
+    }
     if (data.messages.length) lastSeq += data.messages.length;
     updateStatus(data.ai_status);
     updateActionBars(data.state);
     renderChoices(data.question || null);
-    memberCountEl.textContent = data.members.length ? `${data.members.length}명 참여 중` : '';
+    if (Array.isArray(data.members)) roomMembers = data.members;
+    if (data.me) roomMe = data.me;
+    if (data.design_url) hasDesign = true;
+    memberCountEl.textContent = roomMembers.length ? `${roomMembers.length}명 참여 중` : '';
+    memberCountEl.setAttribute('aria-label', roomMembers.length ? `참여자 목록 열기, ${roomMembers.length}명 참여 중` : '참여자 목록 열기');
+    renderMembers();
+    updateShareUI();
+    updateOwnerTools();
+    // 초대 목록·카톡 상태는 폴링마다 부르지 않고 방장 확인 뒤 한 번만 조회한다.
+    if (isOwner() && !invitesUnsupported && !invitesLoaded) {
+      invitesLoaded = true;
+      refreshInvites();
+    }
+    if (isOwner() && !notifyUnsupported && !notifyChecked) {
+      notifyChecked = true;
+      checkNotify();
+    }
   } finally {
     pollInFlight = false;
   }
 }
 
 async function sendRoomMessage(text) {
+  // 첫 입장 메시지에만 주소창 invite 값을 함께 보낸다 (계약 §3).
+  const body = { member_id: memberId, nickname, message: text };
+  if (!inviteAttached && inviteToken) body.invite = inviteToken;
   const res = await fetch(`/room/${roomId}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ member_id: memberId, nickname, message: text }),
+    headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+    body: JSON.stringify(body),
   });
-  // 꽉 찬 방(D8, 10명)·닫힌 방(T4)은 서버가 거절한다. 무엇 때문인지 입력창 아래에 알린다.
+  inviteAttached = true;
+  // 입장·전송 거절은 쉬운 말로 안내한다 (계약 §3).
   if (res.status === 403 || res.status === 423) {
+    let detail = '';
+    try { detail = (await res.clone().json()).detail || ''; } catch (e) { /* 본문이 없어도 기본 안내로 */ }
+    let msg;
+    if (res.status === 423 || detail === 'room closed') {
+      msg = '방이 닫혔어요. 방장이 메시지를 보내면 다시 열려요.';
+    } else if (detail === 'invite required') {
+      msg = '초대 링크가 필요해요. 방장에게 초대 링크를 받아 주세요.';
+    } else if (detail === 'invite invalid') {
+      msg = '초대 링크가 만료됐거나 폐기됐어요. 방장에게 새 링크를 요청해 주세요.';
+    } else {
+      msg = '방이 꽉 찼어요(최대 10명). 방장에게 문의해 주세요.';
+    }
     let note = document.getElementById('roomNotice');
     if (!note) {
       note = document.createElement('p');
@@ -458,9 +630,7 @@ async function sendRoomMessage(text) {
       note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
       document.getElementById('row').after(note);
     }
-    note.textContent = res.status === 403
-      ? '방이 꽉 찼어요(최대 10명). 방장에게 문의해 주세요.'
-      : '방이 닫혔어요. 방장이 메시지를 보내면 다시 열려요.';
+    note.textContent = msg;
     return null;
   }
   await pollMessages();
@@ -478,11 +648,26 @@ function send() {
 function vote(choice) { sendRoomMessage(choice); }
 function proceed(choice) { sendRoomMessage(choice); }
 
-function shareInvite() {
-  const url = new URL(location.href);
-  url.search = `?room=${roomId}`;
-  const absUrl = url.href;
-  if (!window.Kakao || !Kakao.isInitialized()) { alert('카카오 SDK 로딩에 실패했습니다.'); return; }
+function shareInviteUrl(absUrl) {
+  if (!window.Kakao || !Kakao.isInitialized()) {
+    // 초대 박스가 보이면 그 안 안내에, 아니면 입력창 아래 안내에 남긴다.
+    const box = document.getElementById('inviteBox');
+    const inline = document.getElementById('inviteMsg');
+    if (inline && box && !box.hidden) {
+      inline.textContent = '카카오 SDK 로딩에 실패했어요. 링크를 복사해 공유해 주세요.';
+      return;
+    }
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = '카카오 SDK 로딩에 실패했어요. 방 주소를 복사해 공유해 주세요.';
+    return;
+  }
   Kakao.Share.sendDefault({
     objectType: 'feed',
     content: {
@@ -493,6 +678,464 @@ function shareInvite() {
     },
     buttons: [{ title: '방 입장하기', link: { mobileWebUrl: absUrl, webUrl: absUrl } }],
   });
+}
+
+async function shareInvite() {
+  // 방장은 방 주소 대신 초대 링크를 새로 발급해 공유한다 (계약 §3). 없으면(404) 예전처럼 방 주소 공유.
+  if (isOwner() && !invitesUnsupported) {
+    try {
+      const res = await fetch(`/room/${roomId}/invites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+        body: JSON.stringify({ days: 7 }),
+      });
+      if (res.status === 404) { invitesUnsupported = true; updateShareUI(); }
+      else if (res.ok) {
+        const data = await res.json();
+        const absUrl = new URL(data.url, location.href).href;
+        refreshInvites();
+        shareInviteUrl(absUrl);
+        return;
+      }
+    } catch (e) { /* 네트워크 실패면 아래 예전 방식으로 */ }
+  }
+  const url = new URL(location.href);
+  url.search = `?room=${roomId}`;
+  shareInviteUrl(url.href);
+}
+
+// 내가 방장인지 (계약 §1 me. 서버가 아직 안 주면 방장 기능을 숨긴다).
+function isOwner() {
+  return !!(roomMe && roomMe.is_owner);
+}
+
+// 참여자 목록 그리기. 서버·사용자 글은 textContent로만 넣는다.
+function renderMembers() {
+  const list = document.getElementById('memberList');
+  if (!list) return;
+  list.replaceChildren();
+  const title = document.getElementById('memberPanelTitle');
+  if (title) title.textContent = roomMembers.length ? `참여자 ${roomMembers.length}명` : '참여자';
+  for (let i = 0; i < roomMembers.length; i++) {
+    const m = roomMembers[i];
+    const li = document.createElement('li');
+    const nick = document.createElement('span');
+    nick.className = 'nick';
+    nick.textContent = m.nickname || '익명';
+    li.appendChild(nick);
+    // 서버가 is_owner를 아직 안 주면 가장 먼저 들어온 사람이 방장이다.
+    const owner = typeof m.is_owner === 'boolean' ? m.is_owner : i === 0;
+    if (owner) {
+      const badge = document.createElement('span');
+      badge.className = 'owner-badge';
+      badge.textContent = '방장';
+      badge.style.cssText = 'font-size:0.6875rem;background:var(--accent-dark);color:#fff;padding:2px 8px;border-radius:999px;';
+      li.appendChild(badge);
+    }
+    // 내가 방장이면 다른 참여자에게 방장을 넘길 수 있다.
+    if (isOwner() && !ownerApiUnsupported && m.member_handle && (!roomMe || m.member_handle !== roomMe.member_handle)) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'transferBtn';
+      btn.textContent = '방장 넘기기';
+      btn.setAttribute('aria-label', (m.nickname || '익명') + '에게 방장 넘기기');
+      btn.onclick = () => openOwnerDialog(m);
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  }
+  const leaveBtn = document.getElementById('leaveBtn');
+  if (leaveBtn) leaveBtn.hidden = leaveUnsupported;
+}
+
+function openMemberPanel() {
+  const wrap = document.getElementById('memberPanelWrap');
+  if (!wrap) return;
+  renderMembers();
+  wrap.hidden = false;
+  memberCountEl.setAttribute('aria-expanded', 'true');
+  const closeBtn = document.getElementById('memberPanelClose');
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeMemberPanel() {
+  const wrap = document.getElementById('memberPanelWrap');
+  if (!wrap) return;
+  wrap.hidden = true;
+  memberCountEl.setAttribute('aria-expanded', 'false');
+  memberCountEl.focus();
+}
+
+// 화면 안 대화상자로 방장 넘기기 확인 (window.confirm 대신).
+let ownerTransferTarget = null;
+let ownerTransferReturnFocus = null;
+function openOwnerDialog(m) {
+  ownerTransferTarget = m;
+  ownerTransferReturnFocus = document.activeElement;
+  const wrap = document.getElementById('ownerDialogWrap');
+  const text = document.getElementById('ownerDialogText');
+  if (!wrap || !text) return;
+  text.textContent = (m.nickname || '익명') + '님에게 방장을 넘길까요? 넘기면 초대·폐기는 새 방장이 맡아요.';
+  wrap.hidden = false;
+  document.getElementById('ownerConfirmBtn').focus();
+}
+
+function closeOwnerDialog() {
+  const wrap = document.getElementById('ownerDialogWrap');
+  if (wrap) wrap.hidden = true;
+  ownerTransferTarget = null;
+  if (ownerTransferReturnFocus && ownerTransferReturnFocus.focus) ownerTransferReturnFocus.focus();
+}
+
+async function confirmOwnerTransfer() {
+  if (!ownerTransferTarget) { closeOwnerDialog(); return; }
+  try {
+    const res = await fetch(`/room/${roomId}/owner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ to: ownerTransferTarget.member_handle }),
+    });
+    if (res.status === 404) {
+      ownerApiUnsupported = true;
+      closeOwnerDialog();
+      renderMembers();
+      return;
+    }
+    if (res.status === 403) {
+      const text = document.getElementById('ownerDialogText');
+      if (text) text.textContent = '방장만 넘길 수 있어요.';
+      return;
+    }
+    if (!res.ok) {
+      const text = document.getElementById('ownerDialogText');
+      if (text) text.textContent = '지금은 넘길 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    closeOwnerDialog();
+    await pollMessages();
+  } catch (e) {
+    const text = document.getElementById('ownerDialogText');
+    if (text) text.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+
+async function leaveRoom() {
+  try {
+    const res = await fetch(`/room/${roomId}/leave`, {
+      method: 'POST',
+      headers: { 'X-Member-Id': memberId },
+    });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 버튼을 숨긴다.
+      leaveUnsupported = true;
+      renderMembers();
+      return;
+    }
+    if (!res.ok) return;
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    const wrap = document.getElementById('memberPanelWrap');
+    if (wrap) wrap.hidden = true;
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = '방에서 나갔어요.';
+  } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
+}
+
+// 초대 패널 보이기·숨기기. 방장이 아니면 공유 버튼 대신 안내 문구를 보여준다.
+// 서버가 내 정보(me)를 아직 안 주면 예전 공유 버튼 그대로 둔다.
+function updateShareUI() {
+  const owner = isOwner();
+  const shareBtn = document.getElementById('shareBtn');
+  const notice = document.getElementById('inviteNotice');
+  const box = document.getElementById('inviteBox');
+  if (!shareBtn || !notice || !box) return;
+  if (!roomMe) {
+    shareBtn.hidden = false;
+    notice.hidden = true;
+    box.hidden = true;
+    return;
+  }
+  if (owner && !invitesUnsupported) {
+    shareBtn.hidden = false;
+    notice.hidden = true;
+    box.hidden = false;
+  } else if (owner) {
+    shareBtn.hidden = false;
+    notice.hidden = true;
+    box.hidden = true;
+  } else {
+    shareBtn.hidden = true;
+    notice.hidden = false;
+    box.hidden = true;
+  }
+}
+
+function inviteExpiryText(inv) {
+  if (!inv.expires_at) return '무기한';
+  const d = new Date(inv.expires_at);
+  if (isNaN(d.getTime())) return '기간 있음';
+  return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일까지';
+}
+
+async function refreshInvites() {
+  if (!isOwner() || invitesUnsupported) return;
+  const list = document.getElementById('inviteList');
+  if (!list) return;
+  try {
+    const res = await fetch(`/room/${roomId}/invites`, { headers: { 'X-Member-Id': memberId } });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 숨긴다.
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    list.replaceChildren();
+    for (const inv of data.invites || []) {
+      if (inv.revoked) continue;
+      const li = document.createElement('li');
+      const info = document.createElement('span');
+      info.className = 'info';
+      const uses = typeof inv.uses === 'number' ? ' · ' + inv.uses + '명 입장' : '';
+      info.textContent = inviteExpiryText(inv) + uses;
+      li.appendChild(info);
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.textContent = '복사';
+      copyBtn.setAttribute('aria-label', '초대 링크 복사');
+      copyBtn.onclick = () => copyInviteLink(inv);
+      li.appendChild(copyBtn);
+      const shareBtn = document.createElement('button');
+      shareBtn.type = 'button';
+      shareBtn.textContent = '카톡 공유';
+      shareBtn.setAttribute('aria-label', '초대 링크 카톡 공유');
+      shareBtn.onclick = () => shareInviteLink(inv);
+      li.appendChild(shareBtn);
+      const revokeBtn = document.createElement('button');
+      revokeBtn.type = 'button';
+      revokeBtn.textContent = '폐기';
+      revokeBtn.setAttribute('aria-label', '초대 링크 폐기');
+      revokeBtn.onclick = () => revokeInvite(inv.invite_id);
+      li.appendChild(revokeBtn);
+      list.appendChild(li);
+    }
+  } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
+}
+
+// 목록에는 토큰 원문이 없어 방금 발급한 링크만 바로 공유·복사한다.
+let lastIssuedInviteUrl = '';
+async function createInvite() {
+  const msg = document.getElementById('inviteMsg');
+  const daysEl = document.getElementById('inviteDays');
+  const days = daysEl ? Number(daysEl.value) : 7;
+  try {
+    const res = await fetch(`/room/${roomId}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ days }),
+    });
+    if (res.status === 404) {
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) {
+      if (msg) msg.textContent = '지금은 초대 링크를 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    const data = await res.json();
+    lastIssuedInviteUrl = new URL(data.url, location.href).href;
+    if (msg) msg.textContent = '초대 링크를 만들었어요. 복사하거나 카톡으로 공유해 주세요.';
+    try {
+      await navigator.clipboard.writeText(lastIssuedInviteUrl);
+      if (msg) msg.textContent = '초대 링크를 복사했어요. 카톡으로 공유해 주세요.';
+    } catch (e) { /* 클립보드 실패면 안내만 둔다 */ }
+    shareInviteUrl(lastIssuedInviteUrl);
+    refreshInvites();
+  } catch (e) {
+    if (msg) msg.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+
+async function copyInviteLink(inv) {
+  const msg = document.getElementById('inviteMsg');
+  // 목록 조회에는 주소가 없으므로 방금 발급한 링크만 복사한다.
+  if (!lastIssuedInviteUrl) {
+    if (msg) msg.textContent = '방금 발급한 링크만 복사할 수 있어요. 초대하기를 눌러 새로 발급해 주세요.';
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(lastIssuedInviteUrl);
+    if (msg) msg.textContent = '초대 링크를 복사했어요.';
+  } catch (e) {
+    if (msg) msg.textContent = '복사에 실패했어요. 초대하기를 눌러 새 링크로 공유해 주세요.';
+  }
+}
+
+function shareInviteLink(inv) {
+  if (!lastIssuedInviteUrl) {
+    const msg = document.getElementById('inviteMsg');
+    if (msg) msg.textContent = '방금 발급한 링크만 공유할 수 있어요. 초대하기를 눌러 새로 발급해 주세요.';
+    return;
+  }
+  shareInviteUrl(lastIssuedInviteUrl);
+}
+
+async function revokeInvite(inviteId) {
+  const msg = document.getElementById('inviteMsg');
+  try {
+    const res = await fetch(`/room/${roomId}/invites/${inviteId}`, {
+      method: 'DELETE',
+      headers: { 'X-Member-Id': memberId },
+    });
+    if (res.status === 404) {
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) {
+      if (msg) msg.textContent = '지금은 폐기할 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    if (msg) msg.textContent = '초대 링크를 폐기했어요.';
+    refreshInvites();
+  } catch (e) {
+    if (msg) msg.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+
+// 사진 올리기 (계약 §4). 성공하면 폴링으로 photo 메시지가 보인다.
+const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+function setPhotoStatus(text) {
+  const el = document.getElementById('photoStatus');
+  if (!el) return;
+  el.textContent = text || '';
+  el.classList.toggle('show', !!text);
+}
+
+async function uploadPhoto(file) {
+  const btn = document.getElementById('photoBtn');
+  if (!file) return;
+  if (file.size > PHOTO_MAX_BYTES) {
+    setPhotoStatus('사진이 너무 커요. 10MB 이하로 올려 주세요.');
+    return;
+  }
+  setPhotoStatus('사진을 올리는 중…');
+  if (btn) btn.disabled = true;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch(`/room/${roomId}/photos`, {
+      method: 'POST',
+      headers: { 'X-Member-Id': memberId },
+      body: form,
+    });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 버튼을 숨긴다.
+      if (btn) btn.style.display = 'none';
+      setPhotoStatus('');
+      return;
+    }
+    if (res.status === 413) {
+      setPhotoStatus('사진이 너무 커요. 10MB 이하로 올려 주세요.');
+      return;
+    }
+    if (!res.ok) {
+      setPhotoStatus('지금은 사진을 올릴 수 없어요. 잠시 뒤에 다시 시도해 주세요.');
+      return;
+    }
+    setPhotoStatus('');
+    await pollMessages();
+  } catch (e) {
+    setPhotoStatus('인터넷 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+    const input = document.getElementById('photoInput');
+    if (input) input.value = '';
+  }
+}
+
+// 방장 도구: 카톡 알림 상태·직접 고치기 링크 (계약 §5·§6). 방장에게만 보인다.
+function updateOwnerTools() {
+  const tools = document.getElementById('ownerTools');
+  const talkBtn = document.getElementById('talkNotifyBtn');
+  const editor = document.getElementById('editorLink');
+  if (!tools || !talkBtn || !editor) return;
+  if (!isOwner()) {
+    tools.hidden = true;
+    talkBtn.hidden = true;
+    editor.hidden = true;
+    return;
+  }
+  tools.hidden = false;
+  if (!notifyUnsupported) talkBtn.hidden = false;
+  if (hasDesign) {
+    editor.hidden = false;
+    editor.href = '/editor?room=' + encodeURIComponent(roomId);
+  } else {
+    editor.hidden = true;
+  }
+}
+
+async function checkNotify() {
+  const talkBtn = document.getElementById('talkNotifyBtn');
+  if (!talkBtn) return;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/notify`, { headers: { 'X-Member-Id': memberId } });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 숨긴다.
+      notifyUnsupported = true;
+      talkBtn.hidden = true;
+      updateOwnerTools();
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    const on = !!(data && data.kakao && data.kakao.owner_linked);
+    talkBtn.textContent = on ? '카톡 알림 켜짐' : '문의를 카톡으로 받기';
+    talkBtn.disabled = on;
+  } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
+}
+
+function startTalkNotify() {
+  const next = '/room.html?room=' + encodeURIComponent(roomId);
+  location.href = '/auth/kakao/start?talk=1&next=' + encodeURIComponent(next);
+}
+
+// 카카오 로그인에서 돌아왔을 때 방을 계정에 한 번만 옮긴다 (계약 §6).
+async function claimRoomOnce() {
+  if (claimTried || !roomId || !memberId) return;
+  claimTried = true;
+  let key = '';
+  try { key = 'agt001_claimed_' + roomId; } catch (e) { return; }
+  try {
+    if (sessionStorage.getItem(key)) return;
+  } catch (e) { /* 저장소를 못 쓰면 한 번만 시도하고 끝낸다 */ }
+  let me = null;
+  try {
+    const res = await fetch('/api/me', { credentials: 'same-origin' });
+    if (res.status === 404) return;
+    if (!res.ok) return;
+    me = await res.json();
+  } catch (e) { return; }
+  if (!me || !me.user) return;
+  try {
+    await fetch('/api/me/claim', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ room_ids: [roomId] }),
+    });
+  } catch (e) { /* 실패해도 방 사용은 계속된다 */ }
+  try { sessionStorage.setItem(key, '1'); } catch (e) { /* 무시 */ }
 }
 
 async function ensureRoom() {
@@ -535,6 +1178,7 @@ async function startRoom() {
   // 입장 응답의 fresh(입장 전 메시지가 하나도 없었는지)로 판단한다.
   rememberRoom(roomId);
   const joined = await sendRoomMessage('');
+  claimRoomOnce();
   if (pending) {
     // 랜딩에서 적은 내용을 첫 메시지로 보낸다. 사용자가 이미 설명했으므로 안내 메시지는 생략한다.
     await sendRoomMessage(pending.text);
@@ -563,6 +1207,36 @@ function showOnboarding() {
 }
 
 document.getElementById('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+
+// 참여자 패널·초대·사진·방장 도구 연결
+memberCountEl.addEventListener('click', () => {
+  const wrap = document.getElementById('memberPanelWrap');
+  if (wrap && !wrap.hidden) closeMemberPanel();
+  else openMemberPanel();
+});
+document.getElementById('memberPanelClose').addEventListener('click', closeMemberPanel);
+document.getElementById('memberPanelWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'memberPanelWrap') closeMemberPanel();
+});
+document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
+document.getElementById('ownerConfirmBtn').addEventListener('click', confirmOwnerTransfer);
+document.getElementById('ownerCancelBtn').addEventListener('click', closeOwnerDialog);
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const ownerWrap = document.getElementById('ownerDialogWrap');
+  if (ownerWrap && !ownerWrap.hidden) { closeOwnerDialog(); return; }
+  const memberWrap = document.getElementById('memberPanelWrap');
+  if (memberWrap && !memberWrap.hidden) closeMemberPanel();
+});
+document.getElementById('inviteCreateBtn').addEventListener('click', createInvite);
+document.getElementById('photoBtn').addEventListener('click', () => {
+  document.getElementById('photoInput').click();
+});
+document.getElementById('photoInput').addEventListener('change', (e) => {
+  const f = e.target && e.target.files && e.target.files[0];
+  if (f) uploadPhoto(f);
+});
+document.getElementById('talkNotifyBtn').addEventListener('click', startTalkNotify);
 
 // 랜딩(frontend/src/api.ts)에서 넘어온 첫 메시지. 이 방의 것일 때만 한 번 쓰고 지운다.
 let pending = null;

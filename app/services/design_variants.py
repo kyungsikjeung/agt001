@@ -85,6 +85,7 @@ def base_spec(card: dict) -> dict:
     offerings = _values(card, "offerings")
     detail = _fact(card, "detail")
     excluded = " ".join(_values(card, "exclude"))
+    photos = [p for p in card.get("photos") or [] if str(p.get("url", "")).startswith("/uploads/")]
     drop = {t for word, t in _EXCLUDE_TYPES.items() if word in excluded}
 
     sections = []
@@ -93,11 +94,18 @@ def base_spec(card: dict) -> dict:
             continue
         c = sec["content"]
         if sec["type"] == "hero":
+            if photos:
+                c["image"] = photos[0]["url"]
+                c["image_alt"] = photos[0].get("caption") or f"{shop or '가게'} 대표 사진"
             c["title"] = shop
             c["subtitle"] = detail or ", ".join(_values(card, "business_type"))
             c["cta"] = {"label": "전화 문의", "href": f"tel:{phone}"} if phone else {"label": "문의하기", "href": "#contact"}
         elif sec["type"] == "intro":
             c["body"] = detail
+        elif sec["type"] == "gallery" and photos:
+            # 대표로 쓴 첫 장 말고 나머지(한 장뿐이면 그 한 장)를 사진첩에
+            c["items"] = [{"src": p["url"], "alt": p.get("caption") or f"사진 {i + 1}", "caption": p.get("caption") or ""}
+                          for i, p in enumerate(photos[1:] or photos)]
         elif sec["type"] == "offerings":
             c["label"] = S.label_for(ind, "offerings")
             # 이름만 넣는다. 가격은 사장님이 말한 가격표가 생기면 채운다(지어내지 않음).
@@ -141,6 +149,11 @@ def variants(card: dict) -> list[dict]:
                     sec["variant"] = want
         out.append({"id": vid, "name": name, "summary": summary, "spec": spec})
     return out
+
+
+def kind_for(card: dict) -> str:
+    """예시 그림을 고를 업종 키(templates/illustrations/<키>-*.svg)."""
+    return E.industry_of(card).key
 
 
 def title_for(card: dict) -> str:

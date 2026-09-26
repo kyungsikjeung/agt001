@@ -131,3 +131,16 @@ def test_chatter_twice_nudges_once(fake_extract):
     assert r2.get("nudge") and r2["question"]
     r3 = E.turn(card, "저녁엔 비가 온대요 그렇죠")
     assert not r3.get("nudge")  # 한 번 말했으면 다시 두 번 쌓일 때까지 조용히
+
+
+def test_multi_select_keeps_extra_words(fake_extract):
+    """여러 개 고르기에 덧붙인 말은 버리지 않고 안내 메모로 남긴다(사용자 요청 9/26)."""
+    msg = "펜션이에요 바다정원"
+    fake_extract[msg] = [u("business_type", "펜션"), u("shop_name", "바다정원"), u("offerings", "객실 3개")]
+    card = E.new_card()
+    r = E.turn(card, msg)
+    assert r["question"]["kind"] == "multi"
+    E.turn(card, "반려동물 동반, 주차 — 소형견만 가능하고 주차는 2대예요")
+    assert set(card["hidden"]["selected"]) == {"pet", "parking"}
+    assert "소형견만" in card["hidden"]["note"]
+    assert "소형견만" in E.summary_text(card)

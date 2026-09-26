@@ -35,38 +35,62 @@ class RoomClosed(Exception):
     pass
 
 
+class InviteRequired(Exception):
+    pass
+
+
+class InviteInvalid(Exception):
+    pass
+
+
+class NotOwner(Exception):
+    pass
+
+
 # 타이머가 남기는 시스템 메시지 (ROOM_POLICY §4.2). 같은 글이 마지막이면 다시 남기지 않는다.
 MSG_VOTE_RESET = "투표가 24시간 동안 끝나지 않아 초기화됐습니다. 다시 '승인' 또는 '거절'을 보내 주세요"
 MSG_QUOTE_EXPIRED = "견적 유효기간(7일)이 지났습니다. 요구사항이 바뀌지 않았다면 '다시 견적'을 보내 주세요"
 MSG_CLOSED = "30일 동안 활동이 없어 방이 닫혔습니다. 방장이 메시지를 보내면 다시 열립니다"
 MSG_REOPENED = "방장이 방을 다시 열었습니다."
+# 사전 경고(ROOM_POLICY §4.2 "경고" 열). 마지막 활동 뒤 한 번만 남긴다.
+MSG_WARN_VOTE = "투표가 4시간 뒤 초기화돼요. '승인' 또는 '거절'을 보내 주세요"
+MSG_WARN_QUOTE = "견적이 하루 뒤 만료돼요. 이대로 만들려면 '진행'을 보내 주세요"
+MSG_WARN_CLOSE = "3일 뒤 방이 닫혀요. 메시지를 보내면 연장돼요"
 
 
 def _utcnow() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def _idle(room_id: str, room: dict) -> tuple[Optional[datetime.timedelta], Optional[str]]:
-    last_act, last_text = room.get("activity") or store.activity_info(room_id)
+def _idle(room_id: str, room: dict) -> tuple[Optional[datetime.timedelta], Optional[str], frozenset]:
+    last_act, last_text, warned = room.get("activity") or store.activity_info(room_id)
     if last_act is None:
         created = room.get("created_at")
         last_act = datetime.datetime.fromisoformat(created) if isinstance(created, str) else created
-    return ((_utcnow() - last_act) if last_act else None), last_text
+    return ((_utcnow() - last_act) if last_act else None), last_text, warned
 
 
-def _due_timers(session: dict, idle: Optional[datetime.timedelta], last_text: Optional[str]) -> list[str]:
-    """지금 실행할 타이머 (T1·T2·T4/T5). 제작 중은 건드리지 않는다."""
+def _due_timers(session: dict, idle: Optional[datetime.timedelta], last_text: Optional[str],
+                warned: frozenset = frozenset()) -> list[str]:
+    """지금 실행할 타이머 (T1·T2·T4/T5와 그 사전 경고). 제작 중은 건드리지 않는다."""
     if idle is None or session.get("state") == "GENERATING":
         return []
+    h = datetime.timedelta(hours=1)
+    d = datetime.timedelta(days=1)
+    state = session.get("state")
+    if idle >= settings.room_close_days * d:
+        return ["close"] if last_text != MSG_CLOSED else []
+    if state == "AWAIT_APPROVAL" and idle >= settings.room_vote_reset_hours * h:
+        return ["vote_reset"] if last_text != MSG_VOTE_RESET else []
+    if state == "QUOTED" and idle >= settings.room_quote_expire_days * d:
+        return ["quote_expire"] if last_text != MSG_QUOTE_EXPIRED else []
     due = []
-    if idle >= datetime.timedelta(days=settings.room_close_days) and last_text != MSG_CLOSED:
-        due.append("close")
-    elif session.get("state") == "AWAIT_APPROVAL" and idle >= datetime.timedelta(hours=settings.room_vote_reset_hours) \
-            and last_text != MSG_VOTE_RESET:
-        due.append("vote_reset")
-    elif session.get("state") == "QUOTED" and idle >= datetime.timedelta(days=settings.room_quote_expire_days) \
-            and last_text != MSG_QUOTE_EXPIRED:
-        due.append("quote_expire")
+    if idle >= (settings.room_close_days - 3) * d and MSG_WARN_CLOSE not in warned:
+        due.append("warn_close")
+    if state == "AWAIT_APPROVAL" and idle >= (settings.room_vote_reset_hours - 4) * h and MSG_WARN_VOTE not in warned:
+        due.append("warn_vote")
+    if state == "QUOTED" and idle >= (settings.room_quote_expire_days - 1) * d and MSG_WARN_QUOTE not in warned:
+        due.append("warn_quote")
     return due
 
 
@@ -81,6 +105,10 @@ def _run_timers(room: dict, session: dict, due: list[str]) -> None:
             _append(room, "system", "시스템", MSG_QUOTE_EXPIRED, kind="system")
         elif t == "close":
             _append(room, "system", "시스템", MSG_CLOSED, kind="system")
+        elif t.startswith("warn_"):
+            text = {"warn_vote": MSG_WARN_VOTE, "warn_quote": MSG_WARN_QUOTE, "warn_close": MSG_WARN_CLOSE}[t]
+            _append(room, "system", "시스템", text, kind="warning")
+            _notify_owner_later(room, text)
 
 
 def _is_closed(session: dict, idle: Optional[datetime.timedelta], last_text: Optional[str]) -> bool:
@@ -93,7 +121,8 @@ def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "chat") -> None:
+def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "chat",
+            meta: Optional[dict] = None) -> None:
     room["new_messages"].append({
         "seq": room["next_seq"],
         "member_id": member_id,
@@ -101,8 +130,24 @@ def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "c
         "text": text,
         "ts": _now_iso(),
         "kind": kind,
+        "meta": meta,
     })
     room["next_seq"] += 1
+
+
+def _notify_owner_later(room: dict, text: str) -> None:
+    """방장 카톡 알림(켜져 있으면). 방 잠금 안에서 외부 호출을 하지 않으려고 커밋 뒤에 보낸다."""
+    try:
+        from app.services import notify
+        room_id = room["room_id"]
+        store.after_commit(lambda: notify.owner_kakao(room_id, text))
+    except Exception:
+        pass
+
+
+def owner_id(room: dict) -> Optional[str]:
+    """방장 = 참여자 목록 맨 앞(ROOM_POLICY §2). 넘기기·나가기는 순서를 바꾼다."""
+    return room["members"][0]["member_id"] if room["members"] else None
 
 
 def member_handle(room_id: str, member_id: str) -> str:
@@ -117,7 +162,7 @@ def member_handle(room_id: str, member_id: str) -> str:
 
 
 def _public_message(room_id: str, msg: dict) -> dict:
-    out = {k: v for k, v in msg.items() if k != "member_id"}
+    out = {k: v for k, v in msg.items() if k not in ("member_id", "meta")}
     out["member_handle"] = member_handle(room_id, msg["member_id"])
     return out
 
@@ -132,8 +177,77 @@ def _room_id(room_id: str) -> str:
 def create_room(template_id: Optional[str] = None) -> str:
     room_id = str(uuid.uuid4())[:8]
     session_id = str(uuid.uuid4())
-    store.create_room(room_id, session_id, chat_flow.new_session(sanitize_token(template_id or "") or None))
+    store.create_room(room_id, session_id, chat_flow.new_session(sanitize_token(template_id or "") or None),
+                      invite_required=settings.room_invite_required)
     return room_id
+
+
+def _member(room: dict, member_id: str) -> Optional[dict]:
+    return next((m for m in room["members"] if m["member_id"] == member_id), None)
+
+
+def transfer_owner(room_id: str, member_id_raw, to_handle: str) -> str:
+    safe_id = _room_id(room_id)
+    member_id = sanitize_token(member_id_raw or "")
+    with store.room_tx(safe_id) as (room, _session):
+        if room is None or not _member(room, member_id):
+            raise RoomNotFound(room_id)
+        if owner_id(room) != member_id:
+            raise NotOwner(room_id)
+        target = next((m for m in room["members"] if member_handle(safe_id, m["member_id"]) == to_handle), None)
+        if target is None:
+            raise InvalidRequest("member not found")
+        room["members"].remove(target)
+        room["members"].insert(0, target)
+        _append(room, "system", "시스템", f"{target['nickname']}님이 방장이 됐어요.", kind="system")
+        return member_handle(safe_id, target["member_id"])
+
+
+def leave(room_id: str, member_id_raw) -> None:
+    safe_id = _room_id(room_id)
+    member_id = sanitize_token(member_id_raw or "")
+    with store.room_tx(safe_id) as (room, _session):
+        if room is None or not _member(room, member_id):
+            raise RoomNotFound(room_id)
+        was_owner = owner_id(room) == member_id
+        me = _member(room, member_id)
+        room["members"].remove(me)
+        room["votes"].pop(member_id, None)
+        text = f"{me['nickname']}님이 나갔어요."
+        if was_owner and room["members"]:
+            # 방장이 나가면 가장 먼저 들어온 참여자에게 넘어간다(ROOM_POLICY §2).
+            text += f" 이제 {room['members'][0]['nickname']}님이 방장이에요."
+        _append(room, "system", "시스템", text, kind="system")
+
+
+def create_invite(room_id: str, member_id_raw, days: int) -> dict:
+    safe_id = _room_id(room_id)
+    member_id = sanitize_token(member_id_raw or "")
+    room = store.read_room(safe_id)
+    if room is None or not _member(room, member_id):
+        raise RoomNotFound(room_id)
+    if owner_id(room) != member_id:
+        raise NotOwner(room_id)
+    days = days if days in (0, 1, 7, 30) else 7
+    invite_id, token, expires = store.create_invite(safe_id, member_handle(safe_id, member_id), days)
+    return {"invite_id": invite_id, "url": f"/room.html?room={safe_id}&invite={token}", "expires_at": expires}
+
+
+def list_invites(room_id: str, member_id_raw) -> list[dict]:
+    safe_id = _room_id(room_id)
+    room = store.read_room(safe_id)
+    if room is None or owner_id(room) != sanitize_token(member_id_raw or ""):
+        raise NotOwner(room_id)
+    return store.list_invites(safe_id)
+
+
+def revoke_invite(room_id: str, member_id_raw, invite_id: str) -> None:
+    safe_id = _room_id(room_id)
+    room = store.read_room(safe_id)
+    if room is None or owner_id(room) != sanitize_token(member_id_raw or ""):
+        raise NotOwner(room_id)
+    if not store.revoke_invite(safe_id, sanitize_token(invite_id or "")):
+        raise InvalidRequest("invite not found")
 
 
 def tally(votes: dict) -> tuple[int, int]:
@@ -142,11 +256,21 @@ def tally(votes: dict) -> tuple[int, int]:
     return approve_n, reject_n
 
 
-def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_url: str) -> dict:
+def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_url: str,
+                 invite_raw: Optional[str] = None) -> dict:
     safe_id = _room_id(room_id)
     member_id = sanitize_token(member_id_raw or "")
     nickname = html.escape((nickname_raw or "익명")[:MAX_NICKNAME_LEN])
     user_text = (message_raw or "").strip()[:MAX_MESSAGE_LEN]
+
+    # 초대 확인은 방 잠금 밖에서 먼저 한다(잠금 중에 연결을 하나 더 잡지 않게).
+    peek = store.read_room(safe_id)
+    if (peek is not None and member_id and peek.get("invite_required") and peek["members"]
+            and not _member(peek, member_id)):
+        if not invite_raw:
+            raise InviteRequired(room_id)
+        if not store.use_invite(safe_id, invite_raw):
+            raise InviteInvalid(room_id)
 
     # 방 잠금 안에서 처리한다: 같은 방의 요청은 순서대로, 다른 방은 병렬로 (STAGE0_DESIGN.md §6.3).
     with store.room_tx(safe_id) as (room, session):
@@ -159,7 +283,7 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
         fresh = room["next_seq"] == 0
         now = _now_iso()
         existing = next((m for m in room["members"] if m["member_id"] == member_id), None)
-        idle, last_text = _idle(safe_id, room)
+        idle, last_text, warned = _idle(safe_id, room)
         if _is_closed(session, idle, last_text) and user_text:
             # T4: 닫힌 방은 읽기 전용. 방장이 말하면 다시 연다(ROOM_POLICY §4.2).
             is_owner_now = bool(room["members"]) and room["members"][0]["member_id"] == member_id
@@ -167,7 +291,8 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
                 raise RoomClosed(room_id)
             _append(room, "system", "시스템", MSG_REOPENED, kind="system")
         elif user_text:
-            _run_timers(room, session, _due_timers(session, idle, last_text))
+            # 사람이 말하면 활동이 이어지므로, 이미 된 초기화·만료만 먼저 처리한다(경고는 필요 없다).
+            _run_timers(room, session, [t for t in _due_timers(session, idle, last_text, warned) if not t.startswith("warn_")])
         if existing is None:
             if len(room["members"]) >= settings.room_max_members:
                 raise RoomFull(room_id)  # D8
@@ -225,16 +350,16 @@ def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) ->
     if room is None or not any(m["member_id"] == member_id for m in room["members"]):
         raise RoomNotFound(room_id)
     session = store.read_session(room["session_id"]) or {}
-    idle, last_text = _idle(safe_id, room)
-    if _due_timers(session, idle, last_text):
+    idle, last_text, warned = _idle(safe_id, room)
+    if _due_timers(session, idle, last_text, warned):
         # 타이머가 된 방만 잠그고, 잠근 뒤 다시 판정한다(그 사이 누가 입력했을 수 있음).
         with store.room_tx(safe_id) as (locked_room, locked_session):
             if locked_session is not None:
-                idle2, last2 = _idle(safe_id, locked_room)
-                _run_timers(locked_room, locked_session, _due_timers(locked_session, idle2, last2))
+                idle2, last2, warned2 = _idle(safe_id, locked_room)
+                _run_timers(locked_room, locked_session, _due_timers(locked_session, idle2, last2, warned2))
         room = store.read_room(safe_id)
         session = store.read_session(room["session_id"]) or {}
-        idle, last_text = _idle(safe_id, room)
+        idle, last_text, warned = _idle(safe_id, room)
     if session.get("state") == "GENERATING" and session.get("codegen") is not None:
         with store.room_tx(safe_id) as (locked_room, locked_session):
             # 잠금을 기다리는 사이 다른 요청이 이미 전이시켰을 수 있으므로 다시 확인한다.
@@ -249,9 +374,11 @@ def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) ->
         "ai_status": room["ai_status"],
         "members": [
             {"member_handle": member_handle(safe_id, m["member_id"]), "nickname": m["nickname"],
-             "joined_at": m["joined_at"], "last_seen": m["last_seen"]}
-            for m in room["members"]
+             "is_owner": i == 0, "joined_at": m["joined_at"], "last_seen": m["last_seen"]}
+            for i, m in enumerate(room["members"])
         ],
+        "me": {"member_handle": member_handle(safe_id, member_id), "is_owner": owner_id(room) == member_id},
+        "invite_required": bool(room.get("invite_required")),
         "votes": {member_handle(safe_id, k): v for k, v in room["votes"].items()},
         "state": session.get("state"),
         "deploy_url": session.get("deploy_url"),
