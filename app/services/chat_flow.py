@@ -68,6 +68,32 @@ def _record_transition(session_id: str, before: str, after: str) -> None:
         funnel.record(event, session_id=session_id)
 
 
+APPROVAL_ASK = "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
+
+
+def _gate_or_summary(session: dict, card: dict, room, engine_trace, again: bool = False) -> str:
+    """질문을 마친 카드를 승인으로 보내기 전의 게이트(D34 보완, 2026-09-26 대표 지적).
+
+    검토(리뷰어)는 한 번만 돌고, 검토가 넣은 기능의 확인·방장 확인·어긋난 값이 남아 있으면 먼저 묻는다.
+    모두 닫혀야 요약과 승인 질문(승인 버튼)이 나온다 — 승인 뒤에 "빠진 게 있다"가 나오지 않게."""
+    gate = prd_engine.close_gate(card)
+    rv = gate["review"]
+    if engine_trace is not None and rv is not None:
+        engine_trace["review"] = {"ok": rv["ok"], "added": rv["added"], "conflicts": len(rv["conflicts"]), "ms": rv["ms"]}
+    note = prd_engine.review_text(card) if rv is not None else ""
+    if gate["question"]:
+        session["state"] = "GATHERING"
+        return (f"{note}\n\n" if note else "") + prd_engine.format_question(card, gate["question"])
+    spec = prd_engine.spec_text(card)
+    session["last_request"] = spec
+    session["state"] = "AWAIT_APPROVAL"
+    if again:
+        return f"{prd_engine.summary_text(card)}\n\n{APPROVAL_ASK}"
+    return (f"정리했어요.\n{prd_engine.summary_text(card)}\n\n" + (f"{note}\n\n" if note else "")
+            + (PHOTO_ASK if room is not None and not card.get("photos") else "")
+            + f"{_rag_note(spec)}\n\n{APPROVAL_ASK}")
+
+
 def _rag_note(spec: str) -> str:
     """비슷한 사례(기능 사례집·업종 프로필)를 사람 말로. 없으면 없다고 말한다 (해커톤 요구 4)."""
     names = rag.similar(spec)
@@ -274,13 +300,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["prd"] = card
             if result["done"]:
                 _set_room_status(room, "RAG_SEARCHING", persist=True)
-                spec = prd_engine.spec_text(card)
-                session["last_request"] = spec
-                reply = (
-                    f"정리했어요.\n{prd_engine.summary_text(card)}\n\n{_rag_note(spec)}\n\n"
-                    "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
-                )
-                session["state"] = "AWAIT_APPROVAL"
+                reply = _gate_or_summary(session, card, room, engine_trace)
             else:
                 reply = prd_engine.format_question(card, result["question"])
                 session["state"] = "GATHERING"
@@ -307,19 +327,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["state"] = "GATHERING"
         elif result["done"]:
             _set_room_status(room, "RAG_SEARCHING", persist=True)
-            # 리뷰어 에이전트: 요약 직전 한 번, 원문과 카드를 대조해 빠진 요구를 채운다.
-            rv = prd_engine.review(card)
-            if engine_trace is not None:
-                engine_trace["review"] = {"ok": rv["ok"], "added": rv["added"], "conflicts": len(rv["conflicts"]), "ms": rv["ms"]}
-            spec = prd_engine.spec_text(card)
-            session["last_request"] = spec
-            note = prd_engine.review_text(card)
-            reply = (
-                f"정리했어요.\n{prd_engine.summary_text(card)}\n\n" + (f"{note}\n\n" if note else "")
-                + (PHOTO_ASK if room is not None and not card.get("photos") else "")
-                + f"{_rag_note(spec)}\n\n이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
-            )
-            session["state"] = "AWAIT_APPROVAL"
+            reply = _gate_or_summary(session, card, room, engine_trace)
         else:
             nudge = "사이트 이야기로 돌아가 볼까요?\n" if result.get("nudge") else ""
             reply = (nudge + prd_engine.ack_text(card, result["applied"]) + _early_photo_ask(card, room)
@@ -347,11 +355,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             # T3 분석 G1·G5: 요약을 보고 "반 구성은 ○○예요, 고쳐 주세요"라고 하면 고쳐서 요약을 다시 보인다.
             fixed = _apply_correction(session, user_text, by, is_owner)
             if fixed:
-                card = session["prd"]
-                spec = prd_engine.spec_text(card)
-                session["last_request"] = spec
-                reply = (f"고쳤어요: {fixed}\n{prd_engine.summary_text(card)}\n\n"
-                         "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)")
+                reply = f"고쳤어요: {fixed}\n" + _gate_or_summary(session, session["prd"], room, None, again=True)
             else:
                 reply = "승인 또는 거절로 답해주세요. 고칠 것이 있으면 '가게 이름은 ○○예요'처럼 말씀해 주세요."
 

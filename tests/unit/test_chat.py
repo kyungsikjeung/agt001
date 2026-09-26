@@ -240,3 +240,30 @@ def test_correction_after_summary(client, monkeypatch):
     assert store.read_session(s)["prd"]["slots"]["offerings"]["value"] == ["초등 영어반"]
     r = _chat(client, "음...", s)
     assert "승인 또는 거절" in r["reply"]
+
+
+def test_approval_waits_until_review_gate_is_closed(client, monkeypatch):
+    """대표 지적(9/26): 승인 뒤에 '다시 읽어 보니 빠진 게 있다'가 나오던 흐름.
+    검토가 넣은 기능의 확인 질문을 먼저 묻고, 닫힌 뒤에야 승인 단계(투표 막대)로 간다."""
+    import json
+
+    from app import llm
+
+    base = llm.chat_json
+
+    def chat_json(system, user, **kw):
+        if system.startswith("너는 웹사이트 요구사항 검토자다"):
+            return json.dumps({"missing": [{"slot": "features", "value": "카카오톡으로 문의 받기",
+                                            "quote": "문의가 카톡으로 오게"}], "conflicts": []}, ensure_ascii=False)
+        return base(system, user, **kw)
+
+    monkeypatch.setattr(llm, "chat_json", chat_json)
+    s = _fresh_session(client)
+    _chat(client, "카페 홈페이지요, 문의가 카톡으로 오게 해 주세요", s)
+    d = _chat(client, SKIP, s)
+    assert d["state"] == "GATHERING"  # 승인 버튼이 아직 나오지 않는다
+    assert "빠진 게 있어 넣었어요" in d["reply"] and "승인 전에 확인할 게 남았어요" in d["reply"]
+    pending = store.read_session(s)["prd"]["pending"]
+    d2 = _chat(client, pending["options"][0], s)
+    assert d2["state"] == "AWAIT_APPROVAL" and "승인/거절" in d2["reply"]
+    assert "빠진 게" not in _chat(client, "승인", s)["reply"]

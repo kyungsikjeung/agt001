@@ -58,9 +58,48 @@ def test_reviewer_conflict_is_asked_not_applied(fake):
     card = _card(fake)
     E._put(card, "business_type", "첼로 수리", S.FILLED, 1)  # 정리가 원문과 다르게 된 상황
     fake["review"] = {"missing": [], "conflicts": [{"slot": "business_type", "said": "첼로 레슨", "quote": "첼로 레슨 사이트요"}]}
-    E.review(card)
-    assert "확인해 주세요" in E.review_text(card)
+    g = E.close_gate(card)
     assert card["slots"]["business_type"]["value"] == "첼로 수리"  # 자동으로 고치지 않는다
+    q = g["question"]
+    assert q["kind"] == "conflict" and q["options"] == ["첼로 레슨", "첼로 수리"] and "어느 쪽이 맞나요" in q["text"]
+    assert card["done"] is False and card["pending"] is q
+    # 사장님이 고른 쪽으로 고치고, 게이트가 닫힌다(검토는 다시 돌지 않는다)
+    fake["review"] = {"missing": [], "conflicts": [{"slot": "business_type", "said": "엉뚱", "quote": "첼로 레슨 사이트요"}]}
+    r = E.turn(card, "첼로 레슨")
+    assert r["done"] and card["slots"]["business_type"]["value"] == "첼로 레슨"
+    assert E.close_gate(card)["question"] is None
+
+
+def test_gate_asks_feature_added_by_reviewer_before_approval(fake):
+    """대표 지적(9/26): 승인 뒤에 '빠진 게 있다'가 나오던 문제. 검토가 넣은 기능의 확인 질문은 승인 전에 묻는다."""
+    card = _card(fake)
+    fake["review"] = {"missing": [{"slot": "features", "value": "카카오톡으로 문의 받기", "quote": "문의가 제 카카오톡으로 오게"}],
+                      "conflicts": []}
+    g = E.close_gate(card)
+    assert g["review"]["added"] == ["features"]
+    q = g["question"]
+    assert q and q["kind"] == "feature" and q["gate"] and "승인 전에 확인할 게 남았어요" in E.format_question(card, q)
+    E.turn(card, q["options"][0])
+    assert E.close_gate(card)["question"] is None  # 모두 닫혀야 승인으로
+
+
+def test_skip_closes_feature_and_conflict_checks(fake):
+    card = _card(fake)
+    fake["review"] = {"missing": [{"slot": "features", "value": "카카오톡으로 문의 받기", "quote": "문의가 제 카카오톡으로 오게"}],
+                      "conflicts": []}
+    assert E.close_gate(card)["question"]
+    r = E.turn(card, "시안 먼저")  # "나머지는 알아서"
+    assert r["done"] and E.close_gate(card)["question"] is None
+
+
+def test_review_runs_once_per_card(fake, monkeypatch):
+    card = _card(fake)
+    calls = []
+    real = E.review
+    monkeypatch.setattr(E, "review", lambda c, **k: calls.append(1) or real(c, **k))
+    E.close_gate(card)
+    E.close_gate(card)
+    assert calls == [1]
 
 
 def test_assumed_values_are_not_conflicts(fake):

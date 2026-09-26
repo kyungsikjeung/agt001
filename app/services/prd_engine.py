@@ -534,6 +534,19 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
         card.setdefault("feature_answers", {})[fid] = o or t[:200]
         card["pending"] = None
         return True if o is not None else None
+    if p["kind"] == "conflict":
+        # 검토에서 나온 어긋난 값(D34): 사장님이 고른 쪽으로. 목록 밖 대답은 칸 추출로 넘긴다.
+        card["conflict_queue"] = [c for c in card.get("conflict_queue") or []
+                                  if not (c["slot"] == key and c["said"] == p.get("said"))]
+        card["pending"] = None
+        o = t if t in p["options"] else _fuzzy_option_match(n, t, p["options"])
+        if o is None:
+            return None
+        if o == p["options"][0]:
+            value = _split_items(o) if S.SLOTS[key].multi else o
+            status = S.PENDING_OWNER if S.SLOTS[key].fact and not is_owner else S.FILLED
+            _put(card, key, value, status, card["turn"], by)
+        return True
     if p["kind"] == "multi":
         hidden = industry_of(card).hidden
         # B-2: "없음"은 메시지 전체가 없음 계열일 때만. 고른 항목이 있으면 선택을 먼저 살린다.
@@ -636,6 +649,32 @@ def _fuzzy_option_match(normed: str, raw: str, options: list) -> Optional[str]:
     return None
 
 
+def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
+    """닫혀야 승인할 수 있는 확인 질문 하나: 방장 확인 → 기능 확인 → 검토에서 나온 어긋난 값."""
+    ind = industry_of(card)
+    for key, slot in card["slots"].items():
+        if slot["status"] == S.PENDING_OWNER:
+            return {"slot": key, "kind": "owner_confirm", "options": ["네", "아니요"],
+                    "text": f"{S.label_for(ind, key)}을(를) '{slot['value']}'(으)로 받았어요. 방장님, 맞나요?"}
+    if owner_only:
+        return None
+    for fid in card.get("feature_queue") or []:
+        v = next((x for x in card.get("features_judged") or [] if x.get("id") == fid), None)
+        if v and v.get("question"):
+            return {"slot": None, "kind": "feature", "feature": fid, "options": list(v["question"]["options"]),
+                    "text": v["question"]["ask"]}
+    for c in card.get("conflict_queue") or []:
+        slot = card["slots"].get(c["slot"]) or {}
+        cur = slot.get("value")
+        cur = ", ".join(cur) if isinstance(cur, list) else str(cur or "")
+        if slot.get("status") != S.FILLED or not cur:
+            continue
+        label = S.label_for(ind, c["slot"])
+        return {"slot": c["slot"], "kind": "conflict", "said": c["said"], "options": [c["said"], cur],
+                "text": f"다시 읽어 보니 {label}을(를) '{c['said']}'(이)라고 하신 것 같은데, 정리에는 '{cur}'(으)로 되어 있어요. 어느 쪽이 맞나요?"}
+    return None
+
+
 def next_question(card: dict) -> Optional[dict]:
     """다음에 물을 것 하나. 없으면 None."""
     ind = industry_of(card)
@@ -644,19 +683,16 @@ def next_question(card: dict) -> Optional[dict]:
         # kind "followup": 같은 칸을 더 자세히 묻는 이어 묻기(답은 한 칸 질문처럼 처리, 평가에서 중복으로 세지 않음)
         return {"slot": fu["slot"], "kind": "followup", "options": [LATER], "text": fu["text"]}
     # 1) 방장 확인이 필요한 사실
-    for key, slot in card["slots"].items():
-        if slot["status"] == S.PENDING_OWNER:
-            return {"slot": key, "kind": "owner_confirm", "options": ["네", "아니요"],
-                    "text": f"{S.label_for(ind, key)}을(를) '{slot['value']}'(으)로 받았어요. 방장님, 맞나요?"}
+    q = _confirm_question(card, owner_only=True)
+    if q:
+        return q
     # 1-1) 문의 종류가 모호하면 한 번 묻는다 (§2 ⑤): 업종을 들었는데 가게 6업종·프로필 어디에도 안 맞을 때
     if ind.key == "other" and not card.get("kind_asked") and _slot(card, "business_type")["status"] == S.FILLED:
         return {"slot": None, "kind": "site_kind", "options": list(S.KIND_OPTIONS), "text": S.KIND_QUESTION}
-    # 1-2) 확인이 필요한 기능 (§2 ⑪⑫): 사장님이 먼저 말한 요구라 필수 칸보다 앞에 묻는다
-    for fid in card.get("feature_queue") or []:
-        v = next((x for x in card.get("features_judged") or [] if x.get("id") == fid), None)
-        if v and v.get("question"):
-            return {"slot": None, "kind": "feature", "feature": fid, "options": list(v["question"]["options"]),
-                    "text": v["question"]["ask"]}
+    # 1-2) 확인이 필요한 기능 (§2 ⑪⑫)·검토에서 나온 어긋난 값: 사장님이 먼저 말한 요구라 필수 칸보다 앞에 묻는다
+    q = _confirm_question(card)
+    if q:
+        return q
     # 2) 필수 칸 (업종별 순서)
     missing = [k for k in ind.required if not _satisfied(card, k)]
     done_count = len(ind.required) - len(missing)
@@ -804,6 +840,10 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             return result
         return _ask_next(card, applied, trace, same_question=True)
     trace["applied"] = applied
+    if wants_skip:
+        # "나머지는 알아서": 기능 확인·어긋난 값 확인도 닫는다(정리된 값 유지). 방장 확인이 필요한 사실은 남긴다(D24).
+        card["feature_queue"] = []
+        card["conflict_queue"] = []
     q = None if wants_skip or card["asked"] >= budget(card) else next_question(card)
     if q is None:
         finalize(card)
@@ -950,15 +990,33 @@ def review(card: dict, timeout_sec: float = 15.0) -> dict:
 
 
 def review_text(card: dict) -> str:
-    """검토 결과를 사장님께 알리는 말. 추가한 것은 알리고, 어긋난 것은 확인을 부탁한다."""
+    """검토에서 빠진 것을 넣었다고 알리는 말. 어긋난 값은 글로 알리지 않고 게이트가 질문으로 묻는다."""
     r = card.get("review") or {}
     ind = industry_of(card)
-    parts = []
     if r.get("added"):
-        parts.append("다시 읽어 보니 빠진 게 있어 넣었어요: " + ", ".join(S.label_for(ind, k) for k in r["added"]))
-    for c in r.get("conflicts") or []:
-        parts.append(f"확인해 주세요: {S.label_for(ind, c['slot'])}을(를) '{c['said']}'(이)라고 하셨는데 정리가 다를 수 있어요.")
-    return "\n".join(parts)
+        return "다시 읽어 보니 빠진 게 있어 넣었어요: " + ", ".join(S.label_for(ind, k) for k in r["added"])
+    return ""
+
+
+def close_gate(card: dict) -> dict:
+    """승인 전 게이트: 질문을 마친 카드를 요약·승인으로 보내기 전에 열린 것이 없는지 확인한다.
+
+    1) 검토(리뷰어)는 카드마다 한 번만 돈다. 2) 검토가 넣은 기능의 확인 질문·방장 확인·어긋난 값이 남아 있으면
+    질문 하나를 돌려준다(질문 예산과 상관없이, 닫혀야 승인할 수 있다). 모두 닫혔으면 question은 None.
+    """
+    rv = None
+    if card.get("review") is None:
+        rv = review(card)
+        if not rv["ok"]:
+            card["review"] = {"turn": card["turn"], "added": [], "conflicts": [], "failed": True}
+        card["conflict_queue"] = list(card["review"].get("conflicts") or [])
+    q = _confirm_question(card)
+    if q is None:
+        return {"question": None, "review": rv}
+    q["gate"] = True
+    card["pending"] = q
+    card["done"] = False
+    return {"question": q, "review": rv}
 
 
 # ── 사람이 읽는 형태 ────────────────────────────────────────────────
@@ -969,6 +1027,8 @@ def format_question(card: dict, q: dict) -> str:
         body = f"{q['text']}\n{opts}"
     else:
         body = q["text"] + "\n" + "  ".join(f"{i + 1}) {o}" for i, o in enumerate(q["options"]))
+    if q.get("gate"):
+        return f"{body}\n\n(승인 전에 확인할 게 남았어요)"
     return f"{body}\n\n(질문 {card['asked']}/{budget(card)} · '시안 먼저'라고 하시면 나머지는 알아서 채울게요)"
 
 
