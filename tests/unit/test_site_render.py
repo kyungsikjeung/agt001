@@ -343,3 +343,28 @@ def test_영상카드_비면숨김_최대3개():
     out = render_site(_bare_spec([_video_섹션(items)]), kind="cafe")
     assert "AAA111AAA11" in out
     assert "DDD444DDD44" not in out
+
+
+def test_public_quality_fixes_2026_09_26():
+    """사이트 품질 점검(docs/product/evals/site-quality-2026-09-26.md) Q-2~Q-5 회귀 방지."""
+    # Q-4: 예약 주소 없이 전화만 있는 cta--external은 공개본에서 뺀다(제목만 남던 문제)
+    spec = _load_sample("workshop")
+    for sec in spec["sections"]:
+        if sec["type"] == "cta":
+            sec["content"] = {"booking_url": "", "phone": "010-0000-0000"}
+    assert "booking" not in _section_ids(render_site(spec, public=True))
+    assert "booking" in _section_ids(render_site(spec))  # 시안에서는 채울 곳으로 보인다
+
+    # Q-5: 이름 없는 상품 항목은 공개본에서 빠지고, 다 빠지면 부품째 빠진다
+    spec = _load_sample("academy")
+    offer = next(s for s in spec["sections"] if s["type"] == "offerings")
+    offer["content"]["items"] = [{"name": "", "desc": "", "price": ""}, {"name": "중등 수학 반", "desc": "", "price": ""}]
+    html_text = render_site(spec, public=True)
+    assert html_text.count('class="s-price-list__row"') == 1 and "중등 수학 반" in html_text
+    offer["content"]["items"] = [{"name": "", "desc": "", "price": ""}]
+    assert offer["id"] not in _section_ids(render_site(spec, public=True))
+
+    # Q-2·Q-3: 공개본 CSS는 사진 없는 상품 카드를 통째로 숨기지 않고, 예시 표시는 숨긴다
+    css = render_site(_load_sample("pension"), public=True)
+    assert "li:has(> .is-placeholder:not(.s-media__empty))" in css
+    assert ".is-public .s-illu-badge" in css and ".is-public .s-gallery__notice" in css

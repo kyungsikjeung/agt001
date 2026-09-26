@@ -23,7 +23,8 @@ def screenshot_many(pages: list, width: int = 800, height: int = 600) -> None:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         try:
-            page = browser.new_page(viewport={"width": width, "height": height})
+            # 첫 화면 나타내기 애니메이션 도중에 찍으면 흐리게 나온다(9/26 품질 점검 Q-1). 끝난 모습으로 찍는다.
+            page = browser.new_page(viewport={"width": width, "height": height}, reduced_motion="reduce")
             for html_content, out_path in pages:
                 page.set_content(html_content, timeout=settings.design_screenshot_timeout_ms)
                 page.screenshot(path=str(out_path))

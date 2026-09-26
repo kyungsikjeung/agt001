@@ -634,7 +634,12 @@ def _empty_for_public(section_type: str, variant: str, ctx: dict) -> bool:
     if section_type == "reviews" and variant == "slot-only":
         return True
     if section_type == "cta":
+        # external은 예약 주소가 있어야 버튼이 나온다(전화만 있으면 제목만 남음, 품질 점검 Q-4)
+        if variant == "external":
+            return not ctx.get("booking_url")
         return not (ctx.get("phone") or ctx.get("booking_url"))
+    if section_type == "offerings":
+        return not ctx.get("has_items")
     if section_type == "contact" and variant == "kakao-channel":
         return not ctx.get("kakao_channel_url")
     if section_type == "around":
@@ -690,6 +695,10 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             content = {}
         if not isinstance(content, dict):
             raise SiteSpecError(f"섹션 {section_id!r}의 content가 dict 형태가 아님")
+        if public and section_type == "offerings" and isinstance(content.get("items"), list):
+            # 이름 없는 항목은 공개본에서 뺀다("가격 문의"만 남은 빈 카드 방지, 품질 점검 Q-5)
+            content = {**content, "items": [i for i in content["items"]
+                                             if isinstance(i, dict) and str(i.get("name") or "").strip()]}
         ctx = _section_context(
             section_type, variant, str(section_id), content,
             site_key=site_key, retention_days=retention_days,
