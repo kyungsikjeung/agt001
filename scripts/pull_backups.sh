@@ -76,8 +76,11 @@ rsync "${RSYNC_OPTS[@]}" -e "ssh -i $SSH_KEY" \
 chmod 600 "$LOCAL_DIR"/agt001-*.dump 2>/dev/null || true
 
 # 로컬은 최근 KEEP개만 보관 (타임스탬프 파일명이라 사전식 정렬 = 시간순)
+# macOS head는 음수 줄 수(head -n -N)를 못 받으므로 awk로 앞쪽(오래된 것)만 고른다
 # shellcheck disable=SC2012
-ls -1 "$LOCAL_DIR"/agt001-*.dump 2>/dev/null | sort | head -n -"$KEEP" | xargs -r rm -f --
+ls -1 "$LOCAL_DIR"/agt001-*.dump 2>/dev/null | sort \
+  | awk -v k="$KEEP" '{a[NR]=$0} END {for (i = 1; i <= NR - k; i++) print a[i]}' \
+  | xargs -r rm -f --
 
 # 받은 파일이 멀쩡한지 확인한다. pg_restore가 있으면 목록 읽기로, 없으면 크기로만 본다.
 OK=0

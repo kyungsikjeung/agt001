@@ -35,7 +35,12 @@ if [ "$#" -gt 0 ]; then
 fi
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PULL_SCRIPT="$REPO_ROOT/scripts/pull_backups.sh"
+SOURCE_SCRIPT="$REPO_ROOT/scripts/pull_backups.sh"
+# launchd 작업은 macOS 개인정보 보호(TCC) 때문에 ~/Documents 안 파일을 못 읽는다
+# ("Operation not permitted"). 그래서 보호 폴더 밖에 사본을 두고 그것을 실행한다.
+# pull_backups.sh를 고치면 이 스크립트를 다시 실행해 사본을 갱신한다.
+INSTALL_DIR="$HOME/.agt001"
+PULL_SCRIPT="$INSTALL_DIR/pull_backups.sh"
 PLIST_DIR="$HOME/Library/LaunchAgents"
 PLIST="$PLIST_DIR/com.agt001.backup-pull.plist"
 LABEL="com.agt001.backup-pull"
@@ -46,15 +51,19 @@ LOG_DIR="$HOME/agt001-backups-offsite"
 
 if [ "$MODE" = "uninstall" ]; then
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
-  rm -f "$PLIST"
+  rm -f "$PLIST" "$PULL_SCRIPT"
   echo "예약 해제 완료: $PLIST (가져온 덤프는 $LOG_DIR에 그대로 둔다)"
   exit 0
 fi
 
-if [ ! -f "$PULL_SCRIPT" ]; then
-  echo "가져오기 스크립트가 없습니다: $PULL_SCRIPT" >&2
+if [ ! -f "$SOURCE_SCRIPT" ]; then
+  echo "가져오기 스크립트가 없습니다: $SOURCE_SCRIPT" >&2
   exit 1
 fi
+
+mkdir -p "$INSTALL_DIR"
+chmod 700 "$INSTALL_DIR"
+install -m 700 "$SOURCE_SCRIPT" "$PULL_SCRIPT"
 
 mkdir -p "$PLIST_DIR"
 mkdir -p "$LOG_DIR"
@@ -97,6 +106,6 @@ launchctl bootstrap "gui/$(id -u)" "$PLIST"
 launchctl print "gui/$(id -u)/$LABEL" >/dev/null
 
 echo "예약 등록 완료: 매일 13:00 KST ($PLIST)"
-echo "가져오기 스크립트: $PULL_SCRIPT"
+echo "가져오기 스크립트(사본): $PULL_SCRIPT  (원본 $SOURCE_SCRIPT 를 고치면 이 스크립트를 다시 실행)"
 echo "예약 확인: launchctl list | grep $LABEL"
 echo "지금 바로 1회 실행: /bin/bash $PULL_SCRIPT"
