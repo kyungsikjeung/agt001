@@ -151,8 +151,8 @@ export default function Landing() {
       <main>
         <section className="hero">
           <p className="badge">베타 기간 무료</p>
-          <h1>어떤 가게 사이트를 만들까요?</h1>
-          <p className="sub">가게를 설명하면 AI가 정리하고, 시안을 보여드려요.</p>
+          <h1>어떤 사이트를 만들까요?</h1>
+          <p className="sub">하는 일을 설명하면 AI가 정리하고, 시안 3안을 보여드려요.</p>
 
           <form
             className="prompt"
@@ -236,7 +236,7 @@ export default function Landing() {
           <ol>
             <li>
               <b>말하기</b>
-              <span>가게와 원하는 것을 적거나 말해요</span>
+              <span>하는 일과 원하는 것을 적거나 말해요</span>
             </li>
             <li>
               <b>확인하기</b>
