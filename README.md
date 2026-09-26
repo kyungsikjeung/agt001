@@ -86,13 +86,13 @@
 |---|---|---|---|
 | 1. 인프라 설계 + Mermaid + 역할분담 | 본 README 구조도 + `ARCHITECTURE.md` 시스템 컨텍스트 | `docs/hackathon/ARCHITECTURE.md` §1~§3 | 완료 |
 | 2. 채팅 요구사항 전달 | 1:1 `/chat` + 공유방 `/room/<id>/chat`, 4초 폴링 조회 | `app/api/chat.py`, `app/api/rooms.py`, `app/services/chat_flow.py`, `app/services/rooms.py`, `static/room.html` | 완료 |
-| 3. 접수/검증/질의(옵션+추천)/게이트 | PRD 엔진: 추출→규칙 검사→칸 점수→질문 1개, 최대 8회, 공유방 사실은 방장 확인 | `app/services/prd_engine.py`, `app/services/prd_schema.py`, `tests/unit/test_prd_engine.py` (13건) | 완료 (T3 시뮬레이션 성적표는 미실행) |
+| 3. 접수/검증/질의(옵션+추천)/게이트 | 입구 게이트(종류 분류·금지 거절) → PRD 엔진(추출→근거 검사→질문 1개, 종류별 예산) → 리뷰어 에이전트(D34) → 요약. 공유방 사실은 방장 확인 | `app/services/intake.py`, `prd_engine.py`, `tests/engine/` (45건) | 완료 (T2 추출 87~90%, T3 실행 중) |
 | 4. RAG 사전확인 | NIM 임베딩 코사인 유사도, 임계값 미만은 신규, 실패해도 대화 중단 없음 | `app/services/rag.py`, `app/llm.py` (`embed`) | 완료 |
 | 5. 동작하는 산출물 (웹/안드로이드) | 웹 정적 사이트를 `/site/<id>/`로 직접 서빙. 안드로이드(React Native)는 미구현 | `app/services/codegen.py`, `app/services/deploy.py`, `app/api/public.py` (`serve_site`) | 부분 완료 (웹만 동작, 안드로이드 미착수) |
-| 6. 채팅 확인 필수 + 견적 근거 | 공유방 과반 투표 승인 게이트. 견적은 현재 AI 3안 JSON + 추천 (D25에서 규칙 계산 전환 결정, 미적용) | `app/services/rooms.py`, `app/services/quote.py`, `docs/product/DECISIONS.md` D25 | 완료 (견적 방식 전환은 진행 중) |
-| 7. UI 시안 선택 | 견적 승인 후 정적 HTML 템플릿 1종 렌더링 + Playwright 실제 스크린샷. 3안·취향 반영·부분 수정은 미구현 | `app/services/design.py`, `app/api/public.py` (`design_page`), `docs/product/DESIGN_PIPELINE_PLAN.md` §13 | 진행 중 |
-| 8. 시안 링크 전송 | 시안(`/design/<id>`)·배포(`/site/<id>/`) 링크를 카카오 초대·공유 흐름으로 전달. 사람 최종 검토 게이트는 설계만 | `app/services/rooms.py` (초대 링크), `app/api/public.py`, `docs/hackathon/REVIEW_GATE_DESIGN.md` | 부분 완료 (검토 게이트 미착수) |
-| 9. 에이전트 분리 + Flow 검토 산출물 | `app/services` 모듈 분리 (chat, prd, rag, quote, design, codegen, deploy). 실행 흐름 Mermaid 산출물은 미제출 | `app/services/`, `app/main.py` | 부분 완료 (FLOWDOC 미제출) |
+| 6. 채팅 확인 필수 + 견적 근거 | 공유방 과반 투표 승인 게이트. 견적은 규칙 계산 한 줄 + 근거(종류·담을 내용·기능 수) + 베타 무료(D25) | `app/services/rooms.py`, `app/services/quote.py` (`rule_quote`) | 완료 |
+| 7. UI 시안 선택 | 카드 → 시안 3안(기본형·사진 강조형·간결형), 고르기 페이지, 채팅방 미리보기 카드와 "이걸로 할게요" | `app/services/design_variants.py`, `site_render.py`, `design.py`, `static/room.html` | 완료 |
+| 8. 시안 링크 전송 | 시안(`/design/<id>`)·공개(`/site/<id>/`) 링크를 채팅방으로. 공개 전 빈 자리 확인(사람 최종 검토) 후 고른 안 그대로 공개. 생성물은 별도 주소 | `app/services/chat_flow.py` (`_publish`), `app/api/public.py`, `app/main.py` (`_split_hosts`) | 완료 |
+| 9. 에이전트 분리 + Flow 검토 산출물 | 역할별 모듈(대화 진행·입구 게이트·요구사항 엔진·리뷰어·RAG·견적·시안·공개·코드생성·문의·음성) + 실행 흐름 산출물 | `docs/product/FLOWDOC.md` (시퀀스·상태도, 운영 실측 기준) | 완료 |
 | 10. 동일 개발환경 | `docker compose up --build` 한 줄 기동, `.env.example` 템플릿, 비밀 키 미커밋 | `docker-compose.yml`, `.env.example`, `docs/hackathon/deployment/templates/Dockerfile.backend` | 완료 |
 | 11. 온보딩 가이드 | 배경/목적/핸즈온 3단 구조 문서, 로컬 셋업·배포 가이드 | `docs/hackathon/LOCAL_SETUP.md`, `docs/hackathon/ENVIRONMENT.md`, `docs/hackathon/deployment/RENDER_DEPLOY.md` | 완료 |
 
