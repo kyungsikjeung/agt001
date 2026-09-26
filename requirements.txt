@@ -13,3 +13,5 @@ psycopg[binary]==3.3.6
 python-multipart==0.0.32
 nvidia-riva-client==2.27.0
 chevron==0.14.0
+pillow==11.3.0
+cryptography==45.0.7
