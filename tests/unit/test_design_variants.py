@@ -73,3 +73,12 @@ def test_hidden_items_become_icon_features():
     assert [i["title"] for i in feat["content"]["items"]] == ["주차", "반려동물 동반"]
     html = render_site(spec, kind="pension", public=True)
     assert "이용 안내" in html and "소형견만 가능해요" in html and "<svg" in html
+
+
+def test_three_variants_differ_in_structure():
+    """방안 7: 2안은 사진첩이 첫 화면 바로 뒤, 3안은 상품이 먼저이고 사진이 없으면 사진첩이 없다."""
+    vs = DV.variants(_card())
+    order = [[s["type"] for s in v["spec"]["sections"]] for v in vs]
+    assert order[1][:2] == ["hero", "gallery"]
+    assert order[2][1] == "offerings" and "gallery" not in order[2]
+    assert len({tuple(o) for o in order}) == 3

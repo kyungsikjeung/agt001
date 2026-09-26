@@ -171,8 +171,30 @@ def variants(card: dict) -> list[dict]:
                     want = "photo-side" if sec["variant"] == "photo-overlay" else "photo-overlay"
                 if want:
                     sec["variant"] = want
+            spec["sections"] = _reorder(spec["sections"], vid)
         out.append({"id": vid, "name": name, "summary": summary, "spec": spec})
     return out
+
+
+# 방안 7: 3안이 색·배치뿐 아니라 구성 순서부터 다르게 보이도록.
+#   v2 사진 강조형: 첫 화면 바로 뒤에 사진첩, 그다음 소개
+#   v3 간결형: 상품·수업을 먼저, 사진첩은 사장님 사진이 있을 때만, 영상은 맨 아래
+_ORDER = {
+    "v2": ("hero", "gallery", "intro", "video", "offerings", "features", "stats", "around", "contact", "cta", "reviews"),
+    "v3": ("hero", "offerings", "features", "intro", "contact", "cta", "around", "video", "gallery", "reviews"),
+}
+
+
+def _reorder(sections: list, vid: str) -> list:
+    order = _ORDER.get(vid)
+    if not order:
+        return sections
+    if vid == "v3":
+        sections = [s for s in sections if s["type"] != "gallery"
+                    or any(str(i.get("src", "")).startswith("/uploads/") for i in s["content"].get("items", []))]
+    rank = {t: i for i, t in enumerate(order)}
+    # 같은 종류끼리는 원래 순서를 지킨다(문의 양식·카카오 채널 등)
+    return sorted(sections, key=lambda s: (rank.get(s["type"], len(order)), sections.index(s)))
 
 
 def kind_for(card: dict) -> str:
