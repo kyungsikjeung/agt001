@@ -513,3 +513,14 @@ button:focus-visible,
   }
   .s-gallery__swipe { scroll-snap-type: none; }
 }
+
+
+/* 공개 사이트(body.is-public): 방문자에게는 [… 입력] 빈칸을 보이지 않는다. 시안에서는 사장님이 채울 곳으로 보인다. */
+.is-public .is-placeholder { display: none; }
+.is-public .s-contact__row:has(.is-placeholder),
+.is-public li:has(> .is-placeholder),
+.is-public p:has(> .is-placeholder:only-child) { display: none; }
+.is-public .is-placeholder[aria-label^="가격"] {
+  display: inline; font-size: 0; border: 0; background: none; padding: 0;
+}
+.is-public .is-placeholder[aria-label^="가격"]::after { content: "가격 문의"; font-size: 0.9375rem; color: var(--muted); }

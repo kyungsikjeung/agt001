@@ -571,13 +571,31 @@ def _section_context(
     return ctx
 
 
+def _empty_for_public(section_type: str, variant: str, ctx: dict) -> bool:
+    """공개 사이트에서 통째로 뺄 빈 부품(방문자에게 [… 입력]만 남는 경우)."""
+    if section_type == "intro":
+        return not ctx.get("body")
+    if section_type == "reviews" and variant == "slot-only":
+        return True
+    if section_type == "cta":
+        return not (ctx.get("phone") or ctx.get("booking_url"))
+    if section_type == "contact" and variant == "kakao-channel":
+        return not ctx.get("kakao_channel_url")
+    if section_type == "around":
+        return not (ctx.get("address") or ctx.get("has_items"))
+    return False
+
+
 def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
-                title: str = "", kind: str = "other") -> str:
+                title: str = "", kind: str = "other", public: bool = False) -> str:
     """명세를 완전한 HTML 문서 한 장으로 렌더한다 (스크립트 없음).
 
     kind는 업종 키 10종 중 하나 (모르면 other). 사진이 비었을 때
     대표(hero) 사진 칸과 사진 0장인 사진첩에 업종별 예시 그림을
     인라인 SVG로 넣는다. 사진이 있으면 그림을 쓰지 않는다.
+
+    public=True(공개 사이트): 방문자에게 [… 입력] 빈칸을 보이지 않는다. 빈 부품은 빼고,
+    빈 줄은 CSS로 숨기며, 빈 가격은 "가격 문의"로 보인다. 시안(public=False)에서는 사장님이 채울 곳이 보인다.
     """
     if not isinstance(spec, dict):
         raise SiteSpecError("명세는 dict 형태여야 함")
@@ -619,6 +637,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         )
         if ctx is None:
             continue
+        if public and _empty_for_public(section_type, variant, ctx):
+            continue
         if ctx.pop("is_example", False):
             rendered_parts.append(_gallery_example_html(str(section_id), variant, kind))
             continue
@@ -648,7 +668,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         bundle["site_css"],
         "</style>",
         "</head>",
-        "<body>",
+        '<body class="is-public">' if public else "<body>",
         *rendered_parts,
         "</body>",
         "</html>",

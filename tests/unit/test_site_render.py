@@ -264,3 +264,15 @@ def test_업종10종_모두렌더():
     # 모르는 업종은 other 그림으로 렌더한다.
     out = render_site(_bare_spec([_hero_빈사진()]), kind="없는업종")
     assert "<svg" in out
+
+
+def test_public_mode_hides_placeholders():
+    """공개 사이트: 빈칸 부품은 빼고, 빈 줄은 숨김 규칙, 가격은 '가격 문의'. 시안은 그대로 보인다."""
+    import json
+    from app.services.site_render import render_site
+    spec = json.load(open("templates/samples/cafe.json"))
+    design_html = render_site(spec, kind="cafe")
+    public_html = render_site(spec, kind="cafe", public=True)
+    assert '<body class="is-public">' in public_html and '<body class="is-public">' not in design_html
+    assert "후기가 모이면" in design_html and "후기가 모이면" not in public_html
+    assert "가격 문의" in public_html  # CSS 규칙으로 들어간다

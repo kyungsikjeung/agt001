@@ -106,7 +106,8 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     out = settings.generated_dir / requirement_id / "published"
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_text(
-        site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card), kind=DV.kind_for(card)),
+        site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card), kind=DV.kind_for(card),
+                                public=True),
         encoding="utf-8")
 
 
