@@ -67,6 +67,8 @@ services:
     volumes:
       # 파일 하나가 아니라 폴더를 붙인다: git checkout이 파일을 새로 만들면 파일 바인드는 옛 파일을 계속 본다.
       - ./deploy:/etc/caddy:ro
+      # 주의: 이 볼륨에 HTTPS 인증서가 있다. 지우지 말 것(docker compose down -v 금지).
+      # sslip.io는 Let's Encrypt 발급 한도를 전 세계가 나눠 써서 재발급이 막힐 수 있다(RESEARCH_INFRA_COST §2).
       - caddy_data:/data
       - caddy_config:/config
 

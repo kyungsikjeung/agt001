@@ -91,7 +91,7 @@ D2 exit 0
 
 | # | 할 일 | 근거 | 담당 | 시급 |
 |---|---|---|---|---|
-| R-a | Caddy 인증서 볼륨(`caddy_data`)을 지우지 않기, 데모 전날 이후 새 주소 추가 금지 | sslip.io는 공개 접미사 목록에 없어 Let's Encrypt 주당 한도를 전 세계가 나눠 씀 → 재발급이 막힐 수 있음 (RESEARCH_INFRA_COST §2) | Claude | 마감 전 |
+| R-a | ✅ 확인(지우는 스크립트 없음, compose에 경고 주석) Caddy 인증서 볼륨(`caddy_data`)을 지우지 않기, 데모 전날 이후 새 주소 추가 금지 | sslip.io는 공개 접미사 목록에 없어 Let's Encrypt 주당 한도를 전 세계가 나눠 씀 → 재발급이 막힐 수 있음 (RESEARCH_INFRA_COST §2) | Claude | 마감 전 |
 | R-b | 대외 문구를 "베타 시연"으로 통일, 유료 전환 전 NVIDIA 체험판 약관 재확인 | 무료 API 키의 상업 이용은 체험판 약관 위반 소지 (§1) | 사용자 | 마감 전 |
 | R-c | NIM에 보내는 글에서 전화·주소 가리기 검토(추출은 원문이 필요 → 리뷰어·평가 경로부터) | 체험판 고지에 입력 기록·개선 사용 문구 (RESEARCH_LEGAL_PRIVACY §1) | Claude | 베타 뒤 |
 | R-d | 방침: 문의는 "수집 주체는 우리 + 가게에 전달"로, 보호책임자 이메일·처리 기한, 14세 미만 제한 문구 | RESEARCH_LEGAL_PRIVACY §3·§4 | Claude + 법률 검토 | 정식 공개 전 |
