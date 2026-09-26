@@ -25,10 +25,19 @@ RETENTION_DAYS = 90
 # 브라우저가 보낼 수 있는 이벤트. 목록 밖 이름은 버린다(아무 문자열로 DB를 채우지 못하게).
 CLIENT_EVENTS = frozenset({"landing_view", "start_click", "template_click", "login_click", "chat_open"})
 # 서버가 대화 상태 전이에서 남기는 이벤트.
-SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generate_start", "generate_done", "signup"})
+SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generate_start", "generate_done", "signup",
+                           # 디자인 학습 기록(D44·D45, app/services/design_log.py)
+                           "design_shown", "design_chosen", "design_restyled", "site_published", "inquiry_received",
+                           "unmet_need"})
 
 _TOKEN = re.compile(r"[^A-Za-z0-9_.:-]")
 _MAX_LEN = 64
+# props에 넣을 수 있는 칸. 값은 목록 키·사이트 키 같은 영문 토큰, 숫자, 참거짓만.
+PROP_KEYS = frozenset({"site", "industry", "variant", "v1", "v2", "v3", "palette", "font_pair", "density", "radius",
+                       "lead", "hero", "source", "kind", "ref", "verdict", "label"})
+# label만 한글을 받는다(못 담은 섹션 이름 등, D44). 숫자는 지운다(전화·주소·가격이 섞여 들어오지 않게).
+_LABEL = re.compile(r"[^A-Za-z가-힣 ]")
+_LABEL_MAX = 20
 
 # IP당 분당 요청 상한. IP는 이 메모리 안에서만 쓰고 저장하지 않는다.
 RATE_LIMIT_PER_MIN = 60
@@ -41,6 +50,22 @@ def _clean(value: Optional[str]) -> Optional[str]:
         return None
     cleaned = _TOKEN.sub("", str(value))[:_MAX_LEN]
     return cleaned or None
+
+
+def _props(props: Optional[dict]) -> Optional[dict]:
+    out = {}
+    for k, v in (props or {}).items():
+        if k not in PROP_KEYS or v is None:
+            continue
+        if isinstance(v, bool) or isinstance(v, int):
+            out[k] = v
+        elif k == "label":
+            label = " ".join(_LABEL.sub(" ", str(v)).split())[:_LABEL_MAX]
+            if label:
+                out[k] = label
+        elif _clean(v):
+            out[k] = _clean(v)
+    return out or None
 
 
 def allow(client_key: str) -> bool:
@@ -58,13 +83,14 @@ def allow(client_key: str) -> bool:
         return True
 
 
-def record(event: str, *, visitor_id=None, session_id=None, source=None, campaign=None, template_id=None) -> bool:
+def record(event: str, *, visitor_id=None, session_id=None, source=None, campaign=None, template_id=None,
+           props: Optional[dict] = None) -> bool:
     """이벤트 한 건을 남긴다. 요청 트랜잭션 안이면 그 트랜잭션에 합류한다. 알 수 없는 이벤트는 버린다."""
     if event not in CLIENT_EVENTS and event not in SERVER_EVENTS:
         return False
     row = FunnelEventRow(
         event=event, visitor_id=_clean(visitor_id), session_id=_clean(session_id),
-        source=_clean(source), campaign=_clean(campaign), template_id=_clean(template_id),
+        source=_clean(source), campaign=_clean(campaign), template_id=_clean(template_id), props=_props(props),
     )
     with store._transaction() as tx:
         tx.db.add(row)

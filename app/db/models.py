@@ -105,6 +105,8 @@ class FunnelEventRow(Base):
     source: Mapped[Optional[str]] = mapped_column(Text)
     campaign: Mapped[Optional[str]] = mapped_column(Text)
     template_id: Mapped[Optional[str]] = mapped_column(Text)
+    # 디자인 학습 기록(D44·D45): 명세 값(목록 키)·사이트 키만. 가게 사실·대화 원문은 넣지 않는다.
+    props: Mapped[Optional[dict]] = mapped_column(JSONB)
 
 
 class ChatTurnRow(Base):

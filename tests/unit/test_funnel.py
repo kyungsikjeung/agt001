@@ -10,6 +10,9 @@ from app.db.session import get_sessionmaker
 from app.services import funnel
 
 
+_D16_STEPS = {"request_submitted", "requirement_approved", "generate_start", "generate_done", "signup"}
+
+
 def _events():
     with get_sessionmaker()() as db:
         return db.scalars(select(FunnelEventRow).order_by(FunnelEventRow.id)).all()
@@ -37,8 +40,9 @@ def test_state_transitions_record_server_events(client):
     s = "sess-funnel"
     for m in ("", "카페 홈페이지 만들어줘", "시안 먼저 볼게요", "승인", "진행", "poll"):
         _chat(client, m, s)
-    assert [e.event for e in _events()] == ["request_submitted", "requirement_approved", "generate_start", "generate_done"]
-    assert {e.session_id for e in _events()} == {s}
+    steps = [e for e in _events() if e.event not in funnel.SERVER_EVENTS - _D16_STEPS]
+    assert [e.event for e in steps] == ["request_submitted", "requirement_approved", "generate_start", "generate_done"]
+    assert {e.session_id for e in steps} == {s}
 
 
 def test_event_rolls_back_with_failed_transaction(client):

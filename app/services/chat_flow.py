@@ -9,7 +9,7 @@ import uuid
 from typing import Optional
 
 from app import store
-from app.services import codegen, deploy, design, design_concept, funnel, prd_engine, prd_schema, quote, rag
+from app.services import codegen, deploy, design, design_concept, design_log, funnel, prd_engine, prd_schema, quote, rag
 
 log = logging.getLogger(__name__)
 
@@ -153,6 +153,7 @@ def _restyle(session: dict, text: str) -> str:
     if not said:
         return "어떤 느낌으로 바꿀까요? 예: '더 고급스럽게', '더 따뜻한 색으로', '사진 먼저 보여 줘'"
     card["concept"] = new
+    design_log.restyled(session["requirement_id"], card, current, new)  # D45
     design.render_variants(session["requirement_id"], card)
     if card.get("published"):
         design.publish_choice(session["requirement_id"], card, card["published"])
@@ -175,6 +176,7 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     url = deploy.site_url(session["requirement_id"], base_url)
     session["deploy_url"] = url
     card["published"] = choice
+    design_log.published(session["requirement_id"], card, choice)  # D45
     return (f"사이트를 열었어요: {url}\n"
             f"{choice[1]}안({VARIANT_NAMES[choice]}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
 
@@ -214,6 +216,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     if choice and state in ("GENERATING", "DONE"):
         # 시안 3안 고르기 (C7): 카드에 남긴다. 제작 상태는 그대로 둔다.
         session["prd"]["design_choice"] = choice
+        design_log.chosen(session["requirement_id"], session["prd"], choice)  # D45
         name = VARIANT_NAMES[choice]
         reply = (f"{choice[1]}안({name})으로 정했어요. {session['design_url']}/{choice}/ 에서 크게 볼 수 있어요.\n"
                  "이대로 사이트를 열려면 '공개'라고 보내 주세요. 바꾸고 싶으면 다른 번호를 보내 주세요.")
@@ -364,6 +367,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             if card and card.get("slots") and not card.get("concept"):
                 # 디자인 컨셉 잡기: NIM이 색·글꼴·구성을 정하고(목록 안에서만), 그 컨셉으로 3안을 그린다
                 card["concept"] = design_concept.make(card)
+                design_log.unmet(session["requirement_id"], card)  # D44: 부품으로 못 담은 요구를 센다
             d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
                                      card=card)
             session["design_url"] = d["design_url"]

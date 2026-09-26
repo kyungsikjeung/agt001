@@ -64,6 +64,8 @@ def submit(site_key: str, name: Optional[str], contact: Optional[str], message: 
         db.add(InquiryRow(site_key=key, name=name_c or None, contact=contact_c, message=message_c))
         room_id = db.scalar(select(RoomRow.id).join(SessionRow, RoomRow.session_id == SessionRow.id)
                             .where(SessionRow.requirement_id == key))
+    from app.services import design_log
+    design_log.inquiry(key)  # D45: 공개 뒤 문의 수(내용·연락처는 남기지 않음)
     if room_id:
         _notify_room(room_id, name_c, contact_c, message_c)
         # 사장님 카톡 알림(켜져 있으면). 연락처는 카톡에도 보인다(사장님 본인에게만 가는 메모).

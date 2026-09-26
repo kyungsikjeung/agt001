@@ -161,6 +161,8 @@ def render_variants(requirement_id: str, card: dict) -> dict:
         log.exception("시안 스크린샷 실패, 플레이스홀더로 폴백")
         previews = {v["id"]: f"https://placehold.co/390x780?text={v['id']}" for v in items}
 
+    from app.services import design_log
+    design_log.shown(requirement_id, card, items)  # D45
     return {
         "requirement_id": requirement_id,
         "design_variants": [{"id": v["id"], "name": v["name"], "summary": v["summary"], "preview_url": previews[v["id"]],
