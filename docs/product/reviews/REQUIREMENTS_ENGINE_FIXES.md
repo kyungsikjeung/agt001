@@ -74,3 +74,30 @@ alembic 히스토리 불량(`Can't locate revision identified by '0005'`)으로 
 엔진 수정과 무관한 사전 결함이다(수정 파일은 `prd_engine.py`·`chat_flow.py`뿐, `git status` 확인).
 DB 자체(55432)는 연결된다. 이에 엔진 단위 파일만 `--noconftest`로 분리 실행해 14/14을 확인했다.
 alembic 히스토리를 고치는 것은 소유 밖이므로 손대지 않았다.
+
+## 6. E2: T3 후속 수정 (N-2·N-3·N-4, 2026-09-26 밤)
+
+> 기준: [T3_FAILURE_ANALYSIS.md](T3_FAILURE_ANALYSIS.md) §3 엔진 2·3·5순위, T3 r3 성적표 14/36.
+> 수정 파일: `app/services/prd_engine.py`, `app/services/prd_schema.py`,
+> `tests/engine/test_t3_followup.py`(신규 11개), `tests/engine/test_intake_gate.py`(가짜 현실화 1건),
+> `pyproject.toml`(`testpaths`에 `tests/engine` 추가), `tests/unit/fakes.py`(신규).
+
+| 항목 | 수정 (파일:함수) | 내용 |
+|---|---|---|
+| N-2a | `prd_schema.py` Slot.describe 6종 + `prd_engine.py:_system_prompt` | 추출 프롬프트에 반례·분리 지시 추가: 메뉴·가격 붙어 있으면 반드시 나눔, '초등 영어'·'아이들 얘기'는 목적 아님, 품목 나열('염색 및 클리닉')은 업종 아님, '네일'·'커피' 단독은 가게 이름 아님, 특징·대상 섞이면 나눔. T2 60케이스 재측정은 S-7(C3 평가) 때 함께 |
+| N-2b | `prd_engine.py:_separate_menu_price`·`_cut_price` | 추출이 메뉴·가격을 뭉치면 규칙으로 나눔 ("아메리카노 5천원"→offerings + price). 나누는 조건: 두 부분 다 사장님 말에 있을 것(없으면 원본 유지). 같은 턴 가격은 하나로 합치고(기존 마지막 값 덮어쓰기 대체), 지어낸 가격은 합치기 전에 버림. 가격 정규식 시작 경계(`(?<![가-힣a-z0-9])`)로 "젤네일"의 "일"을 가격으로 오인하지 않게 함 |
+| N-3 | `prd_engine.py:apply_updates` 가드 + `_in_history` | required도 아니고 물어본 칸도 아닌 target·features는 대화 근거(원문 포함·숫자·낱말 겹침, 채점 지어냄 판정과 같은 기준)가 있을 때만 채운다. r3 지어낸 값 9건 중 7건(target·features) 해당. 근거 있는 항목만 살리고(여러 값 칸), academy의 target처럼 required면 기존대로 둠 |
+| N-4 | `tests/engine/test_t3_followup.py` | 첫 턴에 채운 칸 재질문 금지를 회귀 테스트로 고정. 현재 코드는 이미 흡수하므로 코드 변경 없음. restaurant-unordered 중복 8회 루프는 r4 기록 후 판단 |
+| 테스트 현실화 | `test_intake_gate.py::test_confirm_bonus_capped` | N-3 가드 뒤 "카페" 한 마디에서 6개 기능을 뽑는 비현실적 가짜가 막혀 실패 → 메시지에 기능 말을 포함하도록 고침. 의도(보너스 상한 +4)는 그대로 검증 |
+
+## 7. E2 테스트 결과
+
+- `tests/engine`: **65/65 통과** (E1 31 + 입구 게이트 등 + E2 신규 11)
+- 전체: `pytest -q` **334개 통과** (단위 269 + 엔진 65, S-5·S-2 신규 9개 포함)
+- 실제 NIM 호출 없음(가짜 `chat_json`만). 라이브 r4 측정은 NIM 무료 한도 소진으로 대기 (BACKLOG N-1)
+
+## 8. E2 판단 기록
+
+① **같은 턴 가격 합치기.** 기존 마지막 값 덮어쓰기 대신 `", "`로 합친다. 정보 보존이 목적이며, 채점의 숫자 비교(`fa <= gb`)와 맞아 떨어진다. 단일 가격 턴은 전·후 동일.
+② **N-3 적용 범위.** goal·offerings는 전 업종 required라 가드가 사실상 target(학원 외)·features에만 걸린다. 물어본 칸(pending)은 제외해 직접 답의 신뢰를 유지한다.
+③ **CI 편입 후 conftest 충돌.** `tests/engine`을 `testpaths`에 넣자 `from conftest import`가 엔진 conftest를 가리켜 수집 오류 → 공용 가짜를 `tests/unit/fakes.py`로 분리, `pyproject.toml` 수정. 부분 실행·전체 실행 모두 통과 확인.

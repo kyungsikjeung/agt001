@@ -125,10 +125,10 @@ D2 exit 0
 
 | # | 할 일 | 근거 |
 |---|---|---|
-| N-1 | T3 재측정 결과 반영(`494bd7f` 수정 뒤 재측정, 1차 10/34 기준). → r3(36중 14, 9/26 14:04)가 현 코드 베이스라인임을 확인. N-2/N-3 구현 뒤 r4 필요하나 NIM 무료 한도 소진(RateLimit, 9/26 16시)으로 대기. 재실행: `set -a; . ./.env; set +a; .venv/bin/python evals/run_simulation.py --live --out docs/product/evals/simulation-2026-09-26-r4.md` | T3_FAILURE_ANALYSIS §3·§4, STATUS §4-1 |
-| N-2 | 엔진 T3 분석 2순위: 칸 오분류 수정(가격 딸린 메뉴 뭉침, 대상·품목·목적 혼동) | T3_FAILURE_ANALYSIS §3 엔진 2순위 |
-| N-3 | 엔진 T3 분석 3순위: 근거 없는 칸 채우지 않기(묻지도 사실표에도 없는 target·features를 FILLED로 두지 않기) | T3_FAILURE_ANALYSIS §3 엔진 3순위 |
-| N-4 | 엔진 T3 분석 5순위: 첫 메시지 흡수(첫 턴에 채운 칸은 묻지 않고 남은 칸만 묻기) | T3_FAILURE_ANALYSIS §3 엔진 5순위 |
+| N-1 | T3 재측정 결과 반영(`494bd7f` 수정 뒤 재측정, 1차 10/34 기준). → r3(36중 14, 9/26 14:04)가 현 코드 베이스라인임을 확인. N-2/N-3 구현 뒤 r4 필요하나 NIM 무료 한도 소진으로 대기 (9/26 16시·저녁 재시도 모두 3종 모델 RateLimit/InternalServer/Timeout). 회복 후 아래 1줄 재실행: `set -a; . ./.env; set +a; .venv/bin/python evals/run_simulation.py --live --out docs/product/evals/simulation-2026-09-26-r4.md` | T3_FAILURE_ANALYSIS §3·§4, STATUS §4-1 |
+| N-2 | ✅ 완료(9/26 밤) 엔진 T3 분석 2순위: 칸 오분류 수정 — 추출 프롬프트 반례 보강 + 메뉴·가격 분리 규칙(`_separate_menu_price`, 근거 없으면 분리 안 함) | T3_FAILURE_ANALYSIS §3 엔진 2순위 |
+| N-3 | ✅ 완료(9/26 밤) 엔진 T3 분석 3순위: 근거 없는 칸 채우지 않기 — required도 아니고 물어본 칸도 아닌 target·features는 대화 근거 있을 때만 채움 | T3_FAILURE_ANALYSIS §3 엔진 3순위 |
+| N-4 | ✅ 완료(9/26 밤) 엔진 T3 분석 5순위: 첫 메시지 흡수 — 첫 턴 채운 칸 재질문 금지 회귀 테스트. restaurant-unordered 중복 루프는 r4 기록 후 판단 | T3_FAILURE_ANALYSIS §3 엔진 5순위 |
 | N-5 | 채팅방 아래 버튼 정리(휴대폰에서 버튼이 많음) | D4 지시문(2026-09-26 운영 반영) |
 
 ## 9. 디자인 품질 3주 (D37~D45, ~2026-10-17)

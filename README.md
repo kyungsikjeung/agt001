@@ -103,7 +103,7 @@
 |---|---|---|---|
 | 1. 인프라 설계 + Mermaid + 역할분담 | 본 README 구조도 + `ARCHITECTURE.md` 시스템 컨텍스트 | `docs/hackathon/ARCHITECTURE.md` §1~§3 | 완료 |
 | 2. 채팅 요구사항 전달 | 1:1 `/chat` + 공유방 `/room/<id>/chat`, 4초 폴링 조회 | `app/api/chat.py`, `app/api/rooms.py`, `app/services/chat_flow.py`, `app/services/rooms.py`, `static/room.html` | 완료 |
-| 3. 접수/검증/질의(옵션+추천)/게이트 | 입구 게이트(종류 분류·금지 거절) → PRD 엔진(추출→근거 검사→질문 1개, 종류별 예산) → 리뷰어 에이전트(D34) → 요약. 공유방 사실은 방장 확인 | `app/services/intake.py`, `prd_engine.py`, `tests/engine/` (45건) | 완료 (T2 추출 87~90%, T3 실행 중) |
+| 3. 접수/검증/질의(옵션+추천)/게이트 | 입구 게이트(종류 분류·금지 거절) → PRD 엔진(추출→근거 검사→질문 1개, 종류별 예산) → 리뷰어 에이전트(D34) → 요약. 공유방 사실은 방장 확인 | `app/services/intake.py`, `prd_engine.py`, `tests/engine/` (65건) | 완료 (T2 추출 87~90%, T3 r3 14/36·r4 측정 대기) |
 | 4. RAG 사전확인 | NIM 임베딩 코사인 유사도, 임계값 미만은 신규, 실패해도 대화 중단 없음 | `app/services/rag.py`, `app/llm.py` (`embed`) | 완료 |
 | 5. 동작하는 산출물 (웹/안드로이드) | 웹: 고른 시안을 `/site/<id>/`로 공개(문의 폼 동작). 안드로이드: **PWA**로 홈 화면에 앱처럼 설치(standalone, 아이콘·오프라인 안내). 네이티브 앱은 나중에 다른 방식으로 | `app/api/public.py` (`serve_site`), `static/manifest.json`, `static/sw.js`, `static/pwa.js` | 완료 (안드로이드는 PWA 1차) |
 | 6. 채팅 확인 필수 + 견적 근거 | 공유방 과반 투표 승인 게이트. 견적은 규칙 계산 한 줄 + 근거(종류·담을 내용·기능 수) + 베타 무료(D25) | `app/services/rooms.py`, `app/services/quote.py` (`rule_quote`) | 완료 |
@@ -162,9 +162,9 @@ flowchart LR
 
 테스트 수 (파일을 직접 세어 확인, 2026-09-26 기준):
 
-- 단위 테스트: 89개 (`tests/unit`, 실제 PostgreSQL 위에서, CI에서 매 커밋 실행).
-- 엔진 검증 테스트: 31개 (`tests/engine`, 경계 조건. 15개 통과·16개는 결함 재현 — 수정 중).
-- 평가 도구 테스트: 17개 (`evals/tests`, 추출 평가·대화 시뮬레이션 실행기).
+- 단위 테스트: 269개 (`tests/unit`, 실제 PostgreSQL 위에서, CI에서 매 커밋 실행).
+- 엔진 검증 테스트: 65개 (`tests/engine`, 경계 조건·T3 후속 회귀. 전부 통과).
+- 평가 도구 테스트: 29개 (`evals/tests`, 추출 평가·대화 시뮬레이션 실행기).
 - E2E 테스트: 5개 (`tests/e2e/test_room_e2e.py`: 입장→요청→투표→견적→시안→코드생성→배포 URL 흐름).
 - 프론트 테스트: 18개 (`frontend/src/editor/EditorPage.test.tsx` 3, `specReducer.test.ts` 15, vitest + jsdom).
 
@@ -175,7 +175,8 @@ CI (`.github/workflows/ci.yml`):
 
 보안 조치:
 
-- 생성 사이트·시안은 CSP `sandbox` 헤더로 서빙하여 앱 출처로 취급되지 않게 하고 저장소·쿠키 접근을 차단 (`app/api/public.py`). 별도 미리보기 호스트 분리는 로그인 전 필수 과제로 남음 (`docs/product/DESIGN_PIPELINE_PLAN.md` §13.5 S-1).
+- 생성 사이트·시안은 별도 미리보기 호스트(`144-24-91-250.sslip.io`, 앱 주소는 308 리다이렉트)에서 CSP `sandbox` 헤더로 서빙하여 앱 출처로 취급되지 않게 하고 저장소·쿠키 접근을 차단 (`app/api/public.py`, `app/main.py` `_split_hosts`). 시안 고르기 페이지의 미리보기 iframe도 `sandbox`로 묶는다 (S-2, `tests/unit/test_publish_check.py`가 자동 검사).
+- 공개 전 검사: 외부 스크립트·외부로 보내는 폼·자동 이동·열쇠 패턴이 있으면 게시를 막고 사장님께 알린다 (S-5, `app/services/publish_check.py`).
 - 방 참여자 본인 확인 값(`member_id`)은 응답에 노출하지 않고 SHA-256 앞 12자리 핸들로만 내보냄 (`app/services/rooms.py` `member_handle`).
 - `requirement_id`·`room_id`·`member_id`는 영숫자·하이픈·밑줄로 정제, 생성 사이트 경로는 산출물 디렉터리 안으로 제한 (`app/security.py`, `app/api/public.py`).
 - 코드생성 프롬프트에는 정제·길이제한된 스펙만 넣고, API 키는 환경변수로만 전달하여 프로세스 인자에 노출하지 않음 (`app/services/codegen.py`).
@@ -218,7 +219,7 @@ agt001/
 ├── frontend/src/         # 랜딩·편집기 (React + TypeScript + Vite)
 ├── static/               # 기존 채팅·공유방 정적 화면 (index.html, room.html)
 ├── templates/            # 시안 템플릿 (현재 1종)
-├── tests/unit, tests/engine, tests/e2e # 단위 89개·엔진 검증 31개·E2E 5개
+├── tests/unit, tests/engine, tests/e2e # 단위 269개·엔진 검증 65개(CI 합계 334개)·E2E 5개
 ├── evals/               # 시나리오 36개, 추출 평가 60개, 평가 실행기
 ├── contracts/            # 팀원 간 경계(BND) 스키마 + 예시
 ├── scripts/              # deploy.sh, rollback.sh, backup_db.sh
