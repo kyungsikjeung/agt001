@@ -1,0 +1,16 @@
+<section class="s-video s-video--card" data-section-id="{{id}}" aria-labelledby="video-title-{{id}}">
+  <h2 id="video-title-{{id}}">영상</h2>
+  <ul class="s-video__list">
+    {{#items}}
+    <li class="s-video__item s-video__item--{{platform}}">
+      <a class="s-video__link" href="{{url}}" target="_blank" rel="noopener">
+        {{#thumb}}<span class="s-video__thumb"><img src="{{thumb}}" alt="{{title}}" loading="lazy"><span class="s-video__play" aria-hidden="true">재생</span></span>{{/thumb}}
+        {{^thumb}}<span class="s-video__thumb s-video__thumb--empty"><span class="s-video__play" aria-hidden="true">재생</span><span class="s-video__platform">{{platform_label}}</span></span>{{/thumb}}
+        {{#title}}<span class="s-video__title">{{title}}</span>{{/title}}
+        {{^title}}<span class="s-video__title">영상 보기</span>{{/title}}
+        <span class="s-video__src">{{platform_label}}</span>
+      </a>
+    </li>
+    {{/items}}
+  </ul>
+</section>

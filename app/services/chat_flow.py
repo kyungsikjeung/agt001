@@ -147,6 +147,16 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     if channel and session.get("prd") is not None:
         # "채널이 있나요?"에 주소까지 받는다(워크플로 검토 9/26). 시안·공개본의 채널 버튼에 들어간다.
         session["prd"]["kakao_channel_url"] = "https://" + channel.group(1)
+    from app.services.video_links import extract_video_links
+    videos = extract_video_links(user_text or "")
+    if videos and session.get("prd") is not None:
+        # 방안 5: 유튜브·인스타·네이버TV 링크를 붙이면 소개 뒤 영상 카드로 넣는다(시안이 있으면 뒤에서 다시 만든다).
+        card_v = session["prd"]
+        card_v["videos"] = list(dict.fromkeys((card_v.get("videos") or []) + videos))[:3]
+        if session.get("design_url") and room is not None:
+            from app.services import photos
+            rid, req = room["room_id"], session["requirement_id"]
+            store.after_commit(lambda: photos._refresh_designs_async(rid, req))
     has_design = bool(session.get("design_url") and session.get("prd"))
     choice = _design_choice(user_text) if has_design else None
     publish_cmd = has_design and state in ("GENERATING", "DONE") and user_text.strip() in PUBLISH_WORDS

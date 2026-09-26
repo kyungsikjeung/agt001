@@ -128,7 +128,7 @@ def refresh_designs(room_id: str, requirement_id: str) -> None:
             design.publish_choice(requirement_id, card, card["published"])
         with store.room_tx(room_id) as (r, _s):
             if r is not None:
-                text = "사진을 시안에 넣었어요." + (" 공개 사이트에도 바로 반영했어요." if card.get("published") else "")
+                text = "사진·영상을 시안에 넣었어요." + (" 공개 사이트에도 바로 반영했어요." if card.get("published") else "")
                 rooms._append(r, "system", "시스템", text, kind="system")
     except Exception:
         log.exception("사진 반영 실패 room=%s", room_id)

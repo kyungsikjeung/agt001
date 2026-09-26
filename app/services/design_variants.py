@@ -123,6 +123,11 @@ def base_spec(card: dict) -> dict:
     if _wants_kakao_channel(card):
         extra.append({"id": "kakao", "type": "contact", "variant": "kakao-channel",
                       "content": {"kakao_channel_url": card.get("kakao_channel_url") or ""}})
+    # 영상 카드(방안 5): 소개 바로 뒤에
+    if card.get("videos"):
+        at_intro = next((i + 1 for i, s in enumerate(sections) if s["type"] == "intro"), 1)
+        sections.insert(at_intro, {"id": "video", "type": "video", "variant": "card",
+                                   "content": {"items": [{"url": u, "title": ""} for u in card["videos"]]}})
     # 문의 양식은 플랫폼 공용 기능(D31·D32)이라 기본으로 넣는다. "문의 폼은 빼주세요"처럼 말했을 때만 뺀다.
     if _wants_form(card) or not any(w in excluded for w in ("문의", "양식", "폼")):
         extra.append({"id": "inquiry", "type": "contact", "variant": "form", "content": {}})

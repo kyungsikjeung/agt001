@@ -17,6 +17,7 @@ from pathlib import Path
 import chevron
 
 from app.config import settings
+from app.services.video_links import parse_video_url
 
 
 class SiteSpecError(ValueError):
@@ -451,6 +452,33 @@ def _text(content: dict, key: str) -> str:
     return value if isinstance(value, str) else ""
 
 
+def _video_items(content: dict) -> list:
+    """영상 카드용 items (최대 3개, https·지원 주소만, 썸네일 포함)."""
+    raw = content.get("items", [])
+    if not isinstance(raw, list):
+        return []
+    items = []
+    for entry in raw:
+        if not isinstance(entry, dict):
+            continue
+        info = parse_video_url(entry.get("url", ""))
+        if info is None:
+            continue
+        title = entry.get("title", "")
+        if not isinstance(title, str):
+            title = ""
+        items.append({
+            "url": info["url"],
+            "title": title,
+            "platform": info["platform"],
+            "platform_label": info["platform_label"],
+            "thumb": info["thumb"],
+        })
+        if len(items) >= 3:
+            break
+    return items
+
+
 def _section_context(
     section_type: str, variant: str, section_id: str, content: dict,
     *, site_key: str, retention_days: int,
@@ -566,6 +594,11 @@ def _section_context(
         ctx["has_items"] = bool(items)
     elif section_type == "reviews" and variant == "slot-only":
         pass
+    elif section_type == "video" and variant == "card":
+        items = _video_items(content)
+        if not items:
+            return None
+        ctx["items"] = items
     else:  # pragma: no cover - 파일 존재 검사가 먼저 걸러내므로 여기 오지 않음
         raise SiteSpecError(f"매핑할 수 없는 조합: {key}")
     return ctx

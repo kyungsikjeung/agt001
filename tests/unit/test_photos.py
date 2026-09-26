@@ -95,7 +95,7 @@ def test_photo_after_design_refreshes_designs_and_site(client):
     site = client.get(f"/site/{session['requirement_id']}/").text
     assert "/uploads/" in site
     msgs = client.get(f"/room/{rid}/messages", headers={"X-Member-Id": "owner"}).json()["messages"]
-    assert "사진을 시안에 넣었어요" in msgs[-1]["text"]
+    assert "시안에 넣었어요" in msgs[-1]["text"]
 
 
 def test_kakao_channel_link_is_captured(client):
@@ -107,3 +107,16 @@ def test_kakao_channel_link_is_captured(client):
     spec = DV.base_spec(card)
     kakao = next(s for s in spec["sections"] if s["variant"] == "kakao-channel")
     assert kakao["content"]["kakao_channel_url"] == "https://pf.kakao.com/_abcDEF"
+
+
+def test_video_link_goes_into_design(client):
+    rid = _room(client)
+    client.post(f"/room/{rid}/chat", json={"member_id": "owner", "nickname": "사장님",
+                                           "message": "가게 영상이에요 https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=10"})
+    card = store.read_session(store.read_room(rid)["session_id"])["prd"]
+    assert card["videos"] == ["https://www.youtube.com/watch?v=dQw4w9WgXcQ"] or card["videos"][0].endswith("dQw4w9WgXcQ")
+    types = [(s["type"], s["variant"]) for s in DV.base_spec(card)["sections"]]
+    assert ("video", "card") in types
+    from app.services.site_render import render_site
+    html = render_site(DV.base_spec(card), kind="cafe", public=True)
+    assert "i.ytimg.com/vi/dQw4w9WgXcQ" in html and "<iframe" not in html

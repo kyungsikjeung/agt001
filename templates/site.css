@@ -466,6 +466,92 @@ button:focus-visible,
 }
 .s-cta__btns .s-btn { width: 100%; min-height: 48px; }
 
+/* ---- S9 video (영상 카드: 썸네일 + 재생 표시, 새 창 링크) ---- */
+.s-video__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-gap);
+  grid-template-columns: 1fr;
+}
+
+.s-video__link {
+  display: block;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.s-video__thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: var(--c-ground);
+  overflow: hidden;
+}
+
+.s-video__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.s-video__thumb--empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--c-primary);
+  color: var(--c-ground);
+}
+
+.s-video__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: var(--radius-btn);
+}
+
+.s-video__thumb--empty .s-video__play {
+  position: static;
+  transform: none;
+}
+
+.s-video__platform {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.s-video__title {
+  display: block;
+  font-weight: 700;
+  padding: 10px 12px 0;
+}
+
+.s-video__src {
+  display: block;
+  font-size: 13px;
+  padding: 0 12px 10px;
+}
+
+@media (min-width: 760px) {
+  .s-video__list { grid-template-columns: 1fr 1fr 1fr; }
+}
+
 /* ---- 760px 이상: 넓은 배치 ---- */
 @media (min-width: 760px) {
   section[class^="s-"] { padding-inline: 24px; }

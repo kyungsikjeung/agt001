@@ -161,12 +161,13 @@ def test_tabs_index와_has_불리언():
     assert "[가격 입력]" in out
 
 
-def test_list_variants_22종():
+def test_list_variants_23종():
     variants = list_variants()
-    assert len(variants) == 22
+    assert len(variants) == 23
     assert "hero--photo-overlay" in variants
     assert "contact--form" in variants
     assert "reviews--slot-only" in variants
+    assert "video--card" in variants
     assert variants == sorted(variants)
     assert "contact--form" in site_render.list_variants()
 
@@ -276,3 +277,69 @@ def test_public_mode_hides_placeholders():
     assert '<body class="is-public">' in public_html and '<body class="is-public">' not in design_html
     assert "후기가 모이면" in design_html and "후기가 모이면" not in public_html
     assert "가격 문의" in public_html  # CSS 규칙으로 들어간다
+
+
+# ---- 작업 P1: 영상 카드 ----
+
+def _video_섹션(items):
+    return {"id": "videos", "type": "video", "variant": "card",
+            "content": {"items": items}}
+
+
+def test_영상카드_유튜브3형식():
+    items = [
+        {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "손질 영상"},
+        {"url": "https://youtu.be/dQw4w9WgXcQ", "title": "매장 소개"},
+        {"url": "https://www.youtube.com/shorts/dQw4w9WgXcQ", "title": "쇼츠"},
+    ]
+    out = render_site(_bare_spec([_video_섹션(items)]), kind="cafe")
+    assert "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" in out
+    assert "손질 영상" in out
+    assert 'target="_blank"' in out
+    assert 'rel="noopener"' in out
+    assert "<iframe" not in out
+    assert "<script" not in out
+    assert "{{" not in out
+
+
+def test_영상카드_인스타_네이버():
+    items = [
+        {"url": "https://www.instagram.com/reel/C8abc123XYZ/", "title": "릴스"},
+        {"url": "https://tv.naver.com/v/12345", "title": "방송"},
+    ]
+    out = render_site(_bare_spec([_video_섹션(items)]), kind="cafe")
+    assert "인스타그램" in out
+    assert "네이버TV" in out
+    assert "릴스" in out
+    assert "<iframe" not in out
+    assert "<script" not in out
+
+
+def test_영상카드_이상한주소_버림():
+    items = [
+        {"url": "javascript:alert(1)", "title": "나쁜 주소"},
+        {"url": "http://평문-host/영상", "title": "평문"},
+        {"url": "https://example.com/video/1", "title": "모름"},
+    ]
+    out = render_site(_bare_spec([_video_섹션(items)]), kind="cafe")
+    assert '<section class="s-video' not in out
+    assert 'data-section-id="videos"' not in out
+    out_public = render_site(_bare_spec([_video_섹션(items)]), kind="cafe", public=True)
+    assert '<section class="s-video' not in out_public
+
+
+def test_영상카드_비면숨김_최대3개():
+    out = render_site(_bare_spec([_video_섹션([])]), kind="cafe")
+    assert '<section class="s-video' not in out
+    assert 'data-section-id="videos"' not in out
+    out_public = render_site(_bare_spec([_video_섹션([])]), kind="cafe", public=True)
+    assert '<section class="s-video' not in out_public
+    items = [
+        {"url": "https://youtu.be/AAA111AAA11", "title": "1"},
+        {"url": "https://youtu.be/BBB222BBB22", "title": "2"},
+        {"url": "https://youtu.be/CCC333CCC33", "title": "3"},
+        {"url": "https://youtu.be/DDD444DDD44", "title": "4"},
+    ]
+    out = render_site(_bare_spec([_video_섹션(items)]), kind="cafe")
+    assert "AAA111AAA11" in out
+    assert "DDD444DDD44" not in out
