@@ -144,3 +144,21 @@ def test_multi_select_keeps_extra_words(fake_extract):
     assert set(card["hidden"]["selected"]) == {"pet", "parking"}
     assert "소형견만" in card["hidden"]["note"]
     assert "소형견만" in E.summary_text(card)
+
+
+def test_short_answer_goes_to_asked_slot_not_repeated(fake_extract):
+    """T3 G3: 한 칸 질문의 짧은 답을 추출이 다른 칸으로 보내도 물은 칸을 채우고 같은 질문을 반복하지 않는다."""
+    fake_extract["학원이에요 넘버원"] = [u("business_type", "학원"), u("shop_name", "넘버원")]
+    card = E.new_card()
+    E.turn(card, "학원이에요 넘버원")
+    # 필수 칸 순서대로 오다가 offerings를 물을 때까지 진행
+    for _ in range(6):
+        q = card["pending"]
+        if q and q.get("slot") == "offerings":
+            break
+        E.turn(card, "알아서 해주세요" if q and q.get("kind") == "single" else "없음")
+    assert card["pending"]["slot"] == "offerings"
+    fake_extract["초등 미술반"] = [u("target", "초등")]  # 추출이 대상 칸으로 잘못 보냄
+    r = E.turn(card, "초등 미술반")
+    assert card["slots"]["offerings"]["value"] == ["초등 미술반"]
+    assert not (r["question"] and r["question"].get("slot") == "offerings")

@@ -105,6 +105,24 @@ _KAKAO_CHANNEL = re.compile(r"(?:https?://)?(pf\.kakao\.com/_[A-Za-z0-9]+)(?:/ch
 PHOTO_ASK = "가게 사진이 있으면 📷 버튼으로 올려 주세요. 없으면 업종에 맞는 예시 그림으로 만들고, 나중에 올리셔도 바로 바뀌어요.\n\n"
 
 
+def _apply_correction(session: dict, text: str, by, is_owner: bool) -> Optional[str]:
+    """요약 뒤 고치는 말. 바뀐 칸 이름들을, 고칠 내용이 없으면 None."""
+    card = session.get("prd")
+    if not card or not text:
+        return None
+    ups = [u for u in prd_engine.extract(text, None) if u["slot"] != "exclude"]
+    for u in ups:
+        if not prd_engine.S.SLOTS[u["slot"]].multi:
+            card["slots"].pop(u["slot"], None)  # 한 칸 값은 새 말로 바꾼다
+        elif prd_engine.S.SLOTS[u["slot"]].multi and "고쳐" in text:
+            card["slots"].pop(u["slot"], None)  # "고쳐 주세요"면 여러 값 칸도 새로 쓴다
+    applied = prd_engine.apply_updates(card, ups, text, by, is_owner) if ups else []
+    if not applied:
+        return None
+    ind = prd_engine.industry_of(card)
+    return ", ".join(dict.fromkeys(prd_engine.S.label_for(ind, k) for k in applied))
+
+
 VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
 PUBLISH_WORDS = ("공개", "공개해줘", "공개해 주세요", "공개할게요", "그대로 공개")
 
@@ -286,7 +304,16 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 reply = f"승인 감사합니다. 견적안입니다:\n\n{quote.format_quote_text(q)}\n\n이 견적으로 진행할까요? (진행/취소)"
             _set_room_status(room, "IDLE")
         else:
-            reply = "승인 또는 거절로 답해주세요."
+            # T3 분석 G1·G5: 요약을 보고 "반 구성은 ○○예요, 고쳐 주세요"라고 하면 고쳐서 요약을 다시 보인다.
+            fixed = _apply_correction(session, user_text, by, is_owner)
+            if fixed:
+                card = session["prd"]
+                spec = prd_engine.spec_text(card)
+                session["last_request"] = spec
+                reply = (f"고쳤어요: {fixed}\n{prd_engine.summary_text(card)}\n\n"
+                         "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)")
+            else:
+                reply = "승인 또는 거절로 답해주세요. 고칠 것이 있으면 '가게 이름은 ○○예요'처럼 말씀해 주세요."
 
     elif state == "QUOTED":
         if intent(user_text, "proceed"):

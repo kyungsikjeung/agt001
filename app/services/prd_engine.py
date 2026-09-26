@@ -614,6 +614,16 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             trace.update(extract_ok=ok, extract_ms=ms, extract_attempts=attempts,
                          extracted=[u["slot"] for u in ups])
             applied = apply_updates(card, ups, t, by, is_owner)
+            # T3 분석 G3: 한 칸 질문에 짧게 답했는데 추출이 다른 칸으로 보냈으면, 그 답은 물은 칸의 값이다
+            # ("어떤 것을 소개하고 싶으세요?" → "초등 미술반"을 업종으로 오분류하고 같은 질문을 또 하던 문제).
+            ask_slot = (prev_pending or {}).get("slot") if (prev_pending or {}).get("kind") == "single" else None
+            # 추출이 아무것도 못 뽑은 잡담은 여기 해당하지 않는다(뭔가 뽑았는데 칸만 엇나간 경우만).
+            if (ask_slot and ups and ask_slot not in applied and not S.SLOTS[ask_slot].fact and ask_slot != "business_type"
+                    and len(t) <= 30 and not _satisfied(card, ask_slot) and _norm(t) not in _CONTROL_NORMS):
+                value = _split_items(t) if S.SLOTS[ask_slot].multi else t
+                _put(card, ask_slot, value, S.FILLED, card["turn"], by)
+                applied = list(applied) + [ask_slot]
+                trace["direct_answer"] = ask_slot
             # B-8: 방장 확인 대기 중 같은 칸의 자유 대답은 대기값을 갱신하되 확인 질문을 유지한다.
             if (prev_owner_slot and prev_owner_slot in applied
                     and _slot(card, prev_owner_slot)["status"] == S.FILLED and is_owner):

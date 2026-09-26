@@ -219,3 +219,24 @@ def test_intent_variants():
         assert intent(t, "proceed"), t
     for t in ("승인 안 할래요", "진행 말고요", "네일 가게예요", "승인 조건이 뭐예요 자세히 알려주세요"):
         assert not intent(t, "approve") and not intent(t, "proceed"), t
+
+
+def test_correction_after_summary(client, monkeypatch):
+    """T3 G1: 요약 뒤 '○○는 △△예요, 고쳐 주세요'를 반영하고 요약을 다시 보인다."""
+    from app import llm
+    import json as _json
+    s = _fresh_session(client)
+    _to_approval(client, s)
+    real = llm.chat_json
+
+    def fake(system, user, **kw):
+        if "고쳐 주세요" in user:
+            return _json.dumps({"updates": [{"slot": "offerings", "value": "초등 영어반"}]}, ensure_ascii=False)
+        return real(system, user, **kw)
+
+    monkeypatch.setattr(llm, "chat_json", fake)
+    r = _chat(client, "반 구성은 초등 영어반이에요. 고쳐 주세요.", s)
+    assert r["state"] == "AWAIT_APPROVAL" and r["reply"].startswith("고쳤어요")
+    assert store.read_session(s)["prd"]["slots"]["offerings"]["value"] == ["초등 영어반"]
+    r = _chat(client, "음...", s)
+    assert "승인 또는 거절" in r["reply"]
