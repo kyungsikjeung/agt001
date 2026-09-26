@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 # 1위와 이 차이 안에 있는 사례까지 함께 보여 준다(최대 NOTE_MAX개).
 NOTE_MARGIN = 0.045
-NOTE_MAX = 2
+NOTE_MAX = 1  # 2개일 때 둘째가 엉뚱한 경우가 잦았다(운영: "사이트 내 검색")
 
 
 def _build_docs() -> list[dict]:
