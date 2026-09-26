@@ -11,11 +11,28 @@ from typing import Optional
 from app import store
 from app.services import codegen, deploy, design, funnel, prd_engine, quote, rag
 
-APPROVE_WORDS = ("승인", "네", "yes", "approve", "예")
-REJECT_WORDS = ("거절", "아니오", "no", "reject")
 log = logging.getLogger(__name__)
 
-PROCEED_WORDS = ("진행", "네", "yes", "proceed", "예")
+
+# 짧은 대답의 뜻(B-6·BACKLOG S-1): "승인할게요", "진행해 주세요", "좋아요!"도 알아듣는다.
+# 정확히 일치하는 말 + 앞머리가 같은 짧은 말(12자 이하). 거절·부정은 승인보다 먼저 본다.
+_INTENT_EXACT = {
+    "approve": ("승인", "네", "예", "yes", "approve", "좋아요", "좋습니다", "찬성", "ok", "오케이", "넵", "응"),
+    "reject": ("거절", "아니오", "아니요", "no", "reject", "반대", "싫어요", "별로예요"),
+    "proceed": ("진행", "네", "예", "yes", "proceed", "좋아요", "시작", "만들어주세요", "넵", "응"),
+}
+_INTENT_PREFIX = {"approve": ("승인", "찬성", "좋아"), "reject": ("거절", "반대"), "proceed": ("진행", "만들어", "시작해")}
+_NEGATION = ("안할", "안해", "말고", "취소", "그만")
+
+
+def intent(text: str, kind: str) -> bool:
+    """kind('approve'·'reject'·'proceed') 뜻의 짧은 대답인지."""
+    n = prd_engine._norm(text)
+    if not n or len(n) > 12:
+        return False
+    if kind != "reject" and any(w in n for w in _NEGATION):
+        return False
+    return n in {prd_engine._norm(w) for w in _INTENT_EXACT[kind]} or n.startswith(_INTENT_PREFIX[kind])
 
 
 def new_session(template_id: Optional[str] = None) -> dict:
@@ -233,7 +250,10 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         _set_room_status(room, "IDLE")
 
     elif state == "AWAIT_APPROVAL":
-        if user_text in APPROVE_WORDS:
+        if intent(user_text, "reject"):
+            session["state"] = "GATHERING"
+            reply = "알겠습니다. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요."
+        elif intent(user_text, "approve"):
             _set_room_status(room, "QUOTING", persist=True)
             # D25: 카드가 있으면 규칙 참고 견적 한 줄(AI가 금액을 만들지 않음). 예전 1:1 흐름만 AI 견적.
             card = session.get("prd")
@@ -245,14 +265,11 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             else:
                 reply = f"승인 감사합니다. 견적안입니다:\n\n{quote.format_quote_text(q)}\n\n이 견적으로 진행할까요? (진행/취소)"
             _set_room_status(room, "IDLE")
-        elif user_text in REJECT_WORDS:
-            session["state"] = "GATHERING"
-            reply = "알겠습니다. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요."
         else:
             reply = "승인 또는 거절로 답해주세요."
 
     elif state == "QUOTED":
-        if user_text in PROCEED_WORDS:
+        if intent(user_text, "proceed"):
             # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
             amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
             d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,

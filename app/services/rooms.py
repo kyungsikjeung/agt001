@@ -15,8 +15,6 @@ from app.services import chat_flow
 
 MAX_MESSAGE_LEN = 2000
 MAX_NICKNAME_LEN = 40
-VOTE_WORDS = ("승인", "거절", "네", "아니오", "yes", "no")
-VOTE_APPROVE_WORDS = ("승인", "네", "yes")
 # 서버가 쓰는 발신자 ID. 사람의 member_id와 달리 비밀이 아니므로 그대로 내보낸다.
 _SERVER_SENDERS = ("system", "ai")
 
@@ -185,8 +183,9 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
         _append(room, member_id, nickname, user_text, kind="chat")
 
         # 승인 게이트는 과반 투표. 동점·미달이면 투표만 기록하고 AI는 호출하지 않는다.
-        if session["state"] == "AWAIT_APPROVAL" and user_text in VOTE_WORDS:
-            vote = "approve" if user_text in VOTE_APPROVE_WORDS else "reject"
+        vote_reject = chat_flow.intent(user_text, "reject")
+        if session["state"] == "AWAIT_APPROVAL" and (vote_reject or chat_flow.intent(user_text, "approve")):
+            vote = "reject" if vote_reject else "approve"
             room["votes"][member_id] = vote
             total = len(room["members"])
             approve_n, reject_n = tally(room["votes"])

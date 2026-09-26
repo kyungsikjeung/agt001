@@ -206,3 +206,16 @@ def test_edit_after_publish_does_not_reset(client, monkeypatch):
     assert store.read_session(s)["prd"] is not None  # 지워지지 않는다
     r = _chat(client, "새 프로젝트 할래요", s)
     assert r["state"] == "GATHERING" and store.read_session(s).get("prd") is None
+
+
+def test_intent_variants():
+    """S-1: 짧은 대답 변형도 알아듣고, 부정이 섞이면 승인으로 보지 않는다."""
+    from app.services.chat_flow import intent
+    for t in ("승인", "승인할게요", "승인합니다!", "좋아요", "네", "ok"):
+        assert intent(t, "approve"), t
+    for t in ("거절", "거절할게요", "반대요", "아니요"):
+        assert intent(t, "reject"), t
+    for t in ("진행", "진행해 주세요", "만들어주세요", "네"):
+        assert intent(t, "proceed"), t
+    for t in ("승인 안 할래요", "진행 말고요", "네일 가게예요", "승인 조건이 뭐예요 자세히 알려주세요"):
+        assert not intent(t, "approve") and not intent(t, "proceed"), t
