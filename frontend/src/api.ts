@@ -20,7 +20,7 @@ function safeSet(storage: Storage, key: string, value: string): void {
   }
 }
 
-function visitorId(): string | null {
+export function visitorId(): string | null {
   let id = safeGet(localStorage, VISITOR_KEY);
   if (!id) {
     id = `v-${crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2)}`;

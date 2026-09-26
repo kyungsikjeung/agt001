@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { PLACEHOLDERS, TEMPLATES, type Template } from './templates';
 import { logout, me, startLogin, type MeUser } from './auth';
 import { startRoom, track } from './api';
+import { MSG, voiceSupported, useVoiceInput } from './voice';
 
 const MAX_LEN = 2000; // 서버 메시지 상한 (app/services/rooms.py MAX_MESSAGE_LEN)
 
@@ -16,6 +17,12 @@ export default function Landing() {
   const [hint, setHint] = useState(0);
   const [canInstall, setCanInstall] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [canVoice] = useState(voiceSupported);
+  // 말한 내용은 입력창 끝에 이어 붙이기만 한다. 보내기는 사장님이 고친 뒤 직접 누른다.
+  const voice = useVoiceInput((said) => {
+    setText((cur) => (cur.trim() ? `${cur.trim()} ${said}` : said).slice(0, MAX_LEN));
+    inputRef.current?.focus();
+  });
 
   useEffect(() => {
     track('landing_view');
@@ -180,16 +187,45 @@ export default function Landing() {
                 }
               }}
             />
+            {voice.numCheck && <p className="voice-note">{MSG.checkNumbers}</p>}
             <div className="prompt-bar">
               <span className="prompt-hint">로그인 없이 바로 시작돼요</span>
+              <span className="prompt-actions">
+              {canVoice && (
+                <button
+                  type="button"
+                  className={`mic${voice.state === 'recording' ? ' on' : ''}`}
+                  onClick={voice.toggle}
+                  disabled={voice.state === 'uploading' || busy}
+                  aria-label={voice.state === 'recording' ? '녹음 멈추기' : '말로 입력'}
+                >
+                  {voice.state === 'recording' ? (
+                    <>
+                      <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14"><rect x="2" y="2" width="10" height="10" rx="2" fill="currentColor" /></svg>
+                      <span className="mic-time">{voice.seconds}초</span>
+                    </>
+                  ) : (
+                    <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="2" width="6" height="12" rx="3" />
+                      <path d="M5 10a7 7 0 0 0 14 0" />
+                      <line x1="12" y1="17" x2="12" y2="22" />
+                      <line x1="8" y1="22" x2="16" y2="22" />
+                    </svg>
+                  )}
+                </button>
+              )}
               <button className="send" type="submit" disabled={!text.trim() || busy} aria-label="시작하기">
                 {busy ? '여는 중…' : '시작하기'}
                 <svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16">
                   <path d="M3 8h9M8.5 4.5 12 8l-3.5 3.5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </button>
+              </span>
             </div>
           </form>
+          <p className="voice-status" role="status" aria-live="polite">
+            {voice.status ?? (canVoice ? '' : MSG.keyboardMic)}
+          </p>
           {error && (
             <p className="error" role="alert">
               {error}
