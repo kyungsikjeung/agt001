@@ -82,7 +82,11 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                 prd_engine._put(card, key, value, S.FILLED, turn, "editor")
             changed.append(key)
         if changed and card.get("published"):
-            design.publish_choice(session["requirement_id"], card, card["published"])
+            from app.services.publish_check import PublishBlockedError
+            try:
+                design.publish_choice(session["requirement_id"], card, card["published"])
+            except PublishBlockedError as e:
+                raise HTTPException(status_code=400, detail="; ".join(e.reasons))
         if changed:
             ind = prd_engine.industry_of(card)
             labels = ", ".join(S.label_for(ind, k) for k in changed)

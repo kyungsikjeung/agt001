@@ -122,7 +122,12 @@ def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional
     ind = prd_engine.industry_of(card)
     labels = ", ".join(dict.fromkeys(prd_engine.S.label_for(ind, k) for k in applied))
     if card.get("published"):
-        design.publish_choice(session["requirement_id"], card, card["published"])
+        from app.services.publish_check import PublishBlockedError
+        try:
+            design.publish_choice(session["requirement_id"], card, card["published"])
+        except PublishBlockedError as e:
+            return (f"반영했어요({labels}). 그런데 공개 전에 걸렀어요: " + "; ".join(e.reasons) + ". "
+                    "공개 사이트는 그대로 뒀어요.")
         return f"반영했어요({labels}). 사이트에도 바로 바꿨어요: {session.get('deploy_url')}"
     return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요."
 
@@ -182,7 +187,12 @@ def _restyle(session: dict, text: str) -> str:
     design_log.restyled(session["requirement_id"], card, current, new)  # D45
     design.render_variants(session["requirement_id"], card)
     if card.get("published"):
-        design.publish_choice(session["requirement_id"], card, card["published"])
+        from app.services.publish_check import PublishBlockedError
+        try:
+            design.publish_choice(session["requirement_id"], card, card["published"])
+        except PublishBlockedError as e:
+            return (f"{said}\n{design_concept.summary_line(new)}\n\n다시 그린 컨셉 보드와 시안: {session['design_url']}"
+                    "\n공개 전에 걸려서 공개 사이트는 그대로 뒀어요: " + "; ".join(e.reasons))
     return (f"{said}\n{design_concept.summary_line(new)}\n\n다시 그린 컨셉 보드와 시안: {session['design_url']}"
             + ("\n공개 사이트에도 바로 반영했어요." if card.get("published") else ""))
 
@@ -198,7 +208,13 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     if missing and not force:
         return ("공개 전에 확인해 주세요. 아직 비어 있는 곳이 있어요: " + ", ".join(missing) + "\n"
                 "사이트에는 [입력 필요]로 보여요. 그래도 먼저 열려면 '그대로 공개'라고 보내 주세요.")
-    design.publish_choice(session["requirement_id"], card, choice)
+    from app.services.publish_check import PublishBlockedError
+    try:
+        design.publish_choice(session["requirement_id"], card, choice)
+    except PublishBlockedError as e:
+        # S-5: 외부 스크립트·폼 등이 들어 있으면 게시하지 않고 사장님께 알린다.
+        return ("공개 전에 걸렀어요: " + "; ".join(e.reasons) + ". "
+                "시안은 그대로 볼 수 있어요. 어디서 들어온 건지 확인해 드릴게요.")
     url = deploy.site_url(session["requirement_id"], base_url)
     session["deploy_url"] = url
     card["published"] = choice

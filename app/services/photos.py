@@ -124,11 +124,17 @@ def refresh_designs(room_id: str, requirement_id: str) -> None:
         if not card:
             return
         design.render_variants(requirement_id, card)
+        announced = "사진·영상을 시안에 넣었어요."
         if card.get("published"):
-            design.publish_choice(requirement_id, card, card["published"])
+            from app.services.publish_check import PublishBlockedError
+            try:
+                design.publish_choice(requirement_id, card, card["published"])
+                announced += " 공개 사이트에도 바로 반영했어요."
+            except PublishBlockedError as e:
+                announced += " 공개 전에 걸려서 공개 사이트는 그대로 뒀어요: " + "; ".join(e.reasons)
         with store.room_tx(room_id) as (r, _s):
             if r is not None:
-                text = "사진·영상을 시안에 넣었어요." + (" 공개 사이트에도 바로 반영했어요." if card.get("published") else "")
+                text = announced
                 rooms._append(r, "system", "시스템", text, kind="system")
     except Exception:
         log.exception("사진 반영 실패 room=%s", room_id)

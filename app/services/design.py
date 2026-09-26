@@ -70,7 +70,7 @@ def _concept_board(requirement_id: str, title: str, items: list[dict], notes: li
         f'<li class="{"hero" if s["type"] == "hero" else ""}">{e(_section_name(s, offerings_label))}</li>'
         for s in items[0]["spec"]["sections"])
     phones = "\n".join(
-        f"""<figure class="phone" style="--i:{i}"><div class="frame"><iframe src="/design/{rid}/{e(v['id'])}/" title="{e(v['name'])} 미리보기" loading="lazy"></iframe></div>
+        f"""<figure class="phone" style="--i:{i}"><div class="frame"><iframe src="/design/{rid}/{e(v['id'])}/" title="{e(v['name'])} 미리보기" loading="lazy" sandbox=""></iframe></div>
 <figcaption><b>{i + 1}안 · {e(v['name'])}</b><span>{e(v['summary'])}</span><a href="/design/{rid}/{e(v['id'])}/" target="_blank" rel="noopener">크게 보기</a></figcaption></figure>"""
         for i, v in enumerate(items))
     note_html = "".join(f"<li>{e(n)}</li>" for n in notes)
@@ -190,11 +190,12 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
         if sec["type"] == "hero" and not sec["content"].get("title") and kind_name:
             sec["content"]["title"] = kind_name
     out = settings.generated_dir / requirement_id / "published"
+    page = site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card),
+                                   kind=DV.kind_for(card), public=True)
+    from app.services import publish_check
+    publish_check.assert_publishable(page)  # S-5: 위반이면 게시 차단 (파일을 쓰지 않음)
     out.mkdir(parents=True, exist_ok=True)
-    (out / "index.html").write_text(
-        site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card), kind=DV.kind_for(card),
-                                public=True),
-        encoding="utf-8")
+    (out / "index.html").write_text(page, encoding="utf-8")
 
 
 def render_design(requirement_id: str, platform: str, features: list[str], quote_amount: int, quote_basis: str,

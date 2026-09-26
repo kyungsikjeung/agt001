@@ -28,8 +28,8 @@
 | S-2 | ✅ 완료 B-9 방장 넘기기·나가기 (먼저 들어온 사람이 승계, `c47f887`) | FIXES B-9, ROOM_POLICY §2 | Claude | 없음 | 2시간 |
 | S-3 | ✅ 완료 B-15 템플릿 시작 배선 (template_id 연결) | FIXES B-15, DECISIONS D26 | Claude | 없음 | 1시간 |
 | S-4 | ✅ 완료 B-4 잡담 2턴 넛지 문구 추가 | FIXES B-4 잔여, INTAKE §5 | Claude | 없음 | 1시간 |
-| S-5 | S-2 sandbox iframe 자동 검사 | DESIGN §13.5 S-2 | Claude | 없음 | 1시간 |
-| S-6 | S-5 게시 전 검사 (외부 스크립트·폼 차단) | DESIGN §13.5 S-5 | Claude | 없음 | 2시간 |
+| S-5 | ✅ 완료(9/26 밤, 테스트 11개) S-2 sandbox iframe 자동 검사 — 고르기 페이지 iframe에 `sandbox`(금지 토큰 없음) + 서빙 CSP 헤더 검사 + CI 테스트 | DESIGN §13.5 S-2 | Claude | 없음 | 1시간 |
+| S-6 | ✅ 완료(9/26 밤, 테스트 11개) S-5 게시 전 검사 — 외부 스크립트·외부 폼·자동 이동·열쇠·우회 iframe 5종 적중 시 게시 차단 + 사장님 안내 | DESIGN §13.5 S-5 | Claude | 없음 | 2시간 |
 | S-7 | C3 평가 1회 실행 (추출 60개·시나리오 36개) | DELIVERY C3, DECISIONS D28 | Claude | O1 | 2시간 |
 | S-8 | O1 실제 대화 평가 도구 마무리 | DELIVERY O1 | OpenCode | chat_turns | 3시간 |
 | S-9 | D7·D8 타이머·인원 상한 설정값 분리 확인 | ROOM_POLICY §4·§8, DECISIONS D7·D8 | Claude | 없음 | 30분 |
