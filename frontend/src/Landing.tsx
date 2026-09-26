@@ -14,6 +14,7 @@ export default function Landing() {
   const [toast, setToast] = useState<string | null>(null);
   const [user, setUser] = useState<MeUser | null>(null);
   const [hint, setHint] = useState(0);
+  const [canInstall, setCanInstall] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -36,6 +37,24 @@ export default function Landing() {
       history.replaceState(null, '', location.pathname + (rest ? `?${rest}` : ''));
     }
   }, []);
+
+  // PWA: 브라우저가 설치 가능하다고 알려 주면 "앱 설치" 버튼을 보인다(static/pwa.js).
+  useEffect(() => {
+    const w = window as Window & { __agtInstall?: unknown };
+    const sync = () => setCanInstall(Boolean(w.__agtInstall));
+    sync();
+    window.addEventListener('agt-install-ready', sync);
+    return () => window.removeEventListener('agt-install-ready', sync);
+  }, []);
+
+  async function onInstall() {
+    const w = window as Window & { __agtInstall?: { prompt: () => Promise<void> } | null };
+    const ev = w.__agtInstall;
+    if (!ev) return;
+    await ev.prompt();
+    w.__agtInstall = null;
+    setCanInstall(false);
+  }
 
   // 비어 있을 때만 안내 문구를 돌린다. 입력 중에는 바꾸지 않는다.
   useEffect(() => {
@@ -94,6 +113,11 @@ export default function Landing() {
         </a>
         <div className="login-wrap">
           <nav className="top-links" aria-label="계정">
+            {canInstall && (
+              <button className="ghost" type="button" onClick={onInstall}>
+                앱 설치
+              </button>
+            )}
             <a className="projects-link" href="/projects">
               내 프로젝트
             </a>

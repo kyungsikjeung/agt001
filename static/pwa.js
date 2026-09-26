@@ -4,3 +4,13 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
+// 설치 가능할 때 화면(랜딩의 "앱 설치" 버튼)이 쓸 수 있게 이벤트를 보관한다.
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  window.__agtInstall = e;
+  window.dispatchEvent(new Event('agt-install-ready'));
+});
+window.addEventListener('appinstalled', () => {
+  window.__agtInstall = null;
+  window.dispatchEvent(new Event('agt-install-ready'));
+});
