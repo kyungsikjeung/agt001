@@ -176,3 +176,33 @@ def test_publish_chosen_design(client):
     page = client.get(f"/site/{sess['requirement_id']}/")
     assert page.status_code == 200 and "allow-forms" in page.headers["content-security-policy"]
     assert sess["prd"]["published"] == "v3"
+
+
+def test_edit_after_publish_does_not_reset(client, monkeypatch):
+    """완료·공개 뒤 아무 말에 프로젝트가 지워지던 문제: 가게 정보는 고치고 사이트에 바로 반영, 새로 시작은 명시할 때만."""
+    from app import llm
+    import json as _json
+
+    s = _fresh_session(client)
+    _to_quoted(client, s)
+    _chat(client, "진행", s)
+    _chat(client, "1안으로 할게요", s)
+    _chat(client, "그대로 공개", s)
+    real = llm.chat_json
+
+    def fake(system, user, **kw):
+        if "010-9999-8888" in user:
+            return _json.dumps({"updates": [{"slot": "phone", "value": "010-9999-8888"}]})
+        return real(system, user, **kw)
+
+    monkeypatch.setattr(llm, "chat_json", fake)
+    r = _chat(client, "전화번호는 010-9999-8888이에요", s)
+    assert "반영했어요" in r["reply"]
+    sess = store.read_session(s)
+    assert sess["prd"] and sess["prd"]["slots"]["phone"]["value"] == "010-9999-8888"
+    page = client.get(f"/site/{sess['requirement_id']}/").text
+    assert "010-9999-8888" in page or "01099998888" in page
+    r = _chat(client, "고마워요", s)
+    assert store.read_session(s)["prd"] is not None  # 지워지지 않는다
+    r = _chat(client, "새 프로젝트 할래요", s)
+    assert r["state"] == "GATHERING" and store.read_session(s).get("prd") is None

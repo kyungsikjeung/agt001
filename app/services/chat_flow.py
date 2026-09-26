@@ -60,6 +60,30 @@ def _rag_note(spec: str) -> str:
     return "말씀하신 내용과 업종 기본 구성에 맞춰 설계할게요."
 
 
+NEW_PROJECT_WORDS = ("새 프로젝트", "처음부터", "새로 만들", "다른 사이트")
+# 시안 뒤 고치기는 사이트에 바로 보이는 칸만 받는다(구성·기능 변경은 새 시안이 필요해 채팅 흐름 밖).
+_EDITABLE = ("shop_name", "phone", "hours", "location", "price", "offerings", "detail", "target", "contact_method")
+
+
+def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional[str]:
+    """시안·공개 뒤 가게 정보 고치기. 반영했으면 답을, 고칠 내용이 없으면 None."""
+    card = session["prd"]
+    ups = [u for u in prd_engine.extract(text, None) if u["slot"] in _EDITABLE]
+    for u in ups:
+        # 한 칸 값은 새 말로 바꾼다(여러 값 칸은 apply_updates가 덧붙인다).
+        if not prd_engine.S.SLOTS[u["slot"]].multi:
+            card["slots"].pop(u["slot"], None)
+    applied = prd_engine.apply_updates(card, ups, text, by, is_owner) if ups else []
+    if not applied:
+        return None
+    ind = prd_engine.industry_of(card)
+    labels = ", ".join(dict.fromkeys(prd_engine.S.label_for(ind, k) for k in applied))
+    if card.get("published"):
+        design.publish_choice(session["requirement_id"], card, card["published"])
+        return f"반영했어요({labels}). 사이트에도 바로 바꿨어요: {session.get('deploy_url')}"
+    return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요."
+
+
 VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
 PUBLISH_WORDS = ("공개", "공개해줘", "공개해 주세요", "공개할게요", "그대로 공개")
 
@@ -109,6 +133,9 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                  "이대로 사이트를 열려면 '공개'라고 보내 주세요. 바꾸고 싶으면 다른 번호를 보내 주세요.")
     elif publish_cmd:
         reply = _publish(session, base_url, force=user_text.strip() == "그대로 공개")
+    elif state == "GENERATING" and session.get("codegen") is None and user_text and session.get("prd"):
+        # 제작 중에도 가게 정보를 고칠 수 있다(시안 공개 전후 모두).
+        reply = _edit_after_design(session, user_text, by, is_owner) or "코드 생성 중입니다... 잠시만 기다려주세요."
     elif state == "GENERATING":
         cg = session.get("codegen")
         if cg is None:
@@ -124,6 +151,11 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 f"- 배포 링크: {deploy_url}\n\n"
                 "파이프라인 뼈대 관통 완료 (팀C 실구현)."
             )
+            # 완료를 알리는 턴에 사장님이 고칠 말을 보냈으면 그것도 반영한다(말이 묻히지 않게).
+            if user_text and session.get("prd"):
+                edit = _edit_after_design(session, user_text, by, is_owner)
+                if edit:
+                    reply += "\n\n" + edit
         elif cg["status"] == "unavailable":
             # docker/키가 없어 생성을 못 돌린 경우 — 배포할 산출물도 없다.
             session["state"] = "DONE"
@@ -245,9 +277,14 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             reply = "알겠습니다. 처음부터 다시 요청해 주세요."
 
     else:  # DONE
-        reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
-        session["state"] = "GATHERING"
-        session["prd"] = None
+        if any(w in user_text for w in NEW_PROJECT_WORDS) or not session.get("prd"):
+            reply = "새 프로젝트를 시작할게요. 어떤 사이트를 만들까요?"
+            session["state"] = "GATHERING"
+            session["prd"] = None
+        else:
+            # 완료 뒤 아무 말에나 카드를 지우던 문제: 이제는 고칠 내용으로 받는다. 새로 시작은 말로 분명히 할 때만.
+            reply = _edit_after_design(session, user_text, by, is_owner) or (
+                "무엇을 바꿀까요? 예: '전화번호는 010-1234-5678이에요'. 새로 만들려면 '새 프로젝트'라고 보내 주세요.")
 
     _record_transition(session_id, state, session["state"])
     # 대화 턴 기록 (AI 성능 평가용, 90일). 폴링처럼 사람이 말하지 않은 턴은 남기지 않는다.
