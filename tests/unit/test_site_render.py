@@ -364,7 +364,8 @@ def test_public_quality_fixes_2026_09_26():
     offer["content"]["items"] = [{"name": "", "desc": "", "price": ""}]
     assert offer["id"] not in _section_ids(render_site(spec, public=True))
 
-    # Q-2·Q-3: 공개본 CSS는 사진 없는 상품 카드를 통째로 숨기지 않고, 예시 표시는 숨긴다
+    # Q-2: 공개본 CSS는 사진 없는 상품 카드를 통째로 숨기지 않는다
     css = render_site(_load_sample("pension"), public=True)
     assert "li:has(> .is-placeholder:not(.s-media__empty))" in css
-    assert ".is-public .s-illu-badge" in css and ".is-public .s-gallery__notice" in css
+    # D36: 예시 그림 배지는 방문자에게도 보이고(숨기는 규칙 없음), 사장님용 사진첩 안내만 숨긴다
+    assert ".is-public .s-illu-badge" not in css and ".is-public .s-gallery__notice" in css

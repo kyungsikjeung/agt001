@@ -74,7 +74,8 @@ _PROBE = r"""
     if (e && vis(e) && parseFloat(getComputedStyle(e).fontSize) > 0) shown.push(n.textContent); }
   const shownText = shown.join(' ');
   out.placeholders = [...new Set(shownText.match(/\[[^\]\n]{0,20}입력\]/g) || [])];
-  out.exampleLabel = /예시|사진으로 바뀌어요/.test(shownText);
+  // D36: "예시 이미지" 배지는 방문자에게 보이는 게 맞다. 사장님용 안내 문구만 문제로 센다.
+  out.exampleLabel = /사진으로 바뀌어요/.test(shownText);
   const firstScreen = [...document.querySelectorAll('h1, h2, a, button, p')].filter(e => vis(e) && e.getBoundingClientRect().top < window.innerHeight);
   const firstText = firstScreen.map(e => e.innerText).join(' ');
   out.nameAboveFold = !!facts.name && firstText.includes(facts.name);

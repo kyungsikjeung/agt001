@@ -120,3 +120,24 @@ def test_video_link_goes_into_design(client):
     from app.services.site_render import render_site
     html = render_site(DV.base_spec(card), kind="cafe", public=True)
     assert "i.ytimg.com/vi/dQw4w9WgXcQ" in html and "<iframe" not in html
+
+
+def test_early_photo_ask_once_for_photo_first_industries():
+    """D36: 식당·카페·펜션은 가게 이름이 정해진 직후 사진을 한 번 먼저 부탁한다(방이 있을 때만)."""
+    from app.services import chat_flow, prd_engine as E, prd_schema as S
+    card = E.new_card()
+    card["industry"] = "restaurant"
+    assert chat_flow._early_photo_ask(card, room={}) == ""  # 가게 이름 전에는 묻지 않는다
+    E._put(card, "shop_name", "황남밥상", S.FILLED, 1)
+    first = chat_flow._early_photo_ask(card, room={})
+    assert "📷" in first and "대표 메뉴" in first
+    assert chat_flow._early_photo_ask(card, room={}) == ""  # 한 번만
+    other = E.new_card()
+    other["industry"] = "academy"
+    E._put(other, "shop_name", "바른수학", S.FILLED, 1)
+    assert chat_flow._early_photo_ask(other, room={}) == ""  # 사진이 덜 중요한 업종은 요약 때만
+    with_photo = E.new_card()
+    with_photo["industry"] = "cafe"
+    E._put(with_photo, "shop_name", "모퉁이커피", S.FILLED, 1)
+    with_photo["photos"] = [{"url": "/uploads/x/a.jpg"}]
+    assert chat_flow._early_photo_ask(with_photo, room={}) == ""  # 이미 올렸으면 묻지 않는다

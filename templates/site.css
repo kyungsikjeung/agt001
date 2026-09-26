@@ -709,8 +709,8 @@ button:focus-visible,
 
 /* 공개 사이트(body.is-public): 방문자에게는 [… 입력] 빈칸을 보이지 않는다. 시안에서는 사장님이 채울 곳으로 보인다. */
 .is-public .is-placeholder { display: none; }
-/* 예시 그림의 배지·사진첩 안내 문구는 사장님용이라 방문자에게 숨긴다 (품질 점검 Q-3) */
-.is-public .s-illu-badge,
+/* D36: 예시 그림의 배지는 방문자에게도 보인다(실제 가게 사진으로 오해하지 않게).
+   사진첩 아래 안내 문구는 사장님에게 하는 말이라 공개본에서만 숨긴다. */
 .is-public .s-gallery__notice { display: none; }
 .is-public .s-contact__row:has(.is-placeholder),
 /* 사진 없는 상품 카드는 사진 칸만 숨기고 카드는 남긴다 (Q-2: 펜션 객실 카드가 통째로 사라졌음) */

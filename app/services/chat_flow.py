@@ -9,7 +9,7 @@ import uuid
 from typing import Optional
 
 from app import store
-from app.services import codegen, deploy, design, funnel, prd_engine, quote, rag
+from app.services import codegen, deploy, design, funnel, prd_engine, prd_schema, quote, rag
 
 log = logging.getLogger(__name__)
 
@@ -102,7 +102,26 @@ def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional
 
 
 _KAKAO_CHANNEL = re.compile(r"(?:https?://)?(pf\.kakao\.com/_[A-Za-z0-9]+)(?:/chat)?")
-PHOTO_ASK = "가게 사진이 있으면 📷 버튼으로 올려 주세요. 없으면 업종에 맞는 예시 그림으로 만들고, 나중에 올리셔도 바로 바뀌어요.\n\n"
+# D36: 사진이 사이트 품질을 좌우하는 업종은 가게 이름이 정해진 직후 한 번 먼저 부탁한다(질문 예산은 쓰지 않음).
+# 사진은 사장님이 직접 올린 것만 쓴다. 없으면 "예시 이미지" 표시를 단 예시 그림으로 공개할 수 있다.
+PHOTO_FIRST_INDUSTRIES = ("restaurant", "cafe", "pension")
+EARLY_PHOTO_ASK = ("사진이 있으면 사이트가 확 달라져요. 📷 버튼으로 가게 대표 사진 1장과 {what} 사진을 올려 주세요. "
+                   "휴대폰으로 지금 찍어도 돼요. 없으면 예시 그림으로 먼저 만들어 드릴게요.\n\n")
+_PHOTO_WHAT = {"restaurant": "대표 메뉴", "cafe": "대표 메뉴", "pension": "객실"}
+
+
+def _early_photo_ask(card: dict, room) -> str:
+    if room is None or card.get("photos") or card.get("photo_asked"):
+        return ""
+    ind = prd_engine.industry_of(card).key
+    shop = (card.get("slots", {}).get("shop_name") or {}).get("status")
+    if ind not in PHOTO_FIRST_INDUSTRIES or shop != prd_schema.FILLED:
+        return ""
+    card["photo_asked"] = True
+    return EARLY_PHOTO_ASK.format(what=_PHOTO_WHAT[ind])
+
+
+PHOTO_ASK ="가게 사진이 있으면 📷 버튼으로 올려 주세요. 없으면 업종에 맞는 예시 그림으로 만들고, 나중에 올리셔도 바로 바뀌어요.\n\n"
 
 
 def _apply_correction(session: dict, text: str, by, is_owner: bool) -> Optional[str]:
@@ -283,7 +302,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["state"] = "AWAIT_APPROVAL"
         else:
             nudge = "사이트 이야기로 돌아가 볼까요?\n" if result.get("nudge") else ""
-            reply = nudge + prd_engine.ack_text(card, result["applied"]) + prd_engine.format_question(card, result["question"])
+            reply = (nudge + prd_engine.ack_text(card, result["applied"]) + _early_photo_ask(card, room)
+                     + prd_engine.format_question(card, result["question"]))
             session["state"] = "GATHERING"
         _set_room_status(room, "IDLE")
 
