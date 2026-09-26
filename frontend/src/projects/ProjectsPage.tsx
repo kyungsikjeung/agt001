@@ -129,11 +129,8 @@ export default function ProjectsPage() {
               <button className="kakao" type="button" onClick={() => startLogin('kakao', next)}>
                 카카오로 계속하기
               </button>
-              <button className="google" type="button" onClick={() => startLogin('google', next)}>
-                Google로 계속하기
-              </button>
+              {/* 구글 로그인은 테스트 모드라 숨긴다(Landing.tsx와 같은 이유) */}
             </div>
-            <p className="login-note">구글 로그인은 지금 초대된 분만 쓸 수 있어요.</p>
           </section>
         )}
 

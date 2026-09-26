@@ -139,10 +139,7 @@ export default function Landing() {
               <button className="kakao" type="button" role="menuitem" onClick={() => onLogin('kakao')}>
                 카카오로 계속하기
               </button>
-              <button className="google" type="button" role="menuitem" onClick={() => onLogin('google')}>
-                Google로 계속하기
-              </button>
-              <p className="login-note">구글 로그인은 지금 초대된 분만 쓸 수 있어요.</p>
+              {/* 구글 로그인은 테스트 모드(초대된 계정만)라 숨긴다. 자체 도메인·브랜드 인증 뒤 다시 켠다(서버 경로는 그대로). */}
             </div>
           )}
         </div>

@@ -86,7 +86,7 @@ describe('ProjectsPage', () => {
     render(<ProjectsPage />);
     expect(await screen.findByText(/이 기기에서 만든 것만 보여요/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '카카오로 계속하기' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Google로 계속하기' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Google로 계속하기' })).not.toBeInTheDocument(); // 테스트 모드라 숨김
   });
 
   it('로그인했으면 안내를 숨기고 claim을 한 번 보낸 뒤 목록을 보여준다', async () => {
