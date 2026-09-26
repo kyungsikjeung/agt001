@@ -233,3 +233,43 @@ class AttachmentRow(Base):
     width: Mapped[int] = mapped_column(Integer, nullable=False)
     height: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class SecretRow(Base):
+    """관리자 화면에서 바꾼 API 키(D50). 값은 암호화해 두고 화면에는 뒤 4자리만 보인다."""
+
+    __tablename__ = "secrets"
+
+    name: Mapped[str] = mapped_column(Text, primary_key=True)
+    value_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    last4: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[datetime.datetime] = _now_col()
+    updated_by: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class SecretVersionRow(Base):
+    """바뀌기 전 키(7일 되돌리기용, 암호화). 7일이 지나면 지운다."""
+
+    __tablename__ = "secret_versions"
+    __table_args__ = (Index("ix_secret_versions_name", "name", "replaced_at"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    value_enc: Mapped[str] = mapped_column(Text, nullable=False)
+    last4: Mapped[str] = mapped_column(Text, nullable=False)
+    replaced_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    replaced_by: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class AdminAuditRow(Base):
+    """관리자가 무엇을 봤고 바꿨는지(D49·D50). 키 값·개인정보는 넣지 않는다."""
+
+    __tablename__ = "admin_audit"
+    __table_args__ = (Index("ix_admin_audit_ts", "ts"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime.datetime] = _now_col()
+    user_id: Mapped[str] = mapped_column(Text, nullable=False)
+    action: Mapped[str] = mapped_column(Text, nullable=False)
+    target: Mapped[Optional[str]] = mapped_column(Text)
+    detail: Mapped[Optional[dict]] = mapped_column(JSONB)

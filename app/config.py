@@ -63,7 +63,17 @@ class Settings(BaseSettings):
     google_client_secret: Optional[str] = None
     login_session_days: int = 30
     # 카카오 알림 토큰 암호화 키. 비우면 카카오 Client Secret에서 만든다(app/services/kakao_talk.py).
+    # 관리자 화면 키 교체(D50)는 이 값이 따로 있을 때만 열린다(화면에서 바꾸는 카카오 비밀값에서 파생되면 안 되므로).
     token_enc_key: Optional[str] = None
+
+    # 관리자 사이트 (D49·D50). 명단은 서버 .env에만 둔다(화면에서 못 바꿈). 우리 users.id를 쉼표로.
+    admin_user_ids: str = ""
+    # 키 교체처럼 민감한 일은 이 시간 안에 로그인한 세션만 할 수 있다(최근 로그인 재확인).
+    admin_reauth_minutes: int = 10
+    # 디자인 단계 유료 모델 비교(D39), 운영 알림. 관리자 화면에서 교체할 수 있다(D50).
+    zen_api_key: Optional[str] = None
+    telegram_bot_token: Optional[str] = None
+    telegram_chat_id: Optional[str] = None
 
     # 채팅방 타이머·인원 (D7·D8, ROOM_POLICY §4.2). 점검 작업 대신 방을 읽거나 쓸 때 판정한다.
     room_vote_reset_hours: float = 24

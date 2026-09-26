@@ -21,6 +21,7 @@ from pathlib import Path
 from app import store
 from app.config import settings
 from app.security import sanitize_spec, sanitize_token
+from app.services import keystore
 
 log = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ def run_job(session_id: str, requirement_id: str, spec_text: str) -> None:
         _set_result(session_id, {"status": "unavailable", "note": "이 환경에 docker가 없어 코드생성을 건너뛰었습니다."})
         return
 
-    api_key = settings.nvidia_api_key or settings.nim_api_key
+    api_key = settings.nvidia_api_key or keystore.get("nim_api_key")
     if not api_key:
         _set_result(session_id, {
             "status": "unavailable",

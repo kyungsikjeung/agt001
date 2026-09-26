@@ -9,6 +9,7 @@ import logging
 import struct
 
 from app.config import settings
+from app.services import keystore
 
 log = logging.getLogger(__name__)
 
@@ -38,7 +39,7 @@ def to_wav(pcm: bytes, sample_rate: int = SAMPLE_RATE) -> bytes:
 
 
 def _synthesize_pcm(text: str) -> bytes:
-    key = settings.nvidia_api_key or settings.nim_api_key
+    key = settings.nvidia_api_key or keystore.get("nim_api_key")
     if not settings.tts_enabled or not key:
         raise TtsUnavailable("음성 합성 꺼짐")
     import riva.client  # grpc를 쓰는 무거운 모듈이라 실제로 부를 때만 가져온다

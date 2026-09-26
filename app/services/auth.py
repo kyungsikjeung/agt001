@@ -22,6 +22,7 @@ from app.config import settings
 from app.db.models import LoginSessionRow, OAuthAccountRow, OAuthStateRow, UserRoomRow, UserRow
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
+from app.services import keystore
 
 SESSION_COOKIE = "__Host-agt001_session"
 STATE_COOKIE = "__Host-agt001_oauth"
@@ -47,9 +48,9 @@ def _hash(value: str) -> str:
 
 def configured(provider: str) -> bool:
     if provider == "kakao":
-        return bool(settings.kakao_rest_api_key and settings.kakao_client_secret)
+        return bool(keystore.get("kakao_rest_api_key") and keystore.get("kakao_client_secret"))
     if provider == "google":
-        return bool(settings.google_client_id and settings.google_client_secret)
+        return bool(settings.google_client_id and keystore.get("google_client_secret"))
     return False
 
 
@@ -70,7 +71,7 @@ def begin(provider: str, next_path: str, redirect_uri: str, talk: bool = False) 
         db.add(OAuthStateRow(state_hash=_hash(state), provider=provider, code_verifier=verifier,
                              next_path=safe_next(next_path), expires_at=_now() + STATE_TTL))
     if provider == "kakao":
-        params = {"response_type": "code", "client_id": settings.kakao_rest_api_key,
+        params = {"response_type": "code", "client_id": keystore.get("kakao_rest_api_key"),
                   "redirect_uri": redirect_uri, "state": state}
         if talk:
             # 문의 알림(나에게 보내기)용 추가 동의 (D32 ①, contracts/ROOM_FEATURES_API.md §6)
@@ -90,13 +91,13 @@ def exchange_code(provider: str, code: str, verifier: str, redirect_uri: str) ->
     """인가 코드 → 제공자 토큰 응답. 액세스 토큰은 저장하지 않는다(카카오 알림 동의가 있으면 리프레시 토큰만 암호화 저장)."""
     if provider == "kakao":
         url, data = "https://kauth.kakao.com/oauth/token", {
-            "grant_type": "authorization_code", "client_id": settings.kakao_rest_api_key,
-            "client_secret": settings.kakao_client_secret, "redirect_uri": redirect_uri, "code": code,
+            "grant_type": "authorization_code", "client_id": keystore.get("kakao_rest_api_key"),
+            "client_secret": keystore.get("kakao_client_secret"), "redirect_uri": redirect_uri, "code": code,
         }
     else:
         url, data = "https://oauth2.googleapis.com/token", {
             "grant_type": "authorization_code", "client_id": settings.google_client_id,
-            "client_secret": settings.google_client_secret, "redirect_uri": redirect_uri,
+            "client_secret": keystore.get("google_client_secret"), "redirect_uri": redirect_uri,
             "code": code, "code_verifier": verifier,
         }
     resp = httpx.post(url, data=data, timeout=10)

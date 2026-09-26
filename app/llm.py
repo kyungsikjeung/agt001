@@ -18,14 +18,24 @@ _cooldown: dict[str, float] = {}
 _lock = threading.Lock()
 
 
-@lru_cache(maxsize=1)
-def _client() -> OpenAI:
+@lru_cache(maxsize=2)
+def _client_for(api_key: str) -> OpenAI:
     return OpenAI(
-        api_key=settings.nim_api_key,
+        api_key=api_key,
         base_url=settings.nim_base_url,
         timeout=settings.nim_timeout_sec,
         max_retries=1,
     )
+
+
+def _client() -> OpenAI:
+    # 키는 관리자 화면에서 바뀔 수 있다(D50). 바뀐 키로 새 클라이언트를 만든다.
+    from app.services import keystore
+    return _client_for(keystore.get("nim_api_key") or "")
+
+
+def reset_client() -> None:
+    _client_for.cache_clear()
 
 
 def _models() -> list[str]:

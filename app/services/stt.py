@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from app.config import settings
+from app.services import keystore
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def to_wav16k(data: bytes) -> bytes:
 
 
 def _recognize(wav: bytes) -> str:
-    key = settings.nvidia_api_key or settings.nim_api_key
+    key = settings.nvidia_api_key or keystore.get("nim_api_key")
     if not settings.stt_enabled or not key:
         raise SttUnavailable("음성 인식 꺼짐")
     import riva.client  # grpc를 쓰는 무거운 모듈이라 실제로 부를 때만 가져온다

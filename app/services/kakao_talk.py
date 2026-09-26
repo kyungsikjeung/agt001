@@ -19,6 +19,7 @@ from app import store
 from app.config import settings
 from app.db.models import OAuthAccountRow, UserRoomRow
 from app.db.session import get_sessionmaker
+from app.services import keystore
 
 log = logging.getLogger(__name__)
 TOKEN_URL = "https://kauth.kakao.com/oauth/token"
@@ -73,8 +74,8 @@ def owner_user_id(room_id: str) -> Optional[str]:
 def _access_token(acc: OAuthAccountRow) -> Optional[str]:
     f = _fernet()
     refresh = f.decrypt(acc.talk_refresh_enc.encode()).decode()
-    resp = httpx.post(TOKEN_URL, data={"grant_type": "refresh_token", "client_id": settings.kakao_rest_api_key,
-                                       "client_secret": settings.kakao_client_secret, "refresh_token": refresh},
+    resp = httpx.post(TOKEN_URL, data={"grant_type": "refresh_token", "client_id": keystore.get("kakao_rest_api_key"),
+                                       "client_secret": keystore.get("kakao_client_secret"), "refresh_token": refresh},
                       timeout=10)
     if resp.status_code != 200:
         log.warning("카카오 토큰 갱신 실패 status=%s", resp.status_code)
