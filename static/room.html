@@ -76,7 +76,7 @@
   .kind-inquiry { justify-content: center; }
   .kind-inquiry .bubble { max-width: 90%; background: #fff7e6; border: 1px solid #f5c26b; border-radius: 10px; padding: 10px 12px; color: #3d2a00; }
   .kind-inquiry .text { white-space: pre-wrap; }
-  .badge-bot { font-size: 0.6875rem; background: var(--accent-dark); color: #fff; padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+  .badge-bot { font-size: 0.6875rem; background: var(--accent-dark); color: #fff; padding: 2px 8px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
   /* 시안 3안 고르기 카드 */
   .design-pick { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
   .design-card { flex: 0 0 78%; max-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px; scroll-snap-align: start; }
@@ -522,7 +522,7 @@ function addMessage(m) {
     listenBtn.type = 'button';
     listenBtn.textContent = '듣기';
     listenBtn.setAttribute('aria-label', '답장 듣기');
-    listenBtn.style.cssText = 'margin-top:8px;font-size:0.75rem;padding:4px 10px;border:1px solid var(--border);border-radius:999px;background:var(--bg);color:var(--text);cursor:pointer;';
+    listenBtn.style.cssText = 'margin-top:8px;font-size:0.75rem;min-height:32px;padding:6px 12px;border:1px solid var(--border);border-radius:999px;background:var(--bg);color:var(--text);cursor:pointer;';
     listenBtn.onclick = () => {
       if (typeof window.speakAiText === 'function') window.speakAiText(m.text, listenBtn);
     };
