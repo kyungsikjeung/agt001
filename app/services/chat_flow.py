@@ -169,11 +169,15 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             deploy_url = deploy.site_url(session["requirement_id"], base_url)
             session["state"] = "DONE"
             session["deploy_url"] = deploy_url
-            files_list = ", ".join(cg["files"][:5])
-            reply = (
-                f"사이트 파일 만들기도 끝났어요: {deploy_url}\n"
-                "지금 열린 사이트는 고르신 시안 그대로예요. 시안에서 번호를 고르고 '공개'라고 보내 주세요."
-            )
+            published = (session.get("prd") or {}).get("published")
+            if published:
+                reply = f"사이트 파일 만들기도 끝났어요. 열린 사이트({deploy_url})는 고르신 {published[1]}안 그대로예요."
+            elif session.get("prd"):
+                # 공개 전에는 코드생성 결과 주소를 보이지 않는다(고른 시안과 다른 화면이라 헷갈림, 9/26 점검)
+                reply = ("사이트 파일 만들기도 끝났어요. 시안에서 번호를 고르고 '공개'라고 보내 주시면 "
+                         "그 시안으로 사이트를 열어 드려요.")
+            else:
+                reply = f"사이트 파일 만들기가 끝났어요: {deploy_url}"
             # 완료를 알리는 턴에 사장님이 고칠 말을 보냈으면 그것도 반영한다(말이 묻히지 않게).
             if user_text and session.get("prd"):
                 edit = _edit_after_design(session, user_text, by, is_owner)

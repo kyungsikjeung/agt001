@@ -50,7 +50,7 @@ def _send(page, text: str) -> None:
 def _wait_log_has(page, piece: str, timeout_ms: int) -> None:
     """채팅 기록(#log)에 piece 글자가 나타날 때까지 기다린다."""
     page.wait_for_function(
-        "([t]) => (document.querySelector('#log') || {}).innerText?.includes(t)",
+        "(t) => (document.querySelector('#log') || {}).innerText?.includes(t)",
         arg=piece,
         timeout=timeout_ms,
     )
@@ -59,7 +59,7 @@ def _wait_log_has(page, piece: str, timeout_ms: int) -> None:
 def _wait_cards(page, count: int, timeout_ms: int) -> None:
     """시안 카드(.design-card)가 count개 보일 때까지 기다린다."""
     page.wait_for_function(
-        "([n]) => document.querySelectorAll('.design-card').length >= n",
+        "(n) => document.querySelectorAll('.design-card').length >= n",
         arg=count,
         timeout=timeout_ms,
     )
@@ -185,11 +185,15 @@ def run(base_url: str, out: Path, step_timeout_ms: int) -> int:
             def s8():
                 nonlocal site_url
                 _send(page, "공개")
-                try:
-                    _wait_log_has(page, "/site/", step_timeout_ms * 2)
-                except Exception:
+                # 빈 자리 확인 질문("그대로 공개")이 오면 바로 답하고, 아니면 공개 주소를 기다린다
+                page.wait_for_function(
+                    "() => { const t = (document.querySelector('#log') || {}).innerText || '';"
+                    " return t.includes('사이트를 열었어요') || t.includes(\"'그대로 공개'\"); }",
+                    timeout=step_timeout_ms * 2,
+                )
+                if "사이트를 열었어요" not in page.evaluate("() => document.querySelector('#log').innerText"):
                     _send(page, "그대로 공개")
-                    _wait_log_has(page, "/site/", step_timeout_ms * 2)
+                _wait_log_has(page, "사이트를 열었어요", step_timeout_ms * 2)
                 found = _find_site_url(page)
                 if not found:
                     raise AssertionError("채팅 기록에 /site/ 주소 없음")
