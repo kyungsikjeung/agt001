@@ -125,7 +125,7 @@ D2 exit 0
 
 | # | 할 일 | 근거 |
 |---|---|---|
-| N-1 | T3 재측정 결과 반영(`494bd7f` 수정 뒤 재측정, 1차 10/34 기준) | T3_FAILURE_ANALYSIS §3·§4, STATUS §4-1 |
+| N-1 | T3 재측정 결과 반영(`494bd7f` 수정 뒤 재측정, 1차 10/34 기준). → r3(36중 14, 9/26 14:04)가 현 코드 베이스라인임을 확인. N-2/N-3 구현 뒤 r4 필요하나 NIM 무료 한도 소진(RateLimit, 9/26 16시)으로 대기. 재실행: `set -a; . ./.env; set +a; .venv/bin/python evals/run_simulation.py --live --out docs/product/evals/simulation-2026-09-26-r4.md` | T3_FAILURE_ANALYSIS §3·§4, STATUS §4-1 |
 | N-2 | 엔진 T3 분석 2순위: 칸 오분류 수정(가격 딸린 메뉴 뭉침, 대상·품목·목적 혼동) | T3_FAILURE_ANALYSIS §3 엔진 2순위 |
 | N-3 | 엔진 T3 분석 3순위: 근거 없는 칸 채우지 않기(묻지도 사실표에도 없는 target·features를 FILLED로 두지 않기) | T3_FAILURE_ANALYSIS §3 엔진 3순위 |
 | N-4 | 엔진 T3 분석 5순위: 첫 메시지 흡수(첫 턴에 채운 칸은 묻지 않고 남은 칸만 묻기) | T3_FAILURE_ANALYSIS §3 엔진 5순위 |

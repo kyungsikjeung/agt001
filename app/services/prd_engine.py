@@ -135,6 +135,7 @@ def _system_prompt() -> str:
         "너는 소상공인 웹사이트 요구사항을 정리하는 추출기다. 사장님의 이번 메시지에서 아래 칸에 해당하는 말만 뽑는다.\n"
         "규칙: 사장님이 실제로 말한 것만 뽑는다. 말하지 않은 전화번호·주소·가격·영업시간은 절대 만들지 않는다. "
         "해당하는 말이 없으면 그 칸은 넣지 않는다. 값이 여러 개인 칸은 항목마다 한 줄씩 따로 넣는다. "
+        "메뉴와 가격이 붙어 있으면('아메리카노 5천원') 반드시 메뉴와 가격으로 나눠서 넣는다. "
         "직전 질문에 대한 짧은 대답(예: '전화요')은 그 질문의 칸으로 해석한다. JSON만 출력한다.\n"
         f"칸 정의:\n{lines}\n출력 형식(JSON 스키마):\n{json.dumps(_SCHEMA, ensure_ascii=False)}"
     )
@@ -263,6 +264,8 @@ _META_GOAL = re.compile(r"(홈페이지|사이트|웹사이트)\s*(제작|만들
 
 def _strip_label(ind, key: str, value: str) -> str:
     """"대표 메뉴 아메리카노", "대표 메뉴: 라떼"처럼 칸 이름이 값 앞에 붙어 오면 뗀다(T3 카페 시나리오)."""
+    if isinstance(value, list):
+        return [_strip_label(ind, key, v) for v in value]
     v = (value or "").strip()
     for label in sorted({S.label_for(ind, key), S.SLOTS[key].label}, key=len, reverse=True):
         for part in [label] + [x for x in re.split(r"[·/]", label) if len(x) >= 2]:
@@ -273,7 +276,94 @@ def _strip_label(ind, key: str, value: str) -> str:
     return v
 
 
+# N-2: 메뉴·가격 뭉침 분리 ("아메리카노 5천원" → 메뉴는 offerings, 가격은 price, T3 e013·e025 계열).
+_PRICE_RE = re.compile(
+    r"(?<![가-힣a-z0-9])(?:월\s*|달에\s*|한\s*달\s*)?"
+    r"[0-9영공일이삼사오육칠팔구십백천만억\s,]*[0-9영공일이삼사오육칠팔구십백천만억]"
+    r"[0-9영공일이삼사오육칠팔구십백천만억\s,]*\s*(?:만원|천원|백원|십원|원)")
+
+
+def _cut_price(item: str) -> tuple[str, Optional[str]]:
+    """값 하나를 (메뉴 부분, 가격 부분)으로 나눈다. 나눌 게 없으면 (원본, None)."""
+    m = _PRICE_RE.search(item or "")
+    if not m:
+        return item, None
+    price = m.group(0).strip()
+    menu = _PARTICLE_SUFFIX.sub("", _PRICE_RE.sub(" ", item))
+    menu = re.sub(r"\s+", " ", menu).strip(" ·,/-")
+    menu = _LEADING_FILLER.sub("", menu).strip()
+    menu = re.sub(r"(부터|까지|정도|약)$", "", menu).strip()
+    if not menu or len(menu) < 2 or _is_control(menu):
+        return item, None
+    return menu, price
+
+
+def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
+    """추출이 메뉴·가격을 뭉쳐 돌려주면 나누고, 같은 턴의 가격은 하나로 합친다.
+
+    나누는 조건: 메뉴 부분·가격 부분 둘 다 사장님 말에 있어야 한다. 아니면 원본 그대로 둔다.
+    """
+    if not any(u["slot"] in ("offerings", "price") for u in updates):
+        return updates
+    norm_t = _norm_text(text)
+    out: list[dict] = []
+    price_parts: list[str] = []
+    menu_parts: list[str] = []
+    touched = False
+    for u in updates:
+        if u["slot"] == "offerings":
+            menus = []
+            for item in _split_items(u["value"]):
+                menu, price = _cut_price(item)
+                if price is not None and menu != item and price in norm_t and menu in norm_t:
+                    menus.append(menu)
+                    if price not in price_parts:
+                        price_parts.append(price)
+                    touched = True
+                else:
+                    menus.append(item)
+            out.append({"slot": "offerings", "value": ", ".join(menus)})
+        elif u["slot"] == "price":
+            for item in _split_items(u["value"]):
+                menu, price = _cut_price(item)
+                if price is not None and menu != item and price in norm_t and menu in norm_t:
+                    if price not in price_parts:
+                        price_parts.append(price)
+                    if menu not in menu_parts:
+                        menu_parts.append(menu)
+                    touched = True
+                elif item not in price_parts and grounded("price", item, text):
+                    # 지어낸 가격은 합치기 전에 버린다 (합친 뒤에는 통째로 탈락하므로).
+                    price_parts.append(item)
+            # price 업데이트는 아래에서 합쳐서 다시 넣는다
+        else:
+            out.append(u)
+    if not touched and not any(u["slot"] == "price" for u in updates):
+        return updates
+    if menu_parts:
+        out.append({"slot": "offerings", "value": ", ".join(menu_parts)})
+    if price_parts or any(u["slot"] == "price" for u in updates):
+        out.append({"slot": "price", "value": ", ".join(price_parts)})
+    return out
+
+
+def _in_history(value: str, history: str) -> bool:
+    """N-3: 값이 지금까지 대화에 근거가 있는지 (채점의 지어냄 판정과 같은 기준)."""
+    s = (value or "").strip()
+    if not s:
+        return False
+    if s in history:
+        return True
+    d = re.sub(r"\D", "", s)
+    if d and d in re.sub(r"\D", "", history):
+        return True
+    nh = _norm(history)
+    words = [w for w in re.split(r"[\s,·/]+", s) if len(_norm(w)) >= 2]
+    return any(_norm(w) in nh for w in words)
+
+
 def _judge_features(card: dict) -> None:
+
     """새로 들어온 기능 요구를 사례집으로 판정한다 (§2 ⑧~⑬). 확인 질문은 줄에 세우고, 알림은 이번 턴 메모로 남긴다."""
     judged = card.setdefault("features_judged", [])
     seen = {v["text"] for v in judged}
@@ -302,11 +392,22 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
     """추출 결과를 규칙에 맞춰 카드에 넣는다. 반영한 칸 키 목록을 돌려준다."""
     turn = card["turn"]
     applied = []
+    updates = _separate_menu_price(updates, text)  # N-2: 메뉴·가격 뭉침 분리
+    # N-3: 근거 판단용 대화 기록 (turn()은 said에 현재 메시지를 먼저 넣어 둔다).
+    history = "\n".join([*(card.get("said") or []), text])
     for u in updates:
         key, value = u["slot"], u["value"]
         if not grounded(key, value, text):
             log.info("근거 없는 사실 버림: %s", key)
             continue
+        if (key in ("target", "features") and key not in industry_of(card).required
+                and (card.get("pending") or {}).get("slot") != key):
+            # N-3: 묻지도 않은 대상·기능을 근거 없이 채우지 않는다. 근거 있는 항목만 살린다.
+            if S.SLOTS[key].multi:
+                value = ", ".join(i for i in _split_items(value) if _in_history(i, history))
+            elif not _in_history(value, history):
+                log.info("근거 없는 %s 버림: %s", key, value)
+                continue
         spec = S.SLOTS[key]
         value = _strip_label(industry_of(card), key, value)
         if not value or _is_control(value) or (key == "goal" and _META_GOAL.search(value)):

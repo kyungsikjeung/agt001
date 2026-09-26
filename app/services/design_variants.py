@@ -9,6 +9,7 @@ from functools import lru_cache
 from typing import Optional
 
 from app.config import settings
+from app.services import design_concept as DC
 from app.services import intake
 from app.services import prd_engine as E
 from app.services import prd_schema as S
@@ -25,9 +26,9 @@ VARIANTS = (
                                             "radius": "sharp", "font_pair": "gothic-strong"}),
 )
 # 안마다 색 계열이 겹치지 않게 고른다(같은 초록끼리면 3안이 비슷해 보인다).
-_PALETTE_GROUPS = {"forest": "green", "moss": "green", "navy": "blue", "coffee": "warm", "brick": "warm",
-                   "charcoal-gold": "dark"}
-_PALETTE_ORDER = ("navy", "brick", "charcoal-gold", "forest", "coffee", "moss")
+_PALETTE_GROUPS = {"forest": "green", "moss": "green", "sage": "green", "navy": "blue", "coffee": "warm", "brick": "warm",
+                   "tomato": "warm", "charcoal-gold": "dark"}
+_PALETTE_ORDER = ("navy", "brick", "charcoal-gold", "forest", "coffee", "moss", "tomato", "sage")
 
 # 숨은 항목 → 아이콘(templates/sections/features--icons.mustache 6종)
 _FEATURE_ICON = {"parking": "pin", "pickup": "pin", "shuttle": "pin", "pet": "heart", "kids": "heart",
@@ -85,6 +86,9 @@ def base_spec(card: dict) -> dict:
     """카드 내용을 업종 기본 조합에 채운 명세 (v1)."""
     ind = E.industry_of(card)
     spec = copy.deepcopy(_sample(_SAMPLE_FOR.get(ind.key, ind.key)))
+    # 디자인 컨셉(design_concept): 1안은 컨셉의 색·글꼴·여백·모서리를 그대로 쓴다. 없으면 업종 규칙 컨셉.
+    concept = card.get("concept") or DC.rule_concept(card)
+    spec["tokens"].update({k: concept[k] for k in ("palette", "font_pair", "density", "radius")})
     shop = _fact(card, "shop_name")
     phone, hours, address = _fact(card, "phone"), _fact(card, "hours"), _fact(card, "location")
     offerings = _values(card, "offerings")
@@ -100,6 +104,9 @@ def base_spec(card: dict) -> dict:
             continue
         c = sec["content"]
         if sec["type"] == "hero":
+            # 사진이 있으면 사진을 크게 깐 첫 화면, 없으면 컨셉 색을 넓게 깐 글자 중심 첫 화면(예시 그림을 겹치지 않음, Q-7)
+            sec["variant"] = "photo-overlay" if photos else "text-only"
+            c["facts"] = [{"label": lab, "value": val} for lab, val in (("영업", hours), ("위치", address)) if val]
             if photos:
                 c["image"] = photos[0]["url"]
                 c["image_alt"] = photos[0].get("caption") or f"{shop or '가게'} 대표 사진"
@@ -147,7 +154,12 @@ def base_spec(card: dict) -> dict:
         extra.append({"id": "inquiry", "type": "contact", "variant": "form", "content": {}})
     # 문의 부품은 후기 앞(보통 맨 끝 바로 앞)에 둔다.
     at = next((i for i, s in enumerate(sections) if s["type"] == "reviews"), len(sections))
-    spec["sections"] = sections[:at] + extra + sections[at:]
+    sections = sections[:at] + extra + sections[at:]
+    # 컨셉의 "먼저 보여 줄 것"을 첫 화면 바로 뒤로
+    lead = next((s for s in sections if s["type"] == concept.get("lead")), None)
+    if lead is not None and sections and sections[0]["type"] == "hero":
+        sections = [sections[0], lead] + [s for s in sections[1:] if s is not lead]
+    spec["sections"] = sections
     return spec
 
 
@@ -167,8 +179,9 @@ def variants(card: dict) -> list[dict]:
             for sec in spec["sections"]:
                 want = change.get(sec["type"])
                 if sec["type"] == "hero" and want == "photo":
-                    # 기본안과 다른 사진 배치: 겹침형이면 옆 배치로, 아니면 겹침형으로
-                    want = "photo-side" if sec["variant"] == "photo-overlay" else "photo-overlay"
+                    # 사진 강조형은 옆 배치: 1안(사진 있으면 겹침형, 없으면 글자형)과 늘 다르고,
+                    # 사진이 없을 때 예시 그림 위에 글자를 겹치지 않는다(Q-7)
+                    want = "photo-side"
                 if want:
                     sec["variant"] = want
             spec["sections"] = _reorder(spec["sections"], vid)

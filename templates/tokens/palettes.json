@@ -34,5 +34,17 @@
     "accent": "#0f7aa8",
     "ground": "#f4f7fd",
     "ink": "#1d2433"
+  },
+  "tomato": {
+    "primary": "#b3402c",
+    "accent": "#b7791f",
+    "ground": "#fff8f1",
+    "ink": "#2b1d17"
+  },
+  "sage": {
+    "primary": "#4d6457",
+    "accent": "#a8683a",
+    "ground": "#f6f5f0",
+    "ink": "#1f2521"
   }
 }

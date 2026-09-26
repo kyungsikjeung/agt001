@@ -45,6 +45,9 @@ _HERO_EMPTY_MARK = ('<div class="s-media__empty is-placeholder"'
 
 # image_style 선택지 (SPEC §1.5, 수치 파일 없음).
 _IMAGE_STYLES = ("full-bleed", "card", "circle-mini")
+# 프리텐다드 가변 글꼴(한글 부분 집합, SIL OFL). jsdelivr는 버전 고정 주소만 쓴다.
+PRETENDARD_CSS = ("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/"
+                  "pretendardvariable-dynamic-subset.min.css")
 
 # 예시 그림 원문 캐시 (종류·용도별 SVG, 인라인으로만 쓴다).
 _ILLUSTRATIONS: dict = {}
@@ -365,7 +368,11 @@ def _hero_context(content: dict) -> dict:
     image_src = _clean_url(image_raw) if isinstance(image_raw, str) else ""
     alt_raw = content.get("image_alt", "")
     image_alt = alt_raw if isinstance(alt_raw, str) and alt_raw else "가게 전경 사진"
+    facts = [f for f in (content.get("facts") or []) if isinstance(f, dict)
+             and isinstance(f.get("label"), str) and isinstance(f.get("value"), str) and f["value"].strip()][:3]
     return {
+        "facts": [{"label": f["label"], "value": f["value"]} for f in facts],
+        "has_facts": bool(facts),
         "title": content.get("title", "") if isinstance(content.get("title", ""), str) else "",
         "subtitle": content.get("subtitle", "") if isinstance(content.get("subtitle", ""), str) else "",
         "image_src": image_src,
@@ -720,9 +727,10 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
 
     page_title = title.strip() if isinstance(title, str) and title.strip() else "가게 홈페이지"
     css2_url = font_pair.get("css2_url") if isinstance(font_pair, dict) else None
-    font_link = ""
+    # 본문 글꼴 프리텐다드는 어느 글꼴 짝에서나 쓰므로 항상 불러온다(예전엔 안 불러와 휴대폰 기본 글꼴로 나왔다).
+    font_link = f'<link rel="stylesheet" href="{PRETENDARD_CSS}">'
     if isinstance(css2_url, str) and css2_url.startswith("https://"):
-        font_link = f'<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
+        font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
     doc = "\n".join([
         "<!doctype html>",
         '<html lang="ko">',

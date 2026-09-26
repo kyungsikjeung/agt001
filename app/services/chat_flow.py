@@ -9,7 +9,7 @@ import uuid
 from typing import Optional
 
 from app import store
-from app.services import codegen, deploy, design, funnel, prd_engine, prd_schema, quote, rag
+from app.services import codegen, deploy, design, design_concept, funnel, prd_engine, prd_schema, quote, rag
 
 log = logging.getLogger(__name__)
 
@@ -146,6 +146,20 @@ VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
 PUBLISH_WORDS = ("공개", "공개해줘", "공개해 주세요", "공개할게요", "그대로 공개")
 
 
+def _restyle(session: dict, text: str) -> str:
+    card = session["prd"]
+    current = card.get("concept") or design_concept.rule_concept(card)
+    new, said = design_concept.adjust(current, text)
+    if not said:
+        return "어떤 느낌으로 바꿀까요? 예: '더 고급스럽게', '더 따뜻한 색으로', '사진 먼저 보여 줘'"
+    card["concept"] = new
+    design.render_variants(session["requirement_id"], card)
+    if card.get("published"):
+        design.publish_choice(session["requirement_id"], card, card["published"])
+    return (f"{said}\n{design_concept.summary_line(new)}\n\n다시 그린 컨셉 보드와 시안: {session['design_url']}"
+            + ("\n공개 사이트에도 바로 반영했어요." if card.get("published") else ""))
+
+
 def _publish(session: dict, base_url: str, force: bool) -> str:
     """고른 시안을 공개한다. [입력 필요] 자리가 남았으면 먼저 알리고 한 번 더 확인받는다(⑱ 사람 최종 확인)."""
     card = session["prd"]
@@ -205,6 +219,9 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                  "이대로 사이트를 열려면 '공개'라고 보내 주세요. 바꾸고 싶으면 다른 번호를 보내 주세요.")
     elif publish_cmd:
         reply = _publish(session, base_url, force=user_text.strip() == "그대로 공개")
+    elif has_design and state in ("GENERATING", "DONE") and design_concept.is_style_request(user_text):
+        # 말로 디자인 고치기: 컨셉을 바꿔 시안 3안(공개했으면 공개본도)을 다시 그린다
+        reply = _restyle(session, user_text)
     elif state == "GENERATING" and session.get("codegen") is None and user_text and session.get("prd"):
         # 제작 중에도 가게 정보를 고칠 수 있다(시안 공개 전후 모두).
         reply = _edit_after_design(session, user_text, by, is_owner) or "사이트 파일을 만들고 있어요. 잠시만 기다려 주세요."
@@ -344,6 +361,9 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 # 방안 3: 빈 소개·첫 화면 문구를 AI 초안으로(사실은 지어내지 않음). 실패하면 초안 없이 만든다.
                 from app.services import copywriter
                 card["copy"] = copywriter.generate(card)
+            if card and card.get("slots") and not card.get("concept"):
+                # 디자인 컨셉 잡기: NIM이 색·글꼴·구성을 정하고(목록 안에서만), 그 컨셉으로 3안을 그린다
+                card["concept"] = design_concept.make(card)
             d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
                                      card=card)
             session["design_url"] = d["design_url"]
@@ -354,10 +374,14 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["state"] = "GENERATING"
             _set_room_status(room, "GENERATING")
             codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
+            concept_note = (f"디자인 컨셉을 잡았어요.\n{design_concept.summary_line(card['concept'])}\n\n"
+                            if card and card.get("concept") else "")
             reply = (
-                f"시안 3안이 준비됐어요: {d['design_url']}\n"
+                concept_note +
+                f"컨셉 보드와 시안 3안: {d['design_url']}\n"
                 + ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n"
                    if len(d.get("design_variants", [])) >= 3 else "\n") +
+                ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
                 ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
                    if (card or {}).get("copy") else "") +
                 ("지금은 사진 대신 예시 그림이 들어가 있어요. 📷 버튼으로 가게 사진을 올리면 시안에 바로 넣어 드려요.\n"

@@ -25,7 +25,7 @@ def test_design_page_200_and_404(client):
 
 
 def test_design_preview_png(client, monkeypatch):
-    from conftest import fake_png_screenshot
+    from fakes import fake_png_screenshot
 
     monkeypatch.setattr(design_svc, "screenshot_html", fake_png_screenshot)
     design_svc.render_design("withimg", "web", ["f"], 100, "basis")

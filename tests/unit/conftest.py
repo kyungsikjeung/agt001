@@ -4,7 +4,6 @@
 로컬: docker run -d --name agt001-pg-test -e POSTGRES_USER=agt001 -e POSTGRES_PASSWORD=agt001 \
   -e POSTGRES_DB=agt001_test -p 127.0.0.1:55432:5432 postgres:16-alpine
 """
-import json
 import os
 
 # 앱 import 전에 테스트용 환경변수를 고정한다 (.env를 읽지 않고 동작해야 함).
@@ -18,6 +17,7 @@ os.environ["DATABASE_URL"] = os.environ.get(
 )
 
 import pytest
+from fakes import VALID_QUOTE_JSON
 from fastapi.testclient import TestClient
 
 from app import llm, store
@@ -27,18 +27,6 @@ from app.main import create_app
 from app.services import codegen as codegen_svc
 from app.services import design as design_svc
 from app.services import rag
-
-VALID_QUOTE_JSON = json.dumps(
-    {
-        "options": [
-            {"id": "A", "weeks": 2, "amount": 1500000, "desc": "기본안"},
-            {"id": "B", "weeks": 1, "amount": 1000000, "desc": "최소안"},
-            {"id": "C", "weeks": 3, "amount": 2500000, "desc": "고급안"},
-        ],
-        "recommended": "B",
-    },
-    ensure_ascii=False,
-)
 
 _DOC_TEXTS = {d["text"] for d in rag.DOCS}
 

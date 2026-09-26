@@ -806,3 +806,195 @@ button:focus-visible,
 @media (min-width: 760px) {
   .s-video__list { grid-template-columns: 1fr 1fr 1fr; }
 }
+
+/* ==== 컨셉 디자인 층 (2026-09-26, "디자인 컨셉 잡기") ====
+ * 방향: 사진이 없어도 완성돼 보이는 글자 중심 에디토리얼. 컨셉 색을 첫 화면에 넓게 깔고,
+ * 크기·굵기 대비로 위계를 만든다. 장식 밑줄·제목 위 라벨·카드 윗선은 뺀다.
+ * 위 기본 규칙을 덮어쓴다(다른 작업과 충돌을 줄이려고 한 곳에 모음). */
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-size: 17px;
+  line-height: 1.65;
+  word-break: keep-all;          /* 한글 낱말 중간 줄바꿈 방지 (Q-9) */
+  overflow-wrap: anywhere;       /* 긴 주소·링크는 넘치지 않게 */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: color-mix(in srgb, var(--c-primary) 24%, transparent); color: var(--c-ink); }
+input, textarea { caret-color: var(--c-primary); accent-color: var(--c-primary); }
+
+section[class^="s-"] { padding-inline: 20px; }
+section[class^="s-"] h2 {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+section[class^="s-"] h2::after,
+.s-stats-band__title::after { content: none; }
+
+/* 첫 화면 공통: 아주 큰 가게 이름, 한 줄 소개, 정보 칩, 큰 버튼 */
+.s-title {
+  font-size: 44px;
+  font-size: clamp(40px, 12vw, 68px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+.s-lead { font-size: 18px; line-height: 1.55; margin: 0 0 4px; text-wrap: pretty; max-width: 32em; }
+
+.s-hero__facts {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  border-top: 1px solid var(--line);
+}
+.s-hero__fact-label { font-weight: 700; margin-right: 4px; }
+
+.s-btn {
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.s-btn:active { transform: scale(0.98); }
+.s-hero__cta { margin-top: 26px; }
+.s-hero__cta .s-btn { min-height: 56px; padding: 14px 32px; font-size: 18px; }
+
+/* 글자형 첫 화면 = 컨셉 색 면: 사진이 없을 때 기본. 이름이 화면을 채운다 */
+.s-hero--text-only {
+  max-width: none;
+  padding: 0;
+  min-height: 78vh;
+  min-height: 78svh;
+  justify-content: flex-end;
+  background: var(--c-primary);
+  color: var(--on-primary);
+}
+.s-hero--text-only .s-hero__body {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 104px 20px 44px;
+}
+.s-hero--text-only .s-title { color: var(--on-primary); }
+.s-hero--text-only .s-lead { color: color-mix(in srgb, var(--on-primary) 88%, var(--c-primary)); }
+.s-hero--text-only .s-hero__facts {
+  color: var(--on-primary);
+  border-top-color: color-mix(in srgb, var(--on-primary) 32%, transparent);
+}
+.s-hero--text-only .s-btn {
+  background: var(--c-ground);
+  border-color: var(--c-ground);
+  color: var(--c-primary);
+  box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.45);
+}
+.s-hero--text-only .s-btn:visited { color: var(--c-primary); }
+.s-hero--text-only a:focus-visible { outline-color: var(--c-ground); }
+
+/* 사진 옆 배치(사진 강조형): 휴대폰에서는 사진(없으면 예시 그림)을 위에 크게, 글은 아래 */
+.s-hero--photo-side {
+  max-width: none;
+  padding: 0 0 12px;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  min-height: 0;
+}
+.s-hero--photo-side .s-hero__body { width: 100%; max-width: 720px; margin-inline: auto; padding: 28px 20px 8px; }
+.s-hero--photo-side .s-media img { height: 58vh; height: 58svh; border-radius: 0; }
+.s-hero--photo-side .s-media .s-illu { border-radius: 0; background: var(--ground-soft); }
+.s-hero--photo-side .s-media .s-illu svg { height: 320px; }
+.s-hero--photo-side .s-illu-badge { top: 14px; left: 16px; }
+
+/* 사진 겹침형(사진이 있을 때 1안) */
+.s-hero--photo-overlay .s-hero__body { padding: 72px 20px 40px; }
+.s-hero--photo-overlay .s-hero__facts { color: #fff; border-top-color: rgba(255, 255, 255, 0.35); }
+
+/* 메뉴·가격표 = 메뉴판: 상자 대신 줄로 나눈 목록 */
+.s-price-list { gap: 0; }
+.s-price-list__row,
+.s-offerings .s-price-list__row {
+  background: none;
+  box-shadow: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 16px 2px;
+  gap: 2px 16px;
+}
+.s-price-list li:first-child .s-price-list__row,
+.s-price-list > li:first-child { border-top: 1px solid var(--line); }
+.s-price-list__name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.s-price-list__desc { font-size: 15px; color: var(--muted); }
+.s-price-list__price { color: var(--c-primary); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* 카드: 윗선 없이 바탕·그림자만, 이름은 크게 */
+.s-card { border: 0; border-top: 0; padding: 20px; }
+.s-card__name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.s-card__desc { font-size: 15px; color: var(--muted); }
+.s-card__price { color: var(--c-primary); font-weight: 800; }
+.s-tabs__panel { border: 0; }
+
+/* 이용 안내 칸: 상자 테두리 빼고 가볍게 */
+.s-feature { border: 0; box-shadow: none; background: var(--ground-soft); }
+.s-feature__title { font-size: 15px; }
+.s-feature__desc { font-size: 14px; }
+
+/* 작은 글자는 14px 이상 */
+.s-gallery figcaption,
+.s-review__by,
+.s-review__src,
+.s-video__src,
+.s-video__platform,
+.s-stats__item dt,
+.s-stats-band__label,
+.s-form__hint,
+.s-form__notice,
+.s-gallery__notice { font-size: 14px; }
+.s-illu-badge { font-size: 13px; }
+
+/* 문의 양식: 누르기 쉬운 크기 (Q-8) */
+.s-form__row input[type="text"],
+.s-form__row textarea { font-size: 17px; border: 1.5px solid var(--line); border-color: color-mix(in srgb, var(--c-ink) 28%, transparent); }
+.s-form__row input[type="text"]:focus,
+.s-form__row textarea:focus { outline: 3px solid color-mix(in srgb, var(--c-primary) 35%, transparent); outline-offset: 1px; border-color: var(--c-primary); }
+.s-form__agree input[type="checkbox"] { width: 24px; height: 24px; margin-top: 10px; }
+
+/* 첫 화면 움직임: 투명에서 시작하지 않는다(미리보기가 흐리게 찍히던 원인, Q-1). 제자리에서 살짝 올라온다 */
+@keyframes s-settle {
+  from { transform: translateY(12px); }
+  to { transform: none; }
+}
+.s-hero { animation: none; }
+.s-hero__body { animation: s-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (min-width: 760px) {
+  section[class^="s-"] h2 { font-size: 34px; }
+  .s-hero--text-only .s-hero__body { padding: 140px 24px 64px; }
+  .s-hero--photo-side { display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 48px 24px; max-width: 1080px; margin-inline: auto; }
+  .s-hero--photo-side .s-media { order: 2; }
+  .s-hero--photo-side .s-media img { height: 480px; border-radius: var(--radius-card); }
+  .s-hero--photo-side .s-media .s-illu { border-radius: var(--radius-card); }
+  .s-hero--photo-side .s-media .s-illu svg { height: 480px; }
+  .s-offerings--list-price .s-price-list { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-hero__body { animation: none; }
+  .s-btn { transition: none; }
+}
+.s-contact__row { align-items: center; }
+/* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
+section.s-hero .s-hero__cta { margin: 26px 0 0; }
+section.s-hero .s-lead { margin: 0 0 4px; }

@@ -11,7 +11,7 @@ from app.services.quote import (
     parse_quote,
 )
 
-from conftest import VALID_QUOTE_JSON
+from fakes import VALID_QUOTE_JSON
 
 
 def test_parse_quote_valid_json():

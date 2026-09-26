@@ -156,6 +156,8 @@ def measure(pages: list[dict], out_dir: Path) -> None:
                 page.wait_for_load_state("load")
                 pg["m"] = page.evaluate(_PROBE, pg["expect"])
                 shot = out_dir / (pg["html"].stem + ".png")
+                # 전체 캡처에서는 화면 아래 고정 버튼이 부품 맨 위로 끌려 올라가 겹쳐 보인다(실제 휴대폰에서는 정상)
+                page.add_style_tag(content=".s-contact__sticky{position:static}")
                 page.screenshot(path=str(shot), full_page=True)
                 page.screenshot(path=str(out_dir / (pg["html"].stem + "-fold.png")))
                 pg["shot"] = shot

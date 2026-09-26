@@ -2,7 +2,7 @@
 from app import store
 from app.services import codegen as codegen_svc
 
-from conftest import fake_codegen_timeout, fake_codegen_unavailable
+from fakes import fake_codegen_timeout, fake_codegen_unavailable
 
 
 def _chat(client, message, session_id=None):

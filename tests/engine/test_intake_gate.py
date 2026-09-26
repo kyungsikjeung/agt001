@@ -108,9 +108,9 @@ def test_ready_feature_in_spec(fake_extract):
 
 
 def test_confirm_bonus_capped(fake_extract):
-    msg = "카페"
+    msg = "카페예요. 카톡 채널 연결, 수강 신청, 인스타그램 연동, 행사 신청, 쿠폰 이벤트, 다국어 안내를 넣어 주세요"
     fake_extract[msg] = [u("business_type", "카페"),
-                         u("features", "카톡 채널 연결, 수강 신청, 인스타그램 연동, 행사 신청, 쿠폰 이벤트, 다국어")]
+                         u("features", "카톡 채널 연결, 수강 신청, 인스타그램 연동, 행사 신청, 쿠폰 이벤트, 다국어 안내")]
     card = E.new_card()
     E.turn(card, msg)
     assert E.budget(card) == S.MAX_QUESTIONS + S.FEATURE_BONUS_MAX
