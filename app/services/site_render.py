@@ -594,6 +594,29 @@ def _section_context(
         ctx["has_items"] = bool(items)
     elif section_type == "reviews" and variant == "slot-only":
         pass
+    elif section_type == "features" and variant == "icons":
+        # P2 새 부품(templates/README.md §3): 아이콘 6종 중 하나만 참으로
+        icons = ("star", "pin", "clock", "phone", "leaf", "heart")
+        items = []
+        for raw in content.get("items", [])[:6] if isinstance(content.get("items"), list) else []:
+            if not isinstance(raw, dict) or not _text(raw, "title"):
+                continue
+            icon = raw.get("icon") if raw.get("icon") in icons else "star"
+            items.append({"title": _text(raw, "title"), "desc": _text(raw, "desc"), "icon": icon,
+                          **{f"icon_{i}": i == icon for i in icons}})
+        if not items:
+            return None
+        ctx["label"] = _text(content, "label")
+        ctx["items"] = items
+        ctx["has_items"] = True
+    elif section_type == "stats" and variant == "band":
+        items = [{"value": _text(r, "value"), "label": _text(r, "label")}
+                 for r in (content.get("items") or []) if isinstance(r, dict) and _text(r, "value")][:4]
+        if not items:
+            return None  # 사장님이 말한 숫자가 없으면 띠를 두지 않는다
+        ctx["title"] = _text(content, "title")
+        ctx["items"] = items
+        ctx["has_items"] = True
     elif section_type == "video" and variant == "card":
         items = _video_items(content)
         if not items:

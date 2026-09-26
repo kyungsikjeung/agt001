@@ -61,3 +61,15 @@ def test_form_from_contact_method():
     E._put(card, "contact_method", "사이트 문의 양식", S.FILLED, 1)
     types = [(s["type"], s["variant"]) for s in DV.base_spec(card)["sections"]]
     assert ("contact", "form") in types
+
+
+def test_hidden_items_become_icon_features():
+    """방안 6: 고른 숨은 항목(주차·반려동물)과 덧붙인 말이 '이용 안내' 아이콘 칸으로 들어간다."""
+    from app.services.site_render import render_site
+    card = E.new_card("pension")
+    card["hidden"] = {"asked": True, "selected": ["parking", "pet"], "note": "소형견만 가능해요"}
+    spec = DV.base_spec(card)
+    feat = next(s for s in spec["sections"] if s["type"] == "features")
+    assert [i["title"] for i in feat["content"]["items"]] == ["주차", "반려동물 동반"]
+    html = render_site(spec, kind="pension", public=True)
+    assert "이용 안내" in html and "소형견만 가능해요" in html and "<svg" in html

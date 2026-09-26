@@ -29,6 +29,11 @@ _PALETTE_GROUPS = {"forest": "green", "moss": "green", "navy": "blue", "coffee":
                    "charcoal-gold": "dark"}
 _PALETTE_ORDER = ("navy", "brick", "charcoal-gold", "forest", "coffee", "moss")
 
+# 숨은 항목 → 아이콘(templates/sections/features--icons.mustache 6종)
+_FEATURE_ICON = {"parking": "pin", "pickup": "pin", "shuttle": "pin", "pet": "heart", "kids": "heart",
+                 "family": "heart", "wheelchair": "heart", "reserve": "clock", "same_day": "clock",
+                 "regular": "clock", "trial": "star", "online": "phone", "wifi": "phone", "bbq": "leaf",
+                 "takeout": "leaf", "delivery": "leaf", "supplies": "leaf"}
 # "뺄 것"에 이런 말이 있으면 해당 부품을 뺀다.
 _EXCLUDE_TYPES = {"후기": "reviews", "리뷰": "reviews", "사진": "gallery", "갤러리": "gallery",
                   "지도": "around", "주변": "around", "오시는": "around", "소개": "intro"}
@@ -123,6 +128,15 @@ def base_spec(card: dict) -> dict:
     if _wants_kakao_channel(card):
         extra.append({"id": "kakao", "type": "contact", "variant": "kakao-channel",
                       "content": {"kakao_channel_url": card.get("kakao_channel_url") or ""}})
+    # 편의 안내(방안 6): 사장님이 고른 숨은 항목(주차·반려동물 동반 등)을 아이콘 칸으로. 덧붙인 말은 설명으로.
+    chosen = [(k, label) for k, label in ind.hidden if k in (card.get("hidden") or {}).get("selected", [])]
+    if chosen:
+        note = (card.get("hidden") or {}).get("note") or ""
+        feats = [{"title": label, "desc": note if i == 0 else "", "icon": _FEATURE_ICON.get(k, "star")}
+                 for i, (k, label) in enumerate(chosen)]
+        at = next((i + 1 for i, s in enumerate(sections) if s["type"] == "offerings"), len(sections))
+        sections.insert(at, {"id": "features", "type": "features", "variant": "icons",
+                             "content": {"label": "이용 안내", "items": feats}})
     # 영상 카드(방안 5): 소개 바로 뒤에
     if card.get("videos"):
         at_intro = next((i + 1 for i, s in enumerate(sections) if s["type"] == "intro"), 1)
