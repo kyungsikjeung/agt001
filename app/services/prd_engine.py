@@ -52,6 +52,9 @@ def _spoken_phone(text: str) -> str:
 
 
 _KO_ONE = {"공": 0, "영": 0, "빵": 0, "일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "육": 6, "륙": 6, "칠": 7, "팔": 8, "구": 9}
+# 사실 칸 선택지 중 값이 아닌 것 → 이어서 물을 말
+_FOLLOWUP = {"hours": {"매일 같은 시간": "몇 시부터 몇 시까지 여나요? 예: 10시~21시",
+                       "요일마다 달라요": "요일별로 알려 주세요. 예: 평일 10~21시, 주말 11~18시"}}
 # 리뷰어 에이전트(요약 직전 1회)가 보는 원문 범위
 SAID_MAX, SAID_CHARS = 40, 300
 # 같은 칸을 못 채운 채 이 횟수만큼 물으면 가정·자리 표시로 넘어간다 (INTAKE_GATE_DESIGN §5).
@@ -248,6 +251,28 @@ def _slot_label_hit(ind, slot_key: str, norm_text: str) -> bool:
     return any(tok in norm_text for tok in tokens)
 
 
+def _is_control(text: str) -> bool:
+    """칸 값이 아닌 진행 말("잘 모르겠어요", "알아서 해주세요" 변형)."""
+    n = _norm(text)
+    return n in _CONTROL_NORMS or any(w in n for w in ("모르겠", "몰라요", "모름", "글쎄"))
+
+
+# 사이트 목적 칸에 들어오면 안 되는 말: 사이트를 만든다는 것 자체는 목적이 아니다(T3 cafe-let_ai)
+_META_GOAL = re.compile(r"(홈페이지|사이트|웹사이트)\s*(제작|만들|개설)")
+
+
+def _strip_label(ind, key: str, value: str) -> str:
+    """"대표 메뉴 아메리카노", "대표 메뉴: 라떼"처럼 칸 이름이 값 앞에 붙어 오면 뗀다(T3 카페 시나리오)."""
+    v = (value or "").strip()
+    for label in sorted({S.label_for(ind, key), S.SLOTS[key].label}, key=len, reverse=True):
+        for part in [label] + [x for x in re.split(r"[·/]", label) if len(x) >= 2]:
+            if v.startswith(part) and len(v) > len(part):
+                rest = v[len(part):].lstrip(" :：-은는이가요")
+                if rest:
+                    return rest
+    return v
+
+
 def _judge_features(card: dict) -> None:
     """새로 들어온 기능 요구를 사례집으로 판정한다 (§2 ⑧~⑬). 확인 질문은 줄에 세우고, 알림은 이번 턴 메모로 남긴다."""
     judged = card.setdefault("features_judged", [])
@@ -283,6 +308,9 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             log.info("근거 없는 사실 버림: %s", key)
             continue
         spec = S.SLOTS[key]
+        value = _strip_label(industry_of(card), key, value)
+        if not value or _is_control(value) or (key == "goal" and _META_GOAL.search(value)):
+            continue
         if key == "exclude":
             terms = [_clean_exclude_term(v) for v in _split_items(value)]
             terms = [v for v in terms if v]
@@ -441,6 +469,11 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             return True
         return None  # 목록 밖 대답은 자유 대답으로 추출한다
     # 한 칸 질문
+    # 선택지가 "1) 2) 3)"로 보이므로 번호로 답하면 그 선택지다(T3: 목적 칸에 "3"이 들어가던 문제).
+    opts = p.get("options") or []
+    if re.fullmatch(r"\s*([1-9])\s*(번|번이요|번요)?\s*[.)]?\s*", t) and 1 <= int(re.search(r"[1-9]", t).group(0)) <= len(opts):
+        t = opts[int(re.search(r"[1-9]", t).group(0)) - 1]
+        n = _norm(t)
     # B-7: 거절 표현이면 그 칸을 REJECTED로 한다 (D23의 "이 항목 빼기"에 해당, 사실 칸 포함).
     # "빼주세요" 계열은 칸 이름이 함께 있어야 거절로 본다 (B-13 제외 흐름과 충돌 방지).
     if any(p in n for p in REJECT_PATTERNS):
@@ -462,6 +495,12 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
         _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
     elif t in p.get("options", []) or _fuzzy_option_match(n, t, p.get("options", [])) is not None:
         o = t if t in p.get("options", []) else _fuzzy_option_match(n, t, p.get("options", []))
+        follow = _FOLLOWUP.get(key, {}).get(o)
+        if follow:
+            # "매일 같은 시간"은 영업시간 값이 아니다: 실제 시간을 한 번 더 묻는다(T3 카페 시나리오).
+            card["followup"] = {"slot": key, "text": follow}
+            card["pending"] = None
+            return True
         if S.SLOTS[key].fact and not is_owner:
             _put(card, key, _norm_text(o), S.PENDING_OWNER, card["turn"], by)
         else:
@@ -499,6 +538,10 @@ def _fuzzy_option_match(normed: str, raw: str, options: list) -> Optional[str]:
 def next_question(card: dict) -> Optional[dict]:
     """다음에 물을 것 하나. 없으면 None."""
     ind = industry_of(card)
+    fu = card.pop("followup", None)
+    if fu and not _satisfied(card, fu["slot"]):
+        # kind "followup": 같은 칸을 더 자세히 묻는 이어 묻기(답은 한 칸 질문처럼 처리, 평가에서 중복으로 세지 않음)
+        return {"slot": fu["slot"], "kind": "followup", "options": [LATER], "text": fu["text"]}
     # 1) 방장 확인이 필요한 사실
     for key, slot in card["slots"].items():
         if slot["status"] == S.PENDING_OWNER:
@@ -619,7 +662,7 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             ask_slot = (prev_pending or {}).get("slot") if (prev_pending or {}).get("kind") == "single" else None
             # 추출이 아무것도 못 뽑은 잡담은 여기 해당하지 않는다(뭔가 뽑았는데 칸만 엇나간 경우만).
             if (ask_slot and ups and ask_slot not in applied and not S.SLOTS[ask_slot].fact and ask_slot != "business_type"
-                    and len(t) <= 30 and not _satisfied(card, ask_slot) and _norm(t) not in _CONTROL_NORMS):
+                    and len(t) <= 30 and not _satisfied(card, ask_slot) and not _is_control(t)):
                 value = _split_items(t) if S.SLOTS[ask_slot].multi else t
                 _put(card, ask_slot, value, S.FILLED, card["turn"], by)
                 applied = list(applied) + [ask_slot]

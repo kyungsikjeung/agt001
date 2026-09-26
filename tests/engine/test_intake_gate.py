@@ -162,3 +162,29 @@ def test_short_answer_goes_to_asked_slot_not_repeated(fake_extract):
     r = E.turn(card, "초등 미술반")
     assert card["slots"]["offerings"]["value"] == ["초등 미술반"]
     assert not (r["question"] and r["question"].get("slot") == "offerings")
+
+
+def test_number_answer_picks_option(fake_extract):
+    """선택지가 1) 2) 3)으로 보이므로 '2'는 두 번째 선택지다(T3: 목적 칸에 '3'이 들어가던 문제)."""
+    card = E.new_card("cafe")
+    card["pending"] = {"slot": "goal", "kind": "single", "options": ["예약·문의 늘리기", "가게 알리기", "메뉴·가격 안내", S.LET_AI], "text": "?"}
+    E.turn(card, "2")
+    assert card["slots"]["goal"]["value"] == "가게 알리기"
+
+
+def test_hours_option_asks_actual_time(fake_extract):
+    """'매일 같은 시간'은 영업시간 값이 아니다: 실제 시간을 한 번 더 묻는다."""
+    card = E.new_card("cafe")
+    card["pending"] = {"slot": "hours", "kind": "single", "options": ["매일 같은 시간", "요일마다 달라요", "나중에 넣을게요", S.LET_AI], "text": "?"}
+    r = E.turn(card, "매일 같은 시간")
+    assert "hours" not in card["slots"] and "몇 시부터" in r["question"]["text"]
+    fake_extract["10시부터 21시까지요"] = [u("hours", "10시~21시")]
+    E.turn(card, "10시부터 21시까지요")
+    assert card["slots"]["hours"]["value"] == "10시~21시"
+
+
+def test_label_prefix_is_stripped(fake_extract):
+    fake_extract["대표 메뉴 아메리카노"] = [u("offerings", "대표 메뉴 아메리카노")]
+    card = E.new_card("cafe")
+    E.turn(card, "대표 메뉴 아메리카노")
+    assert card["slots"]["offerings"]["value"] == ["아메리카노"]

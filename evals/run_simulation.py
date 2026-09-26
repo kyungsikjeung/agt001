@@ -262,13 +262,29 @@ def _value_matches(fact, got) -> bool:
     if got is None or got == "" or got == []:
         return False
     if isinstance(fact, list) or isinstance(got, list):
-        f = fact if isinstance(fact, list) else [fact]
+        # 사실표는 "아메리카노, 라떼"처럼 쉼표로 적힌 문자열인 경우가 많다
+        f = fact if isinstance(fact, list) else re.split(r"\s*[,、]\s*", str(fact))
         g = got if isinstance(got, list) else [got]
-        fs = {str(x).strip() for x in f if str(x).strip()}
-        gs = {str(x).strip() for x in g if str(x).strip()}
+        fs = {_nm(x) for x in f if _nm(x)}
+        gs = {_nm(x) for x in g if _nm(x)}
         return bool(fs & gs)
-    a, b = str(fact).strip(), str(got).strip()
-    return bool(a) and (a == b or a in b or b in a)
+    a, b = _nm(fact), _nm(got)
+    if bool(a) and (a == b or a in b or b in a):
+        return True
+    # 시간·가격: 숫자 값이 같으면 일치("매일 10~21시" = "10시부터 밤 9시까지", 오후는 +12)
+    try:
+        from app.services.numbers import numbers_in, value_numbers
+    except ImportError:
+        return False
+    fa = value_numbers(str(fact)) | numbers_in(str(fact))
+    gb = value_numbers(str(got)) | numbers_in(str(got))
+    gb |= {n + 12 for n in gb if isinstance(n, int) and 1 <= n <= 11}
+    return bool(fa) and fa <= gb
+
+
+def _nm(x) -> str:
+    """채점 비교용: 띄어쓰기·문장부호를 빼고 비교한다("예약·문의 늘리기" = "예약 문의 늘리기")."""
+    return re.sub(r"[^가-힣a-zA-Z0-9]", "", str(x)).lower()
 
 
 def _transcript_text(transcript) -> str:
@@ -311,11 +327,14 @@ def score_dialogue(scenario, result) -> dict:
 
     # 정확도: 채운 필수 칸 중 사실표와 일치하는 비율.
     match_n, denom = 0, 0
+    mismatches = []  # 분석용: 어느 칸이 무엇으로 틀렸는지
     for k in required:
         if k in facts and status(k) in (S.FILLED, S.ASSUMED) and value(k):
             denom += 1
             if _value_matches(facts[k], value(k)):
                 match_n += 1
+            else:
+                mismatches.append({"slot": k, "expected": facts[k], "got": value(k), "status": status(k)})
     accuracy = match_n / denom if denom else 1.0
 
     # 지어낸 값: filled인데 사실표에도 대화 어디에도 근거가 없는 값.
@@ -351,8 +370,13 @@ def score_dialogue(scenario, result) -> dict:
     asked, answered, dups, qi, last = set(), set(), 0, 0, None
     for m in transcript:
         if m.get("role") == "엔진":
-            s = questions[qi].get("slot") if qi < len(questions) else None
+            q_now = questions[qi] if qi < len(questions) else {}
+            s = q_now.get("slot")
             qi += 1
+            # 이어 묻기(followup)·방장 확인(owner_confirm)은 같은 칸을 다시 묻는 게 아니다
+            if s and q_now.get("kind") in ("followup", "owner_confirm"):
+                last = s
+                continue
             if s:
                 if s in asked and s in answered:
                     dups += 1
@@ -389,7 +413,7 @@ def score_dialogue(scenario, result) -> dict:
     passed = (fill_rate >= 0.95 and accuracy >= 0.95 and not invented
               and n_q <= max_q and dups == 0 and not violations)
     return {"scenario_id": scenario.get("id"), "fill_rate": round(fill_rate, 3),
-            "accuracy": round(accuracy, 3),
+            "accuracy": round(accuracy, 3), "mismatches": mismatches,
             "invented": invented, "critical_invented": critical,
             "questions": n_q, "max_questions": max_q, "duplicates": dups,
             "ire": round(ire, 3), "tkqr": round(tkqr, 3),
@@ -472,6 +496,13 @@ def write_markdown(results: list, path: str) -> str:
         L.append(f"| {name} | {line} | {got} | {'O' if ok else 'X'} |")
 
     failed = [r for r in results if not r["score"]["passed"]][:3]
+    L += ["", "## 틀린 칸 (정확도 미달·지어냄)", "", "| 시나리오 | 칸 | 기대 | 실제 | 상태 |", "|---|---|---|---|---|"]
+    for r in results:
+        sc = r["score"]
+        for m in sc.get("mismatches") or []:
+            L.append(f"| {sc['scenario_id']} | {m['slot']} | {m['expected']} | {m['got']} | {m['status']} |")
+        for inv in sc.get("invented") or []:
+            L.append(f"| {sc['scenario_id']} | {inv['slot']} | (근거 없음) | {inv['values']} | filled |")
     L += ["", "## 실패 대화 전문 (최대 3개)", ""]
     if not failed:
         L.append("실패 없음.")
