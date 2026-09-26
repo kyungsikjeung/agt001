@@ -27,7 +27,9 @@
     unsupportedType: '이 브라우저의 녹음 형식을 쓸 수 없어요. 휴대폰 키보드의 마이크 버튼으로 말해도 돼요.',
     tooMany: '요청이 너무 잦아요. 잠시 뒤에 다시 시도해 주세요.',
     unavailable: '지금은 음성 인식을 쓸 수 없어요. 키보드 마이크로 말해 주세요',
-    networkFail: '전송에 실패했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.'
+    networkFail: '전송에 실패했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.',
+    walkieTooShort: '길게 누르고 말해 주세요',
+    walkiePreview: '보내는 중… 취소하려면 취소를 눌러 주세요'
   };
 
   var micBtn = document.getElementById('micBtn');
@@ -140,6 +142,113 @@
   var origBtnHtml = micBtn.innerHTML;
 
   var STOP_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+  var DOT_SVG = '<svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><circle cx="5" cy="5" r="5"/></svg>';
+
+  // Walkie-talkie mode (push to talk). Default off, persisted in localStorage.
+  var WALKIE_KEY = 'agt001_walkie';
+  var WALKIE_MIN_MS = 500;
+  var WALKIE_PREVIEW_MS = 800;
+  var walkieOn = loadWalkie();
+  var walkieHolding = false;
+  var walkieSend = false;
+  var walkiePreviewTimer = null;
+  var walkieSwitch = null;
+  var walkieCancelBtn = null;
+
+  function loadWalkie() {
+    try {
+      if (typeof localStorage !== 'undefined') return localStorage.getItem(WALKIE_KEY) === '1';
+    } catch (e) { /* storage unavailable */ }
+    return false;
+  }
+
+  function saveWalkie(on) {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(WALKIE_KEY, on ? '1' : '0');
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function buzz() {
+    try {
+      if (navigator && typeof navigator.vibrate === 'function') navigator.vibrate(20);
+    } catch (e) { /* ignore */ }
+  }
+
+  function buildWalkieUI() {
+    try {
+      var wrap = document.createElement('div');
+      wrap.id = 'walkieRow';
+      wrap.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 16px;background:#fff;border-top:1px solid #e5e7eb;font-size:0.8125rem;color:#52525b;';
+      walkieSwitch = document.createElement('button');
+      walkieSwitch.type = 'button';
+      walkieSwitch.id = 'walkieSwitch';
+      walkieSwitch.setAttribute('role', 'switch');
+      walkieSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;';
+      walkieSwitch.addEventListener('click', function () {
+        setWalkie(!walkieOn);
+        try { micBtn.focus(); } catch (e) { /* ignore */ }
+      });
+      wrap.appendChild(walkieSwitch);
+      walkieCancelBtn = document.createElement('button');
+      walkieCancelBtn.type = 'button';
+      walkieCancelBtn.id = 'walkieCancel';
+      walkieCancelBtn.hidden = true;
+      walkieCancelBtn.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:0.8125rem;';
+      walkieCancelBtn.addEventListener('click', cancelWalkiePreview);
+      wrap.appendChild(walkieCancelBtn);
+      row.parentNode.insertBefore(wrap, row);
+    } catch (e) { /* UI build failure must not break voice input */ }
+  }
+
+  function setWalkie(on) {
+    walkieOn = !!on;
+    saveWalkie(walkieOn);
+    updateWalkieUI();
+  }
+
+  function updateWalkieUI() {
+    try {
+      if (walkieSwitch) {
+        walkieSwitch.setAttribute('aria-checked', walkieOn ? 'true' : 'false');
+        walkieSwitch.textContent = walkieOn ? '무전기 모드: 켜짐' : '무전기 모드: 꺼짐';
+        walkieSwitch.setAttribute('aria-label', walkieOn ? '무전기 모드 켜짐' : '무전기 모드 꺼짐');
+        walkieSwitch.style.background = walkieOn ? '#4338ca' : '#f7f7f8';
+        walkieSwitch.style.color = walkieOn ? '#fff' : '';
+        walkieSwitch.style.borderColor = walkieOn ? '#4338ca' : '';
+      }
+      if (!walkieOn) hideWalkieCancel();
+      updateMicLabel();
+    } catch (e) { /* ignore */ }
+  }
+
+  function updateMicLabel() {
+    try {
+      if (recording) {
+        micBtn.setAttribute('aria-label', walkieOn ? '녹음 중, 떼면 전송' : '녹음 정지');
+      } else {
+        micBtn.setAttribute('aria-label', walkieOn ? '누르고 말하기' : '말로 입력');
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  function showWalkieCancel() {
+    if (!walkieCancelBtn) return;
+    walkieCancelBtn.textContent = '취소';
+    walkieCancelBtn.setAttribute('aria-label', '전송 취소');
+    walkieCancelBtn.hidden = false;
+  }
+
+  function hideWalkieCancel() {
+    if (walkiePreviewTimer) { clearTimeout(walkiePreviewTimer); walkiePreviewTimer = null; }
+    if (walkieCancelBtn) walkieCancelBtn.hidden = true;
+  }
+
+  function cancelWalkiePreview() {
+    hideWalkieCancel();
+    walkieSend = false;
+    clearStatus();
+    try { input.focus(); } catch (e) { /* ignore */ }
+  }
 
   function elapsedText() {
     return Math.floor((Date.now() - startTime) / 1000) + '초';
@@ -155,17 +264,29 @@
       micBtn.style.borderColor = '#dc2626';
       micBtn.style.color = '#fff';
       micBtn.style.flexDirection = 'column';
-      micBtn.setAttribute('aria-label', '녹음 정지');
-      micBtn.innerHTML = STOP_SVG + '<span id="micTimer" style="font-size:10px;line-height:1.2;">0초</span>';
-      timerSpan = document.getElementById('micTimer');
+      updateMicLabel();
+      micBtn.innerHTML = STOP_SVG;
+      if (walkieOn) {
+        var dot = document.createElement('span');
+        dot.setAttribute('aria-hidden', 'true');
+        dot.innerHTML = DOT_SVG;
+        dot.style.cssText = 'line-height:1;color:#fff;';
+        micBtn.appendChild(dot);
+      }
+      var ts = document.createElement('span');
+      ts.id = 'micTimer';
+      ts.style.cssText = 'font-size:10px;line-height:1.2;';
+      ts.textContent = '0초';
+      micBtn.appendChild(ts);
+      timerSpan = ts;
     } else {
       micBtn.style.background = '';
       micBtn.style.borderColor = '';
       micBtn.style.color = '';
       micBtn.style.flexDirection = '';
-      micBtn.setAttribute('aria-label', '말로 입력');
       micBtn.innerHTML = origBtnHtml;
       timerSpan = null;
+      updateMicLabel();
     }
   }
 
@@ -210,8 +331,12 @@
     return 'webm';
   }
 
-  function startRecording() {
+  var walkieDownAt = 0;
+
+  function startRecording(isWalkie) {
     if (recording || uploading) return;
+    walkieSend = !!(isWalkie && walkieOn);
+    if (walkieSend) buzz();
     hideNumCheck();
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
       stream = s;
@@ -237,6 +362,11 @@
         recorder = null;
         cleanupStream();
         onRecordFail();
+        return;
+      }
+      // Walkie: pointer was released before permission resolved.
+      if (walkieSend && !walkieHolding && walkieOn) {
+        try { recorder.stop(); } catch (e) { onRecorderStop(); }
         return;
       }
       recording = true;
@@ -265,6 +395,11 @@
     clearTimers();
     recording = false;
     setRecordingUI(false);
+    var wasWalkie = walkieSend;
+    walkieSend = false;
+    var heldMs = walkieDownAt ? Date.now() - walkieDownAt : 9999;
+    walkieDownAt = 0;
+    walkieHolding = false;
     var type = '';
     try {
       type = (recorder && recorder.mimeType) || (chunks.length && chunks[0].type) || '';
@@ -273,6 +408,10 @@
     cleanupStream(); // 녹음 스트림은 정지 후 즉시 해제
     var blob = new Blob(chunks, { type: type || 'audio/webm' });
     chunks = [];
+    if (wasWalkie && heldMs < WALKIE_MIN_MS) {
+      showStatus(MSG.walkieTooShort);
+      return;
+    }
     if (!blob.size) {
       showStatus(MSG.emptyRecord);
       return;
@@ -281,10 +420,10 @@
       showStatus(MSG.tooBig); // 서버 413과 같은 안내
       return;
     }
-    upload(blob);
+    upload(blob, wasWalkie);
   }
 
-  function upload(blob) {
+  function upload(blob, isWalkie) {
     uploading = true;
     micBtn.disabled = true;
     showStatus(MSG.uploading);
@@ -315,6 +454,31 @@
         showStatus(MSG.emptyText);
         return;
       }
+      if (isWalkie && walkieOn) {
+        // Walkie: show briefly, allow cancel, then send immediately.
+        var curW = input.value.trim();
+        var combined = curW ? curW + ' ' + text : text;
+        input.value = combined;
+        input.focus();
+        if (hasNumber(text)) showNumCheck(); else hideNumCheck();
+        showStatus(MSG.walkiePreview);
+        showWalkieCancel();
+        walkieSend = true;
+        if (walkiePreviewTimer) clearTimeout(walkiePreviewTimer);
+        walkiePreviewTimer = setTimeout(function () {
+          walkiePreviewTimer = null;
+          if (!walkieSend) return;
+          walkieSend = false;
+          hideWalkieCancel();
+          clearStatus();
+          var toSend = input.value.trim() || combined;
+          try { input.value = ''; } catch (e) { /* ignore */ }
+          try {
+            if (typeof window.sendRoomMessage === 'function') window.sendRoomMessage(toSend);
+          } catch (e) { /* send failure keeps text cleared; status shows below */ }
+        }, WALKIE_PREVIEW_MS);
+        return;
+      }
       // 입력칸에 넣기만 한다. 자동 전송 금지. 기존 초안이 있으면 뒤에 이어 붙인다.
       var cur = input.value.trim();
       input.value = cur ? cur + ' ' + text : text;
@@ -333,11 +497,76 @@
     });
   }
 
+  function startWalkieHold() {
+    if (uploading) return;
+    if (recording) return;
+    hideWalkieCancel();
+    walkieHolding = true;
+    walkieDownAt = Date.now();
+    startRecording(true);
+  }
+
+  function endWalkieHold() {
+    if (!walkieHolding && !recording) return;
+    walkieHolding = false;
+    if (recording) stopRecording();
+    else {
+      // Released before recorder started; startRecording completion will stop itself.
+      // If nothing started, reset short-press timer state shortly.
+      var downAt = walkieDownAt;
+      setTimeout(function () {
+        if (!recording && walkieDownAt === downAt) {
+          walkieDownAt = 0;
+          walkieSend = false;
+        }
+      }, 50);
+    }
+  }
+
   micBtn.addEventListener('click', function () {
+    if (walkieOn) return; // walkie uses press-and-hold, ignore toggle click
     if (uploading) return;
     if (recording) stopRecording();
-    else startRecording();
+    else startRecording(false);
   });
+
+  micBtn.addEventListener('pointerdown', function (ev) {
+    if (!walkieOn) return;
+    if (uploading) return;
+    try { ev.preventDefault(); } catch (e) { /* ignore */ }
+    try { micBtn.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+    startWalkieHold();
+  });
+  micBtn.addEventListener('pointerup', function () {
+    if (!walkieOn) return;
+    endWalkieHold();
+  });
+  micBtn.addEventListener('pointercancel', function () {
+    if (!walkieOn) return;
+    endWalkieHold();
+  });
+  micBtn.addEventListener('pointerleave', function () {
+    if (!walkieOn) return;
+    if (walkieHolding && recording) endWalkieHold();
+  });
+  micBtn.addEventListener('keydown', function (ev) {
+    if (!walkieOn) return;
+    if (ev.key !== ' ' && ev.key !== 'Spacebar') return;
+    if (ev.repeat) { try { ev.preventDefault(); } catch (e) { /* ignore */ } return; }
+    try { ev.preventDefault(); } catch (e) { /* ignore */ }
+    startWalkieHold();
+  });
+  micBtn.addEventListener('keyup', function (ev) {
+    if (!walkieOn) return;
+    if (ev.key !== ' ' && ev.key !== 'Spacebar') return;
+    try { ev.preventDefault(); } catch (e) { /* ignore */ }
+    endWalkieHold();
+  });
+
+  buildWalkieUI();
+  updateWalkieUI();
+  window.setWalkieMode = setWalkie;
+  window.isWalkieOn = function () { return walkieOn; };
 })();
 
 /* static/voice.js 듣기 부분 — AI 답장 읽어주기 (POST /api/tts → WAV 재생)
@@ -406,7 +635,83 @@
     if (currentBtn) resetBtn(currentBtn);
     currentBtn = null;
     loading = false;
+    pumpAutoSoon();
   }
+
+  // Walkie auto-read queue: one at a time, new replies wait.
+  var autoQueue = [];
+  var autoAudio = null;
+  var autoUrl = null;
+
+  function isWalkieEnabled() {
+    try {
+      if (typeof window.isWalkieOn === 'function') return !!window.isWalkieOn();
+      if (typeof localStorage !== 'undefined') return localStorage.getItem('agt001_walkie') === '1';
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function cleanupAuto() {
+    if (autoAudio) {
+      try { autoAudio.pause(); } catch (e) { /* ignore */ }
+      autoAudio = null;
+    }
+    if (autoUrl) {
+      try { URL.revokeObjectURL(autoUrl); } catch (e) { /* ignore */ }
+      autoUrl = null;
+    }
+  }
+
+  function pumpAutoSoon() {
+    setTimeout(pumpAuto, 0);
+  }
+
+  function pumpAuto() {
+    if (autoAudio || currentAudio || loading) return;
+    var next = autoQueue.shift();
+    if (!next) return;
+    playAuto(next);
+  }
+
+  function playAuto(clean) {
+    fetch(TTS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': getMemberId() },
+      body: JSON.stringify({ text: clean })
+    }).then(function (res) {
+      if (res.ok) return res.blob();
+      throw new Error('tts fail');
+    }).then(function (blob) {
+      if (!blob || !blob.size) throw new Error('empty');
+      var url = URL.createObjectURL(blob);
+      var audio = new Audio(url);
+      autoUrl = url;
+      autoAudio = audio;
+      audio.onended = function () { cleanupAuto(); pumpAutoSoon(); };
+      audio.onerror = function () { cleanupAuto(); pumpAutoSoon(); };
+      var played = audio.play();
+      if (played && typeof played.catch === 'function') {
+        played.catch(function (err) {
+          // Autoplay blocked: keep existing listen buttons as the only guide.
+          cleanupAuto();
+          autoQueue.length = 0;
+        });
+      }
+    }).catch(function () {
+      cleanupAuto();
+      pumpAutoSoon();
+    });
+  }
+
+  window.queueWalkieTts = function (text) {
+    try {
+      if (!isWalkieEnabled()) return;
+      var clean = (text || '').trim().slice(0, MAX_CHARS);
+      if (!clean) return;
+      autoQueue.push(clean);
+      pumpAuto();
+    } catch (e) { /* ignore */ }
+  };
 
   window.speakAiText = function (text, btn) {
     if (!btn) return;
@@ -416,7 +721,8 @@
       return;
     }
     if (loading) return;
-    // 다른 답장을 듣던 중이면 멈추고 새로 시작한다.
+    // 다른 답장을 듣던 중이면 멈추고 새로 시작한다. 자동 읽기도 멈춘다.
+    cleanupAuto();
     stopAll();
     var clean = (text || '').trim().slice(0, MAX_CHARS);
     if (!clean) {

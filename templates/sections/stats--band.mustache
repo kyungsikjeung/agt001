@@ -1,0 +1,12 @@
+{{#has_items}}
+<section class="s-band s-stats--band" data-section-id="{{id}}"{{#title}} aria-labelledby="stats-band-title-{{id}}"{{/title}}{{^title}} aria-label="가게 숫자 안내"{{/title}}>
+  <div class="s-stats-band__inner">
+    {{#title}}<h2 class="s-stats-band__title" id="stats-band-title-{{id}}">{{title}}</h2>{{/title}}
+    <ul class="s-stats-band__list">
+      {{#items}}
+      <li><strong class="s-stats-band__value">{{value}}</strong><span class="s-stats-band__label">{{label}}</span></li>
+      {{/items}}
+    </ul>
+  </div>
+</section>
+{{/has_items}}

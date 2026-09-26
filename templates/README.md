@@ -24,7 +24,7 @@
   `""` 또는 `[]`로 두고, 렌더 시 템플릿의 `[… 입력]` 자리 표시가 노출된다.
   `locked`는 빈 배열로 시작한다.
 - `sections[].type` / `variant`는 `templates/sections/<type>--<variant>.mustache` 파일이
-  존재하는 조합만 허용한다(23종: SPEC §2 20종 + 문의 공용 2종 + 영상 1종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
+  존재하는 조합만 허용한다(25종: SPEC §2 20종 + 문의 공용 2종 + 영상 1종 + P2 새 부품 2종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
 - 금지(소유 파일 공통): 삼중 중괄호, 스크립트 태그, 아이프레임 태그,
   `http:` 평문 URL 없음. 외부 링크는 `https://`만.
   폼 태그는 `contact--form` 1종에만 허용(§5 서버 계약의 일반 HTML form 전송용).
@@ -68,6 +68,15 @@
 - `reviews--list`: `id`, `has_items`, `items[].quote`, `items[].author`, `items[].source`
 - `reviews--slot-only`: `id` (그 외 변수 없음. 고정 문구 "후기가 모이면 여기에 표시됩니다"만 렌더)
 - `video--card`: `id`, `items[].url`, `items[].title`, `items[].platform`, `items[].platform_label`, `items[].thumb`
+- `features--icons` (P2 새 부품): `id`, `label` (비면 "특징"), `has_items`,
+  `items[].title`, `items[].desc`,
+  `items[].icon` (6종 중 1개 ID 문자열: `star`·`pin`·`clock`·`phone`·`leaf`·`heart`. 기록·검증용),
+  `items[].icon_star`, `items[].icon_pin`, `items[].icon_clock`,
+  `items[].icon_phone`, `items[].icon_leaf`, `items[].icon_heart`
+  (렌더 분기용 불리언. 렌더러가 `icon` 값에 맞는 1개만 참으로 넘긴다. 모르는 값은 `star`로 둔다)
+- `stats--band` (P2 새 부품): `id`, `title` (선택. 비면 제목 없이 `aria-label="가게 숫자 안내"`),
+  `has_items`, `items[].value` (예: "10년". 사장님이 말한 값만), `items[].label` (예: "운영").
+  `has_items`가 거짓이면 부품 전체를 렌더하지 않는다(빈 띠를 두지 않음)
 
 ## 4. 렌더러가 넘겨야 할 파생 값
 
@@ -95,6 +104,11 @@ AI·제작물은 파생값을 직접 지정할 수 없다.
 - `video--card`: 유효한 영상 주소가 없으면 부품을 숨긴다(공개·시안 모두).
   유튜브(`watch`·`youtu.be`·`shorts`)는 `thumb`에 `https://i.ytimg.com/vi/<id>/hqdefault.jpg`,
   인스타그램(`reel`·`p`)·네이버TV는 `thumb` 없이 업종 색 카드 + 플랫폼 이름.
+- `has_items` (features-icons, stats-band): `items` 배열 비어 있지 여부.
+  features는 `false`면 `[특징 입력]` 자리 카드 1장, stats-band는 `false`면 부품 전체 미렌더.
+  stats-band의 `value`·`label`은 사장님이 말한 사실값만(지어내지 않음).
+- `items[].icon` (features-icons 전용): `star`·`pin`·`clock`·`phone`·`leaf`·`heart` 중 1개.
+  렌더러가 같은 이름의 `icon_<id>` 불리언 1개만 참으로 바꿔 템플릿에 넘긴다.
 - `items[].index` (offerings-tabs 전용): 1부터 시작하는 일련번호.
   탭 앵커 `href="#tab-{{id}}-{{index}}"`와 패널 `id="tab-{{id}}-{{index}}"`에 쓴다.
 - `label` 기본값 (offerings 3종): 비면 `photo-grid`/`list-price`/`tabs` 모두 "메뉴".

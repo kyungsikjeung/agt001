@@ -1,9 +1,12 @@
-/* 섹션 부품 공통 스타일 (WP P-3).
+/* 섹션 부품 공통 스타일 (WP P-3, P2 다듬기).
  * 색·글꼴·여백·모서리는 아래 CSS 변수만 사용한다. 렌더러가 tokens에서 :root 값을 채운다.
  * --c-primary, --c-accent, --c-ground, --c-ink,
  * --font-display, --font-body, --space-*, --radius-*.
- * 예외: hero 오버레이의 검은 스크림(rgba(0,0,0,.45))과 그 위 흰 글자(#fff)는
- * SPEC §2.1이 정한 고정값이다(어떤 팔레트에서도 4.5:1 보장용).
+ * 예외: hero 오버레이의 검은 스크림(rgba(0,0,0,.12~.68), 중간 .45 포함)과 그 위 흰 글자(#fff)는
+ * SPEC §2.1이 정한 고정값 계열이다(어떤 팔레트에서도 4.5:1 보장용).
+ * P2 다듬기: 첫 화면(70svh 이상·큰 제목·그라데이션 덮개·버튼 그림자),
+ * 섹션 리듬 띠(짝수 섹션 --ground-soft 전체 너비), 제목 장식(토큰 반응형 밑줄),
+ * 카드 그림자, 스크롤 나타내기(대응 브라우저만), 새 부품 2종.
  * 기준 너비 390px(1열), 760px 이상에서 넓은 배치. 본문 최대 너비 720px.
  */
 
@@ -35,8 +38,37 @@ section[class^="s-"] h2 {
   line-height: 1.25;
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-gap);
-  padding-left: 10px;
-  border-left: 4px solid var(--c-primary);
+}
+
+/* 제목 장식: 왼쪽 색 막대 대신 아래 짧은 강조선.
+ * 모서리 토큰(--radius-btn)에 따라 알약형(soft·round)은 둥글게, 각진형(sharp)은 네모로 바뀐다.
+ * 부품마다 길이·모양을 달리한다(상품 길게·사진첩 두 색 이어짐·후기 둥근 점). */
+section[class^="s-"] h2::after {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--c-accent);
+  border-radius: var(--radius-btn);
+}
+
+.s-offerings h2::after { width: 56px; }
+
+.s-gallery h2::after {
+  width: 44px;
+  background: var(--c-accent);
+  background: linear-gradient(90deg, var(--c-primary), var(--c-accent));
+}
+
+.s-reviews h2::after { width: 10px; height: 10px; }
+
+/* 섹션 리듬 띠: 첫 화면을 제외한 짝수 번째 섹션은 옅은 바탕(--ground-soft)으로 번갈아.
+ * 표시 구조를 바꾸지 않고 CSS만으로 전체 너비 띠를 만든다(그림자+잘라내기 기법). */
+section[class^="s-"]:not(.s-hero):not(.s-stats--band):nth-of-type(even) {
+  background-color: var(--ground-soft);
+  box-shadow: 0 0 0 100vmax var(--ground-soft);
+  clip-path: inset(0 -100vmax);
 }
 
 section[class^="s-"] p { margin: 0 0 var(--space-gap); }
@@ -44,8 +76,8 @@ section[class^="s-"] p:last-child { margin-bottom: 0; }
 
 .s-title {
   font-family: var(--font-display);
-  font-size: 24px;
-  line-height: 1.25;
+  font-size: 32px;
+  line-height: 1.2;
   letter-spacing: -0.01em;
   margin: 0 0 8px;
 }
@@ -59,6 +91,10 @@ section[class^="s-"] p:last-child { margin-bottom: 0; }
   letter-spacing: 0.08em;
   color: var(--c-primary);
   margin: 0 0 8px;
+  padding: 4px 12px;
+  border-radius: var(--radius-btn);
+  background: var(--ground-soft);
+  background: color-mix(in srgb, var(--c-primary) 10%, transparent);
 }
 
 /* 버튼: 44px 터치 대상 */
@@ -104,12 +140,15 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
-/* ---- S1 hero ---- */
+/* ---- S1 hero (P2: 첫 화면 강조) ---- */
+/* 휴대폰에서 첫 화면은 화면 높이의 70% 이상 차지한다(70svh, 구형은 70vh). */
 .s-hero--photo-overlay {
   position: relative;
   max-width: none;
   padding: 0;
   min-height: 320px;
+  min-height: 70vh;
+  min-height: 70svh;
   display: flex;
   align-items: flex-end;
   overflow: hidden;
@@ -133,14 +172,34 @@ button:focus-visible,
   width: 100%;
   max-width: 720px;
   margin-inline: auto;
-  padding: 24px 16px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.45) 40%);
+  padding: 48px 16px 36px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0.45) 48%, rgba(0, 0, 0, 0.68) 100%);
   color: #fff;
 }
 
+.s-hero--photo-overlay .s-title { text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45); }
+
 .s-hero--photo-overlay .s-title,
 .s-hero--photo-overlay .s-lead { color: #fff; }
-.s-hero--photo-overlay .s-kicker { color: #fff; }
+.s-hero--photo-overlay .s-kicker { color: #fff; background: rgba(0, 0, 0, 0.35); }
+
+/* 사진 옆·글자만 첫 화면도 화면 높이 70% 이상, 내용은 세로 가운데 */
+.s-hero--photo-side,
+.s-hero--text-only {
+  min-height: 70vh;
+  min-height: 70svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* 첫 화면 버튼은 더 크고 그림자를 얹는다 */
+.s-hero__cta .s-btn {
+  min-height: 52px;
+  padding: 12px 30px;
+  font-size: 17px;
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.55);
+}
 
 .s-hero--photo-side .s-media img {
   width: 100%;
@@ -466,6 +525,198 @@ button:focus-visible,
 }
 .s-cta__btns .s-btn { width: 100%; min-height: 48px; }
 
+/* ---- P2: 카드 그림자·카드 바탕 토큰 ---- */
+/* 바탕은 --card(항상 흰색, 렌더러 주입. 없으면 흰색), 그림자는 구분선 색(--line)으로
+ * 팔레트마다 어울리게 번진다. 모서리는 각 규칙의 var(--radius-card) 그대로 쓴다. */
+.s-card,
+.s-stats__item,
+.s-price-list__row,
+.s-tabs__panel,
+.s-review {
+  background: #fff;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 14px 30px -22px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 2px var(--line), 0 14px 30px -22px var(--line);
+}
+
+/* ---- P2 새 부품: features--icons (특징 3칸) ---- */
+.s-features__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-gap);
+}
+
+.s-feature {
+  background: #fff;
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 2px var(--line), 0 14px 30px -22px var(--line);
+  padding: var(--space-card);
+  text-align: center;
+}
+
+.s-feature__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  color: var(--c-primary);
+  background: var(--ground-soft);
+  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
+}
+
+.s-feature__icon svg { width: 24px; height: 24px; }
+
+.s-feature__title { display: block; font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.s-feature__desc { display: block; font-size: 13px; }
+
+/* ---- P2 새 부품: stats--band (숫자 강조 띠) ---- */
+/* 띠 자체가 전체 너비 주색 바탕이라 리듬 띠 대상에서 뺀다. 값은 사장님이 말한 것만 들어온다. */
+.s-stats--band {
+  max-width: none;
+  background: var(--c-primary);
+  color: #fff;
+  color: var(--on-primary);
+}
+
+.s-stats-band__inner {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.s-stats-band__title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0 0 var(--space-gap);
+  color: inherit;
+}
+
+.s-stats-band__title::after {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--c-accent);
+  border-radius: var(--radius-btn);
+}
+
+.s-stats-band__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-gap);
+  text-align: center;
+}
+
+.s-stats-band__value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.s-stats-band__label { display: block; font-size: 13px; margin-top: 2px; }
+
+/* ---- P2: 부드럽게 나타나기 (CSS만, 스크립트 없음) ---- */
+@keyframes s-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 첫 화면은 읽자마자 살짝 올라온다 */
+.s-hero { animation: s-rise 0.6s ease-out both; }
+
+/* 스크롤 나타내기는 view() 타임라인을 아는 브라우저에서만. 모르는 곳은 가만히 보인다. */
+@supports (animation-timeline: view()) {
+  section[class^="s-"]:not(.s-hero) {
+    animation: s-rise 0.7s ease-out both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 24%;
+  }
+}
+
+/* 인쇄·고정 캡처에서는 나타내기 없이 전부 보인다 */
+@media print {
+  section[class^="s-"] { animation: none; }
+}
+
+/* ---- 760px 이상: 넓은 배치 ---- */
+@media (min-width: 760px) {
+  section[class^="s-"] { padding-inline: 24px; }
+  section[class^="s-"] h2 { font-size: 28px; }
+  .s-title { font-size: 40px; }
+
+  .s-hero--photo-overlay { min-height: 440px; }
+  .s-hero--photo-overlay .s-media__empty { height: 440px; }
+
+  .s-hero--photo-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .s-hero--photo-side .s-media img { height: 280px; }
+  .s-hero--photo-side .s-media .s-illu svg { height: 280px; }
+
+  .s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr 1fr; }
+  .s-offerings--list-price .s-price-list { grid-template-columns: 1fr 1fr; }
+  .s-gallery--grid .s-gallery__list { grid-template-columns: 1fr 1fr 1fr; }
+
+  .s-intro--stats .s-stats { grid-template-columns: repeat(4, 1fr); }
+
+  .s-around--map-list,
+  .s-around--transit {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+  }
+  .s-around--map-list h2,
+  .s-around--transit h2 { grid-column: 1 / -1; }
+
+  .s-cta__btns { flex-direction: row; }
+  .s-cta__btns .s-btn { width: auto; flex: 1; }
+
+  .s-stats--band { padding-inline: 24px; }
+  .s-stats-band__value { font-size: 34px; }
+  .s-feature__title { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    transition: none;
+    animation: none;
+  }
+  /* 위 전체 선택자는 특이성이 낮아 섹션 나타내기를 끄지 못하므로 명시한다 */
+  section[class^="s-"]:not(.s-hero),
+  .s-hero { animation: none; }
+  .s-gallery__swipe { scroll-snap-type: none; }
+}
+
+
+/* 공개 사이트(body.is-public): 방문자에게는 [… 입력] 빈칸을 보이지 않는다. 시안에서는 사장님이 채울 곳으로 보인다. */
+.is-public .is-placeholder { display: none; }
+.is-public .s-contact__row:has(.is-placeholder),
+.is-public li:has(> .is-placeholder),
+.is-public p:has(> .is-placeholder:only-child) { display: none; }
+.is-public .is-placeholder[aria-label^="가격"] {
+  display: inline; font-size: 0; border: 0; background: none; padding: 0;
+}
+.is-public .is-placeholder[aria-label^="가격"]::after { content: "가격 문의"; font-size: 0.9375rem; color: var(--muted); }
+
 /* ---- S9 video (영상 카드: 썸네일 + 재생 표시, 새 창 링크) ---- */
 .s-video__list {
   list-style: none;
@@ -551,62 +802,3 @@ button:focus-visible,
 @media (min-width: 760px) {
   .s-video__list { grid-template-columns: 1fr 1fr 1fr; }
 }
-
-/* ---- 760px 이상: 넓은 배치 ---- */
-@media (min-width: 760px) {
-  section[class^="s-"] { padding-inline: 24px; }
-  section[class^="s-"] h2 { font-size: 28px; }
-  .s-title { font-size: 32px; }
-
-  .s-hero--photo-overlay { min-height: 440px; }
-  .s-hero--photo-overlay .s-media__empty { height: 440px; }
-
-  .s-hero--photo-side {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 24px;
-    align-items: center;
-  }
-  .s-hero--photo-side .s-media img { height: 280px; }
-  .s-hero--photo-side .s-media .s-illu svg { height: 280px; }
-
-  .s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr 1fr; }
-  .s-offerings--list-price .s-price-list { grid-template-columns: 1fr 1fr; }
-  .s-gallery--grid .s-gallery__list { grid-template-columns: 1fr 1fr 1fr; }
-
-  .s-intro--stats .s-stats { grid-template-columns: repeat(4, 1fr); }
-
-  .s-around--map-list,
-  .s-around--transit {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px 24px;
-  }
-  .s-around--map-list h2,
-  .s-around--transit h2 { grid-column: 1 / -1; }
-
-  .s-cta__btns { flex-direction: row; }
-  .s-cta__btns .s-btn { width: auto; flex: 1; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto;
-    transition: none;
-    animation: none;
-  }
-  .s-gallery__swipe { scroll-snap-type: none; }
-}
-
-
-/* 공개 사이트(body.is-public): 방문자에게는 [… 입력] 빈칸을 보이지 않는다. 시안에서는 사장님이 채울 곳으로 보인다. */
-.is-public .is-placeholder { display: none; }
-.is-public .s-contact__row:has(.is-placeholder),
-.is-public li:has(> .is-placeholder),
-.is-public p:has(> .is-placeholder:only-child) { display: none; }
-.is-public .is-placeholder[aria-label^="가격"] {
-  display: inline; font-size: 0; border: 0; background: none; padding: 0;
-}
-.is-public .is-placeholder[aria-label^="가격"]::after { content: "가격 문의"; font-size: 0.9375rem; color: var(--muted); }
