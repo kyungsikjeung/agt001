@@ -59,11 +59,12 @@
 
 | 기술 | 용도 | 코드·문서 위치 | 상태 |
 |---|---|---|---|
-| NIM 대화 모델 `nvidia/nemotron-3-super-120b-a12b` | 요구사항 추출(`chat_json`), 대화 응답, 견적 3안 생성 | `app/llm.py` (`chat`, `chat_json`), `app/services/prd_engine.py`, `app/services/chat_flow.py`, `app/services/quote.py`, `.env.example` (`NIM_CHAT_MODEL`) | 동작 |
-| NIM 임베딩 `nvidia/nemotron-3-embed-1b` | 유사 프로젝트 확인 (RAG 코사인 유사도) | `app/llm.py` (`embed`), `app/services/rag.py`, `.env.example` (`NIM_EMBED_MODEL`) | 동작 |
+| NIM 대화 모델 `nvidia/nemotron-3-super-120b-a12b` (주) | 요구사항 추출(`chat_json`), 리뷰어 에이전트(요약 직전 원문↔카드 대조, D34), 대화 응답 | `app/llm.py` (`chat`, `chat_json`), `app/services/prd_engine.py` (`extract_detail`, `review`), `app/services/chat_flow.py` | 동작 |
+| NIM 대비 모델 `nvidia/nemotron-3-ultra-550b-a55b` → `nvidia/nemotron-3.5-lightning-30b-a3b` | 주 모델 과부하(503)·요청 제한·시간 초과 때 차례로 대신 응답. 실패 모델 60초 건너뛰기, 세 모델 동시 실패면 2초 쉬고 한 바퀴 더 | `app/llm.py` (`_with_fallback`), `app/config.py` (`nim_chat_fallback_models`) | 동작 (9/26 운영 과부하를 실제로 넘김. ultra 실측 2.2초) |
+| NIM 임베딩 `nvidia/nemotron-3-embed-1b` | 비슷한 사례 찾기(RAG): 기능 사례집 42개 + 업종·종류 프로필 9개를 한 번에 임베딩(2.4초), 기준 0.76 | `app/llm.py` (`embed`, `embed_many`), `app/services/rag.py` | 동작 |
 | Parakeet 1.1B RNNT 다국어 음성 인식 (NVIDIA 호스팅) | 채팅방 마이크 버튼: 녹음 → 16kHz 변환 → 한국어 전사 → 한글 숫자("공일공…")를 숫자로 → 입력창에 넣고 사장님이 고친 뒤 전송 | `app/services/stt.py`, `app/api/stt.py`(`POST /api/stt`), `static/voice.js`, `static/room.html` | 동작 |
-| Magpie TTS 다국어 (NVIDIA 호스팅) | 질문 읽어주기(선택 버튼) | `docs/product/VOICE_INPUT_PLAN.md` 부록 (실측) | 진행 중 (화면 연결 전) |
-| Hermes 코드생성 에이전트 | 확정 스펙으로 정적 웹 프로젝트 생성, 요청별 Docker 컨테이너(`--rm`, `/workspace`만 마운트)로 격리 | `app/services/codegen.py`, `app/config.py` (`hermes_sandbox_image`), `docker-compose.yml` (docker.sock 주석) | 동작 (로컬·OCI 검증, 작업 큐 전환 예정) |
+| Magpie TTS 다국어 (NVIDIA 호스팅, `KO-KR.Aria`) | AI 답장 "듣기" 버튼(자동 재생 없음) | `app/services/tts.py`, `app/api/tts.py`(`POST /api/tts`), `static/voice.js` | 동작 (운영 실측 2.25초, 합성→재인식 왕복 확인) |
+| Hermes 코드생성 에이전트 | 확정 스펙으로 정적 웹 프로젝트 생성, 요청별 Docker 컨테이너(`--rm`, `/workspace`만 마운트)로 격리. 공개 사이트는 이제 사장님이 고른 시안(정해진 부품)을 우선 쓴다(D31) | `app/services/codegen.py`, `app/config.py` (`hermes_sandbox_image`) | 동작 (선택 기능) |
 
 음성 실측 (부록 `docs/product/VOICE_INPUT_PLAN.md` 부록, 2026-09-26, Claude 실측):
 
