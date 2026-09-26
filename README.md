@@ -88,7 +88,7 @@
 | 2. 채팅 요구사항 전달 | 1:1 `/chat` + 공유방 `/room/<id>/chat`, 4초 폴링 조회 | `app/api/chat.py`, `app/api/rooms.py`, `app/services/chat_flow.py`, `app/services/rooms.py`, `static/room.html` | 완료 |
 | 3. 접수/검증/질의(옵션+추천)/게이트 | 입구 게이트(종류 분류·금지 거절) → PRD 엔진(추출→근거 검사→질문 1개, 종류별 예산) → 리뷰어 에이전트(D34) → 요약. 공유방 사실은 방장 확인 | `app/services/intake.py`, `prd_engine.py`, `tests/engine/` (45건) | 완료 (T2 추출 87~90%, T3 실행 중) |
 | 4. RAG 사전확인 | NIM 임베딩 코사인 유사도, 임계값 미만은 신규, 실패해도 대화 중단 없음 | `app/services/rag.py`, `app/llm.py` (`embed`) | 완료 |
-| 5. 동작하는 산출물 (웹/안드로이드) | 웹 정적 사이트를 `/site/<id>/`로 직접 서빙. 안드로이드(React Native)는 미구현 | `app/services/codegen.py`, `app/services/deploy.py`, `app/api/public.py` (`serve_site`) | 부분 완료 (웹만 동작, 안드로이드 미착수) |
+| 5. 동작하는 산출물 (웹/안드로이드) | 웹: 고른 시안을 `/site/<id>/`로 공개(문의 폼 동작). 안드로이드: **PWA**로 홈 화면에 앱처럼 설치(standalone, 아이콘·오프라인 안내). 네이티브 앱은 나중에 다른 방식으로 | `app/api/public.py` (`serve_site`), `static/manifest.json`, `static/sw.js`, `static/pwa.js` | 완료 (안드로이드는 PWA 1차) |
 | 6. 채팅 확인 필수 + 견적 근거 | 공유방 과반 투표 승인 게이트. 견적은 규칙 계산 한 줄 + 근거(종류·담을 내용·기능 수) + 베타 무료(D25) | `app/services/rooms.py`, `app/services/quote.py` (`rule_quote`) | 완료 |
 | 7. UI 시안 선택 | 카드 → 시안 3안(기본형·사진 강조형·간결형), 고르기 페이지, 채팅방 미리보기 카드와 "이걸로 할게요" | `app/services/design_variants.py`, `site_render.py`, `design.py`, `static/room.html` | 완료 |
 | 8. 시안 링크 전송 | 시안(`/design/<id>`)·공개(`/site/<id>/`) 링크를 채팅방으로. 공개 전 빈 자리 확인(사람 최종 검토) 후 고른 안 그대로 공개. 생성물은 별도 주소 | `app/services/chat_flow.py` (`_publish`), `app/api/public.py`, `app/main.py` (`_split_hosts`) | 완료 |
