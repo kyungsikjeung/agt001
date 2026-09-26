@@ -16,6 +16,7 @@ def _err(cls, status):
 def _setup(monkeypatch):
     monkeypatch.setattr(settings, "nim_chat_model", "primary")
     monkeypatch.setattr(settings, "nim_chat_fallback_models", "second,third")
+    monkeypatch.setattr(settings, "nim_all_fail_backoff_sec", 0)
     llm._cooldown.clear()
     yield
     llm._cooldown.clear()
@@ -55,8 +56,8 @@ def test_all_fail_raises_last_error():
 
     with pytest.raises(openai.RateLimitError):
         llm._with_fallback(call)
-    # 모두 쉬는 중이어도 다음 호출은 한 번씩 시도한다
+    # 모두 쉬는 중이어도 다음 호출은 시도한다. 한 바퀴 다 실패하면 잠깐 쉬고 한 바퀴 더(동시 과부하 대비).
     seen = []
     with pytest.raises(openai.RateLimitError):
         llm._with_fallback(lambda m: seen.append(m) or (_ for _ in ()).throw(_err(openai.RateLimitError, 429)))
-    assert seen == ["primary", "second", "third"]
+    assert seen == ["primary", "second", "third"] * 2

@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     nim_chat_fallback_models: str = "nvidia/nemotron-3-ultra-550b-a55b,nvidia/nemotron-3.5-lightning-30b-a3b"
     # 실패한 모델은 이 시간 동안 건너뛰고 다음 모델로 바로 간다(매 요청마다 실패를 기다리지 않게).
     nim_fallback_cooldown_sec: float = 60.0
+    # 모든 모델이 실패했을 때 한 번 더 돌기 전에 쉬는 시간
+    nim_all_fail_backoff_sec: float = 2.0
     nim_base_url: str = "https://integrate.api.nvidia.com/v1"
     nim_embed_model: str = "nvidia/nemotron-3-embed-1b"
     # 타임아웃이 없으면(openai 기본값은 수 분) NIM이 멈출 때 요청 스레드가 같이 묶인다.

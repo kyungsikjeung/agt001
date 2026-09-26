@@ -405,6 +405,8 @@ def _avg(rows, key) -> float:
 
 def write_markdown(results: list, path: str) -> str:
     """시나리오별 표 + 유형별·업종별 평균 + 합격선 대비 + 실패 대화 3개 전문."""
+    skipped = [r["scenario"].get("id") for r in results if r.get("score") is None]
+    results = [r for r in results if r.get("score") is not None]
     scores = [r["score"] for r in results]
     today = datetime.date.today().isoformat()
     n = len(scores)
@@ -545,15 +547,28 @@ def rule_fallback_owner_llm(prompt: str) -> str:
 
 
 def live_owner_llm(prompt: str) -> str:
-    """실제 NIM 호출. --live 때만 쓴다. 여기서 import하므로 평소에는 openai가 필요 없다."""
+    """실제 NIM 호출. --live 때만 쓴다. 여기서 import하므로 평소에는 openai가 필요 없다.
+    무료 NIM은 몰아서 부르면 모든 모델이 503을 낼 때가 있어, 쉬었다가 몇 번 더 부른다."""
+    import time
     from app import llm
-    return llm.chat([{"role": "user", "content": prompt}]) or sim_owner.NOT_SURE
+    for attempt in range(4):
+        try:
+            return llm.chat([{"role": "user", "content": prompt}]) or sim_owner.NOT_SURE
+        except Exception:
+            if attempt == 3:
+                raise
+            time.sleep(5 * (attempt + 1))
 
 
 def run_all(scenarios, engine, owner_llm_fn) -> list:
     results = []
     for sc in scenarios:
-        res = run_dialogue(sc, engine, owner_llm_fn)
+        try:
+            res = run_dialogue(sc, engine, owner_llm_fn)
+        except Exception as e:  # 한 시나리오의 외부 장애가 전체 실행을 멈추지 않게 하고, 결과에 남긴다
+            print(f"[건너뜀] {sc.get('id')}: {type(e).__name__}", file=sys.stderr)
+            results.append({"scenario": sc, "result": None, "score": None, "error": type(e).__name__})
+            continue
         results.append({"scenario": sc, "result": res,
                         "score": score_dialogue(sc, res)})
     return results
@@ -592,9 +607,10 @@ def main(argv=None) -> int:
               file=sys.stderr)
         return 3
     path = write_markdown(results, args.out or default_out_path())
-    n_pass = sum(1 for r in results if r["score"]["passed"])
-    print(f"{len(results)}개 중 {n_pass}개 통과 → {path}")
-    return 0 if n_pass == len(results) else 1
+    done = [r for r in results if r.get("score") is not None]
+    n_pass = sum(1 for r in done if r["score"]["passed"])
+    print(f"{len(done)}개 중 {n_pass}개 통과 (외부 장애로 건너뜀 {len(results) - len(done)}개) → {path}")
+    return 0 if done and n_pass == len(results) else 1
 
 
 if __name__ == "__main__":

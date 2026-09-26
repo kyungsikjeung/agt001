@@ -41,7 +41,11 @@ def _with_fallback(call: Callable[[str], str]) -> str:
         ready = [m for m in models if _cooldown.get(m, 0) <= now]
     order = ready + [m for m in models if m not in ready]  # 다 쉬는 중이어도 한 번씩은 시도한다
     last_exc: Exception | None = None
-    for model in order:
+    # 모든 모델이 한꺼번에 과부하일 때가 있다(평가 중 실측). 한 바퀴 실패하면 잠깐 쉬고 한 번 더 돈다.
+    for model in order + ([None] + order if len(order) > 1 else []):
+        if model is None:
+            time.sleep(settings.nim_all_fail_backoff_sec)
+            continue
         try:
             out = call(model)
         except _RETRYABLE as e:
