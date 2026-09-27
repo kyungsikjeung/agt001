@@ -1,0 +1,390 @@
+{
+ "version": 3,
+ "locked": [],
+ "tokens": {
+  "palette": "moss",
+  "font_pair": "serif-warm",
+  "density": "roomy",
+  "radius": "round",
+  "image_style": "card"
+ },
+ "navbar": {
+  "title": "단정손끝",
+  "top": "#hero-title-hero",
+  "links": [
+   {
+    "label": "원장 소개",
+    "href": "#staff-title-owner"
+   },
+   {
+    "label": "시술·가격",
+    "href": "#offerings-title-price"
+   },
+   {
+    "label": "예약",
+    "href": "#booking-title-booking"
+   },
+   {
+    "label": "오시는 길",
+    "href": "#around-title-around"
+   }
+  ],
+  "cta": {
+   "label": "예약하기",
+   "href": "#booking-title-booking"
+  }
+ },
+ "actionbar": {
+  "primary": {
+   "label": "예약하기",
+   "href": "#booking-title-booking"
+  },
+  "secondary": {
+   "label": "오시는 길",
+   "href": "#around-title-around"
+  }
+ },
+ "sections": [
+  {
+   "id": "hero",
+   "type": "hero",
+   "variant": "photo-overlay",
+   "content": {
+    "title": "단정손끝",
+    "subtitle": "상담부터 마무리까지 원장이 혼자 책임지는 작은 미용실이에요.",
+    "image": "/art/ex/salon-hero.webp",
+    "image_alt": "미용실 내부 (예시 이미지)",
+    "ai_example": true,
+    "facts": [
+     {
+      "label": "영업",
+      "value": "10~19시, 월요일 휴무"
+     },
+     {
+      "label": "위치",
+      "value": "성미산로 21"
+     }
+    ],
+    "cta": {
+     "label": "예약하기",
+     "href": "#booking-title-booking"
+    },
+    "cta2": {
+     "label": "원장 소개",
+     "href": "#staff-title-owner"
+    }
+   }
+  },
+  {
+   "id": "owner",
+   "type": "staff",
+   "variant": "solo",
+   "content": {
+    "label": "1인 미용실",
+    "booking_href": "#booking-title-booking",
+    "members": [
+     {
+      "name": "김단정",
+      "role": "원장",
+      "specialties": [
+       "컷",
+       "펌"
+      ],
+      "bio": "예약한 시간에는 한 분만 봐요. 상담한 사람이 끝까지 자르고 말아 드려요.",
+      "image": "/art/ex/salon-work.webp",
+      "image_example": true
+     }
+    ],
+    "works": [
+     {
+      "src": "/art/ex/salon-style1.webp",
+      "alt": "웨이브 펌 (예시 이미지)",
+      "image_example": true
+     },
+     {
+      "src": "/art/ex/salon-style2.webp",
+      "alt": "남성 컷 (예시 이미지)",
+      "image_example": true
+     },
+     {
+      "src": "/art/ex/salon-style3.webp",
+      "alt": "스트레이트 (예시 이미지)",
+      "image_example": true
+     }
+    ]
+   }
+  },
+  {
+   "id": "price",
+   "type": "offerings",
+   "variant": "categories",
+   "content": {
+    "label": "시술·가격",
+    "categories": [
+     {
+      "name": "컷",
+      "items": [
+       {
+        "name": "컷",
+        "desc": "상담·샴푸 포함",
+        "price": "2만원"
+       }
+      ]
+     },
+     {
+      "name": "펌",
+      "items": [
+       {
+        "name": "펌",
+        "price": "8만원",
+        "badge": "대표"
+       },
+       {
+        "name": "셋팅펌",
+        "price": "11만원",
+        "example": true
+       }
+      ]
+     },
+     {
+      "name": "케어",
+      "items": [
+       {
+        "name": "클리닉",
+        "price": "4만원",
+        "price_example": true
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "booking",
+   "type": "booking",
+   "variant": "slots",
+   "content": {
+    "label": "예약",
+    "note": "혼자 운영해서 한 시간에 한 분만 받아요. 확인 후 연락드려요.",
+    "services": [
+     "컷",
+     "펌",
+     "클리닉"
+    ],
+    "service_label": "시술",
+    "days": [
+     {
+      "date": "2026-09-29",
+      "label": "9/29",
+      "dow": "화",
+      "slots": [
+       {
+        "time": "10:00",
+        "state": "open"
+       },
+       {
+        "time": "11:00",
+        "state": "few"
+       },
+       {
+        "time": "12:00",
+        "state": "full"
+       },
+       {
+        "time": "13:00",
+        "state": "open"
+       },
+       {
+        "time": "14:00",
+        "state": "full"
+       },
+       {
+        "time": "15:00",
+        "state": "open"
+       },
+       {
+        "time": "16:00",
+        "state": "few"
+       },
+       {
+        "time": "17:00",
+        "state": "open"
+       }
+      ]
+     },
+     {
+      "date": "2026-09-30",
+      "label": "9/30",
+      "dow": "수",
+      "slots": [
+       {
+        "time": "10:00",
+        "state": "full"
+       },
+       {
+        "time": "11:00",
+        "state": "full"
+       },
+       {
+        "time": "12:00",
+        "state": "open"
+       },
+       {
+        "time": "13:00",
+        "state": "full"
+       },
+       {
+        "time": "14:00",
+        "state": "open"
+       },
+       {
+        "time": "15:00",
+        "state": "full"
+       },
+       {
+        "time": "16:00",
+        "state": "open"
+       },
+       {
+        "time": "17:00",
+        "state": "open"
+       }
+      ]
+     },
+     {
+      "date": "2026-10-01",
+      "label": "10/1",
+      "dow": "목",
+      "slots": [
+       {
+        "time": "10:00",
+        "state": "full"
+       },
+       {
+        "time": "11:00",
+        "state": "open"
+       },
+       {
+        "time": "12:00",
+        "state": "full"
+       },
+       {
+        "time": "13:00",
+        "state": "open"
+       },
+       {
+        "time": "14:00",
+        "state": "few"
+       },
+       {
+        "time": "15:00",
+        "state": "open"
+       },
+       {
+        "time": "16:00",
+        "state": "open"
+       },
+       {
+        "time": "17:00",
+        "state": "few"
+       }
+      ]
+     },
+     {
+      "date": "2026-10-02",
+      "label": "10/2",
+      "dow": "금",
+      "slots": [
+       {
+        "time": "10:00",
+        "state": "open"
+       },
+       {
+        "time": "11:00",
+        "state": "full"
+       },
+       {
+        "time": "12:00",
+        "state": "open"
+       },
+       {
+        "time": "13:00",
+        "state": "full"
+       },
+       {
+        "time": "14:00",
+        "state": "open"
+       },
+       {
+        "time": "15:00",
+        "state": "open"
+       },
+       {
+        "time": "16:00",
+        "state": "full"
+       },
+       {
+        "time": "17:00",
+        "state": "full"
+       }
+      ]
+     },
+     {
+      "date": "2026-10-03",
+      "label": "10/3",
+      "dow": "토",
+      "slots": [
+       {
+        "time": "10:00",
+        "state": "full"
+       },
+       {
+        "time": "11:00",
+        "state": "open"
+       },
+       {
+        "time": "12:00",
+        "state": "few"
+       },
+       {
+        "time": "13:00",
+        "state": "open"
+       },
+       {
+        "time": "14:00",
+        "state": "open"
+       },
+       {
+        "time": "15:00",
+        "state": "few"
+       },
+       {
+        "time": "16:00",
+        "state": "full"
+       },
+       {
+        "time": "17:00",
+        "state": "open"
+       }
+      ]
+     }
+    ],
+    "days_example": true
+   }
+  },
+  {
+   "id": "around",
+   "type": "around",
+   "variant": "map",
+   "content": {
+    "address": "서울 마포구 성미산로 21"
+   }
+  },
+  {
+   "id": "inquiry",
+   "type": "contact",
+   "variant": "form",
+   "content": {}
+  }
+ ]
+}

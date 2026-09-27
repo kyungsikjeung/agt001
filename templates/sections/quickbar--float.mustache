@@ -1,0 +1,5 @@
+<nav class="s-quick s-quick--float ed-quick" data-section-id="{{id}}" aria-label="빠른 연결">
+  {{#has_phone}}<a class="ed-quick__btn" href="tel:{{phone_digits}}">전화 {{phone}}</a>{{/has_phone}}
+  {{#has_channel}}<a class="ed-quick__btn" href="{{channel_url}}" target="_blank" rel="noopener noreferrer">카톡 상담</a>{{/has_channel}}
+  {{#has_booking}}<a class="ed-quick__btn ed-quick__btn--main" href="{{booking_url}}" target="_blank" rel="noopener noreferrer">예약하기</a>{{/has_booking}}
+</nav>

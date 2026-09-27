@@ -1,0 +1,164 @@
+{
+ "version": 3,
+ "locked": [],
+ "tokens": {
+  "palette": "coffee",
+  "font_pair": "serif-warm",
+  "density": "comfortable",
+  "radius": "soft",
+  "image_style": "card"
+ },
+ "navbar": {
+  "title": "연남 느린오후",
+  "top": "#hero-title-hero",
+  "links": [
+   {
+    "label": "메뉴",
+    "href": "#offerings-title-menu"
+   },
+   {
+    "label": "오시는 길",
+    "href": "#around-title-around"
+   }
+  ],
+  "cta": {
+   "label": "주문하기",
+   "href": "#order-soon"
+  }
+ },
+ "actionbar": {
+  "primary": {
+   "label": "주문하기",
+   "href": "#order-soon"
+  },
+  "secondary": {
+   "label": "전화",
+   "href": "tel:02-123-4567"
+  }
+ },
+ "sections": [
+  {
+   "id": "hero",
+   "type": "hero",
+   "variant": "photo-overlay",
+   "content": {
+    "title": "연남 느린오후",
+    "subtitle": "미리 주문하고 기다림 없이 가져가세요.",
+    "image": "/art/ex/cafe-hero.webp",
+    "image_alt": "창가 자리의 라떼와 치즈케이크 (예시 이미지)",
+    "ai_example": true,
+    "facts": [
+     {
+      "label": "영업",
+      "value": "매일 10~21시"
+     },
+     {
+      "label": "위치",
+      "value": "연남로 12"
+     }
+    ],
+    "cta": {
+     "label": "주문하기",
+     "href": "#order-soon"
+    },
+    "cta2": {
+     "label": "메뉴 보기",
+     "href": "#offerings-title-menu"
+    }
+   }
+  },
+  {
+   "id": "menu",
+   "type": "offerings",
+   "variant": "categories",
+   "content": {
+    "label": "메뉴",
+    "categories": [
+     {
+      "name": "커피",
+      "image": "/art/ex/cafe-coffee.webp",
+      "image_alt": "핸드드립 커피 (예시 이미지)",
+      "image_example": true,
+      "items": [
+       {
+        "name": "아메리카노",
+        "desc": "고소하고 산미가 적은 기본 한 잔",
+        "price": "4,500원",
+        "badge": "대표"
+       },
+       {
+        "name": "카페라떼",
+        "desc": "우유와 에스프레소를 부드럽게",
+        "price": "5,000원"
+       }
+      ]
+     },
+     {
+      "name": "음료",
+      "image": "/art/ex/cafe-drink.webp",
+      "image_alt": "딸기라떼와 유자에이드 (예시 이미지)",
+      "image_example": true,
+      "items": [
+       {
+        "name": "딸기라떼",
+        "desc": "생딸기를 갈아 넣은 우유 음료",
+        "price": "6,000원",
+        "price_example": true
+       },
+       {
+        "name": "유자에이드",
+        "desc": "상큼한 유자청과 탄산",
+        "price": "5,500원",
+        "price_example": true
+       }
+      ]
+     },
+     {
+      "name": "디저트",
+      "image": "/art/ex/cafe-dessert.webp",
+      "image_alt": "바스크치즈케이크와 휘낭시에 (예시 이미지)",
+      "image_example": true,
+      "items": [
+       {
+        "name": "바스크치즈케이크",
+        "desc": "겉은 진하게 굽고 속은 촉촉하게",
+        "price": "6,500원",
+        "badge": "대표"
+       },
+       {
+        "name": "휘낭시에",
+        "desc": "버터 향 가득한 작은 구움과자",
+        "price": "3,000원",
+        "price_example": true
+       }
+      ]
+     }
+    ],
+    "order": true
+   }
+  },
+  {
+   "id": "around",
+   "type": "around",
+   "variant": "map",
+   "content": {
+    "address": "서울 마포구 연남로 12"
+   }
+  },
+  {
+   "id": "inquiry",
+   "type": "contact",
+   "variant": "form",
+   "content": {}
+  },
+  {
+   "id": "order-soon",
+   "type": "order",
+   "variant": "soon",
+   "content": {
+    "phone": "02-123-4567",
+    "return_href": "#offerings-title-menu"
+   }
+  }
+ ]
+}

@@ -1,0 +1,34 @@
+<section class="s-offerings s-offerings--categories s-menu" data-section-id="{{id}}" aria-labelledby="offerings-title-{{id}}">
+  <h2 id="offerings-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}메뉴{{/label}}</h2>
+  {{#has_chips}}
+  <nav class="s-menu__chips" aria-label="메뉴 분류 바로 가기">
+    {{#categories}}<a class="s-chip" href="#menu-{{id}}-{{index}}">{{name}}</a>{{/categories}}
+  </nav>
+  {{/has_chips}}
+  {{#has_categories}}
+  <div class="s-menu__groups">
+    {{#categories}}
+    <div class="s-menu__group" id="menu-{{id}}-{{index}}">
+      {{#image_src}}
+      <figure class="s-menu__cover"><img src="{{image_src}}" alt="{{image_alt}}" loading="lazy">{{#image_example}}<span class="s-illu-badge">예시 이미지</span>{{/image_example}}</figure>
+      {{/image_src}}
+      <h3 class="s-menu__cat">{{#name}}{{name}}{{/name}}{{^name}}<span class="is-placeholder" aria-label="분류 이름: 아직 입력되지 않음">[분류 입력]</span>{{/name}}<span class="s-menu__count">{{count}}</span></h3>
+      <ul class="s-menu__list">
+        {{#items}}
+        <li class="s-menu__row">
+          <span class="s-menu__name">{{name}}{{#badge}} <em class="s-menu__badge">{{badge}}</em>{{/badge}}{{#example}} <span class="s-example" title="예시 메뉴: 공개할 때 빠져요">예시</span>{{/example}}</span>
+          <span class="s-menu__price">{{#price}}{{price}}{{#price_example}} <span class="s-example" title="예시 가격: 공개할 때 사장님 가격으로 바뀌어요">예시</span>{{/price_example}}{{/price}}{{^price}}<span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span>{{/price}}</span>
+          {{#desc}}<span class="s-menu__desc">{{desc}}</span>{{/desc}}
+          {{#order}}<a class="s-menu__add" href="#order-soon" aria-label="{{name}} 담기">담기</a>{{/order}}
+        </li>
+        {{/items}}
+      </ul>
+    </div>
+    {{/categories}}
+  </div>
+  {{/has_categories}}
+  {{^has_categories}}
+  <p><span class="is-placeholder" aria-label="메뉴: 아직 입력되지 않음">[메뉴 입력]</span></p>
+  {{/has_categories}}
+  {{#order}}<p class="s-menu__order"><a class="s-btn s-btn--block" href="#order-soon">주문하기</a></p>{{/order}}
+</section>

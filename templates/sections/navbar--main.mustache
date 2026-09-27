@@ -1,0 +1,10 @@
+<nav class="s-navbar" data-section-id="navbar" aria-label="바로 가기">
+  <a class="s-navbar__brand" href="{{top}}">
+    <span class="s-navbar__logo" aria-hidden="true">{{logo_letter}}</span>
+    <span class="s-navbar__name">{{title}}</span>
+  </a>
+  <ul class="s-navbar__links">
+    {{#links}}<li><a href="{{href}}">{{label}}</a></li>{{/links}}
+  </ul>
+  {{#cta_label}}<a class="s-btn s-navbar__cta" href="{{cta_href}}">{{cta_label}}</a>{{/cta_label}}
+</nav>

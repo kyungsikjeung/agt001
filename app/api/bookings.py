@@ -22,10 +22,17 @@ def submit_booking(site_key: str, request: Request, date: Optional[str] = Form(d
                    time: Optional[str] = Form(default=None), service: Optional[str] = Form(default=None),
                    party: Optional[str] = Form(default=None), name: Optional[str] = Form(default=None),
                    phone: Optional[str] = Form(default=None), memo: Optional[str] = Form(default=None),
-                   agree: Optional[str] = Form(default=None), website: Optional[str] = Form(default=None)):
+                   agree: Optional[str] = Form(default=None), website: Optional[str] = Form(default=None),
+                   slot: Optional[str] = Form(default=None), staff: Optional[str] = Form(default=None)):
     # 문의와 같은 IP 제한 창을 함께 쓴다(한 사람이 문의·예약을 번갈아 쏟아내지 못하게).
     if not _allow(request.client.host if request.client else "unknown"):
         return _page("잠시 후 다시 보내 주세요", "짧은 시간에 신청이 많이 들어왔어요.", site_key, 429)
+    # 예약 현황 부품(booking--slots)은 날짜·시간을 "YYYY-MM-DD HH:MM" 한 값(slot)으로, 담당자를 staff로 보낸다.
+    if slot and not date:
+        date, _, time = slot.strip().partition(" ")
+    if staff and staff.strip():
+        # ponytail: 담당자 칸 없이 시술 칸에 붙인다. 담당자별 집계가 필요해지면 bookings에 열 추가.
+        service = " · ".join(v.strip() for v in (service or "", staff) if v and v.strip())
     try:
         bookings.submit(site_key, date, time, service, party, name, phone, memo, agree, website)
     except bookings.BookingError as e:

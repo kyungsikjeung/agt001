@@ -276,6 +276,17 @@ def _apply_correction(session: dict, text: str, by, is_owner: bool) -> Optional[
 
 
 VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
+
+
+def _lock_choice(card: dict, choice: str) -> None:
+    """고른 안의 색·글꼴을 카드에 락한다(실패해도 고르기는 유지)."""
+    try:
+        from app.services import design_variants as DV
+        picked = DV.pick(card, choice)
+        if picked is not None:
+            design_concept.lock_tokens(card, picked["spec"]["tokens"])
+    except Exception:
+        pass
 # 공개 뜻으로 보는 말: 정확일치가 아니라 포함으로 본다 ("2안이 마음에 들어요, 공개할게요"도 잡는다).
 PUBLISH_WORDS = ("공개", "그대로공개", "사이트열어", "사이트오픈", "열어줘", "오픈해줘")
 PUBLISH_NEGATION = ("공개안", "공개하지", "공개말고")
@@ -287,6 +298,9 @@ def _restyle(session: dict, text: str) -> str:
     new, said = design_concept.adjust(current, text)
     if not said:
         return "어떤 느낌으로 바꿀까요? 예: '더 고급스럽게', '더 따뜻한 색으로', '사진 먼저 보여 줘'"
+    kept = design_concept.apply_lock(new, card)
+    if kept:
+        said += " 고른 안의 색·글꼴은 그대로 뒀어요."
     card["concept"] = new
     design_log.restyled(session["requirement_id"], card, current, new)  # D45
     design.render_variants(session["requirement_id"], card)
@@ -404,6 +418,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     if choice and state in ("GENERATING", "DONE") and publish_cmd:
         # "2안이 마음에 들어요, 공개할게요"처럼 고르기+공개를 한 번에 말하면 두 단계를 한 번에 끝낸다.
         session["prd"]["design_choice"] = choice
+        _lock_choice(session["prd"], choice)
         design_log.chosen(session["requirement_id"], session["prd"], choice)  # D45
         name = VARIANT_NAMES[choice]
         pub = _publish(session, base_url, force=_is_force_publish(user_text))
@@ -415,6 +430,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
     elif choice and state in ("GENERATING", "DONE"):
         # 시안 3안 고르기 (C7): 카드에 남긴다. 제작 상태는 그대로 둔다.
         session["prd"]["design_choice"] = choice
+        _lock_choice(session["prd"], choice)
         design_log.chosen(session["requirement_id"], session["prd"], choice)  # D45
         name = VARIANT_NAMES[choice]
         reply = (f"{choice[1]}안({name})으로 정했어요. {session['design_url']}/{choice}/ 에서 크게 볼 수 있어요.\n"

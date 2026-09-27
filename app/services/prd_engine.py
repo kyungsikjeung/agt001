@@ -463,6 +463,19 @@ def _cut_price(item: str) -> tuple[str, Optional[str]]:
     return menu, price
 
 
+def _record_price_pairs(card: dict, updates: list[dict], text: str) -> None:
+    """가격 짝 보존: 메뉴·가격이 둘 다 사장님 말에 있을 때만 card["price_pairs"]에 둔다."""
+    norm_t = _norm_text(text)
+    pairs = card.setdefault("price_pairs", {})
+    for u in updates or []:
+        if not isinstance(u, dict) or u.get("slot") not in ("offerings", "price"):
+            continue
+        for item in _split_items(u.get("value")):
+            menu, price = _cut_price(item)
+            if price is not None and menu != item and price in norm_t and menu in norm_t:
+                pairs[menu] = price
+
+
 def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
     """추출이 메뉴·가격을 뭉쳐 돌려주면 나누고, 같은 턴의 가격은 하나로 합친다.
 

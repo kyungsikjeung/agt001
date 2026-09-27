@@ -61,7 +61,7 @@ def test_concept_drives_first_variant_and_lead():
     spec = variants[1]["spec"]
     assert spec["tokens"]["palette"] == "sage"
     hero = variants[0]["spec"]["sections"][0]
-    assert hero["variant"] == "text-only"  # 사진이 없으면 글자 중심 첫 화면
+    assert hero["variant"] == "photo-overlay"  # photo-first: 사진 없어도 기본 그림으로 채운 첫 화면
     assert {"label": "영업", "value": "매일 11~20시"} in hero["content"]["facts"]
 
 

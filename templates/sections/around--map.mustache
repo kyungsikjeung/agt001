@@ -1,0 +1,26 @@
+<section class="s-around s-around--map" data-section-id="{{id}}" aria-labelledby="around-title-{{id}}">
+  <h2 id="around-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}오시는 길{{/label}}</h2>
+  <div class="s-map">
+    <div class="s-map__art" role="img" aria-label="예시 지도: 실제 지도는 곧 연결돼요">
+      <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+        <rect width="400" height="250" class="s-map__land"/>
+        <path class="s-map__park" d="M22 150h86v78H22zM300 18h82v64h-82z"/>
+        <path class="s-map__water" d="M0 206c60-18 110 10 170-6s120-30 230-8v58H0z"/>
+        <g class="s-map__block"><rect x="130" y="24" width="70" height="52" rx="4"/><rect x="214" y="24" width="72" height="52" rx="4"/><rect x="22" y="24" width="94" height="52" rx="4"/><rect x="22" y="92" width="94" height="44" rx="4"/><rect x="214" y="92" width="72" height="72" rx="4"/><rect x="300" y="98" width="82" height="66" rx="4"/><rect x="130" y="150" width="70" height="40" rx="4"/></g>
+        <path class="s-map__road" d="M0 84h400M122 0v250M207 0v200M293 0v196M0 142h122"/>
+        <path class="s-map__road s-map__road--main" d="M0 176c80 0 120-44 207-44s140 18 193 12"/>
+      </svg>
+      <span class="s-map__pin" aria-hidden="true"></span>
+      <span class="s-illu-badge">예시 지도</span>
+    </div>
+    <div class="s-map__info">
+      <address class="s-around__addr">{{#address}}{{address}}{{/address}}{{^address}}<span class="is-placeholder" aria-label="주소: 아직 입력되지 않음">[주소 입력]</span>{{/address}}</address>
+      {{#has_links}}<p class="s-map__links">{{#links}}<a class="s-btn s-btn--ghost" href="{{href}}" target="_blank" rel="noopener noreferrer">{{label}}</a>{{/links}}</p>{{/has_links}}
+      {{#has_items}}
+      <dl class="s-transit">
+        {{#items}}<div class="s-transit__row"><dt>{{name}}</dt><dd>{{#note}}{{note}}{{/note}}{{^note}}<span class="is-placeholder" aria-label="안내: 아직 입력되지 않음">[안내 입력]</span>{{/note}}</dd></div>{{/items}}
+      </dl>
+      {{/has_items}}
+    </div>
+  </div>
+</section>

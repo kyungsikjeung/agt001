@@ -53,6 +53,35 @@ def _clean_image(data: bytes) -> tuple[bytes, int, int]:
     return out.getvalue(), img.width, img.height
 
 
+# AI 예시 이미지 전용 후처리 (업로드 사진 기준과 분리).
+# 히어로는 넓은 화면에 크게 깔리므로 1920px·q90으로 보존하고 가볍게 샤픈한다.
+AI_MAX_SIDE = 1920
+AI_JPEG_QUALITY = 90
+
+
+def _clean_ai_image(data: bytes) -> tuple[bytes, int, int]:
+    """AI 생성 바이트 → EXIF 없는 JPEG 1920px·q90. 원본 형식은 검사만 한다."""
+    from PIL import Image, ImageEnhance, ImageOps
+
+    if len(data) > MAX_BYTES:
+        raise PhotoError("사진은 10MB까지 올릴 수 있어요.")
+    try:
+        img = Image.open(io.BytesIO(data))
+        fmt = img.format
+        img.load()
+    except Exception:
+        raise PhotoError("사진 파일을 읽을 수 없어요. JPEG·PNG·WebP로 올려 주세요.")
+    if fmt not in ALLOWED_FORMATS:
+        raise PhotoError("JPEG·PNG·WebP 사진만 올릴 수 있어요.")
+    img = ImageOps.exif_transpose(img)
+    img = img.convert("RGB")
+    img.thumbnail((AI_MAX_SIDE, AI_MAX_SIDE))
+    img = ImageEnhance.Sharpness(img).enhance(1.15)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=AI_JPEG_QUALITY, optimize=True)
+    return out.getvalue(), img.width, img.height
+
+
 def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str] = None) -> dict:
     from app.services import rooms
 

@@ -43,9 +43,18 @@ _SUBJECT = {
     "other": "a warm small shop interior with wooden shelves",
 }
 _GALLERY_EXTRA = {
-    "hero": "wide banner composition",
-    "gallery-1": "close-up detail shot, square composition",
-    "gallery-2": "wide angle view from another corner, square composition",
+    "hero": "wide banner composition, 16:9",
+    "gallery-1": "close-up detail shot, square composition, 1:1",
+    "gallery-2": "wide angle view from another corner, square composition, 1:1",
+}
+# 저가 모델에서도 질감을 살리는 촬영 지시 (D26·D35: 사실·개인정보는 넣지 않는다).
+_STYLE_SUFFIX = ("shot on 35mm, f/2.8, soft window light, natural materials, "
+                 "editorial composition, ultra-detailed")
+# 슬롯별 출력 규격 (지원 모델은 따르고, 구모델은 무시하고 만든다).
+_IMAGE_CONFIG = {
+    "hero": {"aspectRatio": "16:9", "imageSize": "2K"},
+    "gallery-1": {"aspectRatio": "1:1", "imageSize": "1K"},
+    "gallery-2": {"aspectRatio": "1:1", "imageSize": "1K"},
 }
 
 
@@ -62,18 +71,29 @@ def prompt_for(kind: str, slot: str) -> str:
         raise ImageError("hero·gallery-1·gallery-2 중에서 골라 주세요.")
     subject = _SUBJECT[safe_kind]
     framing = _GALLERY_EXTRA[slot]
-    return (f"{subject}, {framing}, photorealistic, natural daylight tones, "
+    return (f"{subject}, {framing}, {_STYLE_SUFFIX}, photorealistic, natural daylight tones, "
             "no people, no faces, no text, no letters, no logos, no watermarks")
 
 
-def _generate_bytes(prompt: str, timeout_sec: float = 120.0) -> bytes:
+def _model_for(slot: str) -> str:
+    """슬롯별 이미지 모델. hero는 상위 모델 지정이 있으면 그걸, 나머지는 기본 모델."""
+    base = (settings.gemini_image_model or "gemini-2.5-flash-image").strip()
+    if slot == "hero":
+        hero = (settings.gemini_image_model_hero or "").strip()
+        if hero:
+            return hero
+    return base
+
+
+def _generate_bytes(prompt: str, timeout_sec: float = 120.0, slot: str = "hero") -> bytes:
     """Gemini 이미지 1장 생성. 실패하면 ImageError(사용자용 한 줄)."""
     from app.services import keystore
     key = (keystore.get("gemini_api_key") or "").strip()
     if not key:
         raise ImageError("AI 이미지 키가 아직 없어요. 관리자에게 문의해 주세요.")
     base = (settings.gemini_api_base or "https://generativelanguage.googleapis.com").rstrip("/")
-    model = (settings.gemini_image_model or "gemini-2.5-flash-image").strip()
+    model = _model_for(slot)
+    image_config = _IMAGE_CONFIG.get(slot, _IMAGE_CONFIG["hero"])
     try:
         r = httpx.post(
             f"{base}/v1beta/models/{model}:generateContent",
@@ -81,7 +101,8 @@ def _generate_bytes(prompt: str, timeout_sec: float = 120.0) -> bytes:
             # 키는 주소가 아니라 머리글로: httpx가 요청 주소를 INFO 로그에 남긴다
             headers={"x-goog-api-key": key},
             json={"contents": [{"parts": [{"text": prompt}]}],
-                  "generationConfig": {"responseModalities": ["IMAGE"]}},
+                  "generationConfig": {"responseModalities": ["IMAGE"],
+                                       "imageConfig": image_config}},
         )
     except httpx.HTTPError as e:
         log.warning("Gemini 이미지 연결 실패: %s", type(e).__name__)
@@ -106,9 +127,9 @@ def _generate_bytes(prompt: str, timeout_sec: float = 120.0) -> bytes:
 
 
 def _save(room_id: str, slot: str, raw: bytes) -> str:
-    """JPEG 1600px로 다듬어 저장하고 주소를 돌려준다 (사진과 같은 기준)."""
+    """JPEG 1920px·q90으로 다듬어 저장하고 주소를 돌려준다 (업로드 사진 q85와 분리)."""
     from app.services import photos
-    clean, _, _ = photos._clean_image(raw)
+    clean, _, _ = photos._clean_ai_image(raw)
     folder = photos._dir(room_id)
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"ai-{slot}.jpg").write_bytes(clean)
@@ -162,7 +183,7 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
         if left > 0:
             skipped[s] = f"{left // 60 + 1}분 뒤에 다시 시도해 주세요."
             continue
-        raw = _generate_bytes(prompt_for(kind, s))
+        raw = _generate_bytes(prompt_for(kind, s), slot=s)
         url = _save(room_id, s, raw)
         with store.room_tx(room_id) as (_, session2):
             if session2 is None or session2.get("prd") is None:

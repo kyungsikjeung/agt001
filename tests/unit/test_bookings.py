@@ -169,3 +169,14 @@ def test_booking_section_rules(industry, slots, expected):
         assert sec["content"]["services"] == ["컷트", "염색"] and sec["content"]["time_options"][0] == "10:00"
         hero = next(s for s in spec["sections"] if s["type"] == "hero")
         assert hero["content"]["cta"]["href"] == "#booking-title-booking"
+
+
+def test_slot_and_staff_from_slots_component(client):
+    # 예약 현황 부품(booking--slots)은 날짜·시간을 slot 한 값으로, 담당자를 staff로 보낸다.
+    room_id, key = _site(client)
+    r = _send(client, key, date="", time="", slot=f"{_day()} 11:00", staff="박하나", service="염색")
+    assert r.status_code == 303
+    with get_sessionmaker()() as db:
+        row = db.query(BookingRow).filter(BookingRow.site_key == key).one()
+        assert row.visit_date.isoformat() == _day() and row.visit_time == "11:00"
+        assert row.service == "염색 · 박하나"

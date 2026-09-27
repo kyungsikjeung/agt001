@@ -17,6 +17,43 @@ from app.services import prd_schema as S
 # 종류별 출발 샘플. 가게 6업종은 같은 이름의 샘플, 나머지는 구성이 가장 가까운 것.
 _SAMPLE_FOR = {"individual": "workshop", "group": "academy", "webservice": "cafe", "other": "cafe"}
 
+# photo-first: 사장님 사진·AI 예시가 없을 때 시안 첫 화면·사진첩에 넣을 기본 그림.
+# /art/는 기본 제공 그림 전용 주소(site_render._URL_OK_PREFIXES 허용, 외부 호출 없음).
+# 파일 3종을 업종 분위기에 맞게 매핑한다. SVG 예시 그림보다 항상 먼저 쓴다.
+_ART_FILES = ("cafe-engraving", "academy-glass", "pension-example")
+_DEFAULT_ART = {
+    "cafe": "cafe-engraving", "restaurant": "cafe-engraving",
+    "webservice": "cafe-engraving", "other": "cafe-engraving",
+    "academy": "academy-glass", "salon": "academy-glass",
+    "individual": "academy-glass", "group": "academy-glass",
+    "pension": "pension-example", "workshop": "pension-example",
+}
+_EXEMPLAR_ALT = "예시 이미지: 사장님 사진으로 바뀌어요"
+
+
+def _default_art(kind: str) -> str:
+    """업종 기본 그림 주소 (/art/<파일>.webp). 모르면 pension-example."""
+    base = _DEFAULT_ART.get(kind if isinstance(kind, str) else "", "pension-example")
+    if base not in _ART_FILES:
+        base = "pension-example"
+    return f"/art/{base}.webp"
+
+
+def _default_gallery(kind: str) -> list[str]:
+    """사진첩용 기본 그림 2장 (대표와 다른 파일 우선)."""
+    hero = _default_art(kind)
+    rest = [f"/art/{f}.webp" for f in _ART_FILES if f"/art/{f}.webp" != hero]
+    return (rest + [hero])[:2]
+
+
+def _mock_path(kind: str, slot: str) -> str:
+    """목업 팩 파일이 있으면 그 주소, 없으면 빈 문자열.
+    (scripts/make_mockup_pack.py가 templates/art/mock-<업종>-<슬롯>.webp로 만든다.)"""
+    name = f"mock-{kind}-{slot}.webp"
+    if (settings.templates_dir / "art" / name).is_file():
+        return f"/art/{name}"
+    return ""
+
 # 3안 역할 고정 (P3-8, D43). id·이름은 그대로 둔다
 # (채팅 안내·"기본형으로" 같은 고르기 말 인식·채팅방 미리보기 카드가 이름에 묶여 있음).
 # 역할은 토큰·lead·구성으로 배정한다.
@@ -24,8 +61,8 @@ _SAMPLE_FOR = {"individual": "workshop", "group": "academy", "webservice": "cafe
 #   v2 사진 강조형 = ② 사장님 분위기: 카드 컨셉(mood·brand_story 반영 AI 컨셉, 없으면 규칙)의
 #     토큰·lead에 사진 강조 구조를 얹는다. 사장님이 표현하지 않은 칸(규칙과 같은 값)은
 #     기존 사진 강조형 차별화값(옆 배치·사진첩 그리드·상품 사진그리드·넉넉한 여백)으로 메운다.
-#   v3 간결형 = ③ 과감한 대비: v1과 색·글꼴·lead가 최대 차이.
-#     상품형·사진첩 차이(a1b8a61: 사진그리드/탭·그리드/스와이프·_reorder)는 그대로 둔다.
+#   v3 간결형 = ③ 과감한 대비: v1과 색·글꼴·lead가 최대 차이 + 아치형 첫 화면.
+#     사진이 없어도 기본 그림(/art/)으로 채워 빈 첫 화면(text-only)을 두지 않는다(photo-first).
 # 최소차이 8 (D42-4·P3-11): 3쌍 중 최소 _spec_distance가 8 미만이면
 #   v3를 palette → font_pair → lead 순으로 강제 분기한다 (_ensure_contrast).
 # 첫 화면 구도는 Q-6 규칙이 따로 맡는다: 견본 첫 화면이 글자형인 업종(미용실)은
@@ -33,9 +70,9 @@ _SAMPLE_FOR = {"individual": "workshop", "group": "academy", "webservice": "cafe
 VARIANTS = (
     ("v1", "기본형", "업종 정석 — 업종에 맞춘 기본 구성", {}),
     ("v2", "사진 강조형", "사장님 분위기 — 말씀에서 뽑은 느낌에 큰 사진",
-     {"hero": "photo", "gallery": "grid", "offerings": "photo-grid"}),
+     {"hero": "photo", "gallery": "marquee", "offerings": "photo-grid"}),
     ("v3", "간결형", "과감한 대비 — 색·글꼴·구성이 가장 다른 구성",
-     {"hero": "text-only", "gallery": "swipe", "offerings": "tabs"}),
+     {"hero": "arch", "gallery": "swipe", "offerings": "tabs"}),
 )
 # v2 토큰 폴백(사장님이 표현하지 않은 칸): 사진 강조형 차별화값 (a1b8a61 유지)
 _V2_TOKEN_FALLBACK = {"density": "roomy", "radius": "round"}
@@ -165,9 +202,9 @@ def _build_spec(card: dict, concept: dict) -> dict:
             continue
         c = sec["content"]
         if sec["type"] == "hero":
-            # 사진이 있으면 사진을 크게 깐 첫 화면, 없으면 AI 예시, 그것도 없으면 글자 중심 첫 화면(Q-7)
-            show_photo = bool(photos or ai_hero)
-            sec["variant"] = "photo-overlay" if show_photo else "text-only"
+            # photo-first: 사장님 사진 → AI 예시 → 업종 기본 그림(/art/) 순.
+            # 사진이 없어도 글자 중심 첫 화면(text-only)을 두지 않는다(Q-7).
+            sec["variant"] = "photo-overlay"
             c["facts"] = [{"label": lab, "value": val} for lab, val in (("영업", hours), ("위치", address)) if val]
             if photos:
                 c["image"] = photos[0]["url"]
@@ -176,20 +213,33 @@ def _build_spec(card: dict, concept: dict) -> dict:
                 c["image"] = ai_hero
                 c["image_alt"] = "AI 예시 이미지: 사장님 사진으로 바뀌어요"
                 c["ai_example"] = True
+            else:
+                c["image"] = _mock_path(ind.key, "hero") or _default_art(ind.key)
+                c["image_alt"] = _EXEMPLAR_ALT
+                c.pop("ai_example", None)
             c["title"] = shop
             c["subtitle"] = detail or draft.get("tagline") or ", ".join(_values(card, "business_type"))
             # 전화가 없으면 문의 양식으로(양식은 기본 포함, 제목 id = contact-title-inquiry)
             c["cta"] = {"label": "전화 문의", "href": f"tel:{phone}"} if phone else {"label": "문의하기", "href": "#contact-title-inquiry"}
         elif sec["type"] == "intro":
             c["body"] = detail or draft.get("intro") or ""
-        elif sec["type"] == "gallery" and (photos or ai_gallery):
-            # 대표로 쓴 첫 장 말고 나머지(한 장뿐이면 그 한 장)를 사진첩에
+        elif sec["type"] == "gallery":
+            # 대표로 쓴 첫 장 말고 나머지(한 장뿐이면 그 한 장)를 사진첩에.
+            # 사진이 없어도 기본 그림 2장으로 채워 빈 사진첩(SVG 폴백)을 두지 않는다.
             if photos:
                 c["items"] = [{"src": p["url"], "alt": p.get("caption") or f"사진 {i + 1}", "caption": p.get("caption") or ""}
                               for i, p in enumerate(photos[1:] or photos)]
-            else:
+            elif ai_gallery:
                 c["items"] = [{"src": u, "alt": "AI 예시 이미지: 사장님 사진으로 바뀌어요", "caption": "", "ai": True}
                               for u in ai_gallery]
+            else:
+                mock = [_mock_path(ind.key, s) for s in ("gallery-1", "gallery-2")]
+                if all(mock):
+                    c["items"] = [{"src": u, "alt": _EXEMPLAR_ALT, "caption": ""}
+                                  for u in mock]
+                else:
+                    c["items"] = [{"src": u, "alt": _EXEMPLAR_ALT, "caption": ""}
+                                  for u in _default_gallery(ind.key)]
         elif sec["type"] == "offerings":
             c["label"] = S.label_for(ind, "offerings")
             # 이름만 넣는다. 가격은 사장님이 말한 가격표가 생기면 채운다(지어내지 않음).
@@ -256,7 +306,34 @@ def _build_spec(card: dict, concept: dict) -> dict:
     if lead is not None and sections and sections[0]["type"] == "hero":
         sections = [sections[0], lead] + [s for s in sections[1:] if s is not lead]
     spec["sections"] = sections
+    spec["navbar"] = _build_navbar(card, sections)
     return spec
+
+
+def _build_navbar(card: dict, sections: list) -> dict:
+    """전역 내비 (할리스 GNB 1단 + 로고). 링크는 실제 제목 id(#<종류>-title-<id>)만,
+    CTA는 히어로와 동일. 섹션이 아니라 순서·거리 계산에 들어가지 않는다."""
+    by_type: dict = {}
+    for s in sections:
+        by_type.setdefault(s.get("type"), s)
+
+    def _link(key: str, label: str) -> dict | None:
+        sec = by_type.get(key)
+        if sec is None:
+            return None
+        return {"label": label, "href": f"#{key}-title-{sec.get('id')}"}
+
+    hero = by_type.get("hero", {})
+    hero_content = hero.get("content") or {}
+    links = [l for l in (
+        _link("intro", "소개"),
+        _link("offerings", (by_type.get("offerings", {}).get("content") or {}).get("label") or "메뉴"),
+        _link("gallery", "사진"),
+        _link("contact", "연락·예약") or _link("booking", "연락·예약") or _link("cta", "연락·예약"),
+    ) if l is not None]
+    return {"title": hero_content.get("title") or "", "links": links,
+            "cta": hero_content.get("cta") or {},
+            "top": f"#hero-title-{hero.get('id')}" if hero.get("id") else "#"}
 
 
 def _pick_font(exclude) -> str:
@@ -328,9 +405,9 @@ def _second_type(spec: dict) -> str:
 
 
 def _spec_distance(a: dict, b: dict) -> int:
-    """두 명세가 눈에 얼마나 다른지 0~16 가점 (D42-4 최소차이 8의 판정 기준).
+    """두 명세가 눈에 얼마나 다른지 0~17 가점 (D42-4 최소차이 8의 판정 기준).
     픽셀 평가와 같은 단위가 아니라 명세 차이의 근사치다:
-    색 계열 4·글꼴 2·첫 화면 3·상품형 2·바로 다음 부품 2·사진첩 1·여백 1·모서리 1."""
+    색 계열 4·글꼴 2·첫 화면 3·상품형 2·바로 다음 부품 2·사진첩 1·여백 1·모서리 1·사진처리 1."""
     score = 0
     ta, tb = a.get("tokens", {}), b.get("tokens", {})
     pa, pb = ta.get("palette"), tb.get("palette")
@@ -353,6 +430,8 @@ def _spec_distance(a: dict, b: dict) -> int:
     if ta.get("density") != tb.get("density"):
         score += 1
     if ta.get("radius") != tb.get("radius"):
+        score += 1
+    if ta.get("image_style") != tb.get("image_style"):
         score += 1
     return score
 
@@ -435,16 +514,20 @@ def variants(card: dict) -> list[dict]:
         s2["tokens"]["radius"] = _V2_TOKEN_FALLBACK["radius"]
     _apply_structure(s2, dict(VARIANTS[1][3]))
     s2["sections"] = _reorder(s2["sections"], "v2")
+    # 안별 사진 처리(image_style): v1 카드형 / v2 와이드 / v3 미니.
+    # 토큰 검증 목록 안의 값만 쓴다(렌더러가 모르는 값이면 SiteSpecError).
+    s2["tokens"]["image_style"] = "full-bleed"
 
     # ③ 과감한 대비: v1과 색·글꼴이 최대 차이 + 간결 구조 (상품 탭·사진첩은 실사진 있을 때만)
     s3 = _build_spec(card, rule)
     s3["tokens"]["palette"] = _contrast_palette(v1pal, s2["tokens"]["palette"])
     s3["tokens"]["font_pair"] = _pick_font({v1font, s2["tokens"]["font_pair"]})
     s3["tokens"].update(_V3_TOKENS)
+    s3["tokens"]["image_style"] = "circle-mini"
     _apply_structure(s3, dict(VARIANTS[2][3]))
     s3["sections"] = _reorder(s3["sections"], "v3")
-    # Q-6: 견본 첫 화면이 글자형(미용실)인데 사진이 없어 v1도 글자형이면 v3는 겹침형으로.
-    # 사진이 있으면 v1이 겹침형이라 기존 글자형 v3와 이미 다르다.
+    # Q-6 (photo-first 이후 예비): 견본 첫 화면이 글자형이어도 _build_spec이
+    # 기본 그림으로 겹침형을 만들기 때문에 이 조건은 보통 성립하지 않는다.
     if _sample_hero(card) == "text-only" and _hero_of(s1) == "text-only":
         for sec in s3["sections"]:
             if sec["type"] == "hero":

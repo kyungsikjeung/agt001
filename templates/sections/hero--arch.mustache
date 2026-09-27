@@ -1,0 +1,17 @@
+<section class="s-hero s-hero--arch ed-arch" data-section-id="{{id}}" aria-labelledby="hero-title-{{id}}">
+  <div class="s-hero__body">
+    {{#eyebrow}}<p class="ed-arch__eyebrow">{{eyebrow}}</p>{{/eyebrow}}
+    <h1 class="s-title ed-arch__title" id="hero-title-{{id}}">
+      {{#title}}{{title}}{{/title}}{{^title}}<span class="is-placeholder" aria-label="가게 이름: 아직 입력되지 않음">[가게 이름 입력]</span>{{/title}}
+    </h1>
+    {{#subtitle}}<p class="s-lead">{{subtitle}}</p>{{/subtitle}}
+    {{#cta_label}}<p class="s-hero__cta"><a class="s-btn" href="{{cta_href}}">{{cta_label}}</a></p>{{/cta_label}}
+  </div>
+  <div class="ed-arch__side">
+    <div class="s-media ed-arch__photo">
+      {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{#image_ai_badge}}<span class="s-illu-badge">예시 이미지</span>{{/image_ai_badge}}{{/image_src}}
+      {{^image_src}}<div class="s-media__empty is-placeholder" aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>{{/image_src}}
+    </div>
+    {{#label_en}}<p class="ed-arch__label" aria-hidden="true">{{label_en}}</p>{{/label_en}}
+  </div>
+</section>

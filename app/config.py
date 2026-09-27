@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     gemini_api_base: str = "https://generativelanguage.googleapis.com"
     # 기본 이미지 모델: 빠르고 저렴한 네이티브 이미지 생성 모델.
     gemini_image_model: str = "gemini-2.5-flash-image"
+    # 히어로 전용 상위 모델 (P2). 비우면 기본 모델을 쓴다.
+    # 모델 ID는 scripts/check_gemini_image.py ② 목록에 실제 보이는 값으로만 지정한다.
+    gemini_image_model_hero: Optional[str] = None
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
 

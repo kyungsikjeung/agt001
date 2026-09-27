@@ -1,0 +1,2093 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#fafaf8">
+<title>살롱 드 연남</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@700&amp;display=swap">
+<style>
+:root{--c-primary:#3a3a3c;--c-accent:#8a6d2b;--c-ground:#fafaf8;--c-ink:#1e1e20;--font-display:"Gowun Batang", "Pretendard", sans-serif;--font-body:"Pretendard", "Noto Sans KR", sans-serif;--space-section:48px;--space-gap:12px;--space-card:16px;--content-max:720px;--radius-card:12px;--radius-btn:999px;--card:#FFFFFF;--on-primary:#FFFFFF;--ground-soft:#fcfcfc;--ground-soft:color-mix(in srgb, var(--c-ground) 50%, #FFFFFF);--line:rgba(30,30,32,0.14);--line:color-mix(in srgb, var(--c-ink) 14%, transparent);--focus:#8a6d2b;--muted:#767676;--muted:color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));}@media (max-width:767px){:root{--space-section:32px;}}
+/* 섹션 부품 공통 스타일 (WP P-3, P2 다듬기).
+ * 색·글꼴·여백·모서리는 아래 CSS 변수만 사용한다. 렌더러가 tokens에서 :root 값을 채운다.
+ * --c-primary, --c-accent, --c-ground, --c-ink,
+ * --font-display, --font-body, --space-*, --radius-*.
+ * 예외: hero 오버레이의 검은 스크림(rgba(0,0,0,.12~.68), 중간 .45 포함)과 그 위 흰 글자(#fff)는
+ * SPEC §2.1이 정한 고정값 계열이다(어떤 팔레트에서도 4.5:1 보장용).
+ * P2 다듬기: 첫 화면(70svh 이상·큰 제목·그라데이션 덮개·버튼 그림자),
+ * 섹션 리듬 띠(짝수 섹션 --ground-soft 전체 너비), 제목 장식(토큰 반응형 밑줄),
+ * 카드 그림자, 스크롤 나타내기(대응 브라우저만), 새 부품 2종.
+ * 기준 너비 390px(1열), 760px 이상에서 넓은 배치. 본문 최대 너비 720px.
+ */
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--c-ground);
+  color: var(--c-ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.625;
+}
+
+img { max-width: 100%; display: block; }
+
+/* 섹션 틀: density 토큰 → --space-section(상하 패딩), --space-gap(요소 간격) */
+section[class^="s-"] {
+  padding: var(--space-section) 16px;
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+section[class^="s-"] h2 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 5.6vw, 30px);
+  line-height: 1.22;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--space-gap);
+}
+
+/* 제목 장식: 왼쪽 색 막대 대신 아래 짧은 강조선.
+ * 모서리 토큰(--radius-btn)에 따라 알약형(soft·round)은 둥글게, 각진형(sharp)은 네모로 바뀐다.
+ * 부품마다 길이·모양을 달리한다(상품 길게·사진첩 두 색 이어짐·후기 둥근 점). */
+section[class^="s-"] h2::after {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--c-accent);
+  border-radius: var(--radius-btn);
+}
+
+.s-offerings h2::after { width: 56px; }
+
+.s-gallery h2::after {
+  width: 44px;
+  background: var(--c-accent);
+  background: linear-gradient(90deg, var(--c-primary), var(--c-accent));
+}
+
+.s-reviews h2::after { width: 10px; height: 10px; }
+
+/* 섹션 리듬 띠: 첫 화면을 제외한 짝수 번째 섹션은 옅은 바탕(--ground-soft)으로 번갈아.
+ * 표시 구조를 바꾸지 않고 CSS만으로 전체 너비 띠를 만든다(그림자+잘라내기 기법). */
+section[class^="s-"]:not(.s-hero):not(.s-stats--band):nth-of-type(even) {
+  background-color: var(--ground-soft);
+  box-shadow: 0 0 0 100vmax var(--ground-soft);
+  clip-path: inset(0 -100vmax);
+}
+
+section[class^="s-"] p { margin: 0 0 var(--space-gap); }
+section[class^="s-"] p:last-child { margin-bottom: 0; }
+
+.s-title {
+  font-family: var(--font-display);
+  font-size: clamp(34px, 8vw, 54px);
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  text-wrap: balance;
+}
+
+.s-lead { font-size: 16px; line-height: 1.625; margin: 0 0 16px; }
+
+.s-kicker {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--c-primary);
+  margin: 0 0 8px;
+  padding: 4px 12px;
+  border-radius: var(--radius-btn);
+  background: var(--ground-soft);
+  background: color-mix(in srgb, var(--c-primary) 10%, transparent);
+}
+
+/* 버튼: 44px 터치 대상 */
+.s-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 22px;
+  background: var(--c-primary);
+  color: var(--c-ground);
+  font-size: 16px;
+  font-weight: 700;
+  text-decoration: none;
+  border-radius: var(--radius-btn);
+  border: 2px solid var(--c-primary);
+}
+
+.s-btn--ghost {
+  background: transparent;
+  color: var(--c-primary);
+}
+
+.s-btn:visited { color: var(--c-ground); }
+.s-btn--ghost:visited { color: var(--c-primary); }
+
+/* 자리 표시: 점선 테두리 (장식용, 본문 대비 규칙 제외) */
+.is-placeholder {
+  display: inline-block;
+  border: 1.5px dashed color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));
+  border-radius: var(--radius-card);
+  padding: 6px 10px;
+  min-height: 44px;
+  line-height: 1.625;
+}
+
+a { color: var(--c-primary); text-underline-offset: 2px; }
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--c-accent);
+  outline-offset: 2px;
+}
+
+/* ---- S1 hero (P2: 첫 화면 강조) ---- */
+/* 휴대폰에서 첫 화면은 화면 높이의 70% 이상 차지한다(70svh, 구형은 70vh). */
+.s-hero--photo-overlay {
+  position: relative;
+  max-width: none;
+  padding: 0;
+  min-height: 320px;
+  min-height: 70vh;
+  min-height: 70svh;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+}
+
+.s-hero--photo-overlay .s-media {
+  position: absolute;
+  inset: 0;
+}
+
+.s-hero--photo-overlay .s-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.s-hero--photo-overlay .s-media__empty { height: 320px; }
+
+.s-hero--photo-overlay .s-hero__body {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 48px 16px 36px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0.45) 48%, rgba(0, 0, 0, 0.68) 100%);
+  color: #fff;
+}
+
+.s-hero--photo-overlay .s-title { text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45); }
+
+.s-hero--photo-overlay .s-title,
+.s-hero--photo-overlay .s-lead { color: #fff; }
+.s-hero--photo-overlay .s-kicker { color: #fff; background: rgba(0, 0, 0, 0.35); }
+
+/* 사진 옆·글자만 첫 화면도 화면 높이 70% 이상, 내용은 세로 가운데 */
+.s-hero--photo-side,
+.s-hero--text-only {
+  min-height: 70vh;
+  min-height: 70svh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* 첫 화면 버튼은 더 크고 그림자를 얹는다 */
+.s-hero__cta .s-btn {
+  min-height: 52px;
+  padding: 12px 30px;
+  font-size: 17px;
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.55);
+}
+
+.s-hero--photo-side .s-media img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+
+.s-hero--photo-side .s-media__empty { height: 160px; }
+
+.s-media__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--c-ground) 50%, #fff);
+  border: 1.5px dashed color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));
+  border-radius: var(--radius-card);
+  min-height: 44px;
+}
+
+/* ---- 예시 그림 (사진이 없을 때 업종별 인라인 SVG, 사진이 오면 바뀐다) ---- */
+.s-illu {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  background: var(--c-ground);
+}
+
+.s-illu svg { display: block; width: 100%; height: auto; }
+
+/* 옆 배치 대표와 사진첩은 사진과 같은 자리 크기로 맞춘다 */
+.s-hero--photo-side .s-media .s-illu svg { height: 220px; }
+.s-gallery .s-illu svg { height: 160px; }
+.s-gallery__swipe .s-illu svg { height: 180px; }
+
+/* 겹침형 대표는 배경 칸을 그대로 채운다 */
+.s-hero--photo-overlay .s-media .s-illu { position: absolute; inset: 0; }
+.s-hero--photo-overlay .s-media .s-illu svg { width: 100%; height: 100%; }
+
+/* 그림 위 작은 예시 표시 */
+.s-illu-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--c-ground);
+  background: var(--c-ink);
+  border-radius: var(--radius-btn);
+}
+
+/* 사진첩 예시 그림 아래 안내 문구 */
+.s-gallery__notice {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-primary);
+  margin: 8px 0 0;
+}
+
+.s-hero__cta { margin-top: var(--space-gap); }
+
+/* ---- S2 intro ---- */
+.s-intro__owner { margin-top: var(--space-gap); }
+
+.s-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-gap);
+  margin: var(--space-gap) 0 0;
+  padding: 0;
+}
+
+.s-stats__item {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  text-align: center;
+  margin: 0;
+}
+
+.s-stats__item dd {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--c-primary);
+  order: -1;
+}
+
+.s-stats__item dt { font-size: 13px; }
+.s-stats__item { display: flex; flex-direction: column; }
+
+/* ---- S3 offerings ---- */
+.s-cards,
+.s-price-list,
+.s-gallery__list,
+.s-gallery__swipe,
+.s-around__list,
+.s-reviews__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-gap);
+  grid-template-columns: 1fr;
+}
+
+.s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr; }
+
+.s-card {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-top: 4px solid var(--c-accent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  overflow: hidden;
+}
+
+.s-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+  margin-bottom: 8px;
+}
+
+.s-card__name { display: block; font-size: 16px; margin-bottom: 4px; }
+.s-card__desc { font-size: 16px; margin: 0 0 4px; }
+.s-card__price { font-weight: 700; margin: 0; }
+
+.s-price-list__row {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.s-price-list__name { font-size: 16px; }
+.s-price-list__desc { flex-basis: 100%; font-size: 16px; }
+.s-price-list__price { margin-left: auto; font-weight: 700; white-space: nowrap; }
+
+/* tabs: CSS :target 만으로 동작, JS 없음 */
+.s-tabs__nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-bottom: var(--space-gap);
+}
+
+.s-tabs__tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-btn);
+  color: var(--c-primary);
+  text-decoration: none;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.s-tabs__panel {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+  margin-bottom: var(--space-gap);
+}
+
+.s-tabs__panel:target { border: 2px solid var(--c-accent); }
+
+/* ---- S4 gallery ---- */
+.s-gallery--grid .s-gallery__list { grid-template-columns: 1fr 1fr; }
+
+.s-gallery figure { margin: 0; position: relative; }
+.s-hero--photo-side .s-media { position: relative; }
+
+.s-gallery img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+
+.s-gallery figcaption { font-size: 13px; margin-top: 4px; }
+
+.s-gallery__swipe {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  gap: var(--space-gap);
+  padding-bottom: 8px;
+}
+
+.s-gallery__swipe li {
+  flex: 0 0 240px;
+  scroll-snap-align: start;
+}
+
+.s-gallery__swipe img { height: 180px; }
+
+/* ---- S5 around ---- */
+.s-around__addr { font-style: normal; margin-bottom: var(--space-gap); }
+.s-around__map { margin-bottom: var(--space-gap); }
+.s-around__note { font-size: 16px; }
+
+.s-transit { margin: var(--space-gap) 0 0; padding: 0; }
+.s-transit__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+}
+.s-transit__row dt { font-weight: 700; }
+.s-transit__row dd { margin: 0; }
+
+/* ---- S6 contact ---- */
+.s-contact__list { margin: 0 0 var(--space-gap); }
+.s-contact__row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+}
+.s-contact__row dt { font-weight: 700; }
+.s-contact__row dd { margin: 0; }
+.s-contact__row dd a {
+  display: inline-block;
+  min-height: 44px;
+  line-height: 44px;
+}
+
+.s-contact__sticky {
+  position: sticky;
+  bottom: 0;
+  margin: 0;
+  padding: 8px 0 12px;
+  background: var(--c-ground);
+}
+
+.s-contact__sticky .s-btn { width: 100%; min-height: 48px; }
+.s-contact__first { margin-bottom: var(--space-gap); }
+.s-contact__first .s-btn { width: 100%; min-height: 48px; }
+
+/* ---- S6 contact form (플랫폼 공용 ① 문의 받기, 스크립트 없이 동작) ---- */
+.s-form__row { margin: 0 0 var(--space-gap); }
+.s-form__row label { display: block; font-weight: 700; margin-bottom: 4px; }
+.s-form__row input[type="text"],
+.s-form__row textarea {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1.5px solid var(--c-ink);
+  border-radius: var(--radius-card);
+}
+.s-form__row textarea { min-height: 132px; resize: vertical; }
+.s-form__hint { display: block; font-size: 13px; margin-top: 4px; }
+.s-form__notice { font-size: 13px; margin: 0 0 var(--space-gap); }
+.s-form__agree { display: flex; align-items: flex-start; gap: 8px; }
+.s-form__agree input[type="checkbox"] {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 12px;
+  accent-color: var(--c-primary);
+}
+.s-form__agree label { display: flex; align-items: center; min-height: 44px; margin-bottom: 0; }
+/* 스팸 방지용 숨김 칸: 사람은 못 보고, 일반 HTML form 전송에는 그대로 실린다 */
+.s-form__hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: 0;
+}
+.s-form__submit { margin: var(--space-gap) 0 0; }
+.s-form__submit .s-btn {
+  width: 100%;
+  min-height: 48px;
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+/* ---- S6 contact kakao-channel (플랫폼 공용 ① 문의 받기) ---- */
+.s-contact--kakao-channel .s-btn { width: 100%; min-height: 48px; }
+
+/* ---- S7 reviews ---- */
+.s-review {
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+}
+
+.s-review blockquote { margin: 0 0 8px; font-size: 16px; line-height: 1.625; }
+.s-review__by { font-size: 13px; margin: 0; }
+.s-review__src { font-size: 13px; }
+
+/* ---- S8 cta ---- */
+.s-cta__btns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-gap);
+}
+.s-cta__btns .s-btn { width: 100%; min-height: 48px; }
+
+/* ---- P2: 카드 그림자·카드 바탕 토큰 ---- */
+/* 바탕은 --card(항상 흰색, 렌더러 주입. 없으면 흰색), 그림자는 구분선 색(--line)으로
+ * 팔레트마다 어울리게 번진다. 모서리는 각 규칙의 var(--radius-card) 그대로 쓴다. */
+.s-card,
+.s-stats__item,
+.s-price-list__row,
+.s-tabs__panel,
+.s-review {
+  background: #fff;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05), 0 14px 30px -22px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 2px var(--line), 0 14px 30px -22px var(--line);
+}
+
+/* ---- P2 새 부품: features--icons (특징 3칸) ---- */
+.s-features__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-gap);
+}
+
+.s-feature {
+  background: #fff;
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  box-shadow: 0 1px 2px var(--line), 0 14px 30px -22px var(--line);
+  padding: var(--space-card);
+  text-align: center;
+}
+
+.s-feature__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  color: var(--c-primary);
+  background: var(--ground-soft);
+  background: color-mix(in srgb, var(--c-primary) 12%, transparent);
+}
+
+.s-feature__icon svg { width: 24px; height: 24px; }
+
+.s-feature__title { display: block; font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+.s-feature__desc { display: block; font-size: 13px; }
+
+/* ---- P2 새 부품: stats--band (숫자 강조 띠) ---- */
+/* 띠 자체가 전체 너비 주색 바탕이라 리듬 띠 대상에서 뺀다. 값은 사장님이 말한 것만 들어온다. */
+.s-stats--band {
+  max-width: none;
+  background: var(--c-primary);
+  color: #fff;
+  color: var(--on-primary);
+}
+
+.s-stats-band__inner {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.s-stats-band__title {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0 0 var(--space-gap);
+  color: inherit;
+}
+
+.s-stats-band__title::after {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 4px;
+  margin-top: 8px;
+  background: var(--c-accent);
+  border-radius: var(--radius-btn);
+}
+
+.s-stats-band__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-gap);
+  text-align: center;
+}
+
+.s-stats-band__value {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.s-stats-band__label { display: block; font-size: 13px; margin-top: 2px; }
+
+/* ---- P2: 부드럽게 나타나기 (CSS만, 스크립트 없음) ---- */
+@keyframes s-rise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 첫 화면은 읽자마자 살짝 올라온다 */
+.s-hero { animation: s-rise 0.6s ease-out both; }
+
+/* 스크롤 나타내기는 view() 타임라인을 아는 브라우저에서만. 모르는 곳은 가만히 보인다. */
+@supports (animation-timeline: view()) {
+  section[class^="s-"]:not(.s-hero) {
+    animation: s-rise 0.7s ease-out both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 24%;
+  }
+}
+
+/* 인쇄·고정 캡처에서는 나타내기 없이 전부 보인다 */
+@media print {
+  section[class^="s-"] { animation: none; }
+}
+
+/* ---- 760px 이상: 넓은 배치 ---- */
+@media (min-width: 760px) {
+  section[class^="s-"] { padding-inline: 24px; }
+  section[class^="s-"] h2 { font-size: 28px; }
+  .s-title { font-size: 40px; }
+
+  .s-hero--photo-overlay { min-height: 440px; }
+  .s-hero--photo-overlay .s-media__empty { height: 440px; }
+
+  .s-hero--photo-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .s-hero--photo-side .s-media img { height: 280px; }
+  .s-hero--photo-side .s-media .s-illu svg { height: 280px; }
+
+  .s-offerings--photo-grid .s-cards { grid-template-columns: 1fr 1fr 1fr; }
+  .s-offerings--list-price .s-price-list { grid-template-columns: 1fr 1fr; }
+  .s-gallery--grid .s-gallery__list { grid-template-columns: 1fr 1fr 1fr; }
+
+  .s-intro--stats .s-stats { grid-template-columns: repeat(4, 1fr); }
+
+  .s-around--map-list,
+  .s-around--transit {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 24px;
+  }
+  .s-around--map-list h2,
+  .s-around--transit h2 { grid-column: 1 / -1; }
+
+  .s-cta__btns { flex-direction: row; }
+  .s-cta__btns .s-btn { width: auto; flex: 1; }
+
+  .s-stats--band { padding-inline: 24px; }
+  .s-stats-band__value { font-size: 34px; }
+  .s-feature__title { font-size: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto;
+    transition: none;
+    animation: none;
+  }
+  /* 위 전체 선택자는 특이성이 낮아 섹션 나타내기를 끄지 못하므로 명시한다 */
+  section[class^="s-"]:not(.s-hero),
+  .s-hero { animation: none; }
+  .s-gallery__swipe { scroll-snap-type: none; }
+}
+
+
+/* 공개 사이트(body.is-public): 방문자에게는 [… 입력] 빈칸을 보이지 않는다. 시안에서는 사장님이 채울 곳으로 보인다. */
+.is-public .is-placeholder { display: none; }
+/* D36: 예시 그림의 배지는 방문자에게도 보인다(실제 가게 사진으로 오해하지 않게).
+   사진첩 아래 안내 문구는 사장님에게 하는 말이라 공개본에서만 숨긴다. */
+.is-public .s-gallery__notice { display: none; }
+.is-public .s-contact__row:has(.is-placeholder),
+/* 사진 없는 상품 카드는 사진 칸만 숨기고 카드는 남긴다 (Q-2: 펜션 객실 카드가 통째로 사라졌음) */
+.is-public li:has(> .is-placeholder:not(.s-media__empty)),
+.is-public p:has(> .is-placeholder:only-child) { display: none; }
+.is-public .is-placeholder[aria-label^="가격"] {
+  display: inline; font-size: 0; border: 0; background: none; padding: 0;
+}
+.is-public .is-placeholder[aria-label^="가격"]::after { content: "가격 문의"; font-size: 0.9375rem; color: var(--muted); }
+
+/* ---- S9 video (영상 카드: 썸네일 + 재생 표시, 새 창 링크) ---- */
+.s-video__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-gap);
+  grid-template-columns: 1fr;
+}
+
+.s-video__link {
+  display: block;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  text-decoration: none;
+  color: inherit;
+}
+
+.s-video__thumb {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: var(--c-ground);
+  overflow: hidden;
+}
+
+.s-video__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.s-video__thumb--empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: var(--c-primary);
+  color: var(--c-ground);
+}
+
+.s-video__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.55);
+  border-radius: var(--radius-btn);
+}
+
+.s-video__thumb--empty .s-video__play {
+  position: static;
+  transform: none;
+}
+
+.s-video__platform {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.s-video__title {
+  display: block;
+  font-weight: 700;
+  padding: 10px 12px 0;
+}
+
+.s-video__src {
+  display: block;
+  font-size: 13px;
+  padding: 0 12px 10px;
+}
+
+@media (min-width: 760px) {
+  .s-video__list { grid-template-columns: 1fr 1fr 1fr; }
+}
+
+/* ==== 컨셉 디자인 층 (2026-09-26, "디자인 컨셉 잡기") ====
+ * 방향: 사진이 없어도 완성돼 보이는 글자 중심 에디토리얼. 컨셉 색을 첫 화면에 넓게 깔고,
+ * 크기·굵기 대비로 위계를 만든다. 장식 밑줄·제목 위 라벨·카드 윗선은 뺀다.
+ * 위 기본 규칙을 덮어쓴다(다른 작업과 충돌을 줄이려고 한 곳에 모음). */
+
+html { -webkit-text-size-adjust: 100%; }
+body {
+  font-size: 17px;
+  line-height: 1.65;
+  word-break: keep-all;          /* 한글 낱말 중간 줄바꿈 방지 (Q-9) */
+  overflow-wrap: anywhere;       /* 긴 주소·링크는 넘치지 않게 */
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+::selection { background: color-mix(in srgb, var(--c-primary) 24%, transparent); color: var(--c-ink); }
+input, textarea { caret-color: var(--c-primary); accent-color: var(--c-primary); }
+
+section[class^="s-"] { padding-inline: 20px; }
+section[class^="s-"] h2 {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+  margin: 0 0 20px;
+  text-wrap: balance;
+}
+section[class^="s-"] h2::after,
+.s-stats-band__title::after { content: none; }
+
+/* 첫 화면 공통: 아주 큰 가게 이름, 한 줄 소개, 정보 칩, 큰 버튼 */
+.s-title {
+  font-size: 44px;
+  font-size: clamp(40px, 12vw, 68px);
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  margin: 0 0 14px;
+  text-wrap: balance;
+}
+.s-lead { font-size: 18px; line-height: 1.55; margin: 0 0 4px; text-wrap: pretty; max-width: 32em; }
+
+.s-hero__facts {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 16px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  border-top: 1px solid var(--line);
+}
+.s-hero__fact-label { font-weight: 700; margin-right: 4px; }
+
+.s-btn {
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.s-btn:active { transform: scale(0.98); }
+.s-hero__cta { margin-top: 26px; }
+.s-hero__cta .s-btn { min-height: 56px; padding: 14px 32px; font-size: 18px; }
+
+/* 글자형 첫 화면 = 컨셉 색 면: 사진이 없을 때 기본. 이름이 화면을 채운다 */
+.s-hero--text-only {
+  max-width: none;
+  padding: 0;
+  min-height: 78vh;
+  min-height: 78svh;
+  justify-content: flex-end;
+  background: var(--c-primary);
+  color: var(--on-primary);
+}
+.s-hero--text-only .s-hero__body {
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 104px 20px 44px;
+}
+.s-hero--text-only .s-title { color: var(--on-primary); }
+.s-hero--text-only .s-lead { color: color-mix(in srgb, var(--on-primary) 88%, var(--c-primary)); }
+.s-hero--text-only .s-hero__facts {
+  color: var(--on-primary);
+  border-top-color: color-mix(in srgb, var(--on-primary) 32%, transparent);
+}
+.s-hero--text-only .s-btn {
+  background: var(--c-ground);
+  border-color: var(--c-ground);
+  color: var(--c-primary);
+  box-shadow: 0 14px 28px -14px rgba(0, 0, 0, 0.45);
+}
+.s-hero--text-only .s-btn:visited { color: var(--c-primary); }
+.s-hero--text-only a:focus-visible { outline-color: var(--c-ground); }
+
+/* 사진 옆 배치(사진 강조형): 휴대폰에서는 사진(없으면 예시 그림)을 위에 크게, 글은 아래 */
+.s-hero--photo-side {
+  max-width: none;
+  padding: 0 0 12px;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  min-height: 0;
+}
+.s-hero--photo-side .s-hero__body { width: 100%; max-width: 720px; margin-inline: auto; padding: 28px 20px 8px; }
+.s-hero--photo-side .s-media img { height: 58vh; height: 58svh; border-radius: 0; }
+.s-hero--photo-side .s-media .s-illu { border-radius: 0; background: var(--ground-soft); }
+.s-hero--photo-side .s-media .s-illu svg { height: 320px; }
+.s-hero--photo-side .s-illu-badge { top: 14px; left: 16px; }
+
+/* 사진 겹침형(사진이 있을 때 1안) */
+.s-hero--photo-overlay .s-hero__body { padding: 72px 20px 40px; }
+.s-hero--photo-overlay .s-hero__facts { color: #fff; border-top-color: rgba(255, 255, 255, 0.35); }
+
+/* 메뉴·가격표 = 메뉴판: 상자 대신 줄로 나눈 목록 */
+.s-price-list { gap: 0; }
+.s-price-list__row,
+.s-offerings .s-price-list__row {
+  background: none;
+  box-shadow: none;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 16px 2px;
+  gap: 2px 16px;
+}
+.s-price-list li:first-child .s-price-list__row,
+.s-price-list > li:first-child { border-top: 1px solid var(--line); }
+.s-price-list__name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.s-price-list__desc { font-size: 15px; color: var(--muted); }
+.s-price-list__price { color: var(--c-primary); font-weight: 800; font-variant-numeric: tabular-nums; }
+
+/* 카드: 윗선 없이 바탕·그림자만, 이름은 크게 */
+.s-card { border: 0; border-top: 0; padding: 20px; }
+.s-card__name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.s-card__desc { font-size: 15px; color: var(--muted); }
+.s-card__price { color: var(--c-primary); font-weight: 800; }
+.s-tabs__panel { border: 0; }
+
+/* 이용 안내 칸: 상자 테두리 빼고 가볍게 */
+.s-feature { border: 0; box-shadow: none; background: var(--ground-soft); }
+.s-feature__title { font-size: 15px; }
+.s-feature__desc { font-size: 14px; }
+
+/* 작은 글자는 14px 이상 */
+.s-gallery figcaption,
+.s-review__by,
+.s-review__src,
+.s-video__src,
+.s-video__platform,
+.s-stats__item dt,
+.s-stats-band__label,
+.s-form__hint,
+.s-form__notice,
+.s-gallery__notice { font-size: 14px; }
+.s-illu-badge { font-size: 14px; }
+
+/* 문의 양식: 누르기 쉬운 크기 (Q-8) */
+.s-form__row input[type="text"],
+.s-form__row textarea { font-size: 17px; border: 1.5px solid var(--line); border-color: color-mix(in srgb, var(--c-ink) 28%, transparent); }
+.s-form__row input[type="text"]:focus,
+.s-form__row textarea:focus { outline: 3px solid color-mix(in srgb, var(--c-primary) 35%, transparent); outline-offset: 1px; border-color: var(--c-primary); }
+.s-form__agree { align-items: center; }
+.s-form__agree input[type="checkbox"] {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  display: grid;
+  place-content: center;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  accent-color: var(--c-primary);
+}
+.s-form__agree input[type="checkbox"]::before {
+  content: "";
+  display: block;
+  width: 24px;
+  height: 24px;
+  box-sizing: border-box;
+  background-color: #fff;
+  border: 2px solid var(--c-ink);
+  border-radius: 6px;
+}
+.s-form__agree input[type="checkbox"]:checked::before {
+  background-color: var(--c-primary);
+  border-color: var(--c-primary);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8.5l3.2 3.2L13 5' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 14px 14px;
+}
+.s-form__agree input[type="checkbox"]:focus-visible { outline: 3px solid var(--c-accent); outline-offset: 2px; }
+.s-form__agree label { cursor: pointer; }
+
+/* 첫 화면 움직임: 투명에서 시작하지 않는다(미리보기가 흐리게 찍히던 원인, Q-1). 제자리에서 살짝 올라온다 */
+@keyframes s-settle {
+  from { transform: translateY(12px); }
+  to { transform: none; }
+}
+.s-hero { animation: none; }
+.s-hero__body { animation: s-settle 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+@media (min-width: 760px) {
+  section[class^="s-"] h2 { font-size: 34px; }
+  .s-hero--text-only .s-hero__body { padding: 140px 24px 64px; }
+  .s-hero--photo-side { display: grid; grid-template-columns: 1fr 1fr; align-items: center; padding: 48px 24px; max-width: 1080px; margin-inline: auto; }
+  .s-hero--photo-side .s-media { order: 2; }
+  .s-hero--photo-side .s-media img { height: 480px; border-radius: var(--radius-card); }
+  .s-hero--photo-side .s-media .s-illu { border-radius: var(--radius-card); }
+  .s-hero--photo-side .s-media .s-illu svg { height: 480px; }
+  .s-offerings--list-price .s-price-list { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-hero__body { animation: none; }
+  .s-btn { transition: none; }
+}
+.s-contact__row { align-items: center; }
+/* ---- 예약 신청 폼 (플랫폼 공용 ② 예약 받기, 문의 s-form 모양 그대로 씀) ---- */
+/* 좁은 화면(360px)에서도 가로로 넘치지 않게 칸 너비를 폼 안에 맞춘다 */
+.s-booking .s-form__row select,
+.s-booking .s-form__row input[type="date"],
+.s-booking .s-form__row input[type="time"],
+.s-booking .s-form__row input[type="number"],
+.s-booking .s-form__row input[type="tel"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.625;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--c-ink) 28%, transparent);
+  border-radius: var(--radius-card);
+}
+/* 안내 문구는 본문보다 작게 */
+.s-booking__note { font-size: 15px; margin: 0 0 var(--space-gap); }
+/* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
+section.s-hero .s-hero__cta { margin: 26px 0 0; }
+section.s-hero .s-lead { margin: 0 0 4px; }
+
+/* 편집형 부품 (Claude 시범, 2026-09-27) */
+/* A 빈티지 일러스트형 / B 산뜻한 스토리형 / C 로맨틱 에디토리얼 / D 다크 시네마틱.
+ * 색·글꼴·여백·모서리는 토큰 변수만 쓴다(--c-*, --font-*, --space-*, --radius-*,
+ * --card, --on-primary, --line, --muted). 명조 제목은 --font-display(serif 계열
+ * font_pair에서 명조로 해결됨). 고정색은 hero 스크림 rgba(0,0,0,*)와 그 위 흰 글자뿐
+ * (SPEC §2.1 고정값 계열). 움직임은 CSS만, view() 등장은 @supports 안에서만. */
+
+/* ---- A hero--illustrated: 판화풍 그림 + 선언문 ---- */
+.s-hero--illustrated { min-height: 0; }
+.ed-illu__art img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+.ed-illu__title { font-family: var(--font-display); }
+.ed-illu__lines {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.ed-illu__lines li {
+  border-left: 3px solid var(--c-accent);
+  padding-left: 12px;
+}
+
+/* ---- B hero--story: 유리 추상 그림 + 핵심어 mark ---- */
+.s-hero--story .s-hero__body { padding-block: 32px; }
+.ed-story__art img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+.ed-story__title mark {
+  background: var(--ground-soft);
+  background: color-mix(in srgb, var(--c-accent) 25%, transparent);
+  color: var(--c-ink);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+/* ---- C hero--arch: 명조 2단 제목 + 아치 사진 + 세로 라벨 ---- */
+.ed-arch__eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--c-primary);
+  margin: 0 0 8px;
+}
+.ed-arch__title { font-family: var(--font-display); }
+.ed-arch__side {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: stretch;
+  margin-top: var(--space-gap);
+}
+.ed-arch__photo img {
+  width: 100%;
+  height: 320px;
+  object-fit: cover;
+  border-radius: 999px 999px var(--radius-card) var(--radius-card);
+}
+.ed-arch__label {
+  writing-mode: vertical-rl;
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  color: var(--c-primary);
+  border-left: 1px solid var(--line);
+  border-left: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  padding-left: 8px;
+  margin: 0;
+  min-height: 44px;
+}
+
+/* ---- D hero--cinematic: 어두운 전면 사진 + 그라데이션 + 버튼 2개 ---- */
+.s-hero--cinematic {
+  position: relative;
+  max-width: none;
+  padding: 0;
+  min-height: 70vh;
+  min-height: 70svh;
+  display: flex;
+  align-items: flex-end;
+  overflow: hidden;
+  background: var(--c-ink);
+}
+.ed-cine__bg { position: absolute; inset: 0; }
+.ed-cine__bg img { width: 100%; height: 100%; object-fit: cover; }
+.ed-cine__bg .s-illu-badge { z-index: 1; }
+.ed-cine__empty { position: absolute; inset: 0; }
+.ed-cine__body {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  margin-inline: auto;
+  padding: 72px 20px 88px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0.55) 48%, rgba(0, 0, 0, 0.78) 100%);
+  color: #fff;
+}
+.ed-cine__kicker {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #fff;
+  border-bottom: 2px solid var(--c-accent);
+  padding-bottom: 4px;
+  margin: 0 0 12px;
+}
+.ed-cine__title, .ed-cine__lead { color: #fff; }
+.ed-cine__title { font-family: var(--font-display); text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45); }
+.ed-cine__cta { display: flex; flex-direction: column; gap: 8px; }
+.ed-cine__btn { width: 100%; min-height: 48px; }
+.ed-cine__btn--ghost, .ed-cine__btn--ghost:visited {
+  background: transparent;
+  border-color: #fff;
+  color: #fff;
+}
+
+/* ---- A offerings--cards: 사진 카드 격자 + 굵은 제목 + 얇은 가로줄 ---- */
+.ed-cards__title { font-weight: 800; }
+.ed-cards__title::after {
+  content: "";
+  display: block;
+  height: 1px;
+  margin-top: 12px;
+  background: var(--line);
+  background: color-mix(in srgb, var(--c-ink) 14%, transparent);
+}
+.ed-cards__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.ed-cards__card img { height: 120px; }
+
+/* ---- B concerns--bubbles: 고민 말풍선 ---- */
+.ed-worry__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-gap);
+  grid-template-columns: minmax(0, 1fr);
+}
+.ed-worry__bubble {
+  position: relative;
+  background: #fff;
+  background: var(--card);
+  border: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-radius: var(--radius-card);
+  padding: var(--space-card);
+}
+.ed-worry__bubble::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  bottom: -8px;
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  background: var(--card);
+  border-right: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--c-ink) 14%, transparent);
+  transform: rotate(45deg);
+}
+.ed-worry__quote { font-size: 16px; line-height: 1.625; margin: 0; }
+.ed-worry__quote::before { content: "\201C"; color: var(--c-accent); font-weight: 800; margin-right: 2px; }
+.ed-worry__who { font-size: 14px; color: var(--muted); margin: 8px 0 0; }
+.ed-worry__note { font-size: 14px; margin: var(--space-gap) 0 0; }
+
+/* ---- D quickbar--float: 고정 빠른 버튼 ---- */
+.ed-quick {
+  position: fixed;
+  z-index: 50;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  gap: 8px;
+}
+.ed-quick__btn {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 10px 8px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  text-align: center;
+  overflow-wrap: anywhere;
+  color: var(--c-primary);
+  background: #fff;
+  background: var(--card);
+  border: 1.5px solid var(--c-primary);
+  border-radius: var(--radius-btn);
+  box-shadow: 0 8px 22px -8px rgba(0, 0, 0, 0.45);
+}
+.ed-quick__btn--main { background: var(--c-primary); border-color: var(--c-primary); color: var(--on-primary); }
+.ed-quick__btn--main:visited { color: var(--on-primary); }
+
+/* 스크롤 등장은 view() 지원 브라우저에서만 (기존 s-rise 재사용, 키프레임 추가 없음) */
+@supports (animation-timeline: view()) {
+  .ed-cards__card, .ed-worry__bubble {
+    animation: s-rise 0.7s ease-out both;
+    animation-timeline: view();
+    animation-range: entry 0% cover 20%;
+  }
+}
+
+@media (min-width: 760px) {
+  .ed-illu__art img { height: 320px; }
+  .ed-story__art img { height: 300px; }
+  .s-hero--arch {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    align-items: center;
+  }
+  .ed-arch__photo img { height: 420px; }
+  .ed-cine__cta { flex-direction: row; }
+  .ed-cine__btn { width: auto; flex: 1; }
+  .ed-cards__grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ed-cards__card img { height: 160px; }
+  .ed-worry__list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ed-quick {
+    left: auto;
+    right: 16px;
+    bottom: auto;
+    top: 50%;
+    transform: translateY(-50%);
+    flex-direction: column;
+    width: 160px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-cards__card, .ed-worry__bubble { animation: none; }
+}
+
+/* ---- 내비게이션 (전역, 스티키) ---- */
+.s-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: none;
+  padding: 10px 16px;
+  background: color-mix(in srgb, var(--c-ground) 88%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.s-navbar__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--c-ink);
+  font-weight: 800;
+  margin-right: auto;
+  min-height: 44px;
+}
+.s-navbar__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--c-primary);
+  color: var(--on-primary);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 800;
+  flex: none;
+}
+.s-navbar__name {
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22vw;
+}
+.s-navbar__links {
+  display: flex;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.s-navbar__links::-webkit-scrollbar { display: none; }
+/* 링크가 넘치면 오른쪽 끝을 흐리게: 옆으로 밀면 더 있다는 표시 */
+.s-navbar__links { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
+@media (min-width: 760px) { .s-navbar__links { -webkit-mask-image: none; mask-image: none; } }
+.s-navbar__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 6px 10px;
+  color: var(--c-ink);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  border-radius: var(--radius-btn);
+}
+.s-navbar__links a:active { background: var(--ground-soft); }
+.s-navbar .s-navbar__cta { min-height: 40px; padding: 6px 16px; font-size: 14px; flex: none; }
+
+/* ---- 첫 화면 켄번즈 (느린 확대, CSS만) ---- */
+@keyframes s-kenburns {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+.s-hero--photo-overlay .s-media img {
+  animation: s-kenburns 18s ease-out both;
+  will-change: transform;
+}
+
+/* ---- 사진 자동 흐름 (마퀴, CSS만) ---- */
+.s-marquee { overflow: hidden; }
+.s-marquee__track {
+  display: flex;
+  list-style: none;
+  margin: 0;
+  padding: 0 0 12px;
+  width: max-content;
+  animation: s-marquee 28s linear infinite;
+}
+.s-marquee__track li { flex: 0 0 auto; margin-right: var(--space-gap); }
+.s-marquee__track img {
+  width: 240px;
+  height: 180px;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+@keyframes s-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.s-marquee:hover .s-marquee__track,
+.s-marquee:active .s-marquee__track { animation-play-state: paused; }
+
+/* ---- 버튼·카드 손맛 (hover 되는 기기만) ---- */
+@media (hover: hover) and (pointer: fine) {
+  .s-btn { transition: transform 0.16s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.2s ease-out; }
+  .s-btn:hover { transform: translateY(-2px); }
+  .s-marquee__track img,
+  .s-gallery__list img,
+  .s-gallery__swipe img { transition: transform 0.25s cubic-bezier(0.23, 1, 0.32, 1); }
+  .s-marquee__track figure:hover img,
+  .s-gallery__list figure:hover img,
+  .s-gallery__swipe figure:hover img { transform: scale(1.03); }
+}
+
+/* ---- 하단 고정 연결바 노치 대응 ---- */
+.s-quick--float {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-hero--photo-overlay .s-media img,
+  .s-marquee__track { animation: none; }
+  .s-marquee { overflow-x: auto; }
+  .s-marquee__track { width: auto; }
+}
+
+/* ==== 적합성 부품 (DESIGN_FIT_PLAN 2단계) + 모션 토큰 (docs/product/MOTION_PLAN.md) ====
+ * 새 부품은 아래 모션 토큰과 모션 원형(M1~M8)만 쓴다. 움직임은 transform·opacity만.
+ * 스크립트 없음: 분류 이동은 앵커, 안내창은 :target, 시간 고르기는 라디오. */
+:root {
+  --motion-fast: 140ms;
+  --motion-base: 240ms;
+  --motion-slow: 420ms;
+  --motion-ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --motion-ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --navbar-h: 61px;
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  :root { --motion-ease-spring: linear(0, 0.14 5%, 0.48 12%, 0.84 20%, 1.04 28%, 1.1 35%, 1.08 43%, 1.02 55%, 0.995 70%, 1); }
+}
+
+.s-btn--block { display: flex; width: 100%; }
+
+/* 예시 값 표시 (D53①: 시안 전용, 공개본에서는 값째 빠진다) */
+.s-example {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  letter-spacing: 0;
+  color: var(--muted);
+  border: 1px dashed currentColor;
+  border-radius: 999px;
+  vertical-align: 2px;
+}
+.is-public .s-example:not(.s-example--keep) { display: none; }  /* 예시 사진 표시는 공개본에도 남긴다(D51) */
+
+/* 첫 화면 두 번째 행동: 버튼이 아니라 글자 링크 (주 버튼 1개 유지) */
+.s-hero__cta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; }
+.s-hero__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  color: inherit;
+  text-underline-offset: 5px;
+}
+.s-hero__link::after { content: "→"; margin-left: 6px; transition: transform var(--motion-fast) var(--motion-ease-out); }
+.s-hero__link:hover::after { transform: translateX(3px); }
+
+/* 칩·태그 */
+.s-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 16px;
+  font-size: 15px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--c-ink);
+  text-decoration: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base);
+}
+.s-chip:hover, .s-chip:focus-visible { border-color: var(--c-primary); color: var(--c-primary); }
+.s-tags { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 10px 0 0; padding: 0; }
+.s-tags li {
+  padding: 3px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 9%, transparent);
+  border-radius: 999px;
+}
+
+/* ---- 분류 메뉴판 (offerings--categories) ---- */
+.s-menu__chips {
+  position: sticky;
+  top: var(--navbar-h);
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+  margin: 0 -16px var(--space-gap);
+  padding: 10px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: color-mix(in srgb, var(--c-ground) 92%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+.s-menu__chips::-webkit-scrollbar { display: none; }
+.s-menu__groups { display: grid; gap: calc(var(--space-gap) * 2); }
+.s-menu__group { scroll-margin-top: calc(var(--navbar-h) + 64px); }
+.s-menu__cover { position: relative; margin: 0 0 14px; overflow: hidden; border-radius: var(--radius-card); aspect-ratio: 16 / 9; background: var(--ground-soft); }
+.s-menu__cover img { width: 100%; height: 100%; object-fit: cover; transition: transform var(--motion-slow) var(--motion-ease-out); }
+.s-menu__cat {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+}
+.s-menu__count { font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--muted); }
+.s-menu__list { list-style: none; margin: 0; padding: 0; }
+.s-menu__row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  column-gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.s-menu__row:has(.s-menu__add) { grid-template-columns: 1fr auto auto; }
+.s-menu__name { font-size: 17px; font-weight: 700; }
+.s-menu__badge {
+  margin-left: 6px;
+  padding: 1px 8px;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  color: var(--on-primary);
+  background: var(--c-accent);
+  border-radius: 999px;
+  vertical-align: 2px;
+}
+.s-menu__price { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.s-menu__desc { grid-column: 1 / -1; margin-top: 2px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.s-menu__add {
+  grid-row: 1;
+  grid-column: 3;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--c-primary);
+  text-decoration: none;
+  border: 1.5px solid currentColor;
+  border-radius: 999px;
+  transition: transform var(--motion-fast) var(--motion-ease-out);
+}
+.s-menu__add:active { transform: scale(0.94); }
+.s-menu__order { margin: calc(var(--space-gap) * 1.5) 0 0; }
+
+/* ---- 담당자 (staff--team / staff--solo) ---- */
+.s-staff__row {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: min(82%, 300px);
+  gap: 12px;
+  margin: 0 -16px;
+  padding: 4px 16px 12px;
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: 16px;
+  scrollbar-width: none;
+}
+.s-staff__row::-webkit-scrollbar { display: none; }
+.s-staff__card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  scroll-snap-align: start;
+}
+.s-staff__card .s-btn { margin-top: auto; }
+.s-staff__card .s-staff__bio { margin-bottom: 14px; }
+.s-staff__head { display: flex; align-items: center; gap: 14px; }
+.s-staff__avatar { width: 64px; height: 64px; flex: none; border-radius: 50%; object-fit: cover; }
+.s-staff__avatar--mono {
+  display: inline-grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 12%, var(--c-ground));
+}
+.s-staff__who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0; }
+.s-staff__name { font-family: var(--font-display); font-size: 20px; }
+.s-staff__role { font-size: 14px; font-weight: 600; color: var(--muted); }
+.s-staff__bio { margin: 10px 0 0; font-size: 15px; line-height: 1.55; }
+
+.s-solo { display: grid; gap: 20px; }
+.s-solo__photo { position: relative; margin: 0; overflow: hidden; border-radius: var(--radius-card); aspect-ratio: 1; background: var(--ground-soft); }
+.s-solo__photo img { width: 100%; height: 100%; object-fit: cover; }
+.s-solo__mono { width: 100%; height: 100%; border-radius: 0; font-size: 72px; }
+.s-solo__body h2 { margin-bottom: 8px; }
+.s-solo__body h2 .s-staff__role { font-family: var(--font-body); font-size: 16px; vertical-align: 4px; }
+.s-solo__bio { margin: 0; font-size: 16px; }
+.s-solo__cta { margin: 20px 0 0; }
+.s-solo__works { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0 0; padding: 0; list-style: none; }
+.s-solo__works figure { position: relative; margin: 0; overflow: hidden; border-radius: calc(var(--radius-card) * 0.6); aspect-ratio: 1; }
+.s-solo__works img { width: 100%; height: 100%; object-fit: cover; }
+.s-solo__works .s-illu-badge { display: none; }
+.s-solo__works li:first-child .s-illu-badge { display: inline-flex; }
+
+/* ---- 예시 지도 (around--map, D53②) ---- */
+.s-map { display: grid; gap: 16px; }
+.s-map__art {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  aspect-ratio: 16 / 10;
+  border: 1px solid var(--line);
+}
+.s-map__art svg { display: block; width: 100%; height: 100%; }
+.s-map__land { fill: color-mix(in srgb, var(--c-ground) 70%, var(--c-ink) 6%); }
+.s-map__park { fill: color-mix(in srgb, #7fb77e 32%, var(--c-ground)); }
+.s-map__water { fill: color-mix(in srgb, #7fa9d6 38%, var(--c-ground)); }
+.s-map__block rect { fill: color-mix(in srgb, var(--c-ground) 55%, var(--c-ink) 12%); }
+.s-map__road { fill: none; stroke: #fff; stroke-width: 9; stroke-linecap: round; }
+.s-map__road--main { stroke: color-mix(in srgb, var(--c-accent) 55%, #fff); stroke-width: 12; }
+.s-map__pin {
+  position: absolute;
+  top: 50%;
+  left: 52%;
+  width: 22px;
+  height: 22px;
+  margin: -30px 0 0 -11px;
+  background: var(--c-primary);
+  border: 3px solid #fff;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+}
+.s-map__pin::after {
+  content: "";
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  border: 2px solid var(--c-primary);
+  opacity: 0;
+  animation: s-map-ping 2.4s var(--motion-ease-out) infinite;
+}
+@keyframes s-map-ping {
+  from { opacity: 0.55; transform: scale(0.4); }
+  to { opacity: 0; transform: scale(1.6); }
+}
+.s-map__links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.s-map__links .s-btn { flex: 1; min-width: 132px; }
+.s-map .s-around__addr { font-size: 17px; font-weight: 700; }
+/* 공개본에는 예시 지도 그림을 두지 않는다(지도 앱 링크만) */
+.is-public .s-map__art { display: none; }
+
+/* ---- 예약 현황 (booking--slots, D53④) ---- */
+.s-booking--slots fieldset { min-width: 0; margin: 0 0 var(--space-gap); padding: 0; border: 0; }
+.s-booking--slots legend { padding: 0; margin-bottom: 8px; font-weight: 700; }
+.s-pick__in { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.s-pick__opts { display: flex; flex-wrap: wrap; gap: 8px; }
+.s-form__row .s-pick__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 16px;
+  font-weight: 700;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base);
+}
+.s-pick__in:checked + .s-pick__chip { color: var(--on-primary); background: var(--c-primary); border-color: var(--c-primary); }
+.s-pick__in:focus-visible + label { outline: 3px solid color-mix(in srgb, var(--c-primary) 40%, transparent); outline-offset: 2px; }
+.s-slots__legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.s-dot { display: inline-block; width: 8px; height: 8px; margin-right: -6px; border-radius: 50%; background: var(--c-primary); }
+.s-dot--few { background: var(--c-accent); }
+.s-dot--full { background: transparent; border: 1.5px solid var(--muted); }
+.s-slots__day { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+.s-slots__date { margin: 0; font-size: 14px; line-height: 1.3; color: var(--muted); }
+.s-slots__date strong { display: block; font-size: 16px; color: var(--c-ink); }
+.s-slots__times {
+  display: flex;
+  gap: 6px;
+  margin-right: -16px;
+  padding: 2px 16px 2px 2px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.s-slots__times::-webkit-scrollbar { display: none; }
+.s-form__row .s-slot {
+  display: inline-flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 64px;
+  min-height: 48px;
+  margin: 0;
+  padding: 4px 8px;
+  font-weight: 700;
+  line-height: 1.2;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: calc(var(--radius-btn) * 0.5 + 6px);
+  cursor: pointer;
+  transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base), transform var(--motion-fast) var(--motion-ease-spring);
+}
+.s-slot__time { font-size: 15px; font-variant-numeric: tabular-nums; }
+.s-slot__state { font-size: 11px; font-weight: 600; color: var(--muted); }
+.s-form__row .s-slot--few { border-color: color-mix(in srgb, var(--c-accent) 55%, transparent); }
+.s-slot--few .s-slot__state { color: var(--c-accent); }
+.s-form__row .s-slot--full { cursor: not-allowed; opacity: 0.45; text-decoration: line-through; background: transparent; }
+.s-pick__in:checked + .s-slot { color: var(--on-primary); background: var(--c-primary); border-color: var(--c-primary); transform: scale(1.04); }
+.s-pick__in:checked + .s-slot .s-slot__state { color: inherit; }
+
+/* ---- 주문 준비 중 안내창 (order--soon, D53⑤) ---- */
+.s-sheet { position: fixed; inset: 0; z-index: 80; display: none; align-items: end; justify-items: center; }
+.s-sheet:target { display: grid; }
+.s-sheet__backdrop { position: absolute; inset: 0; background: color-mix(in srgb, var(--c-ink) 48%, transparent); animation: s-fade var(--motion-base) ease-out both; }
+.s-sheet__panel {
+  position: relative;
+  width: min(100%, 480px);
+  padding: 12px 20px calc(20px + env(safe-area-inset-bottom));
+  background: var(--c-ground);
+  border-radius: 20px 20px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.18);
+  animation: s-sheet-in var(--motion-slow) var(--motion-ease-spring) both;
+}
+.s-sheet__grip { display: block; width: 40px; height: 4px; margin: 0 auto 16px; border-radius: 2px; background: var(--line); }
+.s-sheet__title { margin: 0 0 8px; font-family: var(--font-display); font-size: 22px; line-height: 1.3; }
+.s-sheet__body { margin: 0 0 20px; color: var(--muted); }
+.s-sheet__actions { display: grid; gap: 8px; margin: 0; }
+@keyframes s-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes s-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+@media (min-width: 760px) {
+  .s-sheet { align-items: center; }
+  .s-sheet__panel { border-radius: 20px; }
+}
+
+/* ---- 하단 행동 바 (actionbar--sticky): 휴대폰 전용, 첫 화면을 지나면 올라온다 ---- */
+.s-actionbar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--c-ground) 90%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+}
+.s-actionbar__main { flex: 1; min-height: 52px; font-size: 17px; }
+.s-actionbar__sub {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 88px;
+  min-height: 52px;
+  padding: 0 14px;
+  font-weight: 700;
+  color: var(--c-primary);
+  text-decoration: none;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-btn);
+}
+body:has(.s-actionbar) { padding-bottom: 84px; }
+@supports (animation-timeline: scroll()) {
+  .s-actionbar {
+    animation: s-bar-in linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 45vh;
+  }
+}
+@keyframes s-bar-in {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: none; }
+}
+@media (min-width: 760px) {
+  .s-actionbar { display: none; }
+  body:has(.s-actionbar) { padding-bottom: 0; }
+  .s-staff__row { grid-auto-flow: row; grid-template-columns: repeat(3, 1fr); margin: 0; padding: 0; overflow: visible; }
+  .s-menu__groups { grid-template-columns: 1fr 1fr; column-gap: 32px; }
+  .s-menu__chips { margin-inline: 0; padding-inline: 0; }
+  .s-solo { grid-template-columns: 5fr 6fr; align-items: center; gap: 32px; }
+  .s-solo__photo { aspect-ratio: 4 / 5; }
+  .s-map { grid-template-columns: 3fr 2fr; align-items: start; }
+}
+@media (hover: hover) {
+  .s-menu__group:hover .s-menu__cover img { transform: scale(1.04); }
+  .s-staff__card { transition: transform var(--motion-base) var(--motion-ease-out), box-shadow var(--motion-base); }
+  .s-staff__card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08); }
+  .s-form__row .s-slot:not(.s-slot--full):hover { border-color: var(--c-primary); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .s-actionbar, .s-sheet__panel, .s-sheet__backdrop, .s-map__pin::after { animation: none; }
+  .s-map__pin::after { opacity: 0; }
+}
+/* 누름 칸 44px: 보이는 크기는 작게 두고 누르는 영역만 넓힌다 */
+.s-chip, .s-menu__add { position: relative; }
+.s-chip::before, .s-menu__add::before { content: ""; position: absolute; inset: -4px -2px; }
+
+/* ---- 첫 화면 덮개 (2026-09-28 색감 개선) ----
+ * 글자 뒤 반투명 상자는 섹션 여백 때문에 사진 위에 뜬 회색 판처럼 보였다(칙칙함의 원인).
+ * 사진 전체에 위는 맑고 아래로 짙어지는 그라데이션을 깔고, 글자 상자 배경은 없앤다. SPEC §2.1 고정 스크림 범위 안. */
+.s-hero--photo-overlay .s-media::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0) 28%, rgba(0, 0, 0, 0.3) 56%, rgba(0, 0, 0, 0.68) 100%);
+}
+.s-hero--photo-overlay .s-hero__body { background: none; padding: 96px 4px 36px; }
+
+</style>
+</head>
+<body class="is-public"><style>.is-public .s-kicker{display:none}</style>
+<nav class="s-navbar" data-section-id="navbar" aria-label="바로 가기">
+  <a class="s-navbar__brand" href="#hero-title-hero">
+    <span class="s-navbar__logo" aria-hidden="true">살</span>
+    <span class="s-navbar__name">살롱 드 연남</span>
+  </a>
+  <ul class="s-navbar__links">
+    <li><a href="#staff-title-staff">디자이너</a></li><li><a href="#offerings-title-price">시술·가격</a></li><li><a href="#gallery-title-style">스타일</a></li><li><a href="#around-title-around">오시는 길</a></li>
+  </ul>
+  <a class="s-btn s-navbar__cta" href="#booking-title-booking">예약하기</a>
+</nav>
+
+<section class="s-hero s-hero--photo-overlay" data-section-id="hero" aria-labelledby="hero-title-hero">
+  <div class="s-media">
+    <img src="../../../templates/art/ex/salon-hero.webp" alt="밝은 미용실 내부 (예시 이미지)"><span class="s-illu-badge">AI 예시 이미지</span>
+    
+  </div>
+  <div class="s-hero__body">
+    <h1 class="s-title" id="hero-title-hero">
+      살롱 드 연남
+    </h1>
+    <p class="s-lead">
+      디자이너마다 잘하는 시술이 달라요. 원하는 분께 바로 예약하세요.
+    </p>
+    <ul class="s-hero__facts"><li><span class="s-hero__fact-label">영업</span> 10~20시</li><li><span class="s-hero__fact-label">위치</span> 동교로 30</li></ul>
+    <p class="s-hero__cta"><a class="s-btn" href="#booking-title-booking">예약하기</a><a class="s-hero__link" href="#staff-title-staff">디자이너 보기</a></p>
+  </div>
+</section>
+
+<section class="s-staff s-staff--team" data-section-id="staff" aria-labelledby="staff-title-staff">
+  <h2 id="staff-title-staff">디자이너</h2>
+  <ul class="s-staff__row">
+    <li class="s-staff__card">
+      <div class="s-staff__head">
+        <img class="s-staff__avatar" src="../../../templates/art/ex/salon-style2.webp" alt="김미용 원장 사진" loading="lazy">
+        
+        <p class="s-staff__who"><strong class="s-staff__name">김미용</strong><span class="s-staff__role">원장</span><span class="s-example s-example--keep">예시 사진</span></p>
+      </div>
+      <ul class="s-tags" aria-label="김미용 전문 분야"><li>컷</li></ul>
+      
+      <a class="s-btn s-btn--ghost s-btn--block" href="#booking-title-booking">김미용 원장에게 예약</a>
+    </li>
+    <li class="s-staff__card">
+      <div class="s-staff__head">
+        <img class="s-staff__avatar" src="../../../templates/art/ex/salon-style3.webp" alt="박하나 실장 사진" loading="lazy">
+        
+        <p class="s-staff__who"><strong class="s-staff__name">박하나</strong><span class="s-staff__role">실장</span><span class="s-example s-example--keep">예시 사진</span></p>
+      </div>
+      <ul class="s-tags" aria-label="박하나 전문 분야"><li>염색</li></ul>
+      
+      <a class="s-btn s-btn--ghost s-btn--block" href="#booking-title-booking">박하나 실장에게 예약</a>
+    </li>
+    <li class="s-staff__card">
+      <div class="s-staff__head">
+        <img class="s-staff__avatar" src="../../../templates/art/ex/salon-style1.webp" alt="이서준 디자이너 사진" loading="lazy">
+        
+        <p class="s-staff__who"><strong class="s-staff__name">이서준</strong><span class="s-staff__role">디자이너</span><span class="s-example s-example--keep">예시 사진</span></p>
+      </div>
+      <ul class="s-tags" aria-label="이서준 전문 분야"><li>펌</li></ul>
+      
+      <a class="s-btn s-btn--ghost s-btn--block" href="#booking-title-booking">이서준 디자이너에게 예약</a>
+    </li>
+  </ul>
+</section>
+
+<section class="s-offerings s-offerings--categories s-menu" data-section-id="price" aria-labelledby="offerings-title-price">
+  <h2 id="offerings-title-price">시술·가격</h2>
+  <nav class="s-menu__chips" aria-label="메뉴 분류 바로 가기">
+    <a class="s-chip" href="#menu-price-1">컷</a><a class="s-chip" href="#menu-price-2">염색</a><a class="s-chip" href="#menu-price-3">펌</a>
+  </nav>
+  <div class="s-menu__groups">
+    <div class="s-menu__group" id="menu-price-1">
+      <h3 class="s-menu__cat">컷<span class="s-menu__count">1</span></h3>
+      <ul class="s-menu__list">
+        <li class="s-menu__row">
+          <span class="s-menu__name">컷</span>
+          <span class="s-menu__price">2만5천원</span>
+          <span class="s-menu__desc">샴푸·드라이 포함</span>
+          
+        </li>
+      </ul>
+    </div>
+    <div class="s-menu__group" id="menu-price-2">
+      <h3 class="s-menu__cat">염색<span class="s-menu__count">1</span></h3>
+      <ul class="s-menu__list">
+        <li class="s-menu__row">
+          <span class="s-menu__name">염색 <em class="s-menu__badge">인기</em></span>
+          <span class="s-menu__price">9만원</span>
+          <span class="s-menu__desc">기장 추가 요금은 상담 후 안내</span>
+          
+        </li>
+      </ul>
+    </div>
+    <div class="s-menu__group" id="menu-price-3">
+      <h3 class="s-menu__cat">펌<span class="s-menu__count">1</span></h3>
+      <ul class="s-menu__list">
+        <li class="s-menu__row">
+          <span class="s-menu__name">펌</span>
+          <span class="s-menu__price">12만원</span>
+          
+          
+        </li>
+      </ul>
+    </div>
+  </div>
+  
+</section>
+
+<section class="s-booking s-booking--slots" data-section-id="booking" aria-labelledby="booking-title-booking">
+  <h2 id="booking-title-booking">예약</h2>
+  <p class="s-booking__note">가게에서 확인한 뒤 연락드려요. 신청만으로 예약이 확정되지는 않아요.</p>
+  <form class="s-form" method="post" action="/api/bookings/gold" enctype="application/x-www-form-urlencoded">
+    <fieldset class="s-form__row s-pick">
+      <legend>누구에게 받으실까요?</legend>
+      <div class="s-pick__opts">
+        <input class="s-pick__in" type="radio" id="booking-staff-booking-0" name="staff" value="" checked><label class="s-pick__chip" for="booking-staff-booking-0">상관없음</label>
+        <input class="s-pick__in" type="radio" id="booking-staff-booking-1" name="staff" value="김미용"><label class="s-pick__chip" for="booking-staff-booking-1">김미용</label><input class="s-pick__in" type="radio" id="booking-staff-booking-2" name="staff" value="박하나"><label class="s-pick__chip" for="booking-staff-booking-2">박하나</label><input class="s-pick__in" type="radio" id="booking-staff-booking-3" name="staff" value="이서준"><label class="s-pick__chip" for="booking-staff-booking-3">이서준</label>
+      </div>
+    </fieldset>
+    <p class="s-form__row">
+      <label for="booking-service-booking">시술 (선택)</label>
+      <select id="booking-service-booking" name="service">
+        <option value="">선택 안 함</option>
+        <option value="컷">컷</option><option value="염색">염색</option><option value="펌">펌</option>
+      </select>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-date-booking">방문일 (필수)</label>
+      <input id="booking-date-booking" name="date" type="date" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-time-booking">희망 시간 (선택)</label>
+      <input id="booking-time-booking" name="time" type="time">
+    </p>
+    <p class="s-form__row">
+      <label for="booking-name-booking">이름 (선택)</label>
+      <input id="booking-name-booking" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="booking-phone-booking">연락처 (필수)</label>
+      <input id="booking-phone-booking" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-memo-booking">요청 사항 (선택)</label>
+      <textarea id="booking-memo-booking" name="memo" rows="3" maxlength="300"></textarea>
+    </p>
+    <p class="s-form__notice">예약 정보는 방문일 뒤 30일 보관 후 삭제합니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="booking-agree-booking" name="agree" type="checkbox" value="yes" required>
+      <label for="booking-agree-booking">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="booking-website-booking">웹사이트는 비워 두세요</label>
+      <input id="booking-website-booking" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn s-btn--block" type="submit">예약 신청하기</button></p>
+  </form>
+</section>
+
+<section class="s-gallery s-gallery--swipe" data-section-id="style" aria-labelledby="gallery-title-style">
+  <h2 id="gallery-title-style">스타일</h2>
+  <ul class="s-gallery__swipe">
+    <li><figure><img src="../../../templates/art/ex/salon-style1.webp" alt="레이어드 웨이브 (예시 이미지)"><span class="s-illu-badge">AI 예시</span><figcaption>레이어드 웨이브</figcaption></figure></li>
+    <li><figure><img src="../../../templates/art/ex/salon-style3.webp" alt="애쉬 브라운 발레아주 (예시 이미지)"><span class="s-illu-badge">AI 예시</span><figcaption>애쉬 브라운</figcaption></figure></li>
+    <li><figure><img src="../../../templates/art/ex/salon-style2.webp" alt="남성 텍스처 컷 (예시 이미지)"><span class="s-illu-badge">AI 예시</span><figcaption>텍스처 컷</figcaption></figure></li>
+  </ul>
+</section>
+
+<section class="s-around s-around--map" data-section-id="around" aria-labelledby="around-title-around">
+  <h2 id="around-title-around">오시는 길</h2>
+  <div class="s-map">
+    <div class="s-map__art" role="img" aria-label="예시 지도: 실제 지도는 곧 연결돼요">
+      <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+        <rect width="400" height="250" class="s-map__land"/>
+        <path class="s-map__park" d="M22 150h86v78H22zM300 18h82v64h-82z"/>
+        <path class="s-map__water" d="M0 206c60-18 110 10 170-6s120-30 230-8v58H0z"/>
+        <g class="s-map__block"><rect x="130" y="24" width="70" height="52" rx="4"/><rect x="214" y="24" width="72" height="52" rx="4"/><rect x="22" y="24" width="94" height="52" rx="4"/><rect x="22" y="92" width="94" height="44" rx="4"/><rect x="214" y="92" width="72" height="72" rx="4"/><rect x="300" y="98" width="82" height="66" rx="4"/><rect x="130" y="150" width="70" height="40" rx="4"/></g>
+        <path class="s-map__road" d="M0 84h400M122 0v250M207 0v200M293 0v196M0 142h122"/>
+        <path class="s-map__road s-map__road--main" d="M0 176c80 0 120-44 207-44s140 18 193 12"/>
+      </svg>
+      <span class="s-map__pin" aria-hidden="true"></span>
+      <span class="s-illu-badge">예시 지도</span>
+    </div>
+    <div class="s-map__info">
+      <address class="s-around__addr">서울 마포구 동교로 30</address>
+      <p class="s-map__links"><a class="s-btn s-btn--ghost" href="https://map.kakao.com/?q=%EC%84%9C%EC%9A%B8%20%EB%A7%88%ED%8F%AC%EA%B5%AC%20%EB%8F%99%EA%B5%90%EB%A1%9C%2030" target="_blank" rel="noopener noreferrer">카카오맵</a><a class="s-btn s-btn--ghost" href="https://map.naver.com/p/search/%EC%84%9C%EC%9A%B8%20%EB%A7%88%ED%8F%AC%EA%B5%AC%20%EB%8F%99%EA%B5%90%EB%A1%9C%2030" target="_blank" rel="noopener noreferrer">네이버 지도</a></p>
+    </div>
+  </div>
+</section>
+
+<section class="s-contact s-contact--form" data-section-id="inquiry" aria-labelledby="contact-title-inquiry">
+  <h2 id="contact-title-inquiry">문의하기</h2>
+  <form class="s-form" method="post" action="/api/inquiries/gold" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="inquiry-name-inquiry">이름 (선택)</label>
+      <input id="inquiry-name-inquiry" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-contact-inquiry">연락처 (필수)</label>
+      <input id="inquiry-contact-inquiry" name="contact" type="text" maxlength="100" required aria-describedby="inquiry-contact-hint-inquiry">
+      <span class="s-form__hint" id="inquiry-contact-hint-inquiry">전화번호 또는 이메일</span>
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-message-inquiry">문의 내용 (필수)</label>
+      <textarea id="inquiry-message-inquiry" name="message" rows="5" maxlength="1000" required></textarea>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·연락처·문의 내용은 문의 답변을 위해 가게에 전달되며, 30일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="inquiry-agree-inquiry" name="agree" type="checkbox" value="yes" required>
+      <label for="inquiry-agree-inquiry">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="inquiry-website-inquiry">웹사이트는 비워 두세요</label>
+      <input id="inquiry-website-inquiry" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">문의 보내기</button></p>
+  </form>
+</section>
+
+<nav class="s-actionbar" aria-label="바로 가기 버튼">
+  <a class="s-actionbar__sub" href="tel:023334444">전화</a>
+  <a class="s-btn s-actionbar__main" href="#booking-title-booking">예약하기</a>
+</nav>
+
+</body>
+</html>

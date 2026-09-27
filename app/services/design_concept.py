@@ -90,6 +90,9 @@ _STYLE_WORDS = ("따뜻", "고급", "세련", "밝게", "밝은", "어둡", "차
                 "사진 먼저", "메뉴 먼저", "소개 먼저", "디자인")
 
 # AI 없이도 되는 기본 대응(규칙). 앞에서부터 맞는 것을 모두 적용한다.
+# 값은 측정 가능한 토큰으로만: density(여백 px 묶음) · radius(모서리) ·
+# lead(첫 화면 다음 부품) · palette/font_pair(고정 목록). 숫자형 요구("여백 8px")는
+# 가장 가까운 density 단계로 내림한다(compact < comfortable < roomy).
 _KEYWORD_CHANGES = (
     (("따뜻", "포근"), {"palette": "coffee"}, "따뜻한"),
     (("고급", "우아", "품격"), {"palette": "charcoal-gold", "font_pair": "serif-elegant", "radius": "sharp"}, "고급스러운"),
@@ -97,8 +100,9 @@ _KEYWORD_CHANGES = (
     (("귀엽", "발랄", "아기자기"), {"font_pair": "pop-point", "radius": "round"}, "귀여운"),
     (("차분", "조용"), {"palette": "sage", "density": "roomy"}, "차분한"),
     (("화사", "밝게", "밝은", "산뜻"), {"palette": "tomato"}, "화사한"),
-    (("넉넉", "여유"), {"density": "roomy"}, "여유로운"),
-    (("촘촘", "빽빽", "한눈에"), {"density": "compact"}, "한눈에 보이는"),
+    (("어둡", "다크"), {"palette": "charcoal-gold", "density": "comfortable"}, "차분한"),
+    (("넉넉", "여유", "크게", "시원", "넓게"), {"density": "roomy"}, "여유로운"),
+    (("촘촘", "빽빽", "한눈에", "작게"), {"density": "compact"}, "한눈에 보이는"),
     (("둥글",), {"radius": "round"}, "부드러운"),
     (("각지", "반듯"), {"radius": "sharp"}, "반듯한"),
     (("사진 먼저", "사진을 먼저", "사진 크게"), {"lead": "gallery"}, "사진 중심의"),
@@ -243,6 +247,30 @@ def _keyword_adjust(concept: dict, text: str) -> tuple[dict, str]:
         return out, ""
     out["mood"] = (moods + [m for m in concept.get("mood", []) if m not in moods])[:3]
     return out, f"{', '.join(moods)} 느낌으로 바꿨어요."
+
+
+# 고른 안 토큰 락 (Stitch식 DESIGN.md 테마 락의 최소형).
+# "2안으로 할게요" 하면 그 안의 색·글꼴을 카드에 남기고,
+# 이후 말로 고치기는 색·글꼴을 유지한 채 여백·모서리·구성만 바꾼다.
+_LOCKED_KEYS = ("palette", "font_pair")
+
+
+def lock_tokens(card: dict, tokens: dict) -> None:
+    """고른 안의 정체성 토큰(색·글꼴)을 카드에 남긴다. 다른 키는 두지 않는다."""
+    if not isinstance(tokens, dict):
+        return
+    card["locked_tokens"] = {k: tokens[k] for k in _LOCKED_KEYS if k in tokens}
+
+
+def apply_lock(concept: dict, card: dict) -> bool:
+    """락이 있으면 컨셉의 색·글꼴을 락 값으로 되돌린다. 적용했으면 True."""
+    locked = card.get("locked_tokens") or {}
+    if not any(k in locked for k in _LOCKED_KEYS):
+        return False
+    for k in _LOCKED_KEYS:
+        if k in locked:
+            concept[k] = locked[k]
+    return True
 
 
 def adjust(concept: dict, text: str) -> tuple[dict, str]:

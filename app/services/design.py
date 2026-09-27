@@ -130,6 +130,23 @@ figcaption a{{color:var(--p);font-weight:700;min-height:44px;display:inline-flex
 </body></html>"""
 
 
+def _verify_html(html: str) -> list:
+    """렌더 결과 검사 (A4 1회 루프용, 결정적·무LLM).
+    첫 화면의 빈 사진 자리·SVG 예시 그림·없는 CTA 목표(#앵커)를 문제로 돌려준다.
+    (상품 photo-grid의 빈 사진 자리는 P1 별도 대응: 변형 폴백 또는 CSS.)"""
+    import re
+    problems = []
+    first = html.split("</section>", 1)[0]
+    if "[사진 입력]" in first:
+        problems.append("첫 화면 빈 사진 자리 표시 있음")
+    if '<div class="s-illu"' in html:
+        problems.append("SVG 예시 그림 있음")
+    for anchor in set(re.findall(r'href="(#[^"]+)"', html)):
+        if f'id="{anchor[1:]}"' not in html:
+            problems.append(f"CTA 목표 없음({anchor})")
+    return problems
+
+
 def render_variants(requirement_id: str, card: dict) -> dict:
     """카드 → generated/<id>/design/{v1,v2,v3}/index.html + 고르기 페이지 + 미리보기 그림."""
     from app.services import design_variants as DV
@@ -142,6 +159,18 @@ def render_variants(requirement_id: str, card: dict) -> dict:
     shots = []
     for v in items:
         page = site_render.render_site(v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
+        if _verify_html(page) and (card.get("photos") or card.get("ai_images")):
+            # A4 1회 복구: 사장님 사진·AI 예시가 깨졌으면 기본 그림으로 다시 그린다.
+            import copy as _copy
+            bare = _copy.deepcopy(card)
+            bare["photos"] = []
+            bare["ai_images"] = {}
+            fixed = next((w for w in DV.variants(bare) if w["id"] == v["id"]), None)
+            if fixed is not None:
+                v["spec"] = fixed["spec"]
+                page = site_render.render_site(
+                    v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
+                log.info("시안 1회 복구 %s/%s: %s", requirement_id, v["id"], "; ".join(_verify_html(page)) or "해소")
         (design_dir / v["id"]).mkdir(exist_ok=True)
         (design_dir / v["id"] / "index.html").write_text(page, encoding="utf-8")
         shots.append((page, design_dir / f"{v['id']}.png"))

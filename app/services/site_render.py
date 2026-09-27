@@ -13,6 +13,7 @@ import html
 import json
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 import chevron
 
@@ -26,8 +27,9 @@ class SiteSpecError(ValueError):
 
 # 허용 URL 앞부분 (href/src로 가는 값 전용, README §4·작업 지시).
 # "/uploads/"는 우리 사진 주소 전용 (contracts/ROOM_FEATURES_API.md §4).
+# "/art/"는 기본 제공 그림 주소 전용 (templates/art/, 외부 주소 아님).
 # 그 외 상대경로는 계속 막는다.
-_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/")
+_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/", "/art/")
 
 # 업종별 예시 그림 키 (작업 A1, design_variants._SAMPLE_FOR 업종 키와 같음).
 KIND_KEYS = ("pension", "cafe", "restaurant", "salon", "workshop",
@@ -86,7 +88,7 @@ def _illustration_block(kind: str, name: str) -> str:
             + '<span class="s-illu-badge">예시 이미지</span></div>')
 
 
-def _gallery_example_html(section_id: str, variant: str, kind: str) -> str:
+def _gallery_example_html(section_id: str, variant: str, kind: str, label: str = "") -> str:
     """사진 0장인 사진첩의 예시 그림 2장 + 안내 문구 (템플릿 구조와 같은 등급)."""
     safe_id = html.escape(section_id, quote=True)
     if variant not in ("grid", "swipe"):
@@ -99,7 +101,7 @@ def _gallery_example_html(section_id: str, variant: str, kind: str) -> str:
     return (
         f'<section class="s-gallery s-gallery--{variant}"'
         f' data-section-id="{safe_id}" aria-labelledby="gallery-title-{safe_id}">'
-        f'<h2 id="gallery-title-{safe_id}">사진첩</h2>'
+        f'<h2 id="gallery-title-{safe_id}">{html.escape(label or "사진첩")}</h2>'
         f'<ul class="{list_class}">{figures}</ul>'
         '<p class="s-gallery__notice">사장님 사진으로 바뀌어요</p>'
         "</section>"
@@ -370,7 +372,10 @@ def _hero_context(content: dict) -> dict:
     image_alt = alt_raw if isinstance(alt_raw, str) and alt_raw else "가게 전경 사진"
     facts = [f for f in (content.get("facts") or []) if isinstance(f, dict)
              and isinstance(f.get("label"), str) and isinstance(f.get("value"), str) and f["value"].strip()][:3]
+    label2, href2 = _cta_pair(content.get("cta2"))
     return {
+        "cta2_label": label2 if label else "",
+        "cta2_href": href2 if label else "",
         "facts": [{"label": f["label"], "value": f["value"]} for f in facts],
         "has_facts": bool(facts),
         "title": content.get("title", "") if isinstance(content.get("title", ""), str) else "",
@@ -381,6 +386,112 @@ def _hero_context(content: dict) -> dict:
         "cta_label": label,
         "cta_href": href,
     }
+
+
+def _cta_pair(cta) -> tuple:
+    """{label, href} → (라벨, 허용된 주소). 전화는 숫자만 남긴다. 하나라도 비면 ("", "")."""
+    if not isinstance(cta, dict):
+        return "", ""
+    label = cta.get("label") if isinstance(cta.get("label"), str) else ""
+    href = _clean_url(cta.get("href", ""))
+    if href.lower().startswith("tel:"):
+        digits = _digits(href[4:])
+        href = f"tel:{digits}" if digits else ""
+    return (label, href) if label.strip() and href else ("", "")
+
+
+def _drop_examples(value):
+    """공개본용 (D53①): example=True인 목록 항목은 빼고, <칸>_example=True인 칸 값은 비운다.
+    image_example(예시 이미지 표시)은 D51대로 공개본에도 표시와 함께 남긴다."""
+    if isinstance(value, list):
+        return [_drop_examples(v) for v in value if not (isinstance(v, dict) and v.get("example") is True)]
+    if isinstance(value, dict):
+        out = {k: _drop_examples(v) for k, v in value.items()}
+        for k, v in value.items():
+            field = k[:-len("_example")]
+            if k.endswith("_example") and v is True and field != "image" and field in out:
+                out[field] = [] if isinstance(out[field], list) else ""
+        return out
+    return value
+
+
+def _map_links(address: str) -> list:
+    """지도 앱 검색 링크 (키 필요 없음, D53②: 지도 그림은 아직 예시)."""
+    if not address.strip():
+        return []
+    q = quote(address.strip())
+    return [{"label": "카카오맵", "href": f"https://map.kakao.com/?q={q}"},
+            {"label": "네이버 지도", "href": f"https://map.naver.com/p/search/{q}"}]
+
+
+def _menu_categories(content: dict) -> list:
+    """분류 메뉴판: [{name, index, image_*, items:[{name, desc, price, price_example, badge}], count}]."""
+    raw = content.get("categories")
+    cats = []
+    for pos, entry in enumerate(raw if isinstance(raw, list) else [], start=1):
+        if not isinstance(entry, dict):
+            continue
+        items = []
+        for it in entry.get("items") if isinstance(entry.get("items"), list) else []:
+            if not isinstance(it, dict) or not _text(it, "name").strip():
+                continue
+            items.append({"name": _text(it, "name"), "desc": _text(it, "desc"), "price": _text(it, "price"),
+                          "price_example": it.get("price_example") is True, "badge": _text(it, "badge")[:8],
+                          "example": it.get("example") is True})
+        if not items:
+            continue
+        name = _text(entry, "name")
+        image = _clean_url(_text(entry, "image"))
+        cats.append({"name": name, "index": pos, "count": len(items), "items": items,
+                     "image_src": image, "image_alt": _text(entry, "image_alt") or f"{name} 사진",
+                     "image_example": bool(image and entry.get("image_example"))})
+    return cats
+
+
+def _staff_members(content: dict) -> list:
+    """담당자 카드: [{name, role, bio, initial, specialties, image_*, example}] 최대 8명."""
+    raw = content.get("members")
+    members = []
+    for entry in (raw if isinstance(raw, list) else [])[:8]:
+        if not isinstance(entry, dict) or not _text(entry, "name").strip():
+            continue
+        name, role = _text(entry, "name").strip(), _text(entry, "role")
+        tags = entry.get("specialties")
+        tags = [{"text": s} for s in (tags if isinstance(tags, list) else []) if isinstance(s, str) and s.strip()][:4]
+        image = _clean_url(_text(entry, "image"))
+        members.append({"name": name, "role": role, "bio": _text(entry, "bio"), "initial": name[:1],
+                        "specialties": tags, "has_specialties": bool(tags),
+                        "image_src": image, "image_alt": f"{name} {role} 사진".strip(),
+                        "image_example": bool(image and entry.get("image_example")),
+                        "example": entry.get("example") is True})
+    return members
+
+
+_SLOT_STATES = {"open": "여유", "few": "마감 임박", "full": "마감"}
+_SLOT_VALUE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_SLOT_TIME = re.compile(r"^\d{2}:\d{2}$")
+
+
+def _booking_days(content: dict) -> list:
+    """예약 현황: [{label, dow, slots:[{time, value, key, state, state_label, is_full}]}] 최대 14일·하루 16칸."""
+    raw = content.get("days")
+    days = []
+    for entry in (raw if isinstance(raw, list) else [])[:14]:
+        if not isinstance(entry, dict) or not _SLOT_VALUE.match(_text(entry, "date")):
+            continue
+        date = _text(entry, "date")
+        slots = []
+        for s in (entry.get("slots") if isinstance(entry.get("slots"), list) else [])[:16]:
+            if not isinstance(s, dict) or not _SLOT_TIME.match(_text(s, "time")):
+                continue
+            state = s.get("state") if s.get("state") in _SLOT_STATES else "open"
+            slots.append({"time": s["time"], "value": f"{date} {s['time']}",
+                          "key": f"{date}-{s['time']}".replace(":", ""), "state": state,
+                          "state_label": _SLOT_STATES[state], "is_full": state == "full"})
+        if slots:
+            days.append({"label": _text(entry, "label") or date[5:].replace("-", "/"),
+                         "dow": _text(entry, "dow"), "slots": slots})
+    return days
 
 
 def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
@@ -488,6 +599,32 @@ def _video_items(content: dict) -> list:
     return items
 
 
+def _navbar_context(nav: dict) -> dict | None:
+    """전역 내비게이션 (섹션 아님: 순서·거리·리드 계산에서 제외).
+    로고=상호 첫 글자(SVG·AI 생성 없이 텍스트 모노그램), 링크=실제 섹션 id만."""
+    if not isinstance(nav, dict):
+        return None
+    title = nav.get("title") if isinstance(nav.get("title"), str) else ""
+    letter = (title.strip()[:1] or "우") if title else "우"
+    links = [l for l in (nav.get("links") or []) if isinstance(l, dict)
+             and isinstance(l.get("label"), str) and isinstance(l.get("href"), str)
+             and l["label"].strip() and l["href"].strip()][:4]
+    ctx: dict = {"logo_letter": letter, "title": title, "links": links,
+               "top": nav.get("top") if isinstance(nav.get("top"), str) and nav.get("top").startswith("#") else "#"}
+    cta = nav.get("cta") or {}
+    label = cta.get("label", "") if isinstance(cta, dict) else ""
+    href = cta.get("href", "") if isinstance(cta, dict) else ""
+    href = _clean_url(href) if isinstance(href, str) else ""
+    if isinstance(label, str) and label and href:
+        if href.lower().startswith("tel:"):
+            digits = _digits(href[4:])
+            href = f"tel:{digits}" if digits else ""
+        if href:
+            ctx["cta_label"] = label
+            ctx["cta_href"] = href
+    return ctx
+
+
 def _section_context(
     section_type: str, variant: str, section_id: str, content: dict,
     *, site_key: str, retention_days: int,
@@ -540,8 +677,12 @@ def _section_context(
     elif section_type == "gallery":
         items = _gallery_items(content)
         if not any(one.get("src") for one in items):
-            return {"id": section_id, "is_example": True}
+            return {"id": section_id, "is_example": True, "label": _text(content, "label")}
+        ctx["label"] = _text(content, "label")
         ctx["items"] = items
+        # marquee(자동 흐름)는 같은 목록을 두 번 이어 붙인다 (뒷복사는 장식으로만).
+        if variant == "marquee":
+            ctx["items_twice"] = items + [{**one, "repeat": True} for one in items]
     elif section_type == "around":
         ctx["address"] = _text(content, "address")
         map_raw = _text(content, "map_url")
@@ -549,6 +690,10 @@ def _section_context(
         items, has_items = _around_items(content)
         ctx["items"] = items
         ctx["has_items"] = has_items
+        if variant == "map":
+            ctx["label"] = _text(content, "label")
+            ctx["links"] = _map_links(ctx["address"])
+            ctx["has_links"] = bool(ctx["links"])
     elif section_type == "contact" and variant == "call-first":
         phone, digits = _phone_pair(content)
         ctx["phone"] = phone
@@ -657,8 +802,142 @@ def _section_context(
         if not items:
             return None
         ctx["items"] = items
+    elif section_type == "offerings" and variant == "cards":
+        # 편집형 A 메뉴 카드 격자 (이름·한 줄 특징·가격 + 사진).
+        ctx["label"] = _text(content, "label")
+        items, has_items = _offering_items(content, with_image=True, with_index=False)
+        ctx["items"] = items
+        ctx["has_items"] = has_items
+    elif section_type == "concerns" and variant == "bubbles":
+        # 편집형 B 고민 말풍선 (새 type).
+        ctx["heading"] = _text(content, "heading")
+        ctx["note"] = _text(content, "note")
+        raw = content.get("items", [])
+        items = []
+        if isinstance(raw, list):
+            for entry in raw:
+                if not isinstance(entry, dict):
+                    continue
+                quote = entry.get("quote", "")
+                who = entry.get("who", "")
+                if not isinstance(quote, str) or not quote.strip():
+                    continue
+                items.append({
+                    "quote": quote,
+                    "who": who if isinstance(who, str) else "",
+                })
+                if len(items) >= 6:
+                    break
+        ctx["items"] = items
+        ctx["has_items"] = bool(items)
+    elif section_type == "offerings" and variant == "categories":
+        # 분류 메뉴판 (DESIGN_FIT_PLAN §2). order=True면 담기·주문하기가 준비 중 안내창(#order-soon)으로 간다(D53⑤).
+        ctx["label"] = _text(content, "label")
+        ctx["order"] = content.get("order") is True
+        ctx["categories"] = _menu_categories(content)
+        ctx["has_categories"] = bool(ctx["categories"])
+        ctx["has_chips"] = len(ctx["categories"]) > 1
+    elif section_type == "staff" and variant in ("team", "solo"):
+        members = _staff_members(content)
+        if not members:
+            return None
+        ctx["label"] = _text(content, "label")
+        href = _clean_url(_text(content, "booking_href"))
+        ctx["booking_href"] = href if href.startswith("#") else ""
+        ctx["members"] = members
+        ctx["member"] = members[0]
+        works = [{"src": _clean_url(_text(w, "src")), "alt": _text(w, "alt") or "작업 사진",
+                  "example": w.get("image_example") is True}
+                 for w in (content.get("works") or []) if isinstance(w, dict)] if variant == "solo" else []
+        ctx["works"] = [w for w in works if w["src"]][:6]
+        ctx["has_works"] = bool(ctx["works"])
+    elif section_type == "booking" and variant == "slots":
+        # 예약 현황 + 신청 (D53④): 시안은 예시 현황(days_example), 공개본은 확정 예약으로 계산한 days.
+        ctx["site_key"] = site_key
+        ctx["retention_days"] = int(retention_days)
+        ctx["label"] = _text(content, "label")
+        ctx["note"] = _text(content, "note")
+        ctx["service_label"] = _text(content, "service_label") or "메뉴"
+        services = [{"name": s} for s in (content.get("services") or []) if isinstance(s, str) and s.strip()]
+        ctx["services"], ctx["has_services"] = services, bool(services)
+        staff = [{"name": s, "index": i} for i, s in enumerate(content.get("staff") or [], start=1)
+                 if isinstance(s, str) and s.strip()]
+        ctx["staff"], ctx["has_staff"] = staff, len(staff) > 1
+        ctx["days"] = _booking_days(content)
+        ctx["has_days"] = bool(ctx["days"])
+        ctx["days_example"] = content.get("days_example") is True and ctx["has_days"]
+    elif section_type == "order" and variant == "soon":
+        # 주문 준비 중 안내창 (D53⑤). 스크립트 없이 #order-soon(:target)으로 열린다.
+        phone, digits = _phone_pair(content)
+        ctx["phone"], ctx["phone_digits"] = (phone, digits) if digits else ("", "")
+        ctx["title"] = _text(content, "title") or "온라인 주문은 준비 중이에요"
+        ctx["body"] = _text(content, "body") or "지금은 매장에서 주문해 주세요. 곧 여기서 바로 주문할 수 있게 열어 드릴게요."
+        back = _text(content, "return_href")
+        ctx["return_href"] = back if back.startswith("#") and len(back) > 1 else "#"
+    elif section_type == "quickbar" and variant == "float":
+        # 편집형 D 고정 빠른 버튼 (새 type, 전화·카톡·예약).
+        phone, digits = _phone_pair(content)
+        ctx["phone"] = phone
+        ctx["phone_digits"] = digits
+        ctx["has_phone"] = bool(digits)
+        channel = (_text(content, "channel_url") or _text(content, "kakao_channel_url")
+                   or _text(content, "kakao"))
+        ctx["channel_url"] = _clean_url(channel)
+        ctx["has_channel"] = bool(ctx["channel_url"])
+        ctx["booking_url"] = _clean_url(_text(content, "booking_url"))
+        ctx["has_booking"] = bool(ctx["booking_url"])
+        if not (ctx["has_phone"] or ctx["has_channel"] or ctx["has_booking"]):
+            return None
     else:  # pragma: no cover - 파일 존재 검사가 먼저 걸러내므로 여기 오지 않음
         raise SiteSpecError(f"매핑할 수 없는 조합: {key}")
+    # 편집형 hero 4종 보강: 위 `if section_type == "hero"` 분기가 기본값(_hero_context)을
+    # 이미 채웠으므로(기존 분기 그대로 둠), 새 변형별 추가 키만 여기서 덧붙인다.
+    if section_type == "hero" and variant == "illustrated":
+        # A 빈티지 일러스트형: 짧은 선언문 3~4줄.
+        raw_lines = content.get("lines", [])
+        lines = []
+        if isinstance(raw_lines, list):
+            for entry in raw_lines:
+                if isinstance(entry, str) and entry.strip():
+                    lines.append({"text": entry})
+                if len(lines) >= 4:
+                    break
+        ctx["lines"] = lines
+        ctx["has_lines"] = bool(lines)
+    elif section_type == "hero" and variant == "story":
+        # B 산뜻한 스토리형: 제목 속 핵심어 mark 강조.
+        title = _text(content, "title")
+        mark = _text(content, "highlight")
+        if mark and mark in title:
+            head, _, tail = title.partition(mark)
+            ctx["title_head"] = head
+            ctx["title_mark"] = mark
+            ctx["title_tail"] = tail
+            ctx["has_mark"] = True
+        else:
+            ctx["title_head"] = ""
+            ctx["title_mark"] = ""
+            ctx["title_tail"] = ""
+            ctx["has_mark"] = False
+    elif section_type == "hero" and variant == "arch":
+        # C 로맨틱 에디토리얼: 작은 윗줄 + 세로 영문 라벨.
+        ctx["eyebrow"] = _text(content, "eyebrow")
+        ctx["label_en"] = _text(content, "label_en")[:40]
+    elif section_type == "hero" and variant == "cinematic":
+        # D 다크 시네마틱: 윗줄 문구 + 두 번째 버튼.
+        ctx["kicker"] = _text(content, "kicker")
+        cta2 = content.get("cta2") or {}
+        if not isinstance(cta2, dict):
+            cta2 = {}
+        label2 = cta2.get("label", "") if isinstance(cta2.get("label", ""), str) else ""
+        href2 = _clean_url(cta2.get("href", "")) if isinstance(cta2.get("href", ""), str) else ""
+        if href2.lower().startswith("tel:"):
+            digits2 = _digits(href2[4:])
+            href2 = f"tel:{digits2}" if digits2 else ""
+        if not label2:
+            href2 = ""
+        ctx["cta2_label"] = label2
+        ctx["cta2_href"] = href2
     return ctx
 
 
@@ -674,7 +953,7 @@ def _empty_for_public(section_type: str, variant: str, ctx: dict) -> bool:
             return not ctx.get("booking_url")
         return not (ctx.get("phone") or ctx.get("booking_url"))
     if section_type == "offerings":
-        return not ctx.get("has_items")
+        return not (ctx.get("has_items") or ctx.get("has_categories"))
     if section_type == "contact" and variant == "kakao-channel":
         return not ctx.get("kakao_channel_url")
     if section_type == "around":
@@ -715,6 +994,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         raise SiteSpecError("sections가 목록 형태가 아님")
     kind = _normalize_kind(kind)
     rendered_parts = []
+    nav = spec.get("navbar")
     for pos, section in enumerate(sections):
         if not isinstance(section, dict):
             raise SiteSpecError(f"{pos}번째 섹션이 dict 형태가 아님")
@@ -730,6 +1010,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             content = {}
         if not isinstance(content, dict):
             raise SiteSpecError(f"섹션 {section_id!r}의 content가 dict 형태가 아님")
+        if public:
+            content = _drop_examples(content)
         if public and section_type == "offerings" and isinstance(content.get("items"), list):
             # 이름 없는 항목은 공개본에서 뺀다("가격 문의"만 남은 빈 카드 방지, 품질 점검 Q-5)
             content = {**content, "items": [i for i in content["items"]
@@ -743,7 +1025,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         if public and _empty_for_public(section_type, variant, ctx):
             continue
         if ctx.pop("is_example", False):
-            rendered_parts.append(_gallery_example_html(str(section_id), variant, kind))
+            rendered_parts.append(_gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")))
             continue
         part = chevron.render(template, _safe(ctx))
         if (section_type == "hero" and variant in _HERO_PHOTO_VARIANTS
@@ -752,6 +1034,30 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             # 사진 있음: 그림을 쓰지 않는다.
             part = part.replace(_HERO_EMPTY_MARK, _illustration_block(kind, "hero"), 1)
         rendered_parts.append(part)
+
+    if isinstance(nav, dict):
+        # 내비는 섹션 다음에 그린다: 빠진 부품(공개본 빈칸·v3 사진첩)으로 가는 링크를 빼기 위해.
+        body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+        links = [l for l in (nav.get("links") or []) if isinstance(l, dict)
+                 and (l.get("href") or "")[1:] in body_ids]
+        nctx = _navbar_context({**nav, "links": links})
+        if nctx is not None:
+            ntemplate = bundle["templates"].get("navbar--main")
+            if ntemplate is None:
+                raise SiteSpecError("없는 type--variant 조합: navbar--main")
+            rendered_parts.insert(0, chevron.render(ntemplate, _safe(nctx)))
+
+    bar = spec.get("actionbar")
+    if isinstance(bar, dict):
+        # 하단 고정 행동 바 (휴대폰). 내비와 같이 섹션이 아니고, 빠진 섹션으로 가는 버튼은 그리지 않는다.
+        body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+        label, href = _cta_pair(bar.get("primary"))
+        label2, href2 = _cta_pair(bar.get("secondary"))
+        ok = (lambda h: bool(h) and (not h.startswith("#") or h[1:] in body_ids))
+        if label and ok(href):
+            rendered_parts.append(chevron.render(bundle["templates"]["actionbar--sticky"], _safe({
+                "primary_label": label, "primary_href": href,
+                "secondary_label": label2 if ok(href2) else "", "secondary_href": href2 if ok(href2) else ""})))
 
     page_title = title.strip() if isinstance(title, str) and title.strip() else "가게 홈페이지"
     css2_url = font_pair.get("css2_url") if isinstance(font_pair, dict) else None
@@ -764,7 +1070,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         '<html lang="ko">',
         "<head>",
         '<meta charset="utf-8">',
-        '<meta name="viewport" content="width=device-width, initial-scale=1">',
+        '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
+        f'<meta name="theme-color" content="{html.escape(palette["ground"], quote=True)}">',
         f"<title>{html.escape(page_title)}</title>",
         font_link,
         "<style>",

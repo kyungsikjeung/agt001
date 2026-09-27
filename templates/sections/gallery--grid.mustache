@@ -1,5 +1,5 @@
 <section class="s-gallery s-gallery--grid" data-section-id="{{id}}" aria-labelledby="gallery-title-{{id}}">
-  <h2 id="gallery-title-{{id}}">사진첩</h2>
+  <h2 id="gallery-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}사진첩{{/label}}</h2>
   <ul class="s-gallery__list">
     {{#items}}
     <li><figure>{{#src}}<img src="{{src}}" alt="{{alt}}">{{#ai_badge}}<span class="s-illu-badge">AI 예시</span>{{/ai_badge}}{{/src}}{{^src}}<div class="s-media__empty is-placeholder" aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>{{/src}}{{#caption}}<figcaption>{{caption}}</figcaption>{{/caption}}</figure></li>

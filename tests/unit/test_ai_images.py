@@ -58,6 +58,29 @@ def test_generate_bytes_success_and_failures(monkeypatch):
         AI._generate_bytes("a cafe", timeout_sec=5)
 
 
+def test_model_routing_hero_override(monkeypatch):
+    """P2: hero는 상위 모델 지정 시 그걸, 갤러리는 기본 모델. 미지정이면 전부 기본."""
+    from app.config import settings
+    monkeypatch.setattr("app.services.keystore.get", lambda name: "k")
+    seen = {}
+
+    def fake_post(url, **kwargs):
+        seen[kwargs.get("slot", "") or url] = url
+        return _ok_resp(_png_bytes())
+
+    monkeypatch.setattr(AI.httpx, "post", fake_post)
+    assert AI._model_for("hero") == (settings.gemini_image_model or "").strip()
+    assert AI._model_for("gallery-1") == (settings.gemini_image_model or "").strip()
+    monkeypatch.setattr(settings, "gemini_image_model_hero", "probe-hero-model")
+    assert AI._model_for("hero") == "probe-hero-model"
+    assert AI._model_for("gallery-1") == (settings.gemini_image_model or "").strip()
+    AI._generate_bytes("a cafe", timeout_sec=5, slot="hero")
+    AI._generate_bytes("a cafe", timeout_sec=5, slot="gallery-1")
+    urls = list(seen.values())
+    assert any("probe-hero-model" in u for u in urls)
+    assert any("probe-hero-model" not in u for u in urls)
+
+
 def test_generate_needs_key(monkeypatch):
     monkeypatch.setattr("app.services.keystore.get", lambda name: "")
     with pytest.raises(AI.ImageError):

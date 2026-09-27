@@ -39,10 +39,12 @@ def main() -> int:
     names = sorted(m.get("name", "").split("/")[-1] for m in models)
     print(f"② 모델 목록: {len(names)}개")
     configured = (settings.gemini_image_model or "").strip()
+    hero_model = (settings.gemini_image_model_hero or "").strip() or configured
     imageish = [n for n in names if "image" in n.lower()]
     print(f"   이미지 관련: {', '.join(imageish) or '-'}")
     print(f"   설정 모델({configured}): {'있음' if configured in names else '없음(목록에 없음)'}")
-    return 0 if configured in names else 1
+    print(f"   히어로 모델({hero_model}): {'있음' if hero_model in names else '없음(목록에 없음)'}")
+    return 0 if (configured in names and hero_model in names) else 1
 
 
 if __name__ == "__main__":

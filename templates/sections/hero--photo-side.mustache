@@ -7,7 +7,7 @@
       {{#subtitle}}{{subtitle}}{{/subtitle}}{{^subtitle}}<span class="is-placeholder" aria-label="소개 한 줄: 아직 입력되지 않음">[소개 한 줄 입력]</span>{{/subtitle}}
     </p>
     {{#has_facts}}<ul class="s-hero__facts">{{#facts}}<li><span class="s-hero__fact-label">{{label}}</span> {{value}}</li>{{/facts}}</ul>{{/has_facts}}
-    {{#cta_label}}<p class="s-hero__cta"><a class="s-btn" href="{{cta_href}}">{{cta_label}}</a></p>{{/cta_label}}
+    {{#cta_label}}<p class="s-hero__cta"><a class="s-btn" href="{{cta_href}}">{{cta_label}}</a>{{#cta2_label}}<a class="s-hero__link" href="{{cta2_href}}">{{cta2_label}}</a>{{/cta2_label}}</p>{{/cta_label}}
   </div>
   <div class="s-media">
     {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{#image_ai_badge}}<span class="s-illu-badge">AI 예시 이미지</span>{{/image_ai_badge}}{{/image_src}}

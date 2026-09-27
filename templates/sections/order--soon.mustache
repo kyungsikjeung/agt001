@@ -1,0 +1,12 @@
+<div class="s-sheet" id="order-soon" role="dialog" aria-modal="true" aria-labelledby="order-soon-title" tabindex="-1" data-section-id="{{id}}">
+  <a class="s-sheet__backdrop" href="{{return_href}}" tabindex="-1" aria-hidden="true"></a>
+  <div class="s-sheet__panel">
+    <span class="s-sheet__grip" aria-hidden="true"></span>
+    <h2 class="s-sheet__title" id="order-soon-title">{{title}}</h2>
+    <p class="s-sheet__body">{{body}}</p>
+    <p class="s-sheet__actions">
+      {{#phone}}<a class="s-btn s-btn--ghost" href="tel:{{phone_digits}}">전화로 주문 {{phone}}</a>{{/phone}}
+      <a class="s-btn" href="{{return_href}}">확인</a>
+    </p>
+  </div>
+</div>

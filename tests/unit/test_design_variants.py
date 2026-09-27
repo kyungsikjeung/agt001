@@ -25,7 +25,7 @@ def test_three_distinct_variants():
     palettes = {v["spec"]["tokens"]["palette"] for v in vs}
     assert len(palettes) == 3
     heroes = [next(s["variant"] for s in v["spec"]["sections"] if s["type"] == "hero") for v in vs]
-    assert heroes[1] != heroes[0] and heroes[2] == "text-only"
+    assert heroes == ["photo-overlay", "photo-side", "arch"]  # photo-first: 빈 첫 화면 없음
     groups = {DV._PALETTE_GROUPS[v["spec"]["tokens"]["palette"]] for v in vs}
     assert len(groups) == 3  # 색 계열도 서로 다르다
 

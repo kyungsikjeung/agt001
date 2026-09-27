@@ -56,7 +56,9 @@ def test_full_design_flow_is_recorded_and_reported(client):
 
     assert [e.props["variant"] for e in _events("design_chosen")] == ["v2"]
     [restyle] = _events("design_restyled")
-    assert restyle.props["palette"] == "charcoal-gold" and "text" not in restyle.props
+    # 고른 안의 색·글꼴은 잠긴다(design_concept.lock_tokens) — "고급스럽게"여도 2안 팔레트 유지
+    v2_palette = shown.props["v2"].split(":")[0]
+    assert restyle.props["palette"] == v2_palette and "text" not in restyle.props
     assert [e.props["variant"] for e in _events("site_published")] == ["v2"]
     [inq] = _events("inquiry_received")
     assert inq.props == {"site": rid}  # 문의 내용·연락처는 남기지 않는다
@@ -67,7 +69,7 @@ def test_full_design_flow_is_recorded_and_reported(client):
     assert rep["sites_shown"] == 1 and rep["choice_rate"] == 1.0 and rep["publish_rate"] == 1.0
     assert rep["chosen_variant"] == {"v2": 1} and rep["inquiries_30d_total"] == 1
     assert rep["published_with_inquiry_rate"] == 1.0
-    assert rep["restyle_changes"]["palette=charcoal-gold"] == 1
+    assert rep["restyle_changes"][f"palette={v2_palette}"] == 1
 
 
 def _card(sections, features_judged=()):

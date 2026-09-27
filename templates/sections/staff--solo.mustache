@@ -1,0 +1,22 @@
+<section class="s-staff s-staff--solo" data-section-id="{{id}}" aria-labelledby="staff-title-{{id}}">
+  {{#member}}
+  <div class="s-solo">
+    <figure class="s-solo__photo">
+      {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}" loading="lazy">{{#image_example}}<span class="s-illu-badge">예시 이미지</span>{{/image_example}}{{/image_src}}
+      {{^image_src}}<span class="s-staff__avatar s-staff__avatar--mono s-solo__mono" aria-hidden="true">{{initial}}</span>{{/image_src}}
+    </figure>
+    <div class="s-solo__body">
+      <p class="s-kicker">{{#label}}{{label}}{{/label}}{{^label}}혼자 끝까지 책임져요{{/label}}</p>
+      <h2 id="staff-title-{{id}}"><span class="s-staff__role">{{role}}</span> {{name}}{{#example}} <span class="s-example">예시</span>{{/example}}</h2>
+      {{#bio}}<p class="s-solo__bio">{{bio}}</p>{{/bio}}
+      {{#has_specialties}}<ul class="s-tags" aria-label="전문 분야">{{#specialties}}<li>{{text}}</li>{{/specialties}}</ul>{{/has_specialties}}
+      {{#booking_href}}<p class="s-solo__cta"><a class="s-btn" href="{{booking_href}}">{{role}}님께 예약하기</a></p>{{/booking_href}}
+    </div>
+  </div>
+  {{/member}}
+  {{#has_works}}
+  <ul class="s-solo__works" aria-label="작업 사진">
+    {{#works}}<li><figure><img src="{{src}}" alt="{{alt}}" loading="lazy">{{#example}}<span class="s-illu-badge">예시 이미지</span>{{/example}}</figure></li>{{/works}}
+  </ul>
+  {{/has_works}}
+</section>

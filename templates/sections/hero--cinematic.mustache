@@ -1,0 +1,19 @@
+<section class="s-hero s-hero--cinematic ed-cine" data-section-id="{{id}}" aria-labelledby="hero-title-{{id}}">
+  <div class="s-media ed-cine__bg" aria-hidden="false">
+    {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{#image_ai_badge}}<span class="s-illu-badge">예시 이미지</span>{{/image_ai_badge}}{{/image_src}}
+    {{^image_src}}<div class="ed-cine__empty" role="img" aria-label="예시 이미지: 어두운 연습실 사진 자리">[사진 입력]</div>{{/image_src}}
+  </div>
+  <div class="s-hero__body ed-cine__body">
+    {{#kicker}}<p class="ed-cine__kicker">{{kicker}}</p>{{/kicker}}
+    <h1 class="s-title ed-cine__title" id="hero-title-{{id}}">
+      {{#title}}{{title}}{{/title}}{{^title}}<span class="is-placeholder" aria-label="가게 이름: 아직 입력되지 않음">[가게 이름 입력]</span>{{/title}}
+    </h1>
+    <p class="s-lead ed-cine__lead">
+      {{#subtitle}}{{subtitle}}{{/subtitle}}{{^subtitle}}<span class="is-placeholder" aria-label="소개 한 줄: 아직 입력되지 않음">[소개 한 줄 입력]</span>{{/subtitle}}
+    </p>
+    <p class="s-hero__cta ed-cine__cta">
+      {{#cta_label}}<a class="s-btn ed-cine__btn" href="{{cta_href}}">{{cta_label}}</a>{{/cta_label}}
+      {{#cta2_label}}<a class="s-btn s-btn--ghost ed-cine__btn ed-cine__btn--ghost" href="{{cta2_href}}">{{cta2_label}}</a>{{/cta2_label}}
+    </p>
+  </div>
+</section>
