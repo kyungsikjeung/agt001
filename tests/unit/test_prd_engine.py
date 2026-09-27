@@ -73,10 +73,9 @@ def test_let_ai_assumes_non_fact_and_placeholders_fact(fake_extract):
     E.turn(card, "카페예요")                     # → 가게 이름 질문
     E.turn(card, S.LET_AI)                      # 가게 이름은 지어내지 않고 자리 표시
     assert status(card, "shop_name") == S.PLACEHOLDER
-    r = E.turn(card, "모르겠어요")               # 대표 메뉴(추출 없음) → 같은 질문 유지
-    assert r["question"]["slot"] == "offerings"
-    E.turn(card, S.LET_AI)
+    r = E.turn(card, "모르겠어요")               # 모름은 "알아서"처럼 닫는다 (T3 r5: 되풀이하면 중복·질문 수 초과)
     assert status(card, "offerings") == S.ASSUMED
+    assert r["question"] is None or r["question"]["slot"] != "offerings"
 
 
 def test_hidden_items_asked_once_as_multi_select(fake_extract):

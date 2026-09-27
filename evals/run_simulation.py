@@ -297,6 +297,7 @@ def _owner_text(transcript) -> str:
 
 def score_dialogue(scenario, result) -> dict:
     """최종 카드 + 대화 기록을 사실표와 비교해 지표를 낸다(규칙 채점, LLM 불필요)."""
+    from app.services.prd_engine import grounded_phrase  # 엔진과 같은 근거 기준 (늦은 import: 모듈 머리 주석 참고)
     card = result.get("final_card") or {}
     slots = card.get("slots", {})
     transcript = result.get("transcript") or []
@@ -350,7 +351,17 @@ def score_dialogue(scenario, result) -> dict:
             s = str(v)
             if any(f is not None and _value_matches(f, v) for f in fvs):
                 continue
-            if s and (s in all_text or (re.sub(r"\D", "", s) and re.sub(r"\D", "", s) in digits_all)):
+            if s and s in all_text:
+                continue
+            digits = re.sub(r"\D", "", s)
+            if digits and digits in digits_all:
+                continue
+            if k in CRITICAL_SLOTS or digits:
+                # 전화·주소·가격과 숫자 있는 값은 기존 판정 그대로 둔다
+                bad_items.append(v)
+                continue
+            # 숫자 없는 값은 엔진과 같은 공용 기준으로 본다. 근거는 사장님 말만 (엔진 선택지 글자는 근거가 아니다)
+            if grounded_phrase(s, owner_text):
                 continue
             bad_items.append(v)
         if bad_items:

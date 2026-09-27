@@ -196,6 +196,70 @@ def _digits(s: str) -> str:
     return re.sub(r"\D", "", _norm_text(s))
 
 
+# 근거 판단 공용 기준 (T3 r5): 값의 핵심 낱말이 모두 사장님 말에 있어야 근거로 본다.
+# 핵심에서 뺄 기능어 (T3 r5 표: 받기·연동·전송 같은 움직임을 나타내는 말은 근거에서 뺀다).
+_FUNCTIONAL_WORDS = frozenset(("받기", "하기", "넣기", "안내", "연동", "연결", "전송"))
+_FUNCTIONAL_STEMS = frozenset(("받", "하", "넣"))
+# 조사·어미 (긴 것부터 뗀다). 한 글자 줄기는 비교하지 않는다 ("많음"↔"많은데" 오탐 방지).
+_ENDINGS = ("으려구요", "려구요", "는데", "은데", "에서", "에게", "한테", "으로", "구요",
+            "이랑", "하고", "은", "는", "이", "가", "을", "를", "로", "도", "만", "랑",
+            "와", "과", "아", "야", "기", "고", "요", "음", "으")
+
+
+def _alias_text(s: str) -> str:
+    """별칭 맞춤 (intake 26행 규칙과 같게: 카카오톡·카카오 → 카톡). 띄어쓰기는 둔다."""
+    return _alias_norm(s, keep_space=True)
+
+
+def _alias_norm(s: str, keep_space: bool = False) -> str:
+    t = unicodedata.normalize("NFKC", (s or "").lower())
+    t = t.replace("카카오톡", "카톡").replace("카카오", "카톡")
+    return re.sub(r"[^가-힣a-z0-9 ]", "", t) if keep_space else _norm(t)
+
+
+def _stem_word(w: str) -> str:
+    """낱말 끝 조사·어미를 뗀다. 두 글자에서 멈춘다."""
+    s = w
+    while len(s) > 2:
+        hit = next((e for e in _ENDINGS if s.endswith(e) and len(s) - len(e) >= 1), None)
+        if hit is None:
+            break
+        s = s[: -len(hit)]
+    return s
+
+
+def _prefix_len(a: str, b: str) -> int:
+    n = 0
+    for x, y in zip(a, b):
+        if x != y:
+            break
+        n += 1
+    return n
+
+
+def grounded_phrase(value: str, history: str) -> bool:
+    """값 구절이 사장님 원문에 근거가 있는지 (엔진 _in_history·채점기 지어냄 공용).
+    핵심 낱말(2자 이상, 기능어 제외)이 하나라도 빠지면 False.
+    어미 차이(로·가·으로)는 줄기 비교로 받아주고, 한 글자 줄기(받·많)는 비교하지 않는다
+    ("받기"는 기능어 제외로, "많음"·"만들기"는 불일치로 처리한다)."""
+    words = [w for w in re.split(r"[\s,·/、]+", _alias_text(value)) if len(w) >= 2]
+    core = [w for w in words if w not in _FUNCTIONAL_WORDS and _stem_word(w) not in _FUNCTIONAL_STEMS]
+    if not core:
+        return False
+    hist = _alias_text(history)
+    nospace = hist.replace(" ", "")
+    hist_words = [w for w in hist.split(" ") if w]
+    for w in core:
+        if w in nospace:
+            continue
+        sw = _stem_word(w)
+        if len(sw) >= 2 and (sw in nospace
+                or any(_prefix_len(sw, _stem_word(h)) >= 2 or _prefix_len(w, h) >= 2 for h in hist_words)):
+            continue
+        return False
+    return True
+
+
 def grounded(slot: str, value: str, text: str) -> bool:
     """사실 칸 값이 사장님 메시지에 근거가 있는지. 없으면 AI가 지어낸 것으로 보고 버린다."""
     if slot not in S.FACT_SLOTS:
@@ -257,9 +321,11 @@ def _slot_label_hit(ind, slot_key: str, norm_text: str) -> bool:
 def _is_control(text: str) -> bool:
     """칸 값이 아닌 진행 말("잘 모르겠어요", "알아서 해주세요" 변형)."""
     n = _norm(text)
-    return n in _CONTROL_NORMS or any(w in n for w in ("모르겠", "몰라요", "모름", "글쎄"))
+    return n in _CONTROL_NORMS or any(w in n for w in DONTKNOW_NORMS)
 
 
+# "모르겠어요" 계열: 되묻지 않고 "알아서"와 똑같이 닫는다 (T3 r5: 같은 질문 되풀이로 중복·질문 수 초과).
+DONTKNOW_NORMS = ("모르겠", "몰라", "모름", "글쎄")
 # 사이트 목적 칸에 들어오면 안 되는 말: 사이트를 만든다는 것 자체는 목적이 아니다(T3 cafe-let_ai)
 _META_GOAL = re.compile(r"(홈페이지|사이트|웹사이트)\s*(제작|만들|개설)")
 
@@ -280,6 +346,25 @@ def _strip_label(ind, key: str, value: str) -> str:
                 if rest and not _COUNT_RE.match(rest):
                     return rest
     return v
+
+
+# 칸 값으로 쓸 수 없는 막연한 말 (T3 r5: offerings "많음"). 닫힌 목록으로만 버린다.
+VAGUE_OFFERINGS = frozenset(_norm(w) for w in ("많음", "많아요", "다양", "여러가지", "이것저것", "여러 개", "기타"))
+# 숫자 없는 시간을 물을 때 쓰는 말 (_FOLLOWUP "매일 같은 시간"과 같다).
+HOURS_FOLLOWUP_TEXT = "몇 시부터 몇 시까지 여나요? 예: 10시~21시"
+
+
+def _reserve_hours_followup(card: dict) -> None:
+    """숫자 없는 시간 답에 실제 시간을 한 번만 이어 묻는다 (1칸 1회)."""
+    asked = card.setdefault("followup_asked", [])
+    if "hours" in asked:
+        return
+    asked.append("hours")
+    item = {"slot": "hours", "text": HOURS_FOLLOWUP_TEXT}
+    if not card.get("followup"):
+        card["followup"] = item
+    else:
+        card.setdefault("followup_queue", []).append(item)
 
 
 # N-2: 메뉴·가격 뭉침 분리 ("아메리카노 5천원" → 메뉴는 offerings, 가격은 price, T3 e013·e025 계열).
@@ -363,9 +448,8 @@ def _in_history(value: str, history: str) -> bool:
     d = re.sub(r"\D", "", s)
     if d and d in re.sub(r"\D", "", history):
         return True
-    nh = _norm(history)
-    words = [w for w in re.split(r"[\s,·/]+", s) if len(_norm(w)) >= 2]
-    return any(_norm(w) in nh for w in words)
+    # 숫자 없는 값의 낱말 판정은 공용 기준을 쓴다 (전화·주소·가격과 숫자 값은 위에서 끝낸다).
+    return grounded_phrase(s, history)
 
 
 def _judge_features(card: dict) -> None:
@@ -417,6 +501,18 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
         spec = S.SLOTS[key]
         value = _strip_label(industry_of(card), key, value)
         if not value or _is_control(value) or (key == "goal" and _META_GOAL.search(value)):
+            continue
+        if key == "offerings":
+            # 막연한 항목은 버리고 남은 것만 둔다 (T3 r5 restaurant-let_ai "많음").
+            kept = [i for i in _split_items(value) if _norm(i) not in VAGUE_OFFERINGS]
+            if not kept:
+                continue
+            value = ", ".join(kept)
+        if key == "hours" and not (numbers.value_numbers(str(value)) | numbers.numbers_in(str(value))):
+            # 숫자 없는 시간은 저장하지 않는다 (T3 r5 workshop-changes_mind "주말").
+            # 숫자 있는 기존 값은 그대로 두고, 실제 시간을 한 번만 이어 묻는다.
+            if not _satisfied(card, key):
+                _reserve_hours_followup(card)
             continue
         if key == "exclude":
             terms = [_clean_exclude_term(v) for v in _split_items(value)]
@@ -606,7 +702,8 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             return True
         return None
     # B-6: "알아서 해줘/알아서" 변형, "나중에" 변형, 공백·문장부호·대소문자 무시.
-    if n == _norm(S.LET_AI) or "알아서" in n:
+    # "잘 모르겠어요" 계열도 "알아서"와 똑같이 닫는다 (T3 r5 되풀이 방지, 이어 묻기도 같다).
+    if n == _norm(S.LET_AI) or "알아서" in n or any(w in n for w in DONTKNOW_NORMS):
         if S.SLOTS[key].fact or key == "shop_name":
             _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
         else:
