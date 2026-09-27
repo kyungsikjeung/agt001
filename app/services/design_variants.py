@@ -126,7 +126,8 @@ def base_spec(card: dict) -> dict:
             descs = draft.get("items") or {}
             c["items"] = [{"name": o, "desc": descs.get(o, ""), "price": ""} for o in offerings] or c.get("items", [])
         elif sec["type"] in ("contact", "cta", "around"):
-            for k, v in (("phone", phone), ("hours", hours), ("address", address)):
+            for k, v in (("phone", phone), ("hours", hours), ("address", address),
+                         ("booking_url", _fact(card, "booking_url"))):
                 if k in c:
                     c[k] = v
         sections.append(sec)

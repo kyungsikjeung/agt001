@@ -115,4 +115,4 @@ def test_bulk_turn_queues_both_followups(monkeypatch):
     card = E.new_card("salon")
     r = E.turn(card, "컷트, 염색해요. 전화로 받아요")
     assert r["question"]["kind"] != "followup"  # 필수·숨은 질문이 먼저
-    assert [q["slot"] for q in card.get("followup_queue", [])] == ["price", "phone"]
+    assert [q["slot"] for q in card.get("followup_queue", [])] == ["price", "staff", "phone"]

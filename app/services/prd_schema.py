@@ -42,6 +42,8 @@ SLOTS: dict[str, Slot] = {s.key: s for s in [
     Slot("location", "위치", "사장님이 직접 말한 지역·주소만. 예: 강릉 경포, 부산 해운대구 우동 123", fact=True),
     Slot("price", "가격", "사장님이 직접 말한 가격만. 예: 원데이 클래스 3만5천원. 메뉴 이름이 붙어 있으면('젤네일 5만원', '컷트 2만원') 메뉴는 offerings로 나누고 가격만 price에 넣는다", fact=True),
     Slot("detail", "특징", "가게만의 특징이나 자랑. 예: 바다가 보이는 객실, 직접 로스팅. 대상이 섞여 있으면('중년 아주머니가 많이 와요') 그 부분은 target으로 나눈다"),
+    Slot("booking_url", "예약 주소", "손님이 예약하는 페이지 주소. 사장님이 직접 붙여넣은 URL만. '네이버 예약으로 받아요' 같은 말은 contact_method이지 주소가 아니다. 주소가 없으면 넣지 않는다"),
+    Slot("staff", "담당자", "담당 디자이너·선생님·의료진. 예: 원장 김미용(컷트), 영어 김선생님. 메뉴·시술 이름은 담당자가 아니다", multi=True),
 ]}
 
 FACT_SLOTS = frozenset(k for k, s in SLOTS.items() if s.fact)
@@ -114,7 +116,7 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
     Industry(
         "salon", "미용실", ("미용실", "헤어", "네일", "피부", "왁싱", "속눈썹", "바버"),
         required=("business_type", "shop_name", "offerings", "contact_method", "hours", "goal"),
-        labels={"offerings": "시술 메뉴", "contact_method": "예약 방법"},
+        labels={"offerings": "시술 메뉴", "contact_method": "예약 방법", "staff": "디자이너"},
         default_sections=("시술 메뉴", "디자이너 소개", "예약 안내", "오시는 길"),
         hidden=(("designer", "디자이너 지정"), ("parking", "주차"), ("same_day", "당일 예약"), ("men", "남성 전용 메뉴")),
         questions={"contact_method": Question("contact_method", "예약은 어떻게 받으시나요?", options=("네이버 예약", "전화", "카카오톡 채널"))},
@@ -133,7 +135,7 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
     Industry(
         "academy", "학원", ("학원", "교습소", "과외", "영어", "수학", "피아노", "태권도", "미술"),
         required=("business_type", "shop_name", "target", "offerings", "contact_method", "goal"),
-        labels={"offerings": "반 구성", "contact_method": "상담 방법", "target": "대상"},
+        labels={"offerings": "반 구성", "contact_method": "상담 방법", "target": "대상", "staff": "선생님"},
         default_sections=("반 구성", "수업 시간표", "선생님 소개", "상담 신청"),
         hidden=(("shuttle", "차량 운행"), ("trial", "체험 수업"), ("makeup", "보강"), ("sibling", "형제 할인")),
         questions={

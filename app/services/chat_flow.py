@@ -105,7 +105,7 @@ def _rag_note(spec: str) -> str:
 
 NEW_PROJECT_WORDS = ("새 프로젝트", "처음부터", "새로 만들", "다른 사이트")
 # 시안 뒤 고치기는 사이트에 바로 보이는 칸만 받는다(구성·기능 변경은 새 시안이 필요해 채팅 흐름 밖).
-_EDITABLE = ("shop_name", "phone", "hours", "location", "price", "offerings", "detail", "target", "contact_method")
+_EDITABLE = ("shop_name", "phone", "hours", "location", "price", "offerings", "detail", "target", "contact_method", "booking_url", "staff")
 
 
 def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional[str]:

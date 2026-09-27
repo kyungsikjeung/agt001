@@ -681,8 +681,12 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
 _FOLLOWUP_V0 = (
     ("offerings", "price", ("cafe", "restaurant", "salon", "workshop", "pension", "academy"), (),
      "각 메뉴·시술 가격은 어떻게 되나요? 예: 컷트 2만원, 염색 8만원. 모르면 '나중에 넣을게요'라고 해주세요."),
+    ("offerings", "staff", ("salon", "academy"), (),
+     "담당 디자이너·선생님은 누구신가요? 예: 원장 김미용(컷트 담당). 없으면 '없음'이라고 해주세요."),
     ("contact_method", "phone", (), ("전화",),
      "전화로 받으시면 번호를 알려 주세요. 예: 010-0000-0000"),
+    ("contact_method", "booking_url", (), ("네이버", "예약", "링크"),
+     "예약 페이지 주소를 붙여넣어 주세요. 예: https://booking.naver.com/… 없으면 '나중에 넣을게요'라고 해주세요."),
 )
 
 
