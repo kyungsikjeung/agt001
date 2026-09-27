@@ -80,6 +80,11 @@ _CONTROL_NORMS = frozenset([_norm(S.LET_AI), "알아서", "알아서해줘", "�
                             "나중에넣을게", "모르겠어요", "없음", "없어요"] + [_norm(p) for p in SKIP_PHRASES])
 NO_NORMS = frozenset(_norm(w) for w in NO_WORDS)
 NONE_NORMS = frozenset(_norm(w) for w in NONE_WORDS)
+# 질문을 다시 해 달라는 말 (VOICE FR-6). 메시지 전체가 이 말일 때만 (정규화 후 일치).
+REPEAT_NORMS = frozenset(_norm(w) for w in (
+    "다시", "다시요", "다시 한번", "다시 한 번", "한번 더", "한 번 더", "다시 말해줘", "다시 말해 주세요", "다시 말씀해 주세요",
+    "다시 읽어줘", "다시 읽어 주세요", "뭐라고", "뭐라고요", "뭐라구요", "네 뭐라고요", "못 들었어요", "잘 못 들었어요",
+    "잘 안 들려요", "안 들려요", "질문 다시", "질문이 뭐였죠"))
 SKIP_NORMS = frozenset([_norm(p) for p in SKIP_PHRASES] + list(SKIP_KEYWORDS))
 
 
@@ -1003,6 +1008,10 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     if not t:
         # B-4: 빈 메시지는 질문 예산을 쓰지 않고 직전 질문을 그대로 둔다.
         return _repeat_pending(card, applied, trace, from_empty=True)
+    if card.get("pending") and n in REPEAT_NORMS:
+        # VOICE FR-6: "다시요", "뭐라고요"는 답이 아니다. 같은 질문을 예산 없이 다시 보인다(읽어주기면 다시 읽힌다).
+        trace["repeat"] = True
+        return _repeat_pending(card, applied, trace)
     if not wants_skip:
         prev_pending = card.get("pending")
         prev_owner_slot = (prev_pending.get("slot") if prev_pending

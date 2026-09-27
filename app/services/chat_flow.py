@@ -346,6 +346,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             reply = _gate_or_summary(session, card, room, engine_trace)
         else:
             nudge = "사이트 이야기로 돌아가 볼까요?\n" if result.get("nudge") else ""
+            if (engine_trace or {}).get("repeat"):
+                nudge = "다시 말씀드릴게요.\n"  # VOICE FR-6: "다시요"·"뭐라고요"
             reply = (nudge + prd_engine.ack_text(card, result["applied"]) + _early_photo_ask(card, room)
                      + prd_engine.format_question(card, result["question"]))
             session["state"] = "GATHERING"
