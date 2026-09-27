@@ -297,7 +297,7 @@
   }
 
   function startHandsfreeListen() {
-    if (!handsfreeOn || recording || uploading) return;
+    if (!handsfreeOn || recording || uploading || window.__agtOnCall) return;
     handsfreeListening = true;
     handsfreeDiscard = false;
     walkieDownAt = 0;
@@ -1052,6 +1052,7 @@
   }
 
   function shouldAutoRead() {
+    if (window.__agtOnCall) return false;  // 전화 중에는 전화가 읽는다 (callbot.js)
     if (autoreadOn) return true;
     return isWalkieEnabled();
   }

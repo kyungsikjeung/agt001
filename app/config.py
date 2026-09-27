@@ -66,6 +66,13 @@ class Settings(BaseSettings):
     # 관리자 화면 키 교체(D50)는 이 값이 따로 있을 때만 열린다(화면에서 바꾸는 카카오 비밀값에서 파생되면 안 되므로).
     token_enc_key: Optional[str] = None
 
+    # 음성 콜봇 PoC (VOICE_QA_REQUIREMENTS §8, 브라우저 통화). 넷 다 있어야 켜진다.
+    twilio_account_sid: Optional[str] = None
+    twilio_auth_token: Optional[str] = None  # Twilio 요청 서명 확인용
+    twilio_api_key_sid: Optional[str] = None  # 브라우저 통화권 서명용 (Standard 키)
+    twilio_api_key_secret: Optional[str] = None
+    twilio_twiml_app_sid: Optional[str] = None
+
     # 관리자 사이트 (D49·D50). 명단은 서버 .env에만 둔다(화면에서 못 바꿈). 우리 users.id를 쉼표로.
     admin_user_ids: str = ""
     # 키 교체처럼 민감한 일은 이 시간 안에 로그인한 세션만 할 수 있다(최근 로그인 재확인).

@@ -1018,6 +1018,8 @@ async function pollMessages() {
     memberCountEl.textContent = roomMembers.length ? `${roomMembers.length}명 참여 중` : '';
     memberCountEl.setAttribute('aria-label', roomMembers.length ? `참여자 목록 열기, ${roomMembers.length}명 참여 중` : '참여자 목록 열기');
     renderMembers();
+    // 전화로 답하기 버튼(callbot.js)이 참여자·방장·단계를 보고 보이고 숨긴다
+    try { window.dispatchEvent(new CustomEvent('agt:room', { detail: { roomId, members: roomMembers, me: roomMe, state: data.state } })); } catch (e) { /* 무시 */ }
     updateShareUI();
     updateOwnerTools();
     // 초대 목록·카톡 상태는 폴링마다 부르지 않고 방장 확인 뒤 한 번만 조회한다.
@@ -1827,5 +1829,6 @@ if (nickname) {
 // nickname 없을 때는 #nicknameJoinBtn의 inline onclick="joinRoom()"이 처리한다 (중복 리스너 금지).
 </script>
 <script src="/voice.js" defer></script>
+<script src="/callbot.js" defer></script>
 </body>
 </html>
