@@ -31,8 +31,8 @@ async def lifespan(_app: FastAPI):
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/api/inquiries/", "/api/bookings/", "/health")
-_GENERATED_PATHS = ("/site/", "/design/", "/uploads/")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/api/inquiries/", "/api/bookings/", "/health")
+_GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/")
 
 
 async def _split_hosts(request: Request, call_next):
@@ -69,6 +69,8 @@ def create_app() -> FastAPI:
     app.include_router(callbot.router)
     # 라우터 뒤에 마운트해야 API 경로가 우선한다. html=True로 "/"에서 index.html을 준다.
     # React 빌드 자산. 빌드 전에도 기동은 되도록 디렉터리 확인을 끈다.
+    # 시안 공용 그림(D51 ① 추상·일러스트, 표시 없이 씀). 생성물과 같은 미리보기 주소에서 연다.
+    app.mount("/art", StaticFiles(directory=settings.templates_dir / "art", check_dir=False), name="art")
     app.mount("/assets", StaticFiles(directory=settings.frontend_dist_dir / "assets", check_dir=False), name="assets")
     app.mount("/", StaticFiles(directory=settings.static_dir, html=True), name="static")
     return app
