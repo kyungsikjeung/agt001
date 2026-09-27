@@ -381,6 +381,20 @@ content 스키마:
 
 ---
 
+### 2.9 적합성 부품 (2026-09-28, DESIGN_FIT_PLAN §10·D53)
+
+공통: `*_example: true`인 칸은 시안에서 '예시'로 보이고 공개본에서 값이 비워진다. `example: true`인 목록 항목은 공개본에서 통째로 빠진다. `image_example`은 공개본에도 '예시 이미지' 표시와 함께 남는다(D51). 안쪽 링크(`booking_href`·`return_href`)는 `#`로 시작하는 값만 쓴다.
+
+| type--variant | content | 비고 |
+|---|---|---|
+| `offerings--categories` | `label`, `order`(bool), `categories:[{name, image, image_alt, image_example, items:[{name*, desc, price, price_example, badge(8자), example}]}]` | 이름 없는 품목·빈 분류는 버린다. 분류가 2개 이상이면 칩. `order`면 담기·주문하기 → `#order-soon` |
+| `staff--team` / `staff--solo` | `label`, `booking_href`, `members:[{name*, role, specialties[≤4], bio, image, image_example, example}]`(≤8), solo만 `works:[{src, alt, image_example}]`(≤6) | 사람이 0명이면 섹션 없음. 사진이 없으면 이름 첫 글자 |
+| `around--map` | `label`, `address`, `items:[{name, note}]` | 지도는 예시 그림(D53②). 주소가 있으면 카카오맵·네이버 지도 검색 링크. 공개본은 그림을 숨긴다 |
+| `booking--slots` | `label`, `note`, `staff[]`, `services[]`, `service_label`, `days:[{date YYYY-MM-DD*, label, dow, slots:[{time HH:MM*, state open/few/full}]}]`(≤14일·16칸), `days_example` | 라디오 `slot="날짜 시간"`, `staff` → `POST /api/bookings`. `days`가 없으면 날짜·시간 입력 |
+| `order--soon` | `title`, `body`, `phone`, `return_href` | 요소 id는 `order-soon` 고정. `:target`으로 열린다 |
+| 명세 `actionbar` | `{primary:{label, href}, secondary:{label, href}}` | 섹션이 아니다. 가리키는 섹션이 없으면 그리지 않는다 |
+| `hero--*` `cta2` · `gallery--*` `label` | 두 번째 행동(글자 링크) · 사진첩 제목 | 첫 화면 주 버튼은 1개로 유지한다 |
+
 ## 3. 생성물 규격 준수 (R2 §3.3 + 파이프라인 §13 S-2·S-5)
 
 부품이 기본적으로 지켜야 할 규칙이다. 렌더러 출력과 Hermes 제작물에 동일 적용되며, 게시 전 검사(P-8, S-5)의 검사 항목이 된다.
