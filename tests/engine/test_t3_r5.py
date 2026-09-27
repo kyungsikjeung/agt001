@@ -161,3 +161,110 @@ def test_numeric_hours_not_overwritten_by_vague(monkeypatch):
     E._put(card, "hours", "10시~21시", S.FILLED, 0)
     E.turn(card, "주말에 열어요")
     assert card["slots"]["hours"]["value"] == "10시~21시"
+
+
+# ── D: 직접 답 가드 (길이·막연한 말·잡담·hidden 오염) ───────────────────
+
+def test_empty_extract_does_not_fill_chatter(monkeypatch):
+    # 추출이 빈손이면 잡담을 물은 칸으로 넣지 않는다 ("오늘 날씨가 좋네요" → 가게 이름 X).
+    # 빈손 반복은 stuck 3회가 자리 표시로 닫는다.
+    fake_setup(monkeypatch, {"카페예요": [u("business_type", "카페")]})
+    card = E.new_card()
+    E.turn(card, "카페예요")
+    assert card["pending"]["slot"] == "shop_name"
+    r = E.turn(card, "오늘 날씨가 좋네요")
+    assert card["slots"].get("shop_name", {}).get("status") != S.FILLED
+    assert r["question"]["slot"] == "shop_name"
+
+
+def test_empty_extract_single_char_not_filled(monkeypatch):
+    # 한 글자 추임새("음")는 직접 답으로 받지 않는다.
+    fake_setup(monkeypatch, {})
+    card = E.new_card("restaurant")
+    E._put(card, "business_type", "식당", S.FILLED, 1)
+    E._put(card, "shop_name", "시장손맛 분식", S.FILLED, 1)
+    card["pending"] = {"slot": "offerings", "kind": "single",
+                       "options": ["알아서 해주세요"], "text": "?"}
+    card["asked"] = 4
+    E.turn(card, "음")
+    assert card["slots"].get("offerings", {}).get("status") != S.FILLED
+
+
+def test_wrong_slot_vague_not_filled(monkeypatch):
+    # 추출이 엇나간 경우에도 막연한 말("많음")은 offerings에 넣지 않는다.
+    fake_setup(monkeypatch, {"많음": [u("target", "많음")]})
+    card = E.new_card("restaurant")
+    E._put(card, "business_type", "식당", S.FILLED, 1)
+    E._put(card, "shop_name", "시장손맛 분식", S.FILLED, 1)
+    card["pending"] = {"slot": "offerings", "kind": "single",
+                       "options": ["알아서 해주세요"], "text": "?"}
+    card["asked"] = 4
+    E.turn(card, "많음")
+    assert card["slots"].get("offerings", {}).get("status") != S.FILLED
+
+
+def test_empty_extract_vague_still_dropped(monkeypatch):
+    # 직접 답이라도 막연한 말("많음")은 offerings에 넣지 않는다.
+    fake_setup(monkeypatch, {})
+    card = E.new_card("restaurant")
+    E._put(card, "business_type", "식당", S.FILLED, 1)
+    E._put(card, "shop_name", "시장손맛 분식", S.FILLED, 1)
+    card["pending"] = {"slot": "offerings", "kind": "single",
+                       "options": ["알아서 해주세요"], "text": "?"}
+    card["asked"] = 4
+    E.turn(card, "많음")
+    assert card["slots"].get("offerings", {}).get("status") != S.FILLED
+
+
+# ── E: hidden 오염 차단 (F4) ──────────────────────────────────────
+
+def test_hidden_answer_does_not_pollute_offerings(monkeypatch):
+    # hidden 답("단체 수업")만으로 offerings를 채우지 않는다. hidden 선택은 유지.
+    fake_setup(monkeypatch, {"단체 수업도 해요": [u("offerings", "단체 수업")]})
+    card = E.new_card("workshop")
+    card["said"] = ["성수동 근처에서 손빛 도자기 공방 해요. 원데이 클래스 3만5천원이고 정규반도 있어요."]
+    card["turn"] = 2
+    card["hidden"] = {"asked": True, "selected": ["group"]}
+    applied = E.apply_updates(card, [u("offerings", "단체 수업")], "단체 수업도 해요")
+    assert applied == []
+    assert card["slots"].get("offerings", {}).get("status") != S.FILLED
+    assert card["hidden"]["selected"] == ["group"]
+
+
+def test_offerings_with_prior_evidence_kept(monkeypatch):
+    # 먼저 말한 메뉴(바비큐)는 hidden 라벨과 겹쳐도 유지한다.
+    fake_setup(monkeypatch, {})
+    card = E.new_card("pension")
+    card["said"] = ["펜션 사이트요. 객실이랑 바비큐장 넣고 싶어요."]
+    card["turn"] = 2
+    card["hidden"] = {"asked": True, "selected": ["bbq"]}
+    applied = E.apply_updates(card, [u("offerings", "바비큐")], "바비큐요")
+    assert applied == ["offerings"]
+    assert card["slots"]["offerings"]["value"] == ["바비큐"]
+
+
+# ── F: 공유방 비방장 required 확인 확대 (F6) ───────────────────────
+
+def test_nonowner_required_nonfact_needs_owner_confirm(monkeypatch):
+    # pension-group: 딸(비방장)의 연락방법 답은 바로 확정하지 않는다.
+    fake_setup(monkeypatch, {})
+    card = E.new_card("pension")
+    card["turn"] = 3
+    card["said"] = ["펜션 사이트요"]
+    applied = E.apply_updates(
+        card, [u("contact_method", "카카오톡 채널")], "카카오톡 채널",
+        by="h-daughter", is_owner=False)
+    assert applied == ["contact_method"]
+    assert card["slots"]["contact_method"]["status"] == S.PENDING_OWNER
+
+
+def test_owner_required_nonfact_fills_directly(monkeypatch):
+    # 방장은 그대로 확정된다 (질문 1회 증가 없음).
+    fake_setup(monkeypatch, {})
+    card = E.new_card("pension")
+    card["turn"] = 3
+    card["said"] = ["펜션 사이트요"]
+    applied = E.apply_updates(
+        card, [u("contact_method", "전화")], "전화", by="h-owner", is_owner=True)
+    assert applied == ["contact_method"]
+    assert card["slots"]["contact_method"]["status"] == S.FILLED

@@ -137,3 +137,14 @@ def test_sensitive_ok(text):
 @pytest.mark.parametrize("text,kind", SENSITIVE_BAD)
 def test_sensitive_bad(text, kind):
     assert contains_sensitive(text) == kind
+
+
+def test_wonrae_blocks_only_when_it_contradicts_saved_hours():
+    """"원래"만 들어가도 영업시간을 막던 문제(9/27 검토): 저장된 시간과 숫자가 다를 때만 확인을 요청한다."""
+    from app.services import prd_engine as E
+    from app.services import prd_schema as S
+    card = E.new_card("cafe")
+    assert E._w1_block_reason("hours", "원래 10시에 열어요", card) is None      # 저장된 시간 없음
+    E._put(card, "hours", "10~21시", S.FILLED)
+    assert E._w1_block_reason("hours", "원래 10시~21시예요", card) is None      # 같은 시간
+    assert E._w1_block_reason("hours", "원래 11시~21시였어요", card)             # 다른 시간 → 확인

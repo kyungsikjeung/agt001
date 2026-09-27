@@ -127,6 +127,41 @@ def industry_of(card) -> S.Industry:
     return S.industry_for(_slot(card, "business_type").get("value"))
 
 
+def _needs_owner_confirm(card: dict, key: str, is_owner: bool) -> bool:
+    """공유방 비방장 답을 바로 확정하지 않고 방장 확인으로 돌릴지 (T3 F6).
+
+    D24는 사실 칸만 확인했지만, pension-group처럼 required 비사실 칸
+    (contact_method)도 비방장 의견이 최종값이 되면 정확도가 깨진다.
+    업종 전환(business_type)은 확인 질문으로 감당하기 어려워 제외한다.
+    """
+    if is_owner or key == "business_type":
+        return False
+    if S.SLOTS[key].fact:
+        return True
+    try:
+        return key in industry_of(card).required
+    except (KeyError, AttributeError):
+        return False
+
+
+def _hidden_label_norms(card: dict) -> set:
+    """숨은 항목 라벨·추가 항목의 정규화 집합 (T3 F4 오염 판정용)."""
+    out = set()
+    try:
+        hidden = industry_of(card).hidden
+    except (KeyError, AttributeError):
+        hidden = ()
+    for _k, label in hidden or ():
+        out.add(_norm(label))
+        core = (label or "").split("·")[0]
+        if len(_norm(core)) >= 2:
+            out.add(_norm(core))
+    for extra in (card.get("hidden") or {}).get("extra") or []:
+        if len(_norm(extra)) >= 2:
+            out.add(_norm(extra))
+    return out
+
+
 # ── 추출 (AI) ─────────────────────────────────────────────────────────
 
 _SCHEMA = {
@@ -332,6 +367,41 @@ def _is_control(text: str) -> bool:
 
 # "모르겠어요" 계열: 되묻지 않고 "알아서"와 똑같이 닫는다 (T3 r5: 같은 질문 되풀이로 중복·질문 수 초과).
 DONTKNOW_NORMS = ("모르겠", "몰라", "모름", "글쎄")
+# 예산을 쓰는 질문 종류: 필수·숨은·종류 묻기만 센다. 확인(방장·기능·어긋남)·이어묻기는 별도로 센다.
+BUDGET_KINDS = frozenset(("single", "multi", "site_kind"))
+
+
+def _is_dontknow_norm(n: str) -> bool:
+    """정규화된 답이 모름 계열인지."""
+    return bool(n) and any(w in n for w in DONTKNOW_NORMS)
+
+
+def _is_let_ai_norm(n: str) -> bool:
+    """정규화된 답이 알아서 계열인지."""
+    return bool(n) and (n == _norm(S.LET_AI) or "알아서" in n)
+
+
+def _is_later_norm(t: str, n: str) -> bool:
+    """나중에 넣기 답인지."""
+    return t == LATER or n in LATER_NORMS
+
+
+def _counts_toward_budget(q: Optional[dict]) -> bool:
+    """질문 예산을 쓰는 종류인지. 확인·이어묻기는 예산 밖이다."""
+    return bool(q) and q.get("kind") in BUDGET_KINDS
+
+
+def _close_single_as_unknown(card: dict, key: str, by=None) -> None:
+    """한 칸 질문을 모름으로 닫는다: 사실·가게이름은 자리표시, 나머지는 가정."""
+    if S.SLOTS[key].fact or key == "shop_name":
+        _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
+    else:
+        _put(card, key, _default_for(card, key), S.ASSUMED, card["turn"], by)
+    # 되짚기 문구용: "연락 방법은 비워두고 갈게요"
+    closed = card.setdefault("just_closed", [])
+    if key not in closed:
+        closed.append(key)
+    del closed[:-3]
 # 사이트 목적 칸에 들어오면 안 되는 말: 사이트를 만든다는 것 자체는 목적이 아니다(T3 cafe-let_ai)
 _META_GOAL = re.compile(r"(홈페이지|사이트|웹사이트)\s*(제작|만들|개설)")
 
@@ -465,7 +535,7 @@ def _in_history(value: str, history: str) -> bool:
 _CONTRADICT_CUES = ("원래", "예전에는", "이전에는", "바뀌기전")
 
 
-def _w1_block_reason(key: str, value) -> Optional[str]:
+def _w1_block_reason(key: str, value, card: Optional[dict] = None) -> Optional[str]:
     """저장하면 안 되는 값이면 사유, 저장해도 되면 None."""
     text = ", ".join(value) if isinstance(value, list) else str(value or "")
     if not text.strip():
@@ -477,9 +547,11 @@ def _w1_block_reason(key: str, value) -> Optional[str]:
         return V.check_phone(text)
     if key == "hours":
         compact = re.sub(r"\s+", "", text)
-        for cue in _CONTRADICT_CUES:
-            if cue in compact:
-                return "어느 쪽이 맞는지 확인이 필요해요"
+        # "원래 10시에 열어요"처럼 평범한 말까지 막지 않는다: 이미 저장된 시간과 숫자가 다를 때만 모순으로 본다(9/27 검토).
+        prev = _slot(card, "hours") if card else {}
+        if prev.get("status") == S.FILLED and any(cue in compact for cue in _CONTRADICT_CUES):
+            if numbers.numbers_in(str(prev.get("value") or "")) != numbers.numbers_in(text):
+                return "앞서 말씀하신 시간과 달라요. 어느 쪽이 맞는지 알려 주세요"
         return V.check_hours(text)
     if key == "price":
         for item in _split_items(text):
@@ -516,6 +588,34 @@ def _judge_features(card: dict) -> None:
             card.setdefault("later", []).append(v.get("name") or text)
 
 
+def _note_blocked(card: dict, key: str, reason: str) -> None:
+    """W1 차단 사유를 카드에 남긴다. 다음 답에서 유저에게 한 줄로 알린다."""
+    notes = card.setdefault("blocked_notes", [])
+    ind = industry_of(card)
+    label = S.label_for(ind, key)
+    entry = f"{label}: {reason}"
+    if entry not in notes:
+        notes.append(entry)
+    # 같은 턴에 3개 넘게 쌓이면 가장 최근 것만 둔다 (메시지 폭증 방지).
+    del notes[:-3]
+
+
+def blocked_text(card: dict) -> str:
+    """이번 턴에 막힌 값이 있으면 유저에게 알리는 한 줄. 없으면 빈 문자열."""
+    notes = card.pop("blocked_notes", [])
+    if not notes:
+        return ""
+    # 예: "전화번호 자리수가 맞지 않아요(010-0000-0000처럼 보내주세요)"
+    hint = {"전화번호": "예: 010-0000-0000", "영업시간": "예: 10시~21시",
+            "가격": "예: 아메리카노 5천원", "위치": "예: 망원동" }
+    parts = []
+    for n in notes:
+        parts.append(n)
+    # 힌트는 라벨에서 찾아 붙인다.
+    out = "다시 확인해 주세요: " + " · ".join(parts)
+    return out
+
+
 def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=True) -> list[str]:
     """추출 결과를 규칙에 맞춰 카드에 넣는다. 반영한 칸 키 목록을 돌려준다."""
     turn = card["turn"]
@@ -545,12 +645,37 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             kept = [i for i in _split_items(value) if _norm(i) not in VAGUE_OFFERINGS]
             if not kept:
                 continue
+            # F4: hidden 답이 offerings로 오염되는 것을 막는다 ("단체 수업").
+            # hidden 라벨과 겹치고 hidden 답 전 대화에 근거가 없으면 hidden 선택을 유지하고 버린다.
+            # turn()은 said에 현재 메시지를 먼저 넣어 두므로 마지막 1개가 현재문이면 뺀다.
+            said = card.get("said") or []
+            if said and (said[-1] == text[:SAID_CHARS] or said[-1] in text or text.startswith(said[-1])):
+                prior_list = said[:-1]
+            else:
+                prior_list = said
+            prior = "\n".join(prior_list)
+            if prior:
+                hidden_norms = _hidden_label_norms(card)
+                if hidden_norms:
+                    clean = []
+                    for item in kept:
+                        ni = _norm(item)
+                        toks = re.findall(r"[가-힣a-z0-9]{2,}", ni)
+                        overlaps = any(t and any(t in h or h in t for h in hidden_norms) for t in toks)
+                        if overlaps and not _in_history(item, prior):
+                            log.info("hidden 오염 offerings 버림: %s", item)
+                            continue
+                        clean.append(item)
+                    kept = clean
+                    if not kept:
+                        continue
             value = ", ".join(kept)
         if key == "hours" and not (numbers.value_numbers(str(value)) | numbers.numbers_in(str(value))):
             # 숫자 없는 시간은 저장하지 않는다 (T3 r5 workshop-changes_mind "주말").
             # 숫자 있는 기존 값은 그대로 두고, 실제 시간을 한 번만 이어 묻는다.
             if not _satisfied(card, key):
                 _reserve_hours_followup(card)
+                _note_blocked(card, key, "시간 숫자를 넣어 주세요. 예: 주말 10시~18시")
             continue
         if key == "exclude":
             terms = [_clean_exclude_term(v) for v in _split_items(value)]
@@ -580,12 +705,13 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
                     card["slots"][k]["value"] = kept
             applied.append(key)
             continue
-        if spec.fact and not is_owner:
-            # D24: 공유방에서 방장이 아닌 사람이 말한 사실은 방장이 확인해야 카드에 들어간다.
+        if _needs_owner_confirm(card, key, is_owner):
+            # D24 + F6: 공유방에서 방장이 아닌 사람이 말한 사실·필수 칸은 방장이 확인해야 카드에 들어간다.
             # W1: 틀린 값은 확인 대기(PENDING_OWNER)로도 올리지 않는다(FILLED 전환 시 검증 우회 방지).
-            reason = _w1_block_reason(key, value)
+            reason = _w1_block_reason(key, value, card)
             if reason:
                 log.info("잘못된 %s 저장 차단(공유방): %s", key, reason)
+                _note_blocked(card, key, reason)
                 continue
             _put(card, key, _norm_text(value), S.PENDING_OWNER, turn, by)
             applied.append(key)
@@ -595,9 +721,10 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             if key == "phone":
                 value = _spoken_phone(value)
         # W1: 저장단계 검증. 틀린 전화·시간·가격·민감정보는 FILLED로 저장하지 않고 다시 묻는다.
-        reason = _w1_block_reason(key, value)
+        reason = _w1_block_reason(key, value, card)
         if reason:
             log.info("잘못된 %s 저장 차단: %s", key, reason)
+            _note_blocked(card, key, reason)
             continue
         if spec.multi:
             cur = _slot(card, key)
@@ -620,6 +747,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
         if key == "features":
             _judge_features(card)
         applied.append(key)
+    _maybe_queue_word_confirm(card, applied)
     return applied
 
 
@@ -700,6 +828,12 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
     if p["kind"] == "owner_confirm":
         if not is_owner:
             return None
+        # 모름·나중에는 방장 확인 값을 비워두고 넘어간다 (되풀이 방지).
+        if _is_dontknow_norm(n) or _is_let_ai_norm(n) or _is_later_norm(t, n):
+            card["slots"].pop(key, None)
+            _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
+            card["pending"] = None
+            return True
         # B-6: 대소문자 무시·공백/문장부호 제거 후 비교. "네, 맞아요" 같은 공손한 답도 승인으로 본다.
         # 거절을 먼저 본다 ("아니요"가 "네"를 품지 않지만, 혼합 답에서 거절을 우선한다).
         if n in NO_NORMS or (len(t) <= 12 and any(w in n for w in NO_NORMS)):
@@ -710,7 +844,41 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             return None
         card["pending"] = None
         return True
+    if p["kind"] == "word_confirm":
+        # 저신뢰 1회 확인 (LLM 없음): 네→유지, 아니요→해당 값만 제거 후 다시 묻기, 모름/나중→유지 후 닫기.
+        said = p.get("said")
+        card["word_confirm_queue"] = [q for q in card.get("word_confirm_queue") or []
+                                      if not (q.get("slot") == key and q.get("value") == said)]
+        asked = card.setdefault("word_confirm_asked", [])
+        if said not in asked:
+            asked.append(said)
+        if _is_dontknow_norm(n) or _is_let_ai_norm(n) or _is_later_norm(t, n) or n in NONE_NORMS:
+            card["pending"] = None
+            return True
+        if n in NO_NORMS or (len(t) <= 12 and any(w in n for w in NO_NORMS)):
+            cur = _slot(card, key).get("value")
+            if isinstance(cur, list):
+                rest = [x for x in cur if x != said]
+                if rest:
+                    card["slots"][key]["value"] = rest
+                else:
+                    card["slots"].pop(key, None)
+            elif cur == said:
+                card["slots"].pop(key, None)
+            card["pending"] = None
+            return True
+        if n in YES_NORMS or (len(t) <= 12 and any(w in n for w in YES_NORMS)):
+            card["pending"] = None
+            return True
+        card["pending"] = None
+        return None
     if p["kind"] == "site_kind":
+        # 모름·나중·알아서는 기타로 닫고 다시 묻지 않는다.
+        if _is_dontknow_norm(n) or _is_let_ai_norm(n) or _is_later_norm(t, n):
+            card["kind_asked"] = True
+            card["industry"] = "other"
+            card["pending"] = None
+            return True
         # 목록 밖 대답이어도 다시 묻지 않는다(자유 대답은 추출로 넘긴다).
         card["kind_asked"] = True
         o = t if t in p["options"] else _fuzzy_option_match(n, t, p["options"])
@@ -722,12 +890,24 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
         return True
     if p["kind"] == "feature":
         fid = p.get("feature")
+        # 모름·나중에는 기본값으로 닫고 다시 묻지 않는다.
+        if _is_dontknow_norm(n) or _is_let_ai_norm(n) or _is_later_norm(t, n) or n in NONE_NORMS:
+            card["feature_queue"] = [f for f in card.get("feature_queue") or [] if f != fid]
+            card.setdefault("feature_answers", {})[fid] = "모름(기본값으로 진행)"
+            card["pending"] = None
+            return True
         card["feature_queue"] = [f for f in card.get("feature_queue") or [] if f != fid]
         o = t if t in p["options"] else _fuzzy_option_match(n, t, p["options"])
         card.setdefault("feature_answers", {})[fid] = o or t[:200]
         card["pending"] = None
         return True if o is not None else None
     if p["kind"] == "conflict":
+        # 모름·나중에는 정리된 값을 유지하고 다시 묻지 않는다.
+        if _is_dontknow_norm(n) or _is_let_ai_norm(n) or _is_later_norm(t, n):
+            card["conflict_queue"] = [c for c in card.get("conflict_queue") or []
+                                      if not (c["slot"] == key and c["said"] == p.get("said"))]
+            card["pending"] = None
+            return True
         # 검토에서 나온 어긋난 값(D34): 사장님이 고른 쪽으로. 목록 밖 대답은 칸 추출로 넘긴다.
         card["conflict_queue"] = [c for c in card.get("conflict_queue") or []
                                   if not (c["slot"] == key and c["said"] == p.get("said"))]
@@ -737,10 +917,15 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             return None
         if o == p["options"][0]:
             value = _split_items(o) if S.SLOTS[key].multi else o
-            status = S.PENDING_OWNER if S.SLOTS[key].fact and not is_owner else S.FILLED
+            status = S.PENDING_OWNER if _needs_owner_confirm(card, key, is_owner) else S.FILLED
             _put(card, key, value, status, card["turn"], by)
         return True
     if p["kind"] == "multi":
+        # 모름·나중·알아서는 빈 선택으로 닫고 다시 묻지 않는다.
+        if _is_dontknow_norm(n) or _is_let_ai_norm(n) or _is_later_norm(t, n):
+            card["hidden"] = {"asked": True, "selected": []}
+            card["pending"] = None
+            return True
         hidden = industry_of(card).hidden
         # 목록 밖 항목: 화면은 "... / 추가: 바비큐, 테라스석"으로 보낸다. 먼저 떼어 둔다.
         extra = []
@@ -822,12 +1007,10 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
         return None
     # B-6: "알아서 해줘/알아서" 변형, "나중에" 변형, 공백·문장부호·대소문자 무시.
     # "잘 모르겠어요" 계열도 "알아서"와 똑같이 닫는다 (T3 r5 되풀이 방지, 이어 묻기도 같다).
-    if n == _norm(S.LET_AI) or "알아서" in n or any(w in n for w in DONTKNOW_NORMS):
-        if S.SLOTS[key].fact or key == "shop_name":
-            _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
-        else:
-            _put(card, key, _default_for(card, key), S.ASSUMED, card["turn"], by)
-    elif t == LATER or n in LATER_NORMS:
+    # followup(이어묻기)도 같은 규칙으로 닫는다: 모름이면 자리표시·가정으로 닫고 큐를 비운다.
+    if _is_let_ai_norm(n) or _is_dontknow_norm(n):
+        _close_single_as_unknown(card, key, by)
+    elif _is_later_norm(t, n):
         _put(card, key, None, S.PLACEHOLDER, card["turn"], by)
     elif t in p.get("options", []) or _fuzzy_option_match(n, t, p.get("options", [])) is not None:
         o = t if t in p.get("options", []) else _fuzzy_option_match(n, t, p.get("options", []))
@@ -837,7 +1020,7 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             card["followup"] = {"slot": key, "text": follow}
             card["pending"] = None
             return True
-        if S.SLOTS[key].fact and not is_owner:
+        if _needs_owner_confirm(card, key, is_owner):
             _put(card, key, _norm_text(o), S.PENDING_OWNER, card["turn"], by)
         else:
             value = [o] if S.SLOTS[key].multi else o
@@ -874,8 +1057,88 @@ def _fuzzy_option_match(normed: str, raw: str, options: list) -> Optional[str]:
     return None
 
 
+# 저신뢰 재확인 (STT 뭉개짐 1회 확인, LLM 없음, D34 유지).
+# transcribe().normalize_words()가 푼 "객실 세 개"류 한글 수량만 후보로 본다.
+# 숫자 "객실 3개"는 확신 입력으로 보고 묻지 않는다 (기존 T2·T3 회귀 유지).
+_WORD_CONFIRM_RE = re.compile(
+    r"(객실|테이블|단체석|좌석|자리|인분)\s*(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(개|실|석|명|곳|분|채|동)?")
+_WORD_NUM = {"한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6,
+             "일곱": 7, "여덟": 8, "아홉": 9, "열": 10}
+_WORD_CONFIRM_SLOTS = ("offerings", "detail")
+
+
+def _word_confirm_display(value: str) -> str:
+    """확인 질문 표시용: 한글 수량을 숫자로 ("객실 세 개"→"객실 3개")."""
+    m = _WORD_CONFIRM_RE.search(value or "")
+    if not m:
+        return value
+    noun, kor, counter = m.group(1), m.group(2), m.group(3) or "개"
+    return f"{noun} {_WORD_NUM.get(kor, kor)}{counter}"
+
+
+def _word_value_present(card: dict, slot_key: str, value: str) -> bool:
+    cur = _slot(card, slot_key).get("value")
+    if isinstance(cur, list):
+        return value in cur
+    return cur == value
+
+
+def _prune_word_confirms(card: dict) -> None:
+    """이미 물어본·사라진 후보를 큐에서 치운다 (1회 보장, pending 값은 둔다)."""
+    asked = set(card.get("word_confirm_asked") or [])
+    pend = card.get("pending") or {}
+    pend_val = (pend.get("said") if pend.get("kind") == "word_confirm" else None)
+    kept = []
+    for qc in card.get("word_confirm_queue") or []:
+        qslot, qval = qc.get("slot"), qc.get("value")
+        if qval in asked and qval != pend_val:
+            continue
+        if not _word_value_present(card, qslot, qval):
+            continue
+        kept.append(qc)
+    if len(kept) != len(card.get("word_confirm_queue") or []):
+        card["word_confirm_queue"] = kept
+
+
+def _maybe_queue_word_confirm(card: dict, applied: list[str]) -> None:
+    """뭉개짐 후보가 카드에 들어가면 확인 큐에 1회 예약한다 (LLM 없음)."""
+    if not applied:
+        return
+    asked = set(card.get("word_confirm_asked") or [])
+    queued = {(q.get("slot"), q.get("value")) for q in card.get("word_confirm_queue") or []}
+    for key in applied:
+        if key not in _WORD_CONFIRM_SLOTS:
+            continue
+        cur = _slot(card, key).get("value")
+        vals = cur if isinstance(cur, list) else ([cur] if cur else [])
+        for v in vals:
+            if not isinstance(v, str) or not _WORD_CONFIRM_RE.search(v):
+                continue
+            if v in asked or (key, v) in queued:
+                continue
+            card.setdefault("word_confirm_queue", []).append({"slot": key, "value": v})
+            queued.add((key, v))
+
+
+def _peek_word_confirm(card: dict) -> Optional[dict]:
+    """뭉개짐 1회 확인 질문 peek (pop 없음, 여러 번 호출해도 같은 질문)."""
+    pend = card.get("pending")
+    if pend and pend.get("kind") == "word_confirm":
+        return pend
+    _prune_word_confirms(card)
+    for qc in card.get("word_confirm_queue") or []:
+        qslot, qval = qc.get("slot"), qc.get("value")
+        if qval in (card.get("word_confirm_asked") or []):
+            continue
+        if not _word_value_present(card, qslot, qval):
+            continue
+        return {"slot": qslot, "kind": "word_confirm", "said": qval, "options": ["네", "아니요"],
+                "text": f"{_word_confirm_display(qval)} 맞나요?"}
+    return None
+
+
 def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
-    """닫혀야 승인할 수 있는 확인 질문 하나: 방장 확인 → 기능 확인 → 검토에서 나온 어긋난 값."""
+    """닫혀야 승인할 수 있는 확인 질문 하나: 방장 확인 → 뭉개짐 1회 확인 → 기능 확인 → 검토에서 나온 어긋난 값."""
     ind = industry_of(card)
     for key, slot in card["slots"].items():
         if slot["status"] == S.PENDING_OWNER:
@@ -883,6 +1146,11 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
                     "text": f"{S.label_for(ind, key)}을(를) '{slot['value']}'(으)로 받았어요. 방장님, 맞나요?"}
     if owner_only:
         return None
+    # 저신뢰 재확인 (신규 LLM 에이전트 금지, D34 유지): STT 뭉개짐 후보가 카드에
+    # 들어가면 기존 close_gate/confirm 흐름으로 1회만 묻는다. 규칙 기반이라 턴마다 에이전트가 돌지 않는다.
+    q = _peek_word_confirm(card)
+    if q is not None:
+        return q
     for fid in card.get("feature_queue") or []:
         v = next((x for x in card.get("features_judged") or [] if x.get("id") == fid), None)
         if v and v.get("question"):
@@ -944,6 +1212,10 @@ def _maybe_followup(card: dict, applied: list[str]) -> None:
 def next_question(card: dict) -> Optional[dict]:
     """다음에 물을 것 하나. 없으면 None."""
     ind = industry_of(card)
+    # 0) 뭉개짐 1회 확인: 방금 카드에 들어간 저신뢰 수량은 이어묻기보다 먼저 확인한다.
+    qw = _peek_word_confirm(card)
+    if qw:
+        return qw
     fu = card.pop("followup", None)
     if fu and not _satisfied(card, fu["slot"]):
         # kind "followup": 같은 칸을 더 자세히 묻는 이어 묻기(답은 한 칸 질문처럼 처리, 평가에서 중복으로 세지 않음)
@@ -1009,13 +1281,15 @@ def finalize(card: dict) -> None:
 
 
 def _stuck_key(pending: Optional[dict]) -> Optional[str]:
-    """같은 칸 반복 판정용 키 (B-4). 방장 확인은 엔진에서 해소할 수 없어 제외한다 (B-9)."""
+    """같은 칸 반복 판정용 키 (B-4). 확인·이어묻기는 엔진에서 바로 닫히므로 제외한다."""
     if not pending:
         return None
     if pending.get("kind") == "multi":
         return "multi:"
-    if pending.get("kind") in ("owner_confirm", "site_kind", "feature"):
-        return None  # 대답하면 바로 풀리는 질문(목록 밖 대답도 다시 묻지 않음)
+    if pending.get("kind") in ("owner_confirm", "site_kind", "feature", "followup", "conflict", "word_confirm"):
+        return None  # 대답하면 바로 풀리는 질문(모름도 닫히므로 stuck을 세지 않음)
+    if pending.get("gate"):
+        return None
     return f"single:{pending.get('slot')}"
 
 
@@ -1075,15 +1349,44 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             applied = apply_updates(card, ups, t, by, is_owner)
             # T3 분석 G3: 한 칸 질문에 짧게 답했는데 추출이 다른 칸으로 보냈으면, 그 답은 물은 칸의 값이다
             # ("어떤 것을 소개하고 싶으세요?" → "초등 미술반"을 업종으로 오분류하고 같은 질문을 또 하던 문제).
+            # 추출이 빈손([])이면 잡담과 구분이 안 되므로 채우지 않는다
+            # ("오늘 날씨가 좋네요"를 가게 이름으로 넣던 문제. 빈손 반복은 stuck 3회가 자리 표시로 닫는다).
             ask_slot = (prev_pending or {}).get("slot") if (prev_pending or {}).get("kind") == "single" else None
-            # 추출이 아무것도 못 뽑은 잡담은 여기 해당하지 않는다(뭔가 뽑았는데 칸만 엇나간 경우만).
             if (ask_slot and ups and ask_slot not in applied and not S.SLOTS[ask_slot].fact and ask_slot != "business_type"
-                    and len(t) <= 30 and not _satisfied(card, ask_slot) and not _is_control(t)
+                    and len(t) <= 30 and len(_norm(t)) >= 2
+                    and not _satisfied(card, ask_slot) and not _is_control(t)
                     and not any(w in n for w in CHANGE_NORMS)):
-                value = _split_items(t) if S.SLOTS[ask_slot].multi else t
-                _put(card, ask_slot, value, S.FILLED, card["turn"], by)
-                applied = list(applied) + [ask_slot]
-                trace["direct_answer"] = ask_slot
+                if S.SLOTS[ask_slot].multi:
+                    items = [i for i in _split_items(t)
+                             if len(_norm(i)) >= 2
+                             and _norm(i) not in VAGUE_OFFERINGS and not _is_control(i)]
+                    if ask_slot == "offerings" and items:
+                        # F4: 직접 답도 hidden 오염은 거른다 (추출 경로와 같은 기준).
+                        prior_list = (card.get("said") or [])[:-1]
+                        prior = "\n".join(prior_list)
+                        hidden_norms = _hidden_label_norms(card)
+                        if prior and hidden_norms:
+                            kept = []
+                            for item in items:
+                                ni = _norm(item)
+                                toks = re.findall(r"[가-힣a-z0-9]{2,}", ni)
+                                overlaps = any(
+                                    t and any(t in h or h in t for h in hidden_norms) for t in toks)
+                                if overlaps and not _in_history(item, prior):
+                                    log.info("hidden 오염 직접답 버림: %s", item)
+                                    continue
+                                kept.append(item)
+                            items = kept
+                    if items:
+                        _put(card, ask_slot, items, S.FILLED, card["turn"], by)
+                        applied = list(applied) + [ask_slot]
+                        trace["direct_answer"] = ask_slot
+                elif _norm(t) not in VAGUE_OFFERINGS:
+                    _put(card, ask_slot, t, S.FILLED, card["turn"], by)
+                    applied = list(applied) + [ask_slot]
+                    trace["direct_answer"] = ask_slot
+            if trace.get("direct_answer"):
+                _maybe_queue_word_confirm(card, [trace["direct_answer"]])
             # B-8: 방장 확인 대기 중 같은 칸의 자유 대답은 대기값을 갱신하되 확인 질문을 유지한다.
             if (prev_owner_slot and prev_owner_slot in applied
                     and _slot(card, prev_owner_slot)["status"] == S.FILLED and is_owner):
@@ -1127,10 +1430,22 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
         card["conflict_queue"] = []
     q = None if wants_skip or card["asked"] >= budget(card) else next_question(card)
     if q is None:
+        # "시안 먼저"는 확인 질문도 닫는다(방장 확인 제외, D24). 예산이 찬 경우도 확인은 게이트로 1회.
+        if not wants_skip and card["asked"] >= budget(card):
+            q_confirm = _confirm_question(card)
+            if q_confirm is not None:
+                q_confirm["gate"] = True
+                card["pending"] = q_confirm
+                card["done"] = False
+                trace.update(next_slot=q_confirm["slot"], next_kind=q_confirm["kind"], done=False, asked=card["asked"])
+                return {"done": False, "question": q_confirm, "applied": applied, "trace": trace}
         finalize(card)
         trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
         return {"done": True, "question": None, "applied": applied, "trace": trace}
-    card["asked"] += 1
+    if _counts_toward_budget(q):
+        card["asked"] += 1
+    else:
+        card["confirm_asked"] = card.get("confirm_asked", 0) + 1
     card["pending"] = q
     card["done"] = False
     trace.update(next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
@@ -1138,9 +1453,21 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
 
 
 def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool = False) -> dict:
-    """다음 질문을 등록한다. same_question이면 (짧은 실패 답) 같은 질문을 예산을 써서 다시 보인다."""
+    """다음 질문을 등록한다. 확인·이어묻기는 예산을 쓰지 않는다.
+
+    same_question(짧은 실패 답)은 같은 질문을 예산 없이 다시 보인다.
+    이전에는 예산을 써서 질문수가 불어났다(T3 r5 cafe-group 10질문).
+    """
     trace["applied"] = applied
     if card["asked"] >= budget(card):
+        # 예산이 찼어도 확인 질문(방장·기능·어긋남)은 닫혀야 승인할 수 있다.
+        q_confirm = _confirm_question(card)
+        if q_confirm is not None and not same_question:
+            q_confirm["gate"] = True
+            card["pending"] = q_confirm
+            card["done"] = False
+            trace.update(next_slot=q_confirm["slot"], next_kind=q_confirm["kind"], done=False, asked=card["asked"])
+            return {"done": False, "question": q_confirm, "applied": applied, "trace": trace}
         finalize(card)
         trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
         return {"done": True, "question": None, "applied": applied, "trace": trace}
@@ -1152,7 +1479,11 @@ def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool =
         finalize(card)
         trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
         return {"done": True, "question": None, "applied": applied, "trace": trace}
-    card["asked"] += 1
+    if _counts_toward_budget(q):
+        card["asked"] += 1
+    else:
+        # 확인·이어묻기는 예산 밖. 별도 카운터로 남발을 막는다.
+        card["confirm_asked"] = card.get("confirm_asked", 0) + 1
     card["pending"] = q
     card["done"] = False
     trace.update(next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
@@ -1176,7 +1507,8 @@ def _repeat_pending(card: dict, applied: list[str], trace: dict, from_empty: boo
         q["counted"] = False
         card["pending"] = q
     elif not from_empty and q.get("counted") is False:
-        card["asked"] += 1
+        if _counts_toward_budget(q):
+            card["asked"] += 1
         q["counted"] = True
     card["done"] = False
     trace.update(applied=applied, next_slot=q["slot"], next_kind=q["kind"], done=False, asked=card["asked"])
@@ -1310,6 +1642,9 @@ def format_question(card: dict, q: dict) -> str:
         body = q["text"] + "\n" + "  ".join(f"{i + 1}) {o}" for i, o in enumerate(q["options"]))
     if q.get("gate"):
         return f"{body}\n\n(승인 전에 확인할 게 남았어요)"
+    if q.get("kind") in ("owner_confirm", "feature", "conflict", "followup", "word_confirm"):
+        # 확인·이어묻기는 질문 예산 밖이다. 유저가 "8이라더니 10"으로 느끼지 않게 따로 밝힌다.
+        return f"{body}\n\n(확인 질문이에요 · '시안 먼저'라고 하시면 나머지는 알아서 채울게요)"
     return f"{body}\n\n(질문 {card['asked']}/{budget(card)} · '시안 먼저'라고 하시면 나머지는 알아서 채울게요)"
 
 
@@ -1327,8 +1662,30 @@ _SUMMARY_ORDER = ("business_type", "shop_name", "goal", "target", "offerings", "
 
 def ack_text(card: dict, applied: list[str]) -> str:
     """이번 메시지에서 알아들은 것을 되짚는다. 사장님이 말한 요구가 버려지지 않았음을 보여준다."""
+    # W1 차단이 있으면 먼저 알린다 (무시당했다는 느낌 방지).
+    blocked = blocked_text(card)
+    out = (blocked + "\n\n") if blocked else ""
+    # 모름으로 닫은 칸은 상태에 맞게 확답한다 (사실=비워두기, 그외=기본값).
+    just = card.pop("just_closed", [])
+    if just:
+        ind0 = industry_of(card)
+        empty_labels = []
+        assumed_labels = []
+        for k in dict.fromkeys(just):
+            if k not in S.SLOTS:
+                continue
+            st = (card["slots"].get(k) or {}).get("status")
+            if st == S.PLACEHOLDER:
+                empty_labels.append(S.label_for(ind0, k))
+            else:
+                assumed_labels.append(S.label_for(ind0, k))
+        if empty_labels:
+            out += f"알겠어요, {', '.join(empty_labels)}은(는) 비워두고 갈게요. 나중에 말씀해 주시면 넣을게요.\n\n"
+        if assumed_labels:
+            out += f"알겠어요, {', '.join(assumed_labels)}은(는) 기본값으로 넣어둘게요. 바꾸고 싶으면 말씀해 주세요.\n\n"
     if not applied:
-        return ""
+        # 막힌 것·닫은 것만 있어도 빈 문자열이 아니라 안내를 돌려준다.
+        return out
     ind = industry_of(card)
     parts = []
     for key in dict.fromkeys(applied):
@@ -1337,7 +1694,8 @@ def ack_text(card: dict, applied: list[str]) -> str:
             continue
         value = ", ".join(slot["value"]) if isinstance(slot["value"], list) else slot["value"]
         parts.append(f"{S.label_for(ind, key)} '{value}'")
-    out = ("이렇게 이해했어요: " + " · ".join(parts) + "\n\n") if parts else ""
+    if parts:
+        out += "이렇게 이해했어요: " + " · ".join(parts) + "\n\n"
     notes = card.get("notes") or {}
     if notes.get("turn") == card["turn"] and notes.get("items"):
         out += "\n".join(notes["items"]) + "\n\n"
