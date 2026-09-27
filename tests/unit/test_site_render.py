@@ -161,9 +161,9 @@ def test_tabs_index와_has_불리언():
     assert "[가격 입력]" in out
 
 
-def test_list_variants_25종():
+def test_list_variants_26종():
     variants = list_variants()
-    assert len(variants) == 25  # 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band)
+    assert len(variants) == 26  # 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN)
     assert "hero--photo-overlay" in variants
     assert "contact--form" in variants
     assert "reviews--slot-only" in variants

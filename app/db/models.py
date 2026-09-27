@@ -5,7 +5,7 @@
 import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -204,6 +204,29 @@ class InquiryRow(Base):
     name: Mapped[Optional[str]] = mapped_column(Text)
     contact: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class BookingRow(Base):
+    """생성 사이트의 "예약 신청" 폼으로 들어온 신청 (플랫폼 공용 ②, D31·D32, BOOKING_PLAN.md). 방문일 + 30일 보관."""
+
+    __tablename__ = "bookings"
+    __table_args__ = (
+        Index("ix_bookings_site", "site_key", "id"),
+        Index("ix_bookings_visit", "visit_date"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime.datetime] = _now_col()
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)  # sessions.requirement_id (/site/<id>/)
+    visit_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    visit_time: Mapped[str] = mapped_column(Text, nullable=False)  # "HH:MM"
+    service: Mapped[Optional[str]] = mapped_column(Text)
+    party: Mapped[int] = mapped_column(Integer, nullable=False)
+    name: Mapped[Optional[str]] = mapped_column(Text)
+    phone: Mapped[str] = mapped_column(Text, nullable=False)
+    memo: Mapped[Optional[str]] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="requested")  # requested·confirmed·declined
+    decided_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class RoomInviteRow(Base):

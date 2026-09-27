@@ -1029,6 +1029,28 @@ section[class^="s-"] h2::after,
   .s-btn { transition: none; }
 }
 .s-contact__row { align-items: center; }
+/* ---- 예약 신청 폼 (플랫폼 공용 ② 예약 받기, 문의 s-form 모양 그대로 씀) ---- */
+/* 좁은 화면(360px)에서도 가로로 넘치지 않게 칸 너비를 폼 안에 맞춘다 */
+.s-booking .s-form__row select,
+.s-booking .s-form__row input[type="date"],
+.s-booking .s-form__row input[type="time"],
+.s-booking .s-form__row input[type="number"],
+.s-booking .s-form__row input[type="tel"] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.625;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--c-ink) 28%, transparent);
+  border-radius: var(--radius-card);
+}
+/* 안내 문구는 본문보다 작게 */
+.s-booking__note { font-size: 15px; margin: 0 0 var(--space-gap); }
 /* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
 section.s-hero .s-hero__cta { margin: 26px 0 0; }
 section.s-hero .s-lead { margin: 0 0 4px; }

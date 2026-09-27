@@ -570,6 +570,30 @@ def _section_context(
     elif section_type == "contact" and variant == "form":
         ctx["site_key"] = site_key
         ctx["retention_days"] = int(retention_days)
+    elif section_type == "booking" and variant == "form":
+        # 예약 신청 폼 (BOOKING_PLAN §2.3): 사장님 입력은 _text 경로로만 받는다.
+        ctx["site_key"] = site_key
+        ctx["retention_days"] = int(retention_days)
+        # 방문일 범위(오늘~60일)는 HTML에 넣지 않는다: 공개 날짜로 굳어 두 달 뒤엔 고를 날이 없어진다.
+        # 범위 검사는 서버(bookings.submit, 한국 날짜)가 한다.
+        ctx["note"] = _text(content, "note")
+        ctx["service_label"] = _text(content, "service_label") or "메뉴"
+        raw_services = content.get("services", [])
+        services = []
+        if isinstance(raw_services, list):
+            for entry in raw_services:
+                if isinstance(entry, str) and entry.strip():
+                    services.append({"name": entry})
+        ctx["services"] = services
+        ctx["has_services"] = bool(services)
+        raw_times = content.get("time_options", [])
+        times = []
+        if isinstance(raw_times, list):
+            for entry in raw_times:
+                if isinstance(entry, str) and entry.strip():
+                    times.append({"value": entry})
+        ctx["time_options"] = times
+        ctx["has_time_options"] = bool(times)
     elif section_type == "contact" and variant == "kakao-channel":
         kakao = _text(content, "kakao_channel_url") or _text(content, "channel_url")
         ctx["kakao_channel_url"] = _clean_url(kakao)

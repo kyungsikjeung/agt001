@@ -164,6 +164,13 @@ def member_handle(room_id: str, member_id: str) -> str:
 def _public_message(room_id: str, msg: dict) -> dict:
     out = {k: v for k, v in msg.items() if k not in ("member_id", "meta")}
     out["member_handle"] = member_handle(room_id, msg["member_id"])
+    if msg.get("kind") in ("booking", "booking_result"):
+        # 예약 알림 말풍선의 확정·거절 버튼용(BOOKING_PLAN §2.4). 저장소는 meta를 메시지에 풀어 돌려준다.
+        meta = msg.get("meta") or msg
+        bid = out.pop("booking_id", None) or meta.get("booking_id")
+        status = out.pop("status", None) or meta.get("status") or "requested"
+        if bid:
+            out["booking"] = {"id": bid, "status": status}
     return out
 
 

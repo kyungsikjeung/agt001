@@ -76,6 +76,15 @@
   .kind-inquiry { justify-content: center; }
   .kind-inquiry .bubble { max-width: 90%; background: #fff7e6; border: 1px solid #f5c26b; border-radius: 10px; padding: 10px 12px; color: #3d2a00; }
   .kind-inquiry .text { white-space: pre-wrap; }
+  /* 예약 신청 알림 (플랫폼 공용 ②, 문의 노란색과 구별되는 연한 초록) */
+  .kind-booking { justify-content: center; }
+  .kind-booking .bubble { max-width: 90%; background: #e9f7ef; border: 1px solid #8fd0a4; border-radius: 10px; padding: 10px 12px; color: #123d22; }
+  .kind-booking .text { white-space: pre-wrap; }
+  .kind-booking .text a[href^="tel:"] { color: var(--accent-dark); }
+  .booking-result { margin-top: 10px; display: flex; gap: 8px; }
+  .booking-result button { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  .booking-result button.go { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  .booking-note { margin-top: 10px; font-size: 0.8125rem; color: #14532d; }
   .badge-bot { font-size: 0.6875rem; background: var(--accent-dark); color: #fff; padding: 2px 8px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
   /* 시안 3안 고르기 카드 */
   .design-pick { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
@@ -469,9 +478,152 @@ function hueFromString(s) {
     bubble.appendChild(wrap);
   }
 
+// 예약 알림 말풍선 작은 함수들 (플랫폼 공용 ②, BOOKING_PLAN §2.4)
+function isBookingOwner() {
+  // 방장 판단은 기존 isOwner를 먼저 쓰고, 서버가 아직 안 주면 첫 참여자와 내 표시를 견준다.
+  if (typeof isOwner === 'function' && roomMe && typeof roomMe.is_owner === 'boolean') return isOwner();
+  if (roomMe && roomMe.member_handle && roomMembers.length) {
+    return roomMembers[0].member_handle === roomMe.member_handle;
+  }
+  return false;
+}
+// 방장·결정 여부에 따라 보여줄 한 줄 글자
+function bookingStatusText(status, mine) {
+  if (status === 'confirmed') return mine ? '확정했어요' : '확정됐어요';
+  if (status === 'declined') return mine ? '거절했어요' : '거절됐어요';
+  return mine ? '예약 신청이에요. 확정하거나 거절해 주세요.' : '사장님이 확인 중이에요';
+}
+// 본문을 그대로 두되 전화번호만 tel: 고리로 만든다. innerHTML은 쓰지 않는다.
+function appendPhoneLinkedText(box, raw) {
+  const s = raw || '';
+  const re = /\d{2,4}-\d{3,4}-\d{4}|\d{10,11}/g;
+  let last = 0;
+  let mm = null;
+  let found = false;
+  while ((mm = re.exec(s)) !== null) {
+    found = true;
+    if (mm.index > last) box.appendChild(document.createTextNode(s.slice(last, mm.index)));
+    const shown = mm[0];
+    const dial = shown.replace(/[^0-9]/g, '');
+    const link = document.createElement('a');
+    link.href = 'tel:' + dial;
+    link.textContent = shown;
+    box.appendChild(link);
+    last = mm.index + shown.length;
+  }
+  if (!found) {
+    box.textContent = s;
+    return;
+  }
+  if (last < s.length) box.appendChild(document.createTextNode(s.slice(last)));
+}
+// 예약 말풍선 아래쪽: 방장이면 버튼, 아니면 글자만
+function buildBookingArea(bubble, m) {
+  const info = (m && m.booking) || {};
+  const mine = isBookingOwner();
+  const area = document.createElement('div');
+  area.className = 'booking-result';
+  if (info.id != null) area.setAttribute('data-booking-result', String(info.id));
+  const note = document.createElement('div');
+  note.className = 'booking-note';
+  if (info.id != null) note.setAttribute('data-booking-note', String(info.id));
+  if (info.status === 'requested' && mine) {
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'go';
+    ok.textContent = '확정';
+    ok.setAttribute('aria-label', '예약 확정하기');
+    const no = document.createElement('button');
+    no.type = 'button';
+    no.textContent = '거절';
+    no.setAttribute('aria-label', '예약 거절하기');
+    ok.onclick = () => decideBooking(info.id, 'confirm', area, note, ok, no);
+    no.onclick = () => decideBooking(info.id, 'decline', area, note, ok, no);
+    area.appendChild(ok);
+    area.appendChild(no);
+    note.textContent = bookingStatusText('requested', true);
+    bubble.appendChild(area);
+    bubble.appendChild(note);
+    return;
+  }
+  note.textContent = bookingStatusText(info.status || 'requested', mine);
+  bubble.appendChild(note);
+}
+// 확정·거절 누름 처리
+async function decideBooking(id, decision, area, note, okBtn, noBtn) {
+  if (okBtn) okBtn.disabled = true;
+  if (noBtn) noBtn.disabled = true;
+  try {
+    const res = await fetch('/room/' + encodeURIComponent(roomId) + '/bookings/' + encodeURIComponent(id) + '/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ decision }),
+    });
+    if (res.ok) {
+      let status = decision === 'confirm' ? 'confirmed' : 'declined';
+      try {
+        const data = await res.json();
+        if (data && data.status) status = data.status;
+      } catch (e) { /* 본문이 없어도 누른 값으로 표시 */ }
+      area.replaceChildren();
+      note.textContent = bookingStatusText(status, true);
+      return;
+    }
+    if (okBtn) okBtn.disabled = false;
+    if (noBtn) noBtn.disabled = false;
+    if (res.status === 403) note.textContent = '방장만 결정할 수 있어요.';
+    else if (res.status === 409) {
+      note.textContent = '이미 결정된 예약이에요.';
+      area.replaceChildren();
+    } else note.textContent = '지금은 처리할 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+  } catch (e) {
+    if (okBtn) okBtn.disabled = false;
+    if (noBtn) noBtn.disabled = false;
+    note.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+// 들어올 때 한 번: 이미 결정된 예약은 버튼 대신 결과 글자로 바꾼다. 실패는 조용히.
+let bookingStatesLoaded = false;
+async function refreshBookingStates() {
+  if (!isBookingOwner()) return;
+  let data = null;
+  try {
+    const res = await fetch('/room/' + encodeURIComponent(roomId) + '/bookings', { headers: { 'X-Member-Id': memberId } });
+    if (!res.ok) return;
+    data = await res.json();
+  } catch (e) { return; }
+  const list = (data && data.bookings) || [];
+  const mine = isBookingOwner();
+  for (const b of list) {
+    if (b == null || b.id == null) continue;
+    if (b.status === 'requested') continue;
+    const sel = '[data-booking-result="' + String(b.id) + '"]';
+    const area = document.querySelector(sel);
+    if (area) area.replaceChildren();
+    const note = document.querySelector('[data-booking-note="' + String(b.id) + '"]');
+    if (note) note.textContent = bookingStatusText(b.status, mine);
+  }
+}
+
 function addMessage(m, isNew) {
   const row = document.createElement('div');
   row.className = 'row kind-' + m.kind;
+  // 예약 알림은 문의와 다른 연한 초록 말풍선으로 그린다. 읽어주기·투표 등 기존 동작은 손대지 않는다.
+  if (m.kind === 'booking') {
+    const info = (m && m.booking) || {};
+    if (info.id != null) row.setAttribute('data-booking-id', String(info.id));
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const text = document.createElement('div');
+    text.className = 'text';
+    appendPhoneLinkedText(text, m.text || '');
+    bubble.appendChild(text);
+    buildBookingArea(bubble, m);
+    row.appendChild(bubble);
+    log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
+    return;
+  }
   const safeName = (m.nickname || '').slice(0, 40);
   if (m.kind === 'chat' || m.kind === 'ai_reply' || m.kind === 'photo') {
     const av = document.createElement('div');
@@ -731,6 +883,11 @@ async function pollMessages() {
     if (isOwner() && !notifyUnsupported && !notifyChecked) {
       notifyChecked = true;
       checkNotify();
+    }
+    // 예약 현재 상태는 들어올 때 한 번만 조회한다. 실패는 조용히 둔다.
+    if (!bookingStatesLoaded && isBookingOwner()) {
+      bookingStatesLoaded = true;
+      refreshBookingStates();
     }
   } finally {
     pollInFlight = false;

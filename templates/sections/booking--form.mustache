@@ -1,0 +1,58 @@
+<section class="s-booking s-booking--form" data-section-id="{{id}}" aria-labelledby="booking-title-{{id}}">
+  <h2 id="booking-title-{{id}}">예약 신청</h2>
+  {{#note}}<p class="s-booking__note">{{note}}</p>{{/note}}
+  <form class="s-form" method="post" action="/api/bookings/{{site_key}}" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="booking-date-{{id}}">방문일 (필수)</label>
+      <input id="booking-date-{{id}}" name="date" type="date" required aria-describedby="booking-date-hint-{{id}}">
+      <span class="s-form__hint" id="booking-date-hint-{{id}}">오늘부터 60일 안에서 골라 주세요</span>
+    </p>
+    <p class="s-form__row">
+      {{#has_time_options}}
+      <label for="booking-time-{{id}}">시간 (필수)</label>
+      <select id="booking-time-{{id}}" name="time" required>
+        {{#time_options}}<option value="{{value}}">{{value}}</option>{{/time_options}}
+      </select>
+      {{/has_time_options}}
+      {{^has_time_options}}
+      <label for="booking-time-{{id}}">희망 시간 (선택)</label>
+      <input id="booking-time-{{id}}" name="time" type="time">
+      {{/has_time_options}}
+    </p>
+    {{#has_services}}
+    <p class="s-form__row">
+      <label for="booking-service-{{id}}">{{service_label}} (선택)</label>
+      <select id="booking-service-{{id}}" name="service">
+        <option value="">선택 안 함</option>
+        {{#services}}<option value="{{name}}">{{name}}</option>{{/services}}
+      </select>
+    </p>
+    {{/has_services}}
+    <p class="s-form__row">
+      <label for="booking-party-{{id}}">인원 (필수)</label>
+      <input id="booking-party-{{id}}" name="party" type="number" min="1" max="20" value="1" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-name-{{id}}">이름 (선택)</label>
+      <input id="booking-name-{{id}}" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="booking-phone-{{id}}">연락처 (필수)</label>
+      <input id="booking-phone-{{id}}" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-memo-{{id}}">메모 (선택)</label>
+      <textarea id="booking-memo-{{id}}" name="memo" rows="4" maxlength="300"></textarea>
+    </p>
+    <p class="s-form__notice">예약 정보는 방문일 뒤 {{retention_days}}일 보관 후 삭제합니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="booking-agree-{{id}}" name="agree" type="checkbox" value="yes" required>
+      <label for="booking-agree-{{id}}">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="booking-website-{{id}}">웹사이트는 비워 두세요</label>
+      <input id="booking-website-{{id}}" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">예약 신청하기</button></p>
+  </form>
+</section>

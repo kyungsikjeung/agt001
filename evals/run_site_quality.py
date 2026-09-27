@@ -3,6 +3,9 @@
 AI를 부르지 않는다. 평가 시나리오(evals/scenarios/*-terse.json)의 가게 사실로 카드를 직접 만들고,
 운영과 같은 코드(design.publish_choice)로 공개본을 만든 뒤 휴대폰 크기(390×844) 브라우저에서 잰다.
 사진·AI 문구 초안은 넣지 않는다(사진 칸은 업종 예시 그림으로 나온다).
+누를 것 점검(버튼 동작)은 공개본 HTML을 직접 읽어 확인한다(브라우저 없이도 됨):
+쪽마다 a[href]·button·form을 모아 tel:/sms: 번호=카드 전화번호, 외부 링크=카드 예약·채널·영상 주소,
+# 링크의 id 존재, 죽은 버튼(href="#"·빈 href·javascript:), 폼 action·required 칸을 본다.
 
 사용법: .venv/bin/python -m evals.run_site_quality [--out DIR] [--report PATH]
 """
@@ -10,7 +13,9 @@ import argparse
 import copy
 import datetime
 import json
+import re
 import tempfile
+from html.parser import HTMLParser
 from pathlib import Path
 
 from app.config import settings
@@ -22,6 +27,167 @@ from app.services import prd_schema as S
 ROOT = Path(__file__).resolve().parent
 INDUSTRIES = ("cafe", "restaurant", "pension", "salon", "academy", "workshop")
 VIEW_W, VIEW_H = 390, 844
+
+# 누를 것 점검에서 믿는 폼 주소 앞부분 (문의·예약 공용 API).
+_ACTION_FORM_PREFIXES = ("/api/inquiries/", "/api/bookings/")
+
+
+def _digits_only(value) -> str:
+    """전화번호 비교용: 숫자만 남긴다."""
+    return re.sub(r"\D", "", value or "")
+
+
+def _norm_link_url(value) -> str:
+    """외부 링크 비교용: 앞뒤 공백을 떼고 끝의 '/'를 뗀다."""
+    return (value or "").strip().rstrip("/")
+
+
+def card_action_facts(card: dict) -> dict:
+    """카드에서 누를 것 점검에 쓸 사실만 뽑는다 (전화·예약 주소·채널 주소·영상 주소)."""
+    slots = card.get("slots") or {}
+    phone = ""
+    slot = slots.get("phone") or {}
+    if slot.get("status") == S.FILLED:
+        phone = str(slot.get("value") or "")
+    if not phone and isinstance(card.get("phone"), str):
+        phone = card["phone"]
+    booking = ""
+    slot = slots.get("booking_url") or {}
+    if slot.get("status") == S.FILLED:
+        booking = str(slot.get("value") or "")
+    channel = str(card.get("kakao_channel_url") or card.get("channel_url") or "")
+    videos = [str(u) for u in (card.get("videos") or []) if isinstance(u, str) and u.strip()]
+    return {"phone": phone, "booking_url": booking, "channel_url": channel, "video_urls": videos}
+
+
+class _ActionCollector(HTMLParser):
+    """공개본 HTML에서 링크·버튼·폼·id를 모은다 (표준 라이브러리만, 브라우저 없음)."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.links: list = []
+        self.buttons: list = []
+        self.forms: list = []
+        self.ids: list = []
+        self._form_stack: list = []
+        self._text_for: list = []  # (종류, 보관 dict) 글자 모으기
+
+    def handle_starttag(self, tag: str, attrs: list) -> None:
+        at = dict(attrs)
+        if at.get("id"):
+            self.ids.append(str(at["id"]))
+        if tag == "a" and "href" in at:
+            one = {"href": str(at["href"]), "text": ""}
+            self.links.append(one)
+            self._text_for.append(("a", one))
+        elif tag == "button":
+            one = {"text": "", "type": str(at.get("type") or ""),
+                   "form_action": self._form_stack[-1] if self._form_stack else None}
+            self.buttons.append(one)
+            self._text_for.append(("button", one))
+        elif tag == "form":
+            one = {"action": str(at.get("action") or ""), "fields": []}
+            self.forms.append(one)
+            self._form_stack.append(one["action"])
+        elif tag in ("input", "textarea", "select") and self._form_stack is not None and self.forms:
+            # 숨김 스팸 칸도 fields에 담기만 한다 (required가 없어 판정에 영향 없음)
+            self.forms[-1]["fields"].append({"name": str(at.get("name") or ""),
+                                             "required": "required" in at})
+
+    def handle_data(self, data: str) -> None:
+        if self._text_for:
+            self._text_for[-1][1]["text"] += data
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in ("a", "button") and self._text_for:
+            kind, one = self._text_for.pop()
+            one["text"] = one["text"].strip()
+        elif tag == "form" and self._form_stack:
+            self._form_stack.pop()
+
+
+def collect_actions(html_text: str) -> dict:
+    """HTML 한 장에서 링크·버튼·폼·id 목록을 뽑는다."""
+    box = _ActionCollector()
+    box.feed(html_text or "")
+    return {"links": box.links, "buttons": box.buttons, "forms": box.forms, "ids": box.ids}
+
+
+def check_actions(links: list, buttons: list, forms: list, page_ids, facts: dict) -> list:
+    """순수 판정 함수 (브라우저 없이 시험 가능).
+
+    입력: links=[{"href": ...}], buttons=[{"type": ..., "form_action": ...}],
+    forms=[{"action": ..., "fields": [{"name": ..., "required": bool}]}],
+    page_ids=[id ...], facts={"phone": ..., "booking_url": ...,
+    "channel_url": ..., "video_urls": [...]}.
+    출력: [{"kind": ..., "detail": ...}]. kind는 dead(죽은 버튼·빠진 내부 주소·잘못된 폼 합침) ·
+    wrong_phone(틀린 번호) · unknown_link(모르는 링크) · missing_anchor(빠진 # id) ·
+    bad_form(잘못된 폼). dead·wrong_phone이 하나라도 있으면 그 쪽은 X.
+    """
+    problems = []
+    facts = facts or {}
+    phone_digits = _digits_only(facts.get("phone"))
+    known = {_norm_link_url(facts.get("booking_url")), _norm_link_url(facts.get("channel_url")),
+             *(_norm_link_url(u) for u in (facts.get("video_urls") or []))}
+    known.discard("")
+    ids = set(page_ids or [])
+    for link in links or []:
+        raw = link.get("href") if isinstance(link, dict) else link
+        href = (raw or "").strip()
+        lowered = href.lower()
+        if href == "":
+            problems.append({"kind": "dead", "detail": "빈 href"})
+        elif lowered.startswith("javascript:"):
+            problems.append({"kind": "dead", "detail": f"javascript: 링크 {href[:40]}"})
+        elif href == "#":
+            problems.append({"kind": "dead", "detail": 'href="#"'})
+        elif lowered.startswith("tel:") or lowered.startswith("sms:"):
+            digits = _digits_only(href.split(":", 1)[1])
+            if not digits:
+                problems.append({"kind": "dead", "detail": f"번호 없는 {href[:20]}"})
+            elif digits != phone_digits:
+                problems.append({"kind": "wrong_phone",
+                                 "detail": f"{href[:30]} (카드 {phone_digits or '번호 없음'})"})
+        elif href.startswith("#"):
+            target = href[1:].split("?")[0].strip()
+            if target and target not in ids:
+                problems.append({"kind": "missing_anchor", "detail": f"없는 id #{target}"})
+        elif lowered.startswith("https://") or lowered.startswith("http://"):
+            if _norm_link_url(href) not in known:
+                problems.append({"kind": "unknown_link", "detail": f"모르는 링크 {href[:60]}"})
+        # 그 밖 상대경로(/uploads/ 등 그림·내부 주소)는 점검 대상 아님
+    for btn in buttons or []:
+        btype = str((btn.get("type") if isinstance(btn, dict) else "") or "").lower()
+        in_form = isinstance(btn, dict) and btn.get("form_action") is not None
+        if in_form and btype in ("", "submit", "reset", "image"):
+            continue  # 폼 전송·리셋은 폼 점검에서 따로 본다
+        label = str(btn.get("text") or "").strip()[:20] if isinstance(btn, dict) else ""
+        problems.append({"kind": "dead", "detail": f"동작 없는 버튼 {label}"})
+    for form in forms or []:
+        action = str(form.get("action") or "").strip() if isinstance(form, dict) else ""
+        fields = form.get("fields") or [] if isinstance(form, dict) else []
+        if not any(action.startswith(p) for p in _ACTION_FORM_PREFIXES):
+            problems.append({"kind": "bad_form", "detail": f"잘못된 폼 주소 {action or '(없음)'}"})
+        elif not any(f.get("required") for f in fields if isinstance(f, dict)):
+            problems.append({"kind": "bad_form", "detail": f"required 칸 없는 폼 {action}"})
+    return problems
+
+
+def summarize_action_problems(problems: list) -> dict:
+    """문제 목록 → 쪽별 표에 쓸 개수 (죽은 버튼·틀린 번호·모르는 링크).
+
+    죽은 버튼에는 빠진 # id(missing_anchor)와 잘못된 폼(bad_form)도 합친다
+    (둘 다 눌러도 동작하지 않으므로)."""
+    out = {"dead": 0, "wrong": 0, "unknown": 0}
+    for p in problems or []:
+        kind = p.get("kind") if isinstance(p, dict) else ""
+        if kind in ("dead", "missing_anchor", "bad_form"):
+            out["dead"] += 1
+        elif kind == "wrong_phone":
+            out["wrong"] += 1
+        elif kind == "unknown_link":
+            out["unknown"] += 1
+    return out
 
 # 쪽마다 브라우저 안에서 잰다. 결과는 JSON 한 덩어리.
 _PROBE = r"""
@@ -200,10 +366,22 @@ def build_pages(out_dir: Path) -> list[dict]:
                     path = out_dir / f"{rid}-{v['id']}.html"
                     path.write_text(html, encoding="utf-8")
                     pages.append({"industry": ind, "level": level, "variant": v["id"], "name": v["name"],
-                                  "html": path, "expect": expect})
+                                  "html": path, "expect": expect, "action_facts": card_action_facts(card)})
     finally:
         settings.generated_dir = old
     return pages
+
+
+def evaluate_actions(pages: list[dict]) -> None:
+    """공개본 HTML을 직접 읽어 누를 것 점검을 한다 (브라우저 없이 됨). 결과를 쪽마다 넣는다."""
+    for pg in pages:
+        html_text = Path(pg["html"]).read_text(encoding="utf-8")
+        got = collect_actions(html_text)
+        problems = check_actions(got["links"], got["buttons"], got["forms"], got["ids"],
+                                 pg.get("action_facts") or {})
+        counts = summarize_action_problems(problems)
+        pg["actions"] = {"problems": problems, **counts,
+                         "ok": counts["dead"] == 0 and counts["wrong"] == 0}
 
 
 def measure(pages: list[dict], out_dir: Path) -> None:
@@ -275,43 +453,70 @@ def report(pages: list[dict], dist: dict) -> str:
     rows, issues = [], {"overflow": 0, "small": 0, "contrast": 0, "targets": 0, "broken": 0, "ph": 0, "facts": 0,
                         "fold_name": 0, "fold_cta": 0, "h1": 0}
     six_rows, six_pass = [], {"title": 0, "spacing": 0, "color": 0, "cta": 0, "actions": 0}
+    act_pages = {"dead": 0, "wrong": 0, "unknown": 0, "fail": 0}
+    act_total = {"dead": 0, "wrong": 0, "unknown": 0}
+    measured = sum(1 for pg in pages if pg.get("m"))
     for pg in pages:
-        m = pg["m"]
-        missing = [k for k, ok in m["facts"].items() if not ok]
-        flags = {"overflow": m["overflow"], "small": bool(m["smallText"]), "contrast": bool(m["lowContrast"]),
-                 "targets": bool(m["smallTargets"]), "broken": m["brokenImages"] > 0,
-                 "ph": bool(m["placeholders"]) or m["exampleLabel"], "facts": bool(missing),
-                 "fold_name": not m["nameAboveFold"], "fold_cta": not m["ctaAboveFold"], "h1": m["h1"] != 1}
-        for k, v in flags.items():
-            issues[k] += bool(v)
-        rows.append(f"| {pg['industry']}-{pg['level']}-{pg['variant']} | {'X' if m['overflow'] else '-'} | "
-                    f"{len(m['smallText'])} | {len(m['lowContrast'])} | {len(m['smallTargets'])} | {m['brokenImages']} | "
-                    f"{', '.join(m['placeholders']) or ('예시' if m['exampleLabel'] else '-')} | {', '.join(missing) or '-'} | "
-                    f"{'O' if m['nameAboveFold'] else 'X'} | {'O' if m['ctaAboveFold'] else 'X'} | {m['h1']} | {m['height']} |")
-        s = _six(m)
-        for k, v in s.items():
-            six_pass[k] += bool(v)
+        m = pg.get("m") or {}
         name = f"{pg['industry']}-{pg['level']}-{pg['variant']}"
-        six_rows.append(
-            f"| {name} | {m.get('title_ratio', 0):.2f} {'O' if s['title'] else 'X'} | "
-            f"{m.get('spacing_steps', '-')} {'O' if s['spacing'] else 'X'} | "
-            f"{m.get('hero_visual', 0):.2f} | "
-            f"{m.get('color_count', '-')} {'O' if s['color'] else 'X'} | "
-            f"{'O' if s['cta'] else 'X'}({m.get('cta_h', 0)}px,{m.get('cta_radius', '-')}) | "
-            f"{m.get('first_screen_actions', '-')} {'O' if s['actions'] else 'X'} |")
+        counts = summarize_action_problems((pg.get("actions") or {}).get("problems", []))
+        ok = counts["dead"] == 0 and counts["wrong"] == 0
+        for k in act_total:
+            act_total[k] += counts[k]
+        for k in ("dead", "wrong", "unknown"):
+            act_pages[k] += counts[k] > 0
+        act_pages["fail"] += not ok
+        if m:
+            missing = [k for k, v in (m.get("facts") or {}).items() if not v]
+            flags = {"overflow": m.get("overflow"), "small": bool(m.get("smallText")),
+                     "contrast": bool(m.get("lowContrast")), "targets": bool(m.get("smallTargets")),
+                     "broken": (m.get("brokenImages") or 0) > 0,
+                     "ph": bool(m.get("placeholders")) or m.get("exampleLabel"), "facts": bool(missing),
+                     "fold_name": not m.get("nameAboveFold"), "fold_cta": not m.get("ctaAboveFold"),
+                     "h1": m.get("h1") != 1}
+            for k, v in flags.items():
+                issues[k] += bool(v)
+            rows.append(f"| {name} | {'X' if m.get('overflow') else '-'} | "
+                        f"{len(m.get('smallText') or [])} | {len(m.get('lowContrast') or [])} | "
+                        f"{len(m.get('smallTargets') or [])} | {m.get('brokenImages', '-')} | "
+                        f"{', '.join(m.get('placeholders') or []) or ('예시' if m.get('exampleLabel') else '-')} | "
+                        f"{', '.join(missing) or '-'} | "
+                        f"{'O' if m.get('nameAboveFold') else 'X'} | {'O' if m.get('ctaAboveFold') else 'X'} | "
+                        f"{m.get('h1', '-')} | {m.get('height', '-')} | "
+                        f"{counts['dead']} | {counts['wrong']} | {counts['unknown']} | {'O' if ok else 'X'} |")
+            s = _six(m)
+            for k, v in s.items():
+                six_pass[k] += bool(v)
+            six_rows.append(
+                f"| {name} | {m.get('title_ratio', 0):.2f} {'O' if s['title'] else 'X'} | "
+                f"{m.get('spacing_steps', '-')} {'O' if s['spacing'] else 'X'} | "
+                f"{m.get('hero_visual', 0):.2f} | "
+                f"{m.get('color_count', '-')} {'O' if s['color'] else 'X'} | "
+                f"{'O' if s['cta'] else 'X'}({m.get('cta_h', 0)}px,{m.get('cta_radius', '-')}) | "
+                f"{m.get('first_screen_actions', '-')} {'O' if s['actions'] else 'X'} |")
+        else:
+            rows.append(f"| {name} | - | - | - | - | - | - | - | - | - | - | - | "
+                        f"{counts['dead']} | {counts['wrong']} | {counts['unknown']} | {'O' if ok else 'X'} |")
     n = len(pages)
     detail = []
     for pg in pages:
-        m = pg["m"]
-        items = [("작은 글자", m["smallText"]), ("대비 부족", m["lowContrast"]), ("작은 누름 칸", m["smallTargets"])]
+        m = pg.get("m") or {}
+        items = [("작은 글자", m.get("smallText") or []), ("대비 부족", m.get("lowContrast") or []),
+                 ("작은 누름 칸", m.get("smallTargets") or [])]
         lines = [f"  - {k}: " + "; ".join(v[:6]) + (" …" if len(v) > 6 else "") for k, v in items if v]
+        probs = (pg.get("actions") or {}).get("problems", [])
+        if probs:
+            lines.append("  - 누를 것: " + "; ".join(p.get("detail", p.get("kind", "")) for p in probs[:6])
+                         + (" …" if len(probs) > 6 else ""))
         if lines:
             detail.append(f"- **{pg['industry']}-{pg['level']}-{pg['variant']}**\n" + "\n".join(lines))
     today = datetime.date.today().isoformat()
     head = (f"# 공개 사이트 품질 자동 점검 ({today})\n\n"
             f"대상 {n}쪽(6업종 × 정보 다 줌/거의 안 줌 × 3안), 휴대폰 {VIEW_W}×{VIEW_H}, 공개본(`publish_choice`). "
             "사진·AI 문구 초안 없음. 실행: `.venv/bin/python -m evals.run_site_quality`\n\n"
-            "## 문제가 있는 쪽 수\n\n| 항목 | 기준 | 쪽 수 |\n|---|---|---|\n"
+            + ("" if measured == n else
+               f"> 브라우저 측정 {measured}/{n}쪽 건너뜀(브라우저 도구 없음). 누를 것 점검은 HTML 직접 읽기로 모두 함.\n\n")
+            + "## 문제가 있는 쪽 수\n\n| 항목 | 기준 | 쪽 수 |\n|---|---|---|\n"
             f"| 가로 넘침 | 화면보다 넓으면 X | {issues['overflow']}/{n} |\n"
             f"| 작은 글자 | 14px 미만 글자가 있음 | {issues['small']}/{n} |\n"
             f"| 글자 대비 | WCAG AA(4.5:1, 큰 글자 3:1) 미달 | {issues['contrast']}/{n} |\n"
@@ -321,7 +526,14 @@ def report(pages: list[dict], dist: dict) -> str:
             f"| 사실 누락 | 카드의 이름·전화·시간·주소·상품이 화면에 없음 | {issues['facts']}/{n} |\n"
             f"| 첫 화면 이름 | 첫 화면에 가게 이름 없음 | {issues['fold_name']}/{n} |\n"
             f"| 첫 화면 행동 | 첫 화면에 문의·전화·예약 버튼 없음 | {issues['fold_cta']}/{n} |\n"
-            f"| 제목 구조 | h1이 정확히 1개가 아님 | {issues['h1']}/{n} |\n\n"
+            f"| 제목 구조 | h1이 정확히 1개가 아님 | {issues['h1']}/{n} |\n"
+            f"| 죽은 버튼 | href=\"#\"·빈 href·javascript:·빠진 # id·잘못된 폼, 1개라도 있으면 X | "
+            f"{act_pages['dead']}/{n} (합계 {act_total['dead']}개) |\n"
+            f"| 틀린 번호 | tel:/sms: 숫자가 카드 전화번호와 다름, 1개라도 있으면 X | "
+            f"{act_pages['wrong']}/{n} (합계 {act_total['wrong']}개) |\n"
+            f"| 모르는 링크 | 외부 링크가 카드 예약·채널·영상 주소가 아님(참고, X 아님) | "
+            f"{act_pages['unknown']}/{n} (합계 {act_total['unknown']}개) |\n"
+            f"| 누를 것 판정 | 죽은 버튼·틀린 번호가 1개라도 있으면 X | {act_pages['fail']}/{n} |\n\n"
             "## 3안 첫 화면 차이 (가장 비슷한 두 안의 픽셀 차이, 0=같음, 8 이상 통과·미만 X)\n\n"
             "| 업종-조건 | 최소 차이 | 판정 |\n|---|---|---|\n"
             + "\n".join(f"| {k} | {v} | {'O' if v >= 8 else 'X'} |" for k, v in dist.items()) +
@@ -336,8 +548,8 @@ def report(pages: list[dict], dist: dict) -> str:
             "### 쪽별\n\n| 쪽 | 제목비율 | 여백종류 | 첫화면그림 | 색수 | 버튼모양 | 첫화면행동 |\n"
             "|---|---|---|---|---|---|---|\n"
             + "\n".join(six_rows) +
-            "\n\n## 쪽별\n\n| 쪽 | 넘침 | 작은 글자 | 대비 | 작은 칸 | 깨진 그림 | 빈칸 | 없는 사실 | 첫화면 이름 | 첫화면 버튼 | h1 | 높이 |\n"
-            "|---|---|---|---|---|---|---|---|---|---|---|---|\n")
+            "\n\n## 쪽별\n\n| 쪽 | 넘침 | 작은 글자 | 대비 | 작은 칸 | 깨진 그림 | 빈칸 | 없는 사실 | 첫화면 이름 | 첫화면 버튼 | h1 | 높이 | 죽은 버튼 | 틀린 번호 | 모르는 링크 | 누를 것 |\n"
+            "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
     return head + "\n".join(rows) + "\n\n## 세부\n\n" + "\n".join(detail) + "\n"
 
 
@@ -349,9 +561,14 @@ def main() -> None:
     out_dir = Path(a.out or tempfile.mkdtemp(prefix="siteq-out-"))
     out_dir.mkdir(parents=True, exist_ok=True)
     pages = build_pages(out_dir)
-    measure(pages, out_dir)
-    dist = distinctness(pages, out_dir)
-    contact_sheets(pages, out_dir)
+    evaluate_actions(pages)  # 브라우저 없이 HTML 직접 읽기라 항상 됨
+    try:
+        measure(pages, out_dir)
+        dist = distinctness(pages, out_dir)
+        contact_sheets(pages, out_dir)
+    except Exception as e:  # 브라우저 도구가 없으면 누를 것 점검만 보고한다
+        print(f"브라우저 측정 건너뜀(도구 없음): {e}")
+        dist = {}
     text = report(pages, dist)
     (out_dir / "measure.json").write_text(json.dumps([{**{k: v for k, v in p.items() if k not in ('html', 'shot')}}
                                                        for p in pages], ensure_ascii=False, indent=1), encoding="utf-8")

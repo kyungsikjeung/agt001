@@ -82,6 +82,34 @@ def _wants_kakao_channel(card: dict) -> bool:
             or any(v.get("id") == "kakao_channel_chat" for v in card.get("features_judged") or []))
 
 
+# 예약 신청 받기(플랫폼 공용 ②, BOOKING_PLAN §2.5): 외부 예약 주소가 없는 예약형 업종에 기본으로 넣는다.
+_BOOKING_INDUSTRIES = ("salon", "pension", "restaurant", "workshop", "academy")
+
+
+def _booking_section(card: dict, ind, offerings: list[str], hours: str, excluded: str) -> Optional[dict]:
+    if _fact(card, "booking_url") or "예약" in excluded:
+        return None  # 네이버 예약 등 외부 주소가 있으면 지금처럼 링크, "예약은 빼주세요"면 없음
+    contact = " ".join(_values(card, "contact_method"))
+    asked = any(w in contact for w in ("여기서", "사이트에서", "예약 신청", "사이트 예약"))
+    if not asked and ind.key not in _BOOKING_INDUSTRIES:
+        return None
+    return {"id": "booking", "type": "booking", "variant": "form",
+            "content": {"services": offerings[:8], "service_label": S.label_for(ind, "offerings"), "time_options": [] if ind.key == "pension" else _time_options(hours),
+                        "note": "상담 예약 신청이에요. 가게에서 확인 후 연락드려요." if ind.key == "academy"
+                        else "가게에서 확인 후 연락드려요. 신청만으로 예약이 확정되지는 않아요."}}
+
+
+def _time_options(hours: str) -> list[str]:
+    """영업시간에서 30분 간격 선택지. 여는·닫는 시각이 딱 두 개로 읽힐 때만(애매하면 빈 목록 → 시간 직접 입력)."""
+    from app.services.numbers import numbers_in
+    if any(w in (hours or "") for w in ("오전", "오후", "저녁", "밤", "새벽")):
+        return []  # "오후 2시~8시"의 8은 20시인데 숫자만으로는 모른다
+    hs = sorted(n for n in numbers_in(hours or "") if isinstance(n, int) and 6 <= n <= 24)
+    if len(hs) != 2 or hs[1] - hs[0] < 2:
+        return []
+    return [f"{h:02d}:{m:02d}" for h in range(hs[0], hs[1] - 1) for m in (0, 30)] + [f"{hs[1] - 1:02d}:00"]
+
+
 def base_spec(card: dict) -> dict:
     """카드 내용을 업종 기본 조합에 채운 명세 (v1)."""
     ind = E.industry_of(card)
@@ -159,6 +187,14 @@ def base_spec(card: dict) -> dict:
         at_intro = next((i + 1 for i, s in enumerate(sections) if s["type"] == "intro"), 1)
         sections.insert(at_intro, {"id": "video", "type": "video", "variant": "card",
                                    "content": {"items": [{"url": u, "title": ""} for u in card["videos"]]}})
+    booking = _booking_section(card, ind, offerings, hours, excluded)
+    if booking:
+        extra.insert(0, booking)
+        # 첫 화면 버튼은 예약 신청으로(예약형 업종은 전화보다 신청이 먼저)
+        hero = next((s for s in sections if s["type"] == "hero"), None)
+        if hero is not None:
+            hero["content"]["cta"] = {"label": "상담 신청" if ind.key == "academy" else "예약 신청",
+                                      "href": "#booking-title-booking"}
     # 문의 양식은 플랫폼 공용 기능(D31·D32)이라 기본으로 넣는다. "문의 폼은 빼주세요"처럼 말했을 때만 뺀다.
     if _wants_form(card) or not any(w in excluded for w in ("문의", "양식", "폼")):
         extra.append({"id": "inquiry", "type": "contact", "variant": "form", "content": {}})

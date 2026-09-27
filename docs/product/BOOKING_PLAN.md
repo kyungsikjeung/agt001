@@ -74,7 +74,8 @@ sequenceDiagram
 
 - 섹션: `{"id": "booking", "type": "booking", "variant": "form", "content": {"services": ["컷트", "염색"], "time_options": ["10:00", "10:30", …], "note": "가게에서 확인 후 연락드려요"}}`
 - `time_options`가 비면 템플릿은 `<input type=time>`으로.
-- 템플릿 컨텍스트: `site_key`, `retention_days`(=30), `min_date`(오늘), `max_date`(60일 뒤), `services`, `time_options`, `id`.
+- 템플릿 컨텍스트: `site_key`, `retention_days`(=30), `services`, `service_label`(업종 라벨), `time_options`, `note`, `id`.
+- **방문일 min/max는 HTML에 넣지 않는다**(통합 때 변경): 생성 사이트는 스크립트가 없어 공개 날짜로 굳고, 두 달 뒤엔 고를 날이 없어진다. 범위는 서버가 한국 날짜로 검사한다. 시간 선택지가 없으면 시간은 선택 입력.
 - 제목 id: `booking-title-{{id}}` (버튼이 `#booking-title-booking`으로 내려옴).
 
 ### 2.4 채팅방 메시지·결정

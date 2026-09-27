@@ -24,7 +24,7 @@
   `""` 또는 `[]`로 두고, 렌더 시 템플릿의 `[… 입력]` 자리 표시가 노출된다.
   `locked`는 빈 배열로 시작한다.
 - `sections[].type` / `variant`는 `templates/sections/<type>--<variant>.mustache` 파일이
-  존재하는 조합만 허용한다(25종: SPEC §2 20종 + 문의 공용 2종 + 영상 1종 + P2 새 부품 2종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
+  존재하는 조합만 허용한다(26종: SPEC §2 20종 + 문의 공용 2종 + 영상 1종 + P2 새 부품 2종 + 예약 신청 1종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
 - 금지(소유 파일 공통): 삼중 중괄호, 스크립트 태그, 아이프레임 태그,
   `http:` 평문 URL 없음. 외부 링크는 `https://`만.
   폼 태그는 `contact--form` 1종에만 허용(§5 서버 계약의 일반 HTML form 전송용).
@@ -62,6 +62,7 @@
 - `contact--booking-first`: `id`, `booking_url`, `phone`, `phone_digits`, `hours`, `address`
 - `contact--chat-first`: `id`, `channel_url`, `phone`, `phone_digits`, `hours`, `address`
 - `contact--form`: `id`, `site_key`, `retention_days` (§5 서버 계약용. SPEC §2 외 플랫폼 공용 ①)
+- `booking--form`: `id`, `site_key`, `retention_days`, `min_date`, `max_date`, `services`, `time_options`, `note` (플랫폼 공용 ② 예약 받기. `time_options`가 비면 시간 직접 입력, `services`가 비면 메뉴 칸 없음)
 - `contact--kakao-channel`: `id`, `kakao_channel_url` (SPEC §2 외 플랫폼 공용 ①)
 - `cta--call-sms`: `id`, `phone`, `phone_digits`
 - `cta--external`: `id`, `booking_url`, `phone`, `phone_digits`

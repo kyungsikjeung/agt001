@@ -7,9 +7,10 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import auth, card, chat, events, inquiries, projects, public, rooms, stt, tts
+from app.api import auth, bookings, card, chat, events, inquiries, projects, public, rooms, stt, tts
 from app.config import settings
 from app.services import funnel, rag
+from app.services import bookings as bookings_svc
 from app.services import inquiries as inquiries_svc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -23,13 +24,14 @@ async def lifespan(_app: FastAPI):
     funnel.purge_expired()
     store.purge_chat_turns()
     inquiries_svc.purge_expired()
+    bookings_svc.purge_expired()
     if settings.precompute_embeddings:
         rag.precompute()
     yield
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/api/inquiries/", "/health")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/api/inquiries/", "/api/bookings/", "/health")
 _GENERATED_PATHS = ("/site/", "/design/", "/uploads/")
 
 
@@ -61,6 +63,7 @@ def create_app() -> FastAPI:
     app.include_router(projects.router)
     app.include_router(auth.router)
     app.include_router(inquiries.router)
+    app.include_router(bookings.router)
     app.include_router(tts.router)
     app.include_router(card.router)
     # 라우터 뒤에 마운트해야 API 경로가 우선한다. html=True로 "/"에서 index.html을 준다.
