@@ -27,6 +27,7 @@ log = logging.getLogger(__name__)
 EDITABLE = {
     "nim_api_key": ("NVIDIA NIM API 키", "대화·요구사항 검토·음성 인식·음성 합성"),
     "zen_api_key": ("OpenCode Zen API 키", "디자인 단계 유료 모델 비교(D39)"),
+    "gemini_api_key": ("Gemini API 키", "포토리얼 예시 이미지 생성"),
     "kakao_rest_api_key": ("카카오 REST API 키", "카카오 로그인·카카오톡 알림"),
     "kakao_client_secret": ("카카오 Client Secret", "카카오 로그인·카카오톡 알림"),
     "google_client_secret": ("구글 로그인 Client Secret", "구글 로그인"),
@@ -148,6 +149,10 @@ def test(name: str, value: str) -> tuple[bool, str]:
         if name == "telegram_bot_token":
             r = httpx.get(f"https://api.telegram.org/bot{value}/getMe", timeout=10)
             return r.status_code == 200 and bool(r.json().get("ok")), f"텔레그램 응답 {r.status_code}"
+        if name == "gemini_api_key":
+            base = (settings.gemini_api_base or "https://generativelanguage.googleapis.com").rstrip("/")
+            r = httpx.get(f"{base}/v1beta/models", timeout=15, headers={"x-goog-api-key": value})  # 주소에 키 금지(로그)
+            return r.status_code == 200, f"Gemini 응답 {r.status_code}"
     except httpx.HTTPError as e:
         return False, f"연결 실패({type(e).__name__})"
     return True, "형식만 확인했어요(이 키는 로그인을 한 번 해 봐야 확인돼요)."

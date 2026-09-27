@@ -1,3 +1,13 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모퉁이커피</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600&amp;display=swap">
+<style>
+:root{--c-primary:#6f4e37;--c-accent:#a86a1f;--c-ground:#fbf6ef;--c-ink:#2a2320;--font-display:"Noto Serif KR", "Pretendard", sans-serif;--font-body:"Pretendard", "Noto Sans KR", sans-serif;--space-section:64px;--space-gap:16px;--space-card:24px;--content-max:720px;--radius-card:20px;--radius-btn:999px;--card:#FFFFFF;--on-primary:#FFFFFF;--ground-soft:#fdfaf7;--ground-soft:color-mix(in srgb, var(--c-ground) 50%, #FFFFFF);--line:rgba(42,35,32,0.14);--line:color-mix(in srgb, var(--c-ink) 14%, transparent);--focus:#a86a1f;--muted:#7e7773;--muted:color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));}@media (max-width:767px){:root{--space-section:40px;}}
 /* 섹션 부품 공통 스타일 (WP P-3, P2 다듬기).
  * 색·글꼴·여백·모서리는 아래 CSS 변수만 사용한다. 렌더러가 tokens에서 :root 값을 채운다.
  * --c-primary, --c-accent, --c-ground, --c-ink,
@@ -1056,3 +1066,120 @@ section[class^="s-"] h2::after,
 /* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
 section.s-hero .s-hero__cta { margin: 26px 0 0; }
 section.s-hero .s-lead { margin: 0 0 4px; }
+
+</style>
+</head>
+<body>
+<section class="s-hero s-hero--text-only" data-section-id="hero" aria-labelledby="hero-title-hero">
+  <div class="s-hero__body">
+    <h1 class="s-title" id="hero-title-hero">
+      모퉁이커피
+    </h1>
+    <p class="s-lead">
+      카페
+    </p>
+    <ul class="s-hero__facts"><li><span class="s-hero__fact-label">영업</span> 매일 09~22시</li><li><span class="s-hero__fact-label">위치</span> 경기 수원시 행궁동 근처</li></ul>
+    <p class="s-hero__cta"><a class="s-btn" href="#contact-title-inquiry">문의하기</a></p>
+  </div>
+</section>
+
+<section class="s-gallery s-gallery--swipe" data-section-id="gallery" aria-labelledby="gallery-title-gallery"><h2 id="gallery-title-gallery">사진첩</h2><ul class="s-gallery__swipe"><li><figure><div class="s-illu" role="img" aria-label="예시 이미지: 사장님 사진으로 바뀌어요"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-hidden="true"><rect width="400" height="300" fill="var(--c-ground)"/><circle cx="200" cy="150" r="110" fill="#ffffff" stroke="var(--c-primary)" stroke-width="10"/><circle cx="200" cy="150" r="78" fill="var(--c-primary)"/><circle cx="200" cy="150" r="52" fill="var(--c-accent)"/><circle cx="200" cy="150" r="26" fill="var(--c-ground)"/><ellipse cx="316" cy="230" rx="26" ry="16" fill="var(--c-primary)" transform="rotate(-24 316 230)"/><ellipse cx="84" cy="232" rx="26" ry="16" fill="var(--c-accent)" transform="rotate(24 84 232)"/></svg><span class="s-illu-badge">예시 이미지</span></div></figure></li><li><figure><div class="s-illu" role="img" aria-label="예시 이미지: 사장님 사진으로 바뀌어요"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-hidden="true"><rect width="400" height="300" fill="var(--c-ground)"/><path d="M150 90 L250 90 L238 240 L162 240 Z" fill="var(--c-primary)"/><rect x="142" y="66" width="116" height="26" rx="8" fill="var(--c-accent)"/><line x1="120" y1="250" x2="280" y2="250" stroke="var(--c-ink)" stroke-width="8" stroke-linecap="round"/><ellipse cx="312" cy="200" rx="24" ry="15" fill="var(--c-accent)" transform="rotate(-24 312 200)"/><ellipse cx="90" cy="210" rx="24" ry="15" fill="var(--c-primary)" transform="rotate(24 90 210)"/><ellipse cx="320" cy="120" rx="22" ry="14" fill="var(--c-primary)" transform="rotate(-24 320 120)"/></svg><span class="s-illu-badge">예시 이미지</span></div></figure></li></ul><p class="s-gallery__notice">사장님 사진으로 바뀌어요</p></section>
+<section class="s-intro s-intro--owner" data-section-id="intro" aria-labelledby="intro-title-intro">
+  <h2 id="intro-title-intro">소개</h2>
+  
+  <p class="s-intro__owner">사장님:
+    <span class="is-placeholder" aria-label="사장님 이름: 아직 입력되지 않음">[사장님 이름 입력]</span>
+  </p>
+</section>
+
+<section class="s-offerings s-offerings--list-price" data-section-id="menu" aria-labelledby="offerings-title-menu">
+  <h2 id="offerings-title-menu">대표 메뉴</h2>
+  <ul class="s-price-list">
+    <li class="s-price-list__row">
+      <strong class="s-price-list__name">아메리카노</strong>
+      
+      <span class="s-price-list__price"><span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span></span>
+    </li>
+    <li class="s-price-list__row">
+      <strong class="s-price-list__name">카페라떼</strong>
+      
+      <span class="s-price-list__price"><span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span></span>
+    </li>
+  </ul>
+</section>
+
+<section class="s-around s-around--map-list" data-section-id="around" aria-labelledby="around-title-around">
+  <h2 id="around-title-around">오시는 길</h2>
+  <address class="s-around__addr">
+    경기 수원시 행궁동 근처
+  </address>
+  
+</section>
+
+<section class="s-contact s-contact--chat-first" data-section-id="contact" aria-labelledby="contact-title-contact">
+  <h2 id="contact-title-contact">영업시간·연락</h2>
+  
+  <p><span class="is-placeholder" aria-label="채널 주소: 아직 입력되지 않음">[채널 주소 입력]</span></p>
+  <dl class="s-contact__list">
+    <div class="s-contact__row">
+      <dt>전화</dt>
+      <dd>
+        
+        <span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span>
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>영업시간</dt>
+      <dd>
+        매일 09~22시
+        
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>주소</dt>
+      <dd>경기 수원시 행궁동 근처</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="s-cta s-cta--call-sms" data-section-id="booking" aria-labelledby="cta-title-booking">
+  <h2 id="cta-title-booking">예약·문의</h2>
+  <p><span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span></p>
+</section>
+
+<section class="s-contact s-contact--form" data-section-id="inquiry" aria-labelledby="contact-title-inquiry">
+  <h2 id="contact-title-inquiry">문의하기</h2>
+  <form class="s-form" method="post" action="/api/inquiries/compare-cafe" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="inquiry-name-inquiry">이름 (선택)</label>
+      <input id="inquiry-name-inquiry" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-contact-inquiry">연락처 (필수)</label>
+      <input id="inquiry-contact-inquiry" name="contact" type="text" maxlength="100" required aria-describedby="inquiry-contact-hint-inquiry">
+      <span class="s-form__hint" id="inquiry-contact-hint-inquiry">전화번호 또는 이메일</span>
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-message-inquiry">문의 내용 (필수)</label>
+      <textarea id="inquiry-message-inquiry" name="message" rows="5" maxlength="1000" required></textarea>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·연락처·문의 내용은 문의 답변을 위해 가게에 전달되며, 30일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="inquiry-agree-inquiry" name="agree" type="checkbox" value="yes" required>
+      <label for="inquiry-agree-inquiry">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="inquiry-website-inquiry">웹사이트는 비워 두세요</label>
+      <input id="inquiry-website-inquiry" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">문의 보내기</button></p>
+  </form>
+</section>
+
+<section class="s-reviews s-reviews--slot-only" data-section-id="reviews" aria-labelledby="reviews-title-reviews">
+  <h2 id="reviews-title-reviews">후기</h2>
+  <p>후기가 모이면 여기에 표시됩니다.</p>
+</section>
+
+</body>
+</html>

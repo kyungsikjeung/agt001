@@ -31,8 +31,10 @@ SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generat
                            # 디자인 학습 기록(D44·D45, app/services/design_log.py)
                            "design_shown", "design_chosen", "design_restyled", "site_published", "inquiry_received",
                            "unmet_need",
-                           # 사진 선택지 답·실제 업로드(D48·D45, 원문·개인정보 없음)
-                           "photo_answered", "photo_uploaded"})
+                            # 사진 선택지 답·실제 업로드(D48·D45, 원문·개인정보 없음)
+                            "photo_answered", "photo_uploaded",
+                            # AI 예시 이미지 생성(업종·칸만, 개인정보 없음)
+                            "ai_image_made"})
 
 _TOKEN = re.compile(r"[^A-Za-z0-9_.:-]")
 _MAX_LEN = 64

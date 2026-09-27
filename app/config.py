@@ -79,6 +79,12 @@ class Settings(BaseSettings):
     admin_reauth_minutes: int = 10
     # 디자인 단계 유료 모델 비교(D39), 운영 알림. 관리자 화면에서 교체할 수 있다(D50).
     zen_api_key: Optional[str] = None
+    # Gemini 이미지 생성(포토리얼 예시 이미지). Google AI Studio 발급 키.
+    # 관리자 화면에서 교체할 수 있다(D50). 값은 .env(GEMINI_API_KEY) 또는 DB.
+    gemini_api_key: Optional[str] = None
+    gemini_api_base: str = "https://generativelanguage.googleapis.com"
+    # 기본 이미지 모델: 빠르고 저렴한 네이티브 이미지 생성 모델.
+    gemini_image_model: str = "gemini-2.5-flash-image"
     telegram_bot_token: Optional[str] = None
     telegram_chat_id: Optional[str] = None
 

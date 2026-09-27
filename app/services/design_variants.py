@@ -17,18 +17,36 @@ from app.services import prd_schema as S
 # 종류별 출발 샘플. 가게 6업종은 같은 이름의 샘플, 나머지는 구성이 가장 가까운 것.
 _SAMPLE_FOR = {"individual": "workshop", "group": "academy", "webservice": "cafe", "other": "cafe"}
 
-# 3안: (id, 이름, 한 줄 설명, 바꿀 것). v1은 업종 기본 그대로.
-# H0-1: 색·여백뿐 아니라 첫 화면·상품형까지 다르게 (3안 차이 8 미만 4곳 해소용).
-#   v1 기본형: 업종 샘플 그대로 (photo-overlay 또는 text-only + list-price)
-#   v2 사진 강조형: 옆 배치 + 사진첩 그리드 + 상품 사진그리드
-#   v3 간결형: 글 중심 + 상품 탭 + 사진첩은 실사진 있을 때만 (_reorder에서 제거)
+# 3안 역할 고정 (P3-8, D43). id·이름은 그대로 둔다
+# (채팅 안내·"기본형으로" 같은 고르기 말 인식·채팅방 미리보기 카드가 이름에 묶여 있음).
+# 역할은 토큰·lead·구성으로 배정한다.
+#   v1 기본형 = ① 업종 정석: 업종 _RULE 컨셉 그대로 (토큰·lead 모두 규칙값, 카드 AI 컨셉 무시)
+#   v2 사진 강조형 = ② 사장님 분위기: 카드 컨셉(mood·brand_story 반영 AI 컨셉, 없으면 규칙)의
+#     토큰·lead에 사진 강조 구조를 얹는다. 사장님이 표현하지 않은 칸(규칙과 같은 값)은
+#     기존 사진 강조형 차별화값(옆 배치·사진첩 그리드·상품 사진그리드·넉넉한 여백)으로 메운다.
+#   v3 간결형 = ③ 과감한 대비: v1과 색·글꼴·lead가 최대 차이.
+#     상품형·사진첩 차이(a1b8a61: 사진그리드/탭·그리드/스와이프·_reorder)는 그대로 둔다.
+# 최소차이 8 (D42-4·P3-11): 3쌍 중 최소 _spec_distance가 8 미만이면
+#   v3를 palette → font_pair → lead 순으로 강제 분기한다 (_ensure_contrast).
+# 첫 화면 구도는 Q-6 규칙이 따로 맡는다: 견본 첫 화면이 글자형인 업종(미용실)은
+# 사진이 없을 때 v3를 겹침형으로 (1안·3안 첫 화면이 똑같아 최소 차이 2.0이던 문제).
 VARIANTS = (
-    ("v1", "기본형", "업종에 맞춘 기본 구성", {}),
-    ("v2", "사진 강조형", "큰 사진과 넉넉한 여백", {"hero": "photo", "gallery": "grid", "offerings": "photo-grid",
-                                             "density": "roomy", "radius": "round", "font_pair": "serif-elegant"}),
-    ("v3", "간결형", "글 중심, 빠르게 읽히는 구성", {"hero": "text-only", "gallery": "swipe", "offerings": "tabs",
-                                            "density": "compact", "radius": "sharp", "font_pair": "gothic-strong"}),
+    ("v1", "기본형", "업종 정석 — 업종에 맞춘 기본 구성", {}),
+    ("v2", "사진 강조형", "사장님 분위기 — 말씀에서 뽑은 느낌에 큰 사진",
+     {"hero": "photo", "gallery": "grid", "offerings": "photo-grid"}),
+    ("v3", "간결형", "과감한 대비 — 색·글꼴·구성이 가장 다른 구성",
+     {"hero": "text-only", "gallery": "swipe", "offerings": "tabs"}),
 )
+# v2 토큰 폴백(사장님이 표현하지 않은 칸): 사진 강조형 차별화값 (a1b8a61 유지)
+_V2_TOKEN_FALLBACK = {"density": "roomy", "radius": "round"}
+# v3 토큰 고정: 촘촘·각짐 (a1b8a61 유지). palette·font_pair는 대비 선택.
+_V3_TOKENS = {"density": "compact", "radius": "sharp"}
+# 글꼴 대비 순서: 앞에서부터 v1·v2와 다른 첫 값을 쓴다
+_FONT_CONTRAST_ORDER = ("serif-elegant", "gothic-strong", "serif-warm", "sans-clean", "round-soft", "pop-point")
+# v3 lead 후보: v1 lead와 다른 첫 값을 쓴다 (v2 바로 다음 부품과도 다르면 더 좋음)
+_LEAD_CANDIDATES = ("intro", "offerings", "gallery")
+# 3안 최소차이 기준 (D42-4)
+MIN_DISTANCE = 8
 # 안마다 색 계열이 겹치지 않게 고른다(같은 초록끼리면 3안이 비슷해 보인다).
 _PALETTE_GROUPS = {"forest": "green", "moss": "green", "sage": "green", "navy": "blue", "coffee": "warm", "brick": "warm",
                    "tomato": "warm", "charcoal-gold": "dark"}
@@ -115,11 +133,15 @@ def _time_options(hours: str) -> list[str]:
 
 
 def base_spec(card: dict) -> dict:
-    """카드 내용을 업종 기본 조합에 채운 명세 (v1)."""
+    """카드 내용을 업종 기본 조합에 채운 명세. 카드 컨셉(없으면 업종 규칙)을 쓴다."""
+    return _build_spec(card, card.get("concept") or DC.rule_concept(card))
+
+
+def _build_spec(card: dict, concept: dict) -> dict:
+    """카드 + 지정 컨셉 → 명세. v1은 규칙 컨셉, v2는 사장님 분위기 컨셉으로 부른다."""
     ind = E.industry_of(card)
     spec = copy.deepcopy(_sample(_SAMPLE_FOR.get(ind.key, ind.key)))
-    # 디자인 컨셉(design_concept): 1안은 컨셉의 색·글꼴·여백·모서리를 그대로 쓴다. 없으면 업종 규칙 컨셉.
-    concept = card.get("concept") or DC.rule_concept(card)
+    # 지정 컨셉의 색·글꼴·여백·모서리를 그대로 쓴다.
     spec["tokens"].update({k: concept[k] for k in ("palette", "font_pair", "density", "radius")})
     shop = _fact(card, "shop_name")
     phone, hours, address = _fact(card, "phone"), _fact(card, "hours"), _fact(card, "location")
@@ -128,6 +150,13 @@ def base_spec(card: dict) -> dict:
     draft = card.get("copy") or {}  # AI 문구 초안(app/services/copywriter.py). 사장님이 말한 소개가 우선
     excluded = " ".join(_values(card, "exclude"))
     photos = [p for p in card.get("photos") or [] if str(p.get("url", "")).startswith("/uploads/")]
+    # 사장님 사진이 없으면 AI 예시 이미지를 쓴다(버튼으로 만든 것만, SVG 예시 그림보다 먼저).
+    ai = card.get("ai_images") or {}
+    ai_hero = str((ai.get("hero") or {}).get("url") or "")
+    ai_gallery = [str((ai.get(s) or {}).get("url") or "") for s in ("gallery-1", "gallery-2")]
+    ai_gallery = [u for u in ai_gallery if u.startswith("/uploads/")]
+    if not ai_hero.startswith("/uploads/"):
+        ai_hero = ""
     drop = {t for word, t in _EXCLUDE_TYPES.items() if word in excluded}
 
     sections = []
@@ -136,22 +165,31 @@ def base_spec(card: dict) -> dict:
             continue
         c = sec["content"]
         if sec["type"] == "hero":
-            # 사진이 있으면 사진을 크게 깐 첫 화면, 없으면 컨셉 색을 넓게 깐 글자 중심 첫 화면(예시 그림을 겹치지 않음, Q-7)
-            sec["variant"] = "photo-overlay" if photos else "text-only"
+            # 사진이 있으면 사진을 크게 깐 첫 화면, 없으면 AI 예시, 그것도 없으면 글자 중심 첫 화면(Q-7)
+            show_photo = bool(photos or ai_hero)
+            sec["variant"] = "photo-overlay" if show_photo else "text-only"
             c["facts"] = [{"label": lab, "value": val} for lab, val in (("영업", hours), ("위치", address)) if val]
             if photos:
                 c["image"] = photos[0]["url"]
                 c["image_alt"] = photos[0].get("caption") or f"{shop or '가게'} 대표 사진"
+            elif ai_hero:
+                c["image"] = ai_hero
+                c["image_alt"] = "AI 예시 이미지: 사장님 사진으로 바뀌어요"
+                c["ai_example"] = True
             c["title"] = shop
             c["subtitle"] = detail or draft.get("tagline") or ", ".join(_values(card, "business_type"))
             # 전화가 없으면 문의 양식으로(양식은 기본 포함, 제목 id = contact-title-inquiry)
             c["cta"] = {"label": "전화 문의", "href": f"tel:{phone}"} if phone else {"label": "문의하기", "href": "#contact-title-inquiry"}
         elif sec["type"] == "intro":
             c["body"] = detail or draft.get("intro") or ""
-        elif sec["type"] == "gallery" and photos:
+        elif sec["type"] == "gallery" and (photos or ai_gallery):
             # 대표로 쓴 첫 장 말고 나머지(한 장뿐이면 그 한 장)를 사진첩에
-            c["items"] = [{"src": p["url"], "alt": p.get("caption") or f"사진 {i + 1}", "caption": p.get("caption") or ""}
-                          for i, p in enumerate(photos[1:] or photos)]
+            if photos:
+                c["items"] = [{"src": p["url"], "alt": p.get("caption") or f"사진 {i + 1}", "caption": p.get("caption") or ""}
+                              for i, p in enumerate(photos[1:] or photos)]
+            else:
+                c["items"] = [{"src": u, "alt": "AI 예시 이미지: 사장님 사진으로 바뀌어요", "caption": "", "ai": True}
+                              for u in ai_gallery]
         elif sec["type"] == "offerings":
             c["label"] = S.label_for(ind, "offerings")
             # 이름만 넣는다. 가격은 사장님이 말한 가격표가 생기면 채운다(지어내지 않음).
@@ -221,30 +259,211 @@ def base_spec(card: dict) -> dict:
     return spec
 
 
+def _pick_font(exclude) -> str:
+    """글꼴 대비 순서에서 제외 집합에 없는 첫 값."""
+    ex = set(exclude or ())
+    for f in _FONT_CONTRAST_ORDER:
+        if f not in ex:
+            return f
+    return "sans-clean"
+
+
+@lru_cache(maxsize=None)
+def _palette_hexes() -> dict:
+    return json.loads((settings.templates_dir / "tokens" / "palettes.json").read_text(encoding="utf-8"))
+
+
+def _luminance(hexcode: str) -> float:
+    """16진 색의 WCAG 상대 휘도 (대비 선택용)."""
+    h = hexcode.strip().lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+
+    def chan(v: float) -> float:
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
+    return 0.2126 * chan(r) + 0.7152 * chan(g) + 0.0722 * chan(b)
+
+
+def _contrast_palette(v1pal: str, v2pal: str, skip: frozenset = frozenset()) -> str:
+    """v3 색: v1과 다른 계열 중에서 v1 대표색과 휘도 차이가 가장 큰 것.
+    v2 계열·값과도 다르면 더 좋고, 이미 쓴 값(skip)은 피한다."""
+    hexes = _palette_hexes()
+    v1g = _PALETTE_GROUPS.get(v1pal)
+    v2g = _PALETTE_GROUPS.get(v2pal)
+    base = _luminance(hexes[v1pal]["primary"])
+    cands = [p for p in _PALETTE_ORDER
+             if p != v1pal and p not in skip and _PALETTE_GROUPS.get(p) != v1g]
+    if not cands:
+        cands = [p for p in _PALETTE_ORDER if p != v1pal and p not in skip] or list(_PALETTE_ORDER)
+    pool = [p for p in cands if p != v2pal and _PALETTE_GROUPS.get(p) != v2g] or cands
+    return max(pool, key=lambda p: abs(_luminance(hexes[p]["primary"]) - base))
+
+
+def _sample_hero(card: dict) -> str:
+    """업종 견본의 첫 화면 변형 (Q-6: 견본이 글자형이면 v3 첫 화면을 바꾼다)."""
+    ind = E.industry_of(card)
+    sample = _sample(_SAMPLE_FOR.get(ind.key, ind.key))
+    hero = next((s for s in sample.get("sections", []) if s.get("type") == "hero"), {})
+    return hero.get("variant", "")
+
+
+def _hero_of(spec: dict) -> str:
+    hero = next((s for s in spec.get("sections", []) if s.get("type") == "hero"), {})
+    return hero.get("variant", "")
+
+
+def _offerings_variant(spec: dict) -> str:
+    sec = next((s for s in spec.get("sections", []) if s.get("type") == "offerings"), {})
+    return sec.get("variant", "")
+
+
+def _gallery_variant(spec: dict) -> str:
+    secs = [s for s in spec.get("sections", []) if s.get("type") == "gallery"]
+    return secs[0].get("variant", "") if secs else ""
+
+
+def _second_type(spec: dict) -> str:
+    secs = spec.get("sections", [])
+    return secs[1].get("type", "") if len(secs) > 1 else ""
+
+
+def _spec_distance(a: dict, b: dict) -> int:
+    """두 명세가 눈에 얼마나 다른지 0~16 가점 (D42-4 최소차이 8의 판정 기준).
+    픽셀 평가와 같은 단위가 아니라 명세 차이의 근사치다:
+    색 계열 4·글꼴 2·첫 화면 3·상품형 2·바로 다음 부품 2·사진첩 1·여백 1·모서리 1."""
+    score = 0
+    ta, tb = a.get("tokens", {}), b.get("tokens", {})
+    pa, pb = ta.get("palette"), tb.get("palette")
+    if pa != pb:
+        score += 2 if _PALETTE_GROUPS.get(pa) == _PALETTE_GROUPS.get(pb) else 4
+    if ta.get("font_pair") != tb.get("font_pair"):
+        score += 2
+    if _hero_of(a) != _hero_of(b):
+        score += 3
+    if _offerings_variant(a) != _offerings_variant(b):
+        score += 2
+    ga = [s for s in a.get("sections", []) if s.get("type") == "gallery"]
+    gb = [s for s in b.get("sections", []) if s.get("type") == "gallery"]
+    va = ga[0].get("variant", "") if ga else ""
+    vb = gb[0].get("variant", "") if gb else ""
+    if (bool(ga) != bool(gb)) or (ga and gb and va != vb):
+        score += 1
+    if _second_type(a) != _second_type(b):
+        score += 2
+    if ta.get("density") != tb.get("density"):
+        score += 1
+    if ta.get("radius") != tb.get("radius"):
+        score += 1
+    return score
+
+
+def min_distance(specs: list[dict]) -> int:
+    """3안 중 가장 비슷한 두 안의 차이."""
+    ds = [_spec_distance(specs[i], specs[j]) for i in range(3) for j in range(i + 1, 3)]
+    return min(ds) if ds else 0
+
+
+def _move_lead(sections: list, lead: str) -> list:
+    """lead 부품을 첫 화면 바로 뒤로 (없으면 그대로)."""
+    if not sections or sections[0].get("type") != "hero":
+        return sections
+    for i, s in enumerate(sections):
+        if s.get("type") == lead:
+            return [sections[0], s] + [x for j, x in enumerate(sections) if j not in (0, i)]
+    return sections
+
+
+def _ensure_contrast(s1: dict, s2: dict, s3: dict) -> dict:
+    """3안 최소차이 8 미만이면 v3를 palette → font_pair → lead 순으로 강제 분기한다."""
+    s3 = copy.deepcopy(s3)
+    if min_distance([s1, s2, s3]) >= MIN_DISTANCE:
+        return s3
+    # 1) 색: v1·v2와 다른 계열·값으로 (지금 값은 건너뛰고 다음으로 큰 휘도 차이를 고른다)
+    s3["tokens"]["palette"] = _contrast_palette(
+        s1["tokens"]["palette"], s2["tokens"]["palette"], frozenset({s3["tokens"]["palette"]}))
+    if min_distance([s1, s2, s3]) >= MIN_DISTANCE:
+        return s3
+    # 2) 글꼴: v1·v2·지금 값과 다른 값으로
+    s3["tokens"]["font_pair"] = _pick_font({s1["tokens"]["font_pair"], s2["tokens"]["font_pair"],
+                                           s3["tokens"]["font_pair"]})
+    if min_distance([s1, s2, s3]) >= MIN_DISTANCE:
+        return s3
+    # 3) lead: v1 바로 다음과 다른 부품을 첫 화면 뒤로 (v3에 있는 것만, v2 다음과도 다르면 더 좋음)
+    first, second2 = _second_type(s1), _second_type(s2)
+    present = [s["type"] for s in s3["sections"]]
+    cands = [t for t in _LEAD_CANDIDATES if t != first and t in present]
+    pool = [t for t in cands if t != second2] or cands
+    if pool:
+        s3["sections"] = _move_lead(s3["sections"], pool[0])
+    return s3
+
+
+def _apply_structure(spec: dict, change: dict) -> None:
+    """부품 변형만 바꾼다 (토큰·순서는 역할 로직이 따로 정한다)."""
+    for sec in spec["sections"]:
+        want = change.get(sec["type"])
+        if sec["type"] == "hero" and want == "photo":
+            # 사진 강조형은 옆 배치: 1안(사진 있으면 겹침형, 없으면 글자형)과 늘 다르고,
+            # 사진이 없을 때 예시 그림 위에 글자를 겹치지 않는다(Q-7)
+            want = "photo-side"
+        if want:
+            sec["variant"] = want
+
+
 def variants(card: dict) -> list[dict]:
-    """[{id, name, summary, spec}] 3개."""
-    base = base_spec(card)
-    used = [base["tokens"]["palette"]]
-    out = []
-    for vid, name, summary, change in VARIANTS:
-        spec = copy.deepcopy(base)
-        if change:
-            groups = {_PALETTE_GROUPS.get(p) for p in used}
-            palette = next((p for p in _PALETTE_ORDER if _PALETTE_GROUPS[p] not in groups),
-                           next(p for p in _PALETTE_ORDER if p not in used))
-            used.append(palette)
-            spec["tokens"].update({"palette": palette, **{k: change[k] for k in ("density", "radius", "font_pair")}})
-            for sec in spec["sections"]:
-                want = change.get(sec["type"])
-                if sec["type"] == "hero" and want == "photo":
-                    # 사진 강조형은 옆 배치: 1안(사진 있으면 겹침형, 없으면 글자형)과 늘 다르고,
-                    # 사진이 없을 때 예시 그림 위에 글자를 겹치지 않는다(Q-7)
-                    want = "photo-side"
-                if want:
-                    sec["variant"] = want
-            spec["sections"] = _reorder(spec["sections"], vid)
-        out.append({"id": vid, "name": name, "summary": summary, "spec": spec})
-    return out
+    """[{id, name, summary, spec}] 3개. 역할 고정 (P3-8, D43): ① 정석 ② 분위기 ③ 대비."""
+    rule = DC.rule_concept(card)
+    mood = card.get("concept") or rule
+    # ① 업종 정석: 규칙 컨셉 그대로
+    s1 = _build_spec(card, rule)
+    v1pal = s1["tokens"]["palette"]
+    v1font = s1["tokens"]["font_pair"]
+
+    # ② 사장님 분위기: 카드 컨셉의 토큰·lead + 사진 강조 구조.
+    # v2 순서는 사진첩을 첫 화면 바로 뒤에 두는 고정 순서(방안 7)라 mood lead는 토큰에만 남는다.
+    s2 = _build_spec(card, mood)
+    if mood.get("palette") == rule.get("palette"):
+        groups = {_PALETTE_GROUPS.get(v1pal)}
+        s2["tokens"]["palette"] = next(
+            (p for p in _PALETTE_ORDER if _PALETTE_GROUPS[p] not in groups),
+            next(p for p in _PALETTE_ORDER if p != v1pal))
+    if mood.get("font_pair") == rule.get("font_pair"):
+        s2["tokens"]["font_pair"] = _pick_font({v1font})
+    if mood.get("density") == rule.get("density"):
+        s2["tokens"]["density"] = _V2_TOKEN_FALLBACK["density"]
+    if mood.get("radius") == rule.get("radius"):
+        s2["tokens"]["radius"] = _V2_TOKEN_FALLBACK["radius"]
+    _apply_structure(s2, dict(VARIANTS[1][3]))
+    s2["sections"] = _reorder(s2["sections"], "v2")
+
+    # ③ 과감한 대비: v1과 색·글꼴이 최대 차이 + 간결 구조 (상품 탭·사진첩은 실사진 있을 때만)
+    s3 = _build_spec(card, rule)
+    s3["tokens"]["palette"] = _contrast_palette(v1pal, s2["tokens"]["palette"])
+    s3["tokens"]["font_pair"] = _pick_font({v1font, s2["tokens"]["font_pair"]})
+    s3["tokens"].update(_V3_TOKENS)
+    _apply_structure(s3, dict(VARIANTS[2][3]))
+    s3["sections"] = _reorder(s3["sections"], "v3")
+    # Q-6: 견본 첫 화면이 글자형(미용실)인데 사진이 없어 v1도 글자형이면 v3는 겹침형으로.
+    # 사진이 있으면 v1이 겹침형이라 기존 글자형 v3와 이미 다르다.
+    if _sample_hero(card) == "text-only" and _hero_of(s1) == "text-only":
+        for sec in s3["sections"]:
+            if sec["type"] == "hero":
+                sec["variant"] = "photo-overlay"
+    # v3 lead는 v1과 최대 차이: 첫 화면 구도까지 같고 바로 다음 부품도 같으면
+    # 첫 화면 한 장(픽셀 차이)이 거의 똑같아진다. v2 바로 다음과도 다르면 더 좋다.
+    # (개별 카드의 규칙 lead는 intro라 시험 카드에는 걸리지 않는다.)
+    if _hero_of(s3) == _hero_of(s1) and _second_type(s3) == _second_type(s1):
+        first, second2 = _second_type(s1), _second_type(s2)
+        present = [s["type"] for s in s3["sections"]]
+        cands = [t for t in _LEAD_CANDIDATES if t != first and t in present]
+        pool = [t for t in cands if t != second2] or cands
+        if pool:
+            s3["sections"] = _move_lead(s3["sections"], pool[0])
+    s3 = _ensure_contrast(s1, s2, s3)
+
+    specs = {"v1": s1, "v2": s2, "v3": s3}
+    return [{"id": vid, "name": name, "summary": summary, "spec": specs[vid]}
+            for vid, name, summary, _ in VARIANTS]
 
 
 # 방안 7: 3안이 색·배치뿐 아니라 구성 순서부터 다르게 보이도록.

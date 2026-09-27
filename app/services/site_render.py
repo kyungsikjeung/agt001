@@ -377,6 +377,7 @@ def _hero_context(content: dict) -> dict:
         "subtitle": content.get("subtitle", "") if isinstance(content.get("subtitle", ""), str) else "",
         "image_src": image_src,
         "image_alt": image_alt,
+        "image_ai_badge": bool(image_src and content.get("ai_example")),
         "cta_label": label,
         "cta_href": href,
     }
@@ -426,6 +427,7 @@ def _gallery_items(content: dict) -> list:
             "src": src,
             "alt": alt,
             "caption": caption if isinstance(caption, str) else "",
+            "ai_badge": bool(src and entry.get("ai")),
         })
     return [one for one in items if one["src"] or one["caption"] or one["alt"].strip()]
 

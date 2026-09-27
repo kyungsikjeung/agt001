@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>시안 나란히 비교 (P3-16 · D37)</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px/1.6 -apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif;color:#1d2433;background:#f4f7fd;word-break:keep-all}
+header.top{max-width:1240px;margin:0 auto;padding:28px 20px 8px}
+header.top h1{font-size:24px;margin:0 0 8px;letter-spacing:-.02em}
+header.top p{margin:0 0 6px;color:#444}
+.controls{max-width:1240px;margin:0 auto;padding:8px 20px 4px;display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.controls label{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-weight:700;cursor:pointer}
+.controls input[type=checkbox]{width:22px;height:22px}
+.controls button{min-height:44px;padding:8px 16px;font-size:15px;font-weight:700;border:2px solid #2b4c9b;border-radius:10px;background:#fff;color:#2b4c9b;cursor:pointer}
+main{max-width:1240px;margin:0 auto;padding:12px 20px 40px}
+section.brief{background:#fff;border:1px solid #dfe5f2;border-radius:16px;padding:18px;margin:18px 0}
+section.brief h2{font-size:19px;margin:0 0 4px}
+section.brief .facts{font-size:14px;color:#555;margin:0 0 12px}
+.trio{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+figure.pick{margin:0;border:1px solid #dfe5f2;border-radius:14px;overflow:hidden;background:#fafbff}
+figure.pick .frame{border-bottom:1px solid #dfe5f2}
+figure.pick iframe{display:block;width:100%;max-width:390px;height:720px;border:0;margin:0 auto;background:#fff}
+figure.pick figcaption{padding:10px 12px}
+figure.pick figcaption b{font-size:16px}
+figure.pick figcaption .meta{font-size:13px;color:#555;margin-top:2px}
+figure.pick .row{display:flex;gap:8px;padding:0 12px 12px}
+figure.pick button.pickbtn{flex:1;min-height:48px;font-size:16px;font-weight:700;border:0;border-radius:10px;background:#2b4c9b;color:#fff;cursor:pointer}
+figure.pick button.pickbtn[aria-pressed=true]{background:#4d6457}
+figure.pick button.clearbtn{min-height:48px;padding:0 14px;font-size:14px;border:2px solid #999;border-radius:10px;background:#fff;color:#333;cursor:pointer}
+footer.tally{max-width:1240px;margin:0 auto;padding:0 20px 48px;font-size:15px}
+footer.tally .box{background:#fff;border:1px solid #dfe5f2;border-radius:14px;padding:14px 16px}
+</style>
+</head>
+<body>
+<header class="top">
+<h1>시안 나란히 비교 (P3-16 · D37 최종판정용)</h1>
+<p>같은 설명문 6종(식당·카페·펜션·미용실·학원·공방)에 대한 시안 3안을 나란히 놓고 고릅니다.</p>
+<p>선택은 <b>이 브라우저에만 저장</b>되고 서버로 전송되지 않습니다. 미리보기 안의 버튼·폼은 동작하지 않습니다.</p>
+</header>
+<div class="controls">
+<label><input type="checkbox" id="blind" checked> 블라인드 (어떤 안인지 숨김)</label>
+<button type="button" id="resetAll">전체 선택 지우기</button>
+</div>
+<main id="main"></main>
+<footer class="tally"><div class="box" id="tally">아직 고른 안이 없습니다.</div></footer>
+<script>
+(function(){
+"use strict";
+var BRIEFS=[
+ {ind:"restaurant",icon:"🍚",name:"식당 — 황남밥상",facts:"김치찌개 · 계란말이 / 매일 11~20시 / 경북 경주시 황리단길 근처"},
+ {ind:"cafe",icon:"☕",name:"카페 — 모퉁이커피",facts:"아메리카노 · 카페라떼 / 매일 09~22시 / 경기 수원시 행궁동 근처"},
+ {ind:"pension",icon:"🌲",name:"펜션 — 솔숲쉼터 펜션",facts:"객실 3개 · 조용한 숲속 / 체크인 15시 · 체크아웃 11시 / 강원 평창군 봉평 근처"},
+ {ind:"salon",icon:"💇",name:"미용실 — 머리쉼터",facts:"컷트 · 펌 / 매일 10~19시 / 경기 성남시 분당 근처"},
+ {ind:"academy",icon:"📐",name:"학원 — 바른수학 학원",facts:"중등 수학 반 / 평일 16~22시 / 경기 안양시 평촌 근처"},
+ {ind:"workshop",icon:"👜",name:"공방 — 손끝가죽 공방",facts:"가죽 카드지갑 클래스 / 주말 10~17시 / 경기 고양시 일산 근처"}
+];
+// [역할, 색, 글꼴, 첫화면, 다음부품, 상품형] — 블라인드가 꺼져 있을 때만 노출
+var META={"restaurant-v1":["기본형","tomato","gothic-strong","text-only","offerings","list-price"],"restaurant-v2":["사진 강조형","navy","serif-elegant","photo-side","gallery","photo-grid"],"restaurant-v3":["간결형","charcoal-gold","serif-warm","text-only","intro","tabs"],"cafe-v1":["기본형","coffee","serif-warm","text-only","gallery","list-price"],"cafe-v2":["사진 강조형","navy","serif-elegant","photo-side","gallery","photo-grid"],"cafe-v3":["간결형","charcoal-gold","gothic-strong","text-only","offerings","tabs"],"pension-v1":["기본형","forest","serif-elegant","text-only","gallery","photo-grid"],"pension-v2":["사진 강조형","navy","gothic-strong","photo-side","gallery","photo-grid"],"pension-v3":["간결형","charcoal-gold","serif-warm","text-only","offerings","tabs"],"salon-v1":["기본형","sage","sans-clean","text-only","offerings","list-price"],"salon-v2":["사진 강조형","navy","serif-elegant","photo-side","gallery","photo-grid"],"salon-v3":["간결형","charcoal-gold","gothic-strong","photo-overlay","offerings","tabs"],"academy-v1":["기본형","navy","gothic-strong","text-only","offerings","list-price"],"academy-v2":["사진 강조형","brick","serif-elegant","photo-side","gallery","photo-grid"],"academy-v3":["간결형","charcoal-gold","serif-warm","text-only","intro","tabs"],"workshop-v1":["기본형","moss","serif-warm","text-only","offerings","tabs"],"workshop-v2":["사진 강조형","navy","serif-elegant","photo-side","gallery","photo-grid"],"workshop-v3":["간결형","charcoal-gold","gothic-strong","text-only","intro","tabs"]};
+var KEY="p3-compare-choices";
+function load(){try{var raw=null;try{raw=localStorage.getItem(KEY);}catch(e){return{};}return raw?JSON.parse(raw):{};}catch(e){return{};}}
+function save(obj){try{localStorage.setItem(KEY,JSON.stringify(obj));}catch(e){}}
+var choices=load();
+var blind=true;
+var main=document.getElementById("main");
+function shuffled(arr){var a=arr.slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function metaText(key){var m=META[key];return "색 "+m[1]+" · 글꼴 "+m[2]+" · 첫화면 "+m[3]+" · 다음 "+m[4]+" · 상품 "+m[5];}
+function render(){
+  main.innerHTML="";
+  BRIEFS.forEach(function(b){
+    var sec=document.createElement("section");sec.className="brief";
+    var h=document.createElement("h2");h.textContent=b.icon+" "+b.name;sec.appendChild(h);
+    var f=document.createElement("p");f.className="facts";f.textContent=b.facts;sec.appendChild(f);
+    var trio=document.createElement("div");trio.className="trio";
+    var order=blind?shuffled(["v1","v2","v3"]):["v1","v2","v3"];
+    var labels=blind?shuffled(["A","B","C"]):["1","2","3"];
+    order.forEach(function(vid,i){
+      var key=b.ind+"-"+vid;
+      var fig=document.createElement("figure");fig.className="pick";
+      var wrap=document.createElement("div");wrap.className="frame";
+      var fr=document.createElement("iframe");
+      fr.setAttribute("sandbox","");
+      fr.setAttribute("loading","lazy");
+      fr.setAttribute("title",b.name+" 시안 "+labels[i]);
+      fr.src="compare/"+key+".html";
+      wrap.appendChild(fr);fig.appendChild(wrap);
+      var cap=document.createElement("figcaption");
+      var title=blind?("안 "+labels[i]):("안 "+labels[i]+" · "+vid+" "+META[key][0]);
+      var bt=document.createElement("b");bt.textContent=title;cap.appendChild(bt);
+      if(!blind){var m=document.createElement("div");m.className="meta";m.textContent=metaText(key);cap.appendChild(m);}
+      var chosen=choices[b.ind]===vid;
+      if(chosen){var s=document.createElement("div");s.className="meta";s.textContent="✓ 선택됨 (이 브라우저에만 저장)";cap.appendChild(s);}
+      fig.appendChild(cap);
+      var row=document.createElement("div");row.className="row";
+      var btn=document.createElement("button");btn.type="button";btn.className="pickbtn";
+      btn.textContent=blind?("안 "+labels[i]+"이(가) 낫다"):("이 안으로 정하기");
+      btn.setAttribute("aria-pressed",chosen?"true":"false");
+      btn.onclick=function(){choices[b.ind]=vid;save(choices);render();};
+      row.appendChild(btn);
+      if(chosen){var cl=document.createElement("button");cl.type="button";cl.className="clearbtn";cl.textContent="취소";
+        cl.onclick=function(){delete choices[b.ind];save(choices);render();};row.appendChild(cl);}
+      fig.appendChild(row);
+      trio.appendChild(fig);
+    });
+    sec.appendChild(trio);
+    main.appendChild(sec);
+  });
+  var tally=document.getElementById("tally");
+  var ids=Object.keys(choices);
+  if(!ids.length){tally.textContent="아직 고른 안이 없습니다.";return;}
+  var count={v1:0,v2:0,v3:0};
+  ids.forEach(function(k){var v=choices[k];if(count[v]!==undefined)count[v]++;});
+  tally.textContent="내 선택 집계(이 브라우저만, 서버 전송 없음): 1안(기본형) "+count.v1+" · 2안(사진 강조형) "+count.v2+" · 3안(간결형) "+count.v3+" (총 "+ids.length+"/6)";
+}
+document.getElementById("blind").onchange=function(e){blind=e.target.checked;render();};
+document.getElementById("resetAll").onclick=function(){choices={};save(choices);render();};
+render();
+})();
+</script>
+</body>
+</html>

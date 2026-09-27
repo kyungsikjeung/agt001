@@ -321,6 +321,7 @@
       <h2>더보기</h2>
       <p id="inviteNotice" hidden>방장에게 초대 링크를 받아 주세요</p>
       <button id="talkNotifyBtn" type="button" hidden>문의를 카톡으로 받기</button>
+      <button id="aiImageBtn" type="button" hidden>AI 예시 이미지 만들기</button>
       <a id="editorLink" class="more-item" href="#" hidden>직접 고치기</a>
       <div id="walkieSlot"></div>
       <button id="moreLeaveBtn" type="button">방에서 나가기</button>
@@ -1552,13 +1553,16 @@ function updateOwnerTools() {
   const talkBtn = document.getElementById('talkNotifyBtn');
   const editor = document.getElementById('editorLink');
   const moreLeave = document.getElementById('moreLeaveBtn');
+  const aiBtn = document.getElementById('aiImageBtn');
   if (!talkBtn || !editor) return;
   if (!isOwner()) {
     talkBtn.hidden = true;
     editor.hidden = true;
+    if (aiBtn) aiBtn.hidden = true;
     if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
     return;
   }
+  if (aiBtn) aiBtn.hidden = false;
   talkBtn.hidden = !!notifyUnsupported;
   if (hasDesign) {
     editor.hidden = false;
@@ -1852,6 +1856,35 @@ document.getElementById('photoInput').addEventListener('change', (e) => {
   if (f) uploadPhoto(f);
 });
 document.getElementById('talkNotifyBtn').addEventListener('click', startTalkNotify);
+
+// AI 예시 이미지 만들기 (방장만, 버튼식. 뒤에서 만들고 끝나면 방에 알린다).
+async function makeAiImages() {
+  const btn = document.getElementById('aiImageBtn');
+  if (btn) btn.disabled = true;
+  setPhotoStatus('AI 예시 이미지를 만들고 있어요(1~2분). 끝나면 알려 드릴게요.');
+  try {
+    const res = await fetch(`/room/${roomId}/ai-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ slot: 'all' }),
+    });
+    if (res.status === 403) {
+      setPhotoStatus('방장만 만들 수 있어요.');
+      return;
+    }
+    if (!res.ok) {
+      setPhotoStatus('지금은 AI 이미지를 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.');
+      return;
+    }
+    closeMoreSheet();
+    await pollMessages();
+  } catch (e) {
+    setPhotoStatus('인터넷 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+document.getElementById('aiImageBtn').addEventListener('click', makeAiImages);
 
 // 랜딩(frontend/src/api.ts)에서 넘어온 첫 메시지. 이 방의 것일 때만 한 번 쓰고 지운다.
 let pending = null;

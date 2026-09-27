@@ -126,20 +126,24 @@ def _composed_reason(c: dict) -> str:
 
 def _valid(c: dict, base: dict, shop: str = "", allowed_digits: frozenset = frozenset()) -> dict:
     """AI 결과를 목록 안의 값으로만 받아들인다. 틀린 값은 base 값으로 둔다."""
+    if not isinstance(c, dict):
+        return dict(base)
+    shop_s = str(shop or "").strip()
+    allowed_set = set(allowed_digits or ())
     out = dict(base)
     for key, allowed in (("palette", PALETTES), ("font_pair", FONT_PAIRS), ("density", DENSITIES),
                          ("radius", RADII), ("lead", LEADS)):
         if c.get(key) in allowed:
             out[key] = c[key]
     name = str(c.get("name") or "").strip()
-    if 2 <= len(name) <= 16 and not (shop and (shop in name or name in shop)):  # 가게 이름은 컨셉 이름이 아니다
+    if 2 <= len(name) <= 16 and not (shop_s and (shop_s in name or name in shop_s)):  # 가게 이름은 컨셉 이름이 아니다
         out["name"] = name
-    mood = [str(m).strip() for m in (c.get("mood") or []) if str(m).strip()][:3]
+    mood = [str(m).strip() for m in (c.get("mood") or []) if str(m).strip()]
     if len(mood) == 3 and all(len(m) <= 8 for m in mood):
         out["mood"] = mood
     reason = str(c.get("reason") or "").strip()
     # 사장님이 말하지 않은 숫자가 든 이유는 지어낸 사실일 수 있어 버린다
-    if 8 <= len(reason) <= 90 and set(re.findall(r"\d+", reason)) <= allowed_digits:
+    if 8 <= len(reason) <= 90 and set(re.findall(r"\d+", reason)) <= allowed_set:
         out["reason"] = reason
     elif any(out[k] != base[k] for k in ("palette", "font_pair", "lead")):
         out["reason"] = _composed_reason(out)
@@ -164,12 +168,23 @@ _REQUIRED_KEYS = ("name", "mood", "palette", "font_pair", "density", "radius", "
 
 
 def validate_concept(c: dict, shop: str = "", allowed_digits: frozenset = frozenset()) -> list:
-    """명세 문제를 짧은 한국어 문구 목록으로 돌려준다. 문제없으면 []."""
+    """명세 문제를 짧은 한국어 문구 목록으로 돌려준다. 문제없으면 [].
+
+    _valid()와 같은 기준으로 판단한다: 목록 안 키·분위기 3개(각 8자 이내)·이름 2~16자·
+    가게 이름 금지·이유 8~90자+사장님이 말한 숫자만. 어긋나면 _valid()가 base로 되돌리는 값이다.
+    """
     if not isinstance(c, dict):
         return ["명세가 JSON 객체가 아니에요"]
+    shop_s = str(shop or "").strip()
+    allowed_set = set(allowed_digits or ())
     problems = []
     for key in _REQUIRED_KEYS:
-        if c.get(key) in (None, ""):
+        v = c.get(key)
+        if v is None:
+            problems.append(f"{key}: 비어 있어요")
+        elif isinstance(v, str) and not v.strip():
+            problems.append(f"{key}: 비어 있어요")
+        elif isinstance(v, list) and not [x for x in v if str(x).strip()]:
             problems.append(f"{key}: 비어 있어요")
     for key, allowed in (("palette", PALETTES), ("font_pair", FONT_PAIRS), ("density", DENSITIES),
                          ("radius", RADII), ("lead", LEADS)):
@@ -178,7 +193,7 @@ def validate_concept(c: dict, shop: str = "", allowed_digits: frozenset = frozen
     name = str(c.get("name") or "").strip()
     if name and not (2 <= len(name) <= 16):
         problems.append("name: 2~16자로 해주세요")
-    if name and shop and (shop in name or name in shop):
+    if name and shop_s and (shop_s in name or name in shop_s):
         problems.append("name: 가게 이름을 쓰지 말고 분위기를 이름으로 해주세요")
     mood = [str(m).strip() for m in (c.get("mood") or []) if str(m).strip()]
     if len(mood) != 3:
@@ -188,7 +203,7 @@ def validate_concept(c: dict, shop: str = "", allowed_digits: frozenset = frozen
     reason = str(c.get("reason") or "").strip()
     if reason and not 8 <= len(reason) <= 90:
         problems.append("reason: 8~90자로 해주세요")
-    if reason and not set(re.findall(r"\d+", reason)) <= set(allowed_digits):
+    if reason and not set(re.findall(r"\d+", reason)) <= allowed_set:
         problems.append("reason: 사장님이 말하지 않은 숫자는 빼주세요")
     return problems
 

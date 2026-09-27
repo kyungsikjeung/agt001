@@ -28,6 +28,10 @@ class RoomCreateIn(BaseModel):
     template_id: Optional[str] = None
 
 
+class AiImageIn(BaseModel):
+    slot: str = "all"  # hero·gallery-1·gallery-2·all
+
+
 @router.post("/room")
 def create_room(body: Optional[RoomCreateIn] = None):
     # 본문 없이 불러도 된다(예전 방식). 템플릿을 넘기면 그 업종 카드로 시작한다(B-15).
@@ -116,3 +120,42 @@ async def room_photo_upload(room_id: str, file: UploadFile = File(...), caption:
 def room_photo_delete(room_id: str, photo_id: str, x_member_id: Optional[str] = Header(default=None)):
     _guard(lambda: photos.remove(room_id, x_member_id, photo_id))
     return Response(status_code=204)
+
+
+@router.post("/room/{room_id}/ai-image", status_code=202)
+def room_ai_image(room_id: str, body: Optional[AiImageIn] = None,
+                  x_member_id: Optional[str] = Header(default=None)):
+    """AI 예시 이미지 버튼 생성 (방장만, 뒤에서 만들고 방에 알린다)."""
+    from app.services import ai_images, rooms as _rooms
+    from app.security import sanitize_token
+
+    from fastapi import HTTPException as _HE
+    from app import store as _store
+
+    slot = (body.slot if body else "all") or "all"
+    safe_room = sanitize_token(room_id or "")
+    member = sanitize_token(x_member_id or "")
+    room = _store.read_room(safe_room)
+    if room is None or not any(m["member_id"] == member for m in room["members"]):
+        raise _HE(status_code=404, detail="room not found")
+    if not room["members"] or room["members"][0]["member_id"] != member:
+        raise _HE(status_code=403, detail="owner only")
+
+    def _run():
+        try:
+            ai_images.ensure(safe_room, slot)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("AI 이미지 생성 실패 room=%s", safe_room)
+            try:
+                from app import store as _store
+                with _store.room_tx(safe_room) as (r, _s):
+                    if r is not None:
+                        _rooms._append(r, "system", "시스템",
+                                        "AI 이미지를 만들지 못했어요. 잠시 뒤에 다시 눌러 주세요.", kind="system")
+            except Exception:
+                pass
+
+    import threading
+    threading.Thread(target=_run, daemon=True).start()
+    return {"status": "generating", "slot": slot}

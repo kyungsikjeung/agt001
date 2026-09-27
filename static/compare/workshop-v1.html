@@ -1,3 +1,13 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>손끝가죽 공방</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600&amp;display=swap">
+<style>
+:root{--c-primary:#4a6741;--c-accent:#8a6d2b;--c-ground:#f7f4ec;--c-ink:#23281f;--font-display:"Noto Serif KR", "Pretendard", sans-serif;--font-body:"Pretendard", "Noto Sans KR", sans-serif;--space-section:64px;--space-gap:16px;--space-card:24px;--content-max:720px;--radius-card:12px;--radius-btn:999px;--card:#FFFFFF;--on-primary:#FFFFFF;--ground-soft:#fbfaf6;--ground-soft:color-mix(in srgb, var(--c-ground) 50%, #FFFFFF);--line:rgba(35,40,31,0.14);--line:color-mix(in srgb, var(--c-ink) 14%, transparent);--focus:#8a6d2b;--muted:#787a71;--muted:color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));}@media (max-width:767px){:root{--space-section:40px;}}
 /* 섹션 부품 공통 스타일 (WP P-3, P2 다듬기).
  * 색·글꼴·여백·모서리는 아래 CSS 변수만 사용한다. 렌더러가 tokens에서 :root 값을 채운다.
  * --c-primary, --c-accent, --c-ground, --c-ink,
@@ -1056,3 +1066,158 @@ section[class^="s-"] h2::after,
 /* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
 section.s-hero .s-hero__cta { margin: 26px 0 0; }
 section.s-hero .s-lead { margin: 0 0 4px; }
+
+</style>
+</head>
+<body>
+<section class="s-hero s-hero--text-only" data-section-id="hero" aria-labelledby="hero-title-hero">
+  <div class="s-hero__body">
+    <h1 class="s-title" id="hero-title-hero">
+      손끝가죽 공방
+    </h1>
+    <p class="s-lead">
+      공방
+    </p>
+    <ul class="s-hero__facts"><li><span class="s-hero__fact-label">영업</span> 주말 10~17시</li><li><span class="s-hero__fact-label">위치</span> 경기 고양시 일산 근처</li></ul>
+    <p class="s-hero__cta"><a class="s-btn" href="#booking-title-booking">예약 신청</a></p>
+  </div>
+</section>
+
+<section class="s-offerings s-offerings--tabs" data-section-id="classes" aria-labelledby="offerings-title-classes">
+  <h2 id="offerings-title-classes">수업 종류</h2>
+  <nav class="s-tabs__nav" aria-label="분류">
+    <a class="s-tabs__tab" href="#tab-classes-1">가죽 카드지갑 클래스</a>
+  </nav>
+  <div class="s-tabs__panel" id="tab-classes-1" tabindex="0">
+    <strong class="s-card__name">가죽 카드지갑 클래스</strong>
+    
+    <p class="s-card__price"><span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span></p>
+  </div>
+</section>
+
+<section class="s-intro s-intro--owner" data-section-id="intro" aria-labelledby="intro-title-intro">
+  <h2 id="intro-title-intro">소개</h2>
+  
+  <p class="s-intro__owner">사장님:
+    <span class="is-placeholder" aria-label="사장님 이름: 아직 입력되지 않음">[사장님 이름 입력]</span>
+  </p>
+</section>
+
+<section class="s-gallery s-gallery--grid" data-section-id="gallery" aria-labelledby="gallery-title-gallery"><h2 id="gallery-title-gallery">사진첩</h2><ul class="s-gallery__list"><li><figure><div class="s-illu" role="img" aria-label="예시 이미지: 사장님 사진으로 바뀌어요"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-hidden="true"><rect width="400" height="300" fill="var(--c-ground)"/><path d="M150 110 q50 -44 100 0" fill="none" stroke="var(--c-ink)" stroke-width="10" stroke-linecap="round"/><rect x="110" y="110" width="180" height="120" rx="14" fill="var(--c-primary)"/><rect x="180" y="140" width="40" height="30" rx="6" fill="var(--c-accent)"/><line x1="110" y1="176" x2="290" y2="176" stroke="var(--c-ink)" stroke-width="6"/><rect x="132" y="196" width="24" height="20" rx="4" fill="var(--c-ground)"/><rect x="244" y="196" width="24" height="20" rx="4" fill="var(--c-ground)"/></svg><span class="s-illu-badge">예시 이미지</span></div></figure></li><li><figure><div class="s-illu" role="img" aria-label="예시 이미지: 사장님 사진으로 바뀌어요"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" role="img" aria-hidden="true"><rect width="400" height="300" fill="var(--c-ground)"/><circle cx="140" cy="130" r="56" fill="none" stroke="var(--c-primary)" stroke-width="22"/><circle cx="140" cy="130" r="20" fill="var(--c-accent)"/><rect x="180" y="150" width="130" height="30" rx="15" fill="var(--c-primary)" transform="rotate(-18 245 165)"/><circle cx="308" cy="120" r="24" fill="none" stroke="var(--c-accent)" stroke-width="12"/><rect x="96" y="220" width="60" height="16" rx="8" fill="var(--c-ink)"/><circle cx="180" cy="228" r="8" fill="var(--c-ink)"/><circle cx="230" cy="228" r="8" fill="var(--c-ink)"/></svg><span class="s-illu-badge">예시 이미지</span></div></figure></li></ul><p class="s-gallery__notice">사장님 사진으로 바뀌어요</p></section>
+<section class="s-contact s-contact--booking-first" data-section-id="contact" aria-labelledby="contact-title-contact">
+  <h2 id="contact-title-contact">영업시간·연락</h2>
+  
+  <dl class="s-contact__list">
+    <div class="s-contact__row">
+      <dt>전화</dt>
+      <dd>
+        <a href="tel:01000005502" aria-label="가게에 전화하기">010-0000-5502</a>
+        
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>영업시간</dt>
+      <dd>
+        주말 10~17시
+        
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>주소</dt>
+      <dd>경기 고양시 일산 근처</dd>
+    </div>
+  </dl>
+</section>
+
+<section class="s-cta s-cta--external" data-section-id="booking" aria-labelledby="cta-title-booking">
+  <h2 id="cta-title-booking">예약·문의</h2>
+  <p><span class="is-placeholder" aria-label="예약 주소: 아직 입력되지 않음">[예약 주소 입력]</span></p>
+</section>
+
+<section class="s-booking s-booking--form" data-section-id="booking" aria-labelledby="booking-title-booking">
+  <h2 id="booking-title-booking">예약 신청</h2>
+  <p class="s-booking__note">가게에서 확인 후 연락드려요. 신청만으로 예약이 확정되지는 않아요.</p>
+  <form class="s-form" method="post" action="/api/bookings/compare-workshop" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="booking-date-booking">방문일 (필수)</label>
+      <input id="booking-date-booking" name="date" type="date" required aria-describedby="booking-date-hint-booking">
+      <span class="s-form__hint" id="booking-date-hint-booking">오늘부터 60일 안에서 골라 주세요</span>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-time-booking">시간 (필수)</label>
+      <select id="booking-time-booking" name="time" required>
+        <option value="10:00">10:00</option><option value="10:30">10:30</option><option value="11:00">11:00</option><option value="11:30">11:30</option><option value="12:00">12:00</option><option value="12:30">12:30</option><option value="13:00">13:00</option><option value="13:30">13:30</option><option value="14:00">14:00</option><option value="14:30">14:30</option><option value="15:00">15:00</option><option value="15:30">15:30</option><option value="16:00">16:00</option>
+      </select>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-service-booking">수업 종류 (선택)</label>
+      <select id="booking-service-booking" name="service">
+        <option value="">선택 안 함</option>
+        <option value="가죽 카드지갑 클래스">가죽 카드지갑 클래스</option>
+      </select>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-party-booking">인원 (필수)</label>
+      <input id="booking-party-booking" name="party" type="number" min="1" max="20" value="1" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-name-booking">이름 (선택)</label>
+      <input id="booking-name-booking" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="booking-phone-booking">연락처 (필수)</label>
+      <input id="booking-phone-booking" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-memo-booking">메모 (선택)</label>
+      <textarea id="booking-memo-booking" name="memo" rows="4" maxlength="300"></textarea>
+    </p>
+    <p class="s-form__notice">예약 정보는 방문일 뒤 30일 보관 후 삭제합니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="booking-agree-booking" name="agree" type="checkbox" value="yes" required>
+      <label for="booking-agree-booking">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="booking-website-booking">웹사이트는 비워 두세요</label>
+      <input id="booking-website-booking" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">예약 신청하기</button></p>
+  </form>
+</section>
+
+<section class="s-contact s-contact--form" data-section-id="inquiry" aria-labelledby="contact-title-inquiry">
+  <h2 id="contact-title-inquiry">문의하기</h2>
+  <form class="s-form" method="post" action="/api/inquiries/compare-workshop" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="inquiry-name-inquiry">이름 (선택)</label>
+      <input id="inquiry-name-inquiry" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-contact-inquiry">연락처 (필수)</label>
+      <input id="inquiry-contact-inquiry" name="contact" type="text" maxlength="100" required aria-describedby="inquiry-contact-hint-inquiry">
+      <span class="s-form__hint" id="inquiry-contact-hint-inquiry">전화번호 또는 이메일</span>
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-message-inquiry">문의 내용 (필수)</label>
+      <textarea id="inquiry-message-inquiry" name="message" rows="5" maxlength="1000" required></textarea>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·연락처·문의 내용은 문의 답변을 위해 가게에 전달되며, 30일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="inquiry-agree-inquiry" name="agree" type="checkbox" value="yes" required>
+      <label for="inquiry-agree-inquiry">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="inquiry-website-inquiry">웹사이트는 비워 두세요</label>
+      <input id="inquiry-website-inquiry" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">문의 보내기</button></p>
+  </form>
+</section>
+
+<section class="s-reviews s-reviews--slot-only" data-section-id="reviews" aria-labelledby="reviews-title-reviews">
+  <h2 id="reviews-title-reviews">후기</h2>
+  <p>후기가 모이면 여기에 표시됩니다.</p>
+</section>
+
+</body>
+</html>

@@ -1,6 +1,6 @@
 <section class="s-hero s-hero--photo-overlay" data-section-id="{{id}}" aria-labelledby="hero-title-{{id}}">
   <div class="s-media">
-    {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{/image_src}}
+    {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{#image_ai_badge}}<span class="s-illu-badge">AI 예시 이미지</span>{{/image_ai_badge}}{{/image_src}}
     {{^image_src}}<div class="s-media__empty is-placeholder" aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>{{/image_src}}
   </div>
   <div class="s-hero__body">

@@ -1,3 +1,13 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>솔숲쉼터 펜션</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@600&amp;display=swap">
+<style>
+:root{--c-primary:#3a3a3c;--c-accent:#8a6d2b;--c-ground:#fafaf8;--c-ink:#1e1e20;--font-display:"Noto Serif KR", "Pretendard", sans-serif;--font-body:"Pretendard", "Noto Sans KR", sans-serif;--space-section:32px;--space-gap:8px;--space-card:12px;--content-max:720px;--radius-card:2px;--radius-btn:2px;--card:#FFFFFF;--on-primary:#FFFFFF;--ground-soft:#fcfcfc;--ground-soft:color-mix(in srgb, var(--c-ground) 50%, #FFFFFF);--line:rgba(30,30,32,0.14);--line:color-mix(in srgb, var(--c-ink) 14%, transparent);--focus:#8a6d2b;--muted:#767676;--muted:color-mix(in srgb, var(--c-ink) 60%, var(--c-ground));}@media (max-width:767px){:root{--space-section:24px;}}
 /* 섹션 부품 공통 스타일 (WP P-3, P2 다듬기).
  * 색·글꼴·여백·모서리는 아래 CSS 변수만 사용한다. 렌더러가 tokens에서 :root 값을 채운다.
  * --c-primary, --c-accent, --c-ground, --c-ink,
@@ -1056,3 +1066,161 @@ section[class^="s-"] h2::after,
 /* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
 section.s-hero .s-hero__cta { margin: 26px 0 0; }
 section.s-hero .s-lead { margin: 0 0 4px; }
+
+</style>
+</head>
+<body>
+<section class="s-hero s-hero--text-only" data-section-id="hero" aria-labelledby="hero-title-hero">
+  <div class="s-hero__body">
+    <h1 class="s-title" id="hero-title-hero">
+      솔숲쉼터 펜션
+    </h1>
+    <p class="s-lead">
+      펜션
+    </p>
+    <ul class="s-hero__facts"><li><span class="s-hero__fact-label">영업</span> 체크인 15시, 체크아웃 11시</li><li><span class="s-hero__fact-label">위치</span> 강원 평창군 봉평 근처</li></ul>
+    <p class="s-hero__cta"><a class="s-btn" href="#booking-title-booking">예약 신청</a></p>
+  </div>
+</section>
+
+<section class="s-offerings s-offerings--tabs" data-section-id="rooms" aria-labelledby="offerings-title-rooms">
+  <h2 id="offerings-title-rooms">객실 구성</h2>
+  <nav class="s-tabs__nav" aria-label="분류">
+    <a class="s-tabs__tab" href="#tab-rooms-1">객실 3개</a>
+  </nav>
+  <div class="s-tabs__panel" id="tab-rooms-1" tabindex="0">
+    <strong class="s-card__name">객실 3개</strong>
+    
+    <p class="s-card__price"><span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span></p>
+  </div>
+</section>
+
+<section class="s-intro s-intro--short" data-section-id="intro" aria-labelledby="intro-title-intro">
+  <h2 id="intro-title-intro">소개</h2>
+  
+</section>
+
+<section class="s-contact s-contact--call-first" data-section-id="contact" aria-labelledby="contact-title-contact">
+  <h2 id="contact-title-contact">영업시간·연락</h2>
+  <dl class="s-contact__list">
+    <div class="s-contact__row">
+      <dt>전화</dt>
+      <dd>
+        
+        <span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span>
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>영업시간</dt>
+      <dd>
+        체크인 15시, 체크아웃 11시
+        
+      </dd>
+    </div>
+    <div class="s-contact__row">
+      <dt>주소</dt>
+      <dd>강원 평창군 봉평 근처</dd>
+    </div>
+  </dl>
+  
+</section>
+
+<section class="s-contact s-contact--form" data-section-id="inquiry" aria-labelledby="contact-title-inquiry">
+  <h2 id="contact-title-inquiry">문의하기</h2>
+  <form class="s-form" method="post" action="/api/inquiries/compare-pension" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="inquiry-name-inquiry">이름 (선택)</label>
+      <input id="inquiry-name-inquiry" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-contact-inquiry">연락처 (필수)</label>
+      <input id="inquiry-contact-inquiry" name="contact" type="text" maxlength="100" required aria-describedby="inquiry-contact-hint-inquiry">
+      <span class="s-form__hint" id="inquiry-contact-hint-inquiry">전화번호 또는 이메일</span>
+    </p>
+    <p class="s-form__row">
+      <label for="inquiry-message-inquiry">문의 내용 (필수)</label>
+      <textarea id="inquiry-message-inquiry" name="message" rows="5" maxlength="1000" required></textarea>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·연락처·문의 내용은 문의 답변을 위해 가게에 전달되며, 30일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="inquiry-agree-inquiry" name="agree" type="checkbox" value="yes" required>
+      <label for="inquiry-agree-inquiry">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="inquiry-website-inquiry">웹사이트는 비워 두세요</label>
+      <input id="inquiry-website-inquiry" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">문의 보내기</button></p>
+  </form>
+</section>
+
+<section class="s-cta s-cta--call-sms" data-section-id="booking" aria-labelledby="cta-title-booking">
+  <h2 id="cta-title-booking">예약·문의</h2>
+  <p><span class="is-placeholder" aria-label="전화번호: 아직 입력되지 않음">[전화번호 입력]</span></p>
+</section>
+
+<section class="s-around s-around--transit" data-section-id="around" aria-labelledby="around-title-around">
+  <h2 id="around-title-around">오시는 길</h2>
+  <address class="s-around__addr">
+    강원 평창군 봉평 근처
+  </address>
+  
+  <p><span class="is-placeholder" aria-label="교통 안내: 아직 입력되지 않음">[교통 안내 입력]</span></p>
+</section>
+
+<section class="s-reviews s-reviews--slot-only" data-section-id="reviews" aria-labelledby="reviews-title-reviews">
+  <h2 id="reviews-title-reviews">후기</h2>
+  <p>후기가 모이면 여기에 표시됩니다.</p>
+</section>
+
+<section class="s-booking s-booking--form" data-section-id="booking" aria-labelledby="booking-title-booking">
+  <h2 id="booking-title-booking">예약 신청</h2>
+  <p class="s-booking__note">가게에서 확인 후 연락드려요. 신청만으로 예약이 확정되지는 않아요.</p>
+  <form class="s-form" method="post" action="/api/bookings/compare-pension" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="booking-date-booking">방문일 (필수)</label>
+      <input id="booking-date-booking" name="date" type="date" required aria-describedby="booking-date-hint-booking">
+      <span class="s-form__hint" id="booking-date-hint-booking">오늘부터 60일 안에서 골라 주세요</span>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-time-booking">희망 시간 (선택)</label>
+      <input id="booking-time-booking" name="time" type="time">
+    </p>
+    <p class="s-form__row">
+      <label for="booking-service-booking">객실 구성 (선택)</label>
+      <select id="booking-service-booking" name="service">
+        <option value="">선택 안 함</option>
+        <option value="객실 3개">객실 3개</option>
+      </select>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-party-booking">인원 (필수)</label>
+      <input id="booking-party-booking" name="party" type="number" min="1" max="20" value="1" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-name-booking">이름 (선택)</label>
+      <input id="booking-name-booking" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="booking-phone-booking">연락처 (필수)</label>
+      <input id="booking-phone-booking" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
+    </p>
+    <p class="s-form__row">
+      <label for="booking-memo-booking">메모 (선택)</label>
+      <textarea id="booking-memo-booking" name="memo" rows="4" maxlength="300"></textarea>
+    </p>
+    <p class="s-form__notice">예약 정보는 방문일 뒤 30일 보관 후 삭제합니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="booking-agree-booking" name="agree" type="checkbox" value="yes" required>
+      <label for="booking-agree-booking">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="booking-website-booking">웹사이트는 비워 두세요</label>
+      <input id="booking-website-booking" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">예약 신청하기</button></p>
+  </form>
+</section>
+
+</body>
+</html>
