@@ -107,6 +107,21 @@ def _put(card, key, value, status, turn=None, by=None):
     card["slots"][key] = {"value": value, "status": status, "evidence": [] if turn is None else [turn], "by": by}
 
 
+def _show(value) -> str:
+    return ", ".join(map(str, value)) if isinstance(value, list) else str(value)
+
+
+def _merge_items(card, key, value, keep: tuple) -> list:
+    """목록 칸: 지금 값(상태가 keep일 때) + 새 항목, 중복·제외 항목 빼고."""
+    cur = _slot(card, key)
+    items = list(cur["value"]) if cur["status"] in keep and isinstance(cur.get("value"), list) else []
+    for item in _split_items(value):
+        if item not in items:
+            items.append(item)
+    excl = _split_items(_slot(card, "exclude").get("value"))
+    return [i for i in items if not any(e in i for e in excl)]
+
+
 def _slot(card, key) -> dict:
     return card["slots"].get(key) or {"value": None, "status": S.EMPTY, "evidence": [], "by": None}
 
@@ -713,7 +728,12 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
                 log.info("잘못된 %s 저장 차단(공유방): %s", key, reason)
                 _note_blocked(card, key, reason)
                 continue
-            _put(card, key, _norm_text(value), S.PENDING_OWNER, turn, by)
+            if spec.multi:
+                # 한 번에 온 여러 항목("아메리카노, 한라봉차")이 서로 덮어써 마지막만 남던 문제(T3 z2 cafe-group)
+                value = _merge_items(card, key, value, (S.FILLED, S.PENDING_OWNER))
+            elif isinstance(value, str):
+                value = _norm_text(value)
+            _put(card, key, value, S.PENDING_OWNER, turn, by)
             applied.append(key)
             continue
         if spec.fact and isinstance(value, str):
@@ -727,14 +747,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             _note_blocked(card, key, reason)
             continue
         if spec.multi:
-            cur = _slot(card, key)
-            items = list(cur["value"]) if cur["status"] == S.FILLED and cur.get("value") else []
-            for item in _split_items(value):
-                if item not in items:
-                    items.append(item)
-            excl = _split_items(_slot(card, "exclude").get("value"))
-            items = [i for i in items if not any(e in i for e in excl)]
-            _put(card, key, items, S.FILLED, turn, by)
+            _put(card, key, _merge_items(card, key, value, (S.FILLED,)), S.FILLED, turn, by)
         else:
             _put(card, key, value, S.FILLED, turn, by)
         if key == "business_type":
@@ -1021,7 +1034,7 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             card["pending"] = None
             return True
         if _needs_owner_confirm(card, key, is_owner):
-            _put(card, key, _norm_text(o), S.PENDING_OWNER, card["turn"], by)
+            _put(card, key, [o] if S.SLOTS[key].multi else _norm_text(o), S.PENDING_OWNER, card["turn"], by)
         else:
             value = [o] if S.SLOTS[key].multi else o
             _put(card, key, value, S.FILLED, card["turn"], by)
@@ -1143,7 +1156,7 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
     for key, slot in card["slots"].items():
         if slot["status"] == S.PENDING_OWNER:
             return {"slot": key, "kind": "owner_confirm", "options": ["네", "아니요"],
-                    "text": f"{S.label_for(ind, key)}을(를) '{slot['value']}'(으)로 받았어요. 방장님, 맞나요?"}
+                    "text": f"{S.label_for(ind, key)}을(를) '{_show(slot['value'])}'(으)로 받았어요. 방장님, 맞나요?"}
     if owner_only:
         return None
     # 저신뢰 재확인 (신규 LLM 에이전트 금지, D34 유지): STT 뭉개짐 후보가 카드에

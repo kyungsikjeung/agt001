@@ -258,6 +258,20 @@ def test_nonowner_required_nonfact_needs_owner_confirm(monkeypatch):
     assert card["slots"]["contact_method"]["status"] == S.PENDING_OWNER
 
 
+def test_nonowner_list_items_all_wait_for_owner(monkeypatch):
+    # z2 cafe-group: 아내가 "아메리카노, 한라봉차" → 항목별 업데이트가 서로 덮어써 '한라봉차'만 남고
+    # 방장이 "아니요"를 반복하던 문제. 두 항목 모두 확인 대기에 올라가고 확인 문장도 목록으로 보인다.
+    fake_setup(monkeypatch, {})
+    card = E.new_card("cafe")
+    card["turn"] = 3
+    card["said"] = ["아메리카노, 한라봉차요"]
+    E.apply_updates(card, [u("offerings", "아메리카노"), u("offerings", "한라봉차")],
+                    "아메리카노, 한라봉차요", by="h-wife", is_owner=False)
+    slot = card["slots"]["offerings"]
+    assert slot["status"] == S.PENDING_OWNER and slot["value"] == ["아메리카노", "한라봉차"]
+    assert "'아메리카노, 한라봉차'" in E._confirm_question(card)["text"]
+
+
 def test_owner_required_nonfact_fills_directly(monkeypatch):
     # 방장은 그대로 확정된다 (질문 1회 증가 없음).
     fake_setup(monkeypatch, {})
