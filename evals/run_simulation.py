@@ -25,7 +25,7 @@ IRE 정의: 사실표 hidden_facts에서 true인 항목 중 대화로 끌어낸(
 대화 한계: 시나리오당 최대 MAX_TURNS=12턴(PLAN §4.1: 약 12번 호출 가정).
 합격선: PLAN §4.1 — 필수 칸 채움률 95%↑, 정확도 95%↑, 지어낸 값 0개(전화·주소·가격
 1건이면 불합격), 질문 수 평균 3회 이하(§7 v2 상한 8회로 함께 표기), 중복 질문 0회,
-규칙 위반 0회.
+규칙 위반 0회. 공유방(group) 시나리오는 질문 수 대신 방 동의율 100%(전원 동의, D52).
 """
 
 import argparse
@@ -225,10 +225,15 @@ def run_dialogue(scenario, engine, owner_llm_fn, *, max_turns: int = MAX_TURNS) 
         confirmed = True
         transcript.append({"role": "사장님", "name": "사장님", "text": CONFIRM_WORD})
 
+    # D52: 공유방은 요약 단계에서 전원 동의해야 넘어간다. 참여자는 방장이 정한 값(사실표)을 따르므로
+    # 카드가 사실표와 맞으면 모두 동의, 아니면 아무도 동의하지 않은 것으로 본다.
+    # ponytail: 참여자별 반대 의견 모의 없음 — 필요하면 members[].opinions로 거절 발화를 만든다.
+    members = (scenario.get("group") or {}).get("members") or []
+    agree_rate = (1.0 if confirmed else 0.0) if members else None
     return {"scenario_id": scenario.get("id"), "transcript": transcript,
             "final_card": card, "questions": questions,
             "current_facts": current_facts, "confirmed": confirmed,
-            "turns": turn_no + extra_turns}
+            "agree_rate": agree_rate, "turns": turn_no + extra_turns}
 
 
 def _find_corrections(scenario, facts, card) -> list:
@@ -467,14 +472,18 @@ def score_dialogue(scenario, result) -> dict:
                            "slot": hit["slot"], "value": hit["bad"]})
     max_q = (expect.get("max_questions") or S.MAX_QUESTIONS)
 
+    # D52: 공유방은 질문 수 대신 방 동의율(전원 동의)이 기준이다. 질문 수는 보고만 한다.
+    agree_rate = result.get("agree_rate")
+    enough = (agree_rate == 1.0) if agree_rate is not None else n_q <= max_q
     passed = (fill_rate >= 0.95 and accuracy >= 0.95 and not invented
-              and n_q <= max_q and dups == 0 and not violations)
+              and enough and dups == 0 and not violations)
     return {"scenario_id": scenario.get("id"), "fill_rate": round(fill_rate, 3),
             "accuracy": round(accuracy, 3), "mismatches": mismatches,
             "invented": invented, "critical_invented": critical,
             "questions": n_q, "max_questions": max_q, "duplicates": dups,
             "ire": round(ire, 3), "tkqr": round(tkqr, 3),
             "violations": violations, "confirmed": result.get("confirmed", False),
+            "agree_rate": agree_rate,
             "turns": result.get("turns", 0), "passed": passed}
 
 
@@ -534,6 +543,8 @@ def write_markdown(results: list, path: str) -> str:
     L += ["", "## 합격선 대비 (PLAN §4.1, 질문 상한은 §7 v2=8회 병기)", "",
           "| 지표 | 합격선 | 이번 결과 | 판정 |",
           "|---|---|---|---|"]
+    solo = [x for x in scores if x.get("agree_rate") is None]
+    group = [x for x in scores if x.get("agree_rate") is not None]
     checks = [
         ("필수 칸 채움률", "95% 이상", f"{_avg(scores, 'fill_rate') * 100:.1f}%",
          _avg(scores, "fill_rate") >= 0.95),
@@ -541,9 +552,12 @@ def write_markdown(results: list, path: str) -> str:
          _avg(scores, "accuracy") >= 0.95),
         ("지어낸 값", "0개 (전화·주소·가격 1건이면 불합격)", f"{all_invented}건",
          all_invented == 0),
-        ("질문 수", "평균 3회 이하, 최대 5회 (§7 v2: 최대 8회)",
-         f"평균 {avg_q}회, 최대 {max(s['questions'] for s in scores) if scores else 0}회",
-         avg_q <= 3 and all(s["questions"] <= 8 for s in scores)),
+        ("질문 수 (1:1)", "평균 3회 이하, 최대 5회 (§7 v2: 최대 8회)",
+         f"평균 {_avg(solo, 'questions')}회, 최대 {max((s['questions'] for s in solo), default=0)}회",
+         _avg(solo, "questions") <= 3 and all(s["questions"] <= 8 for s in solo)),
+        ("방 동의율 (공유방, D52)", "100% (전원 동의)",
+         f"{_avg(group, 'agree_rate') * 100:.0f}% ({len(group)}개)" if group else "-",
+         all(s["agree_rate"] == 1.0 for s in group)),
         ("중복 질문", "0회", f"{sum(s['duplicates'] for s in scores)}회",
          all(s["duplicates"] == 0 for s in scores)),
         ("규칙 위반", "0회", f"{sum(len(s['violations']) for s in scores)}회",

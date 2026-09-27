@@ -120,16 +120,13 @@ def test_exclude_removes_items(fake_extract):
     assert "바비큐" in card["slots"]["exclude"]["value"]
 
 
-def test_group_facts_need_owner_confirmation(fake_extract):
+def test_group_member_answer_fills_without_owner_confirm(fake_extract):
+    # D52: 공유방도 답마다 방장 확인을 묻지 않는다. 확인은 요약 단계의 전원 동의로 한 번에.
     fake_extract["번호는 010-0000-3333이에요"] = [u("phone", "010-0000-3333")]
     card = E.new_card()
     r = E.turn(card, "번호는 010-0000-3333이에요", by="h-daughter", is_owner=False)
-    assert status(card, "phone") == S.PENDING_OWNER
-    assert r["question"]["kind"] == "owner_confirm"
-    E.turn(card, "네", by="h-daughter", is_owner=False)      # 방장이 아니면 확정되지 않는다
-    assert status(card, "phone") == S.PENDING_OWNER
-    E.turn(card, "네", by="h-owner", is_owner=True)
     assert status(card, "phone") == S.FILLED
+    assert (r.get("question") or {}).get("kind") != "owner_confirm"
 
 
 def test_template_prefills_structure_not_facts():

@@ -245,31 +245,16 @@ def test_offerings_with_prior_evidence_kept(monkeypatch):
 
 # ── F: 공유방 비방장 required 확인 확대 (F6) ───────────────────────
 
-def test_nonowner_required_nonfact_needs_owner_confirm(monkeypatch):
-    # pension-group: 딸(비방장)의 연락방법 답은 바로 확정하지 않는다.
-    fake_setup(monkeypatch, {})
-    card = E.new_card("pension")
-    card["turn"] = 3
-    card["said"] = ["펜션 사이트요"]
-    applied = E.apply_updates(
-        card, [u("contact_method", "카카오톡 채널")], "카카오톡 채널",
-        by="h-daughter", is_owner=False)
-    assert applied == ["contact_method"]
-    assert card["slots"]["contact_method"]["status"] == S.PENDING_OWNER
-
-
-def test_nonowner_list_items_all_wait_for_owner(monkeypatch):
-    # z2 cafe-group: 아내가 "아메리카노, 한라봉차" → 항목별 업데이트가 서로 덮어써 '한라봉차'만 남고
-    # 방장이 "아니요"를 반복하던 문제. 두 항목 모두 확인 대기에 올라가고 확인 문장도 목록으로 보인다.
+def test_nonowner_answer_fills_directly(monkeypatch):
+    # D52(전원 동의로 대체): 딸(비방장)의 연락방법·목록 답도 바로 들어가고, 여러 항목이 모두 남는다.
     fake_setup(monkeypatch, {})
     card = E.new_card("cafe")
     card["turn"] = 3
     card["said"] = ["아메리카노, 한라봉차요"]
-    E.apply_updates(card, [u("offerings", "아메리카노"), u("offerings", "한라봉차")],
+    E.apply_updates(card, [u("contact_method", "전화"), u("offerings", "아메리카노"), u("offerings", "한라봉차")],
                     "아메리카노, 한라봉차요", by="h-wife", is_owner=False)
-    slot = card["slots"]["offerings"]
-    assert slot["status"] == S.PENDING_OWNER and slot["value"] == ["아메리카노", "한라봉차"]
-    assert "'아메리카노, 한라봉차'" in E._confirm_question(card)["text"]
+    assert card["slots"]["contact_method"]["status"] == S.FILLED
+    assert card["slots"]["offerings"]["value"] == ["아메리카노", "한라봉차"]
 
 
 def test_owner_required_nonfact_fills_directly(monkeypatch):

@@ -142,23 +142,6 @@ def industry_of(card) -> S.Industry:
     return S.industry_for(_slot(card, "business_type").get("value"))
 
 
-def _needs_owner_confirm(card: dict, key: str, is_owner: bool) -> bool:
-    """공유방 비방장 답을 바로 확정하지 않고 방장 확인으로 돌릴지 (T3 F6).
-
-    D24는 사실 칸만 확인했지만, pension-group처럼 required 비사실 칸
-    (contact_method)도 비방장 의견이 최종값이 되면 정확도가 깨진다.
-    업종 전환(business_type)은 확인 질문으로 감당하기 어려워 제외한다.
-    """
-    if is_owner or key == "business_type":
-        return False
-    if S.SLOTS[key].fact:
-        return True
-    try:
-        return key in industry_of(card).required
-    except (KeyError, AttributeError):
-        return False
-
-
 def _hidden_label_norms(card: dict) -> set:
     """숨은 항목 라벨·추가 항목의 정규화 집합 (T3 F4 오염 판정용)."""
     out = set()
@@ -720,22 +703,6 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
                     card["slots"][k]["value"] = kept
             applied.append(key)
             continue
-        if _needs_owner_confirm(card, key, is_owner):
-            # D24 + F6: 공유방에서 방장이 아닌 사람이 말한 사실·필수 칸은 방장이 확인해야 카드에 들어간다.
-            # W1: 틀린 값은 확인 대기(PENDING_OWNER)로도 올리지 않는다(FILLED 전환 시 검증 우회 방지).
-            reason = _w1_block_reason(key, value, card)
-            if reason:
-                log.info("잘못된 %s 저장 차단(공유방): %s", key, reason)
-                _note_blocked(card, key, reason)
-                continue
-            if spec.multi:
-                # 한 번에 온 여러 항목("아메리카노, 한라봉차")이 서로 덮어써 마지막만 남던 문제(T3 z2 cafe-group)
-                value = _merge_items(card, key, value, (S.FILLED, S.PENDING_OWNER))
-            elif isinstance(value, str):
-                value = _norm_text(value)
-            _put(card, key, value, S.PENDING_OWNER, turn, by)
-            applied.append(key)
-            continue
         if spec.fact and isinstance(value, str):
             value = _norm_text(value)  # B-5: 사실은 정규화된 값으로 저장한다
             if key == "phone":
@@ -930,8 +897,7 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             return None
         if o == p["options"][0]:
             value = _split_items(o) if S.SLOTS[key].multi else o
-            status = S.PENDING_OWNER if _needs_owner_confirm(card, key, is_owner) else S.FILLED
-            _put(card, key, value, status, card["turn"], by)
+            _put(card, key, value, S.FILLED, card["turn"], by)
         return True
     if p["kind"] == "multi":
         # 모름·나중·알아서는 빈 선택으로 닫고 다시 묻지 않는다.
@@ -1033,15 +999,12 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
             card["followup"] = {"slot": key, "text": follow}
             card["pending"] = None
             return True
-        if _needs_owner_confirm(card, key, is_owner):
-            _put(card, key, [o] if S.SLOTS[key].multi else _norm_text(o), S.PENDING_OWNER, card["turn"], by)
-        else:
-            value = [o] if S.SLOTS[key].multi else o
-            _put(card, key, value, S.FILLED, card["turn"], by)
-            if key == "business_type":
-                old_ind = card.get("industry")
-                card["industry"] = S.industry_for(o).key
-                _refresh_assumed_sections(card, old_ind)  # B-12
+        value = [o] if S.SLOTS[key].multi else o
+        _put(card, key, value, S.FILLED, card["turn"], by)
+        if key == "business_type":
+            old_ind = card.get("industry")
+            card["industry"] = S.industry_for(o).key
+            _refresh_assumed_sections(card, old_ind)  # B-12
     elif n in NONE_NORMS:
         # 이어 묻기가 "없으면 '없음'이라고 해주세요"라고 안내한다. 받지 않으면 같은 질문을 3번 되풀이한다(T3 r4 academy).
         _put(card, key, None, S.REJECTED, card["turn"], by)

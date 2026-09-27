@@ -162,6 +162,16 @@
   }
   #voteBar button.approve, #proceedBar button.go { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
   #voteBar button:active, #proceedBar button:active { transform: scale(0.97); }
+  #voteBar button:disabled { opacity: 0.6; cursor: default; }
+  #voteBar #voteText { flex: 1; min-width: 0; }
+  #voteBar button { flex: none; white-space: nowrap; min-height: 44px; }
+  /* D52: 공유방 보낼 곳 전환 (AI에게 / 우리끼리) */
+  #talkModeBar { display: flex; gap: 8px; align-items: center; padding: 8px 16px 0; background: var(--surface); border-top: 1px solid var(--border); font-size: 0.8125rem; }
+  #talkModeBar[hidden] { display: none; }
+  #talkModeBar button { min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); font-size: 0.8125rem; cursor: pointer; }
+  #talkModeBar button[aria-pressed="true"] { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  .row.aside .bubble { background: transparent; border: 1px dashed var(--border); border-radius: 12px; padding: 8px 12px; }
+  .aside-tag { font-size: 0.6875rem; color: var(--text-muted); margin-left: 6px; }
 
   #row {
     display: flex; gap: 8px; padding: 12px 16px; background: var(--surface);
@@ -279,9 +289,9 @@
   <div id="progressWrap" hidden><div id="progressTrack" aria-hidden="true"><div id="progressFill"></div></div><span id="progressText" role="status"></span></div>
   <div id="log"></div>
   <div id="voteBar">
-    <span>이 요구사항으로 견적을 진행할까요?</span>
-    <button class="approve" onclick="vote('승인')">👍 승인</button>
-    <button onclick="vote('거절')">거절</button>
+    <span id="voteText">이 요구사항으로 견적을 진행할까요?</span>
+    <button class="approve" id="voteYesBtn" onclick="vote('승인')">👍 동의</button>
+    <button onclick="vote('거절')">고칠 게 있어요</button>
   </div>
   <div id="proceedBar">
     <span>이 견적으로 진행할까요?</span>
@@ -289,6 +299,11 @@
     <button onclick="proceed('취소')">취소</button>
   </div>
   <div id="choiceBar" aria-live="polite"><p class="hint" id="choiceHint"></p><div class="choices" id="choices"></div></div>
+  <div id="talkModeBar" role="group" aria-label="보낼 곳" hidden>
+    <span>보낼 곳</span>
+    <button type="button" id="talkAiBtn" aria-pressed="true" onclick="setTalkMode(true)">AI에게</button>
+    <button type="button" id="talkUsBtn" aria-pressed="false" onclick="setTalkMode(false)">우리끼리</button>
+  </div>
   <div id="row">
     <button id="photoBtn" type="button" aria-label="사진 올리기">사진</button>
     <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
@@ -752,6 +767,13 @@ function addMessage(m, isNew) {
       badge.textContent = 'BOT';
       meta.appendChild(badge);
     }
+    if (m.aside) {
+      row.classList.add('aside');
+      const tag = document.createElement('span');
+      tag.className = 'aside-tag';
+      tag.textContent = '우리끼리 · AI는 읽지 않아요';
+      meta.appendChild(tag);
+    }
     bubble.appendChild(meta);
   }
   const text = document.createElement('div');
@@ -982,8 +1004,18 @@ function renderChoices(q) {
   choiceBar.classList.add('show');
 }
 
-function updateActionBars(state) {
+function updateActionBars(state, votes) {
   voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL');
+  // D52: 공유방은 전원 동의해야 다음 단계. 몇 명이 동의했는지 보여 준다.
+  const total = roomMembers.length;
+  const agreed = Object.values(votes || {}).filter(v => v === 'approve').length;
+  const mine = roomMe && votes ? votes[roomMe.member_handle] : null;
+  document.getElementById('voteText').textContent = total > 1
+    ? `모두 동의하면 다음 단계로 넘어가요 · 동의 ${agreed}/${total}`
+    : '이 요구사항으로 견적을 진행할까요?';
+  const yes = document.getElementById('voteYesBtn');
+  yes.disabled = mine === 'approve';
+  yes.textContent = mine === 'approve' ? '✓ 동의함' : '👍 동의';
   proceedBar.classList.toggle('show', state === 'QUOTED');
 }
 
@@ -1010,10 +1042,12 @@ async function pollMessages() {
     }
     if (data.messages.length) lastSeq += data.messages.length;
     updateStatus(data.ai_status);
-    updateActionBars(data.state);
     renderChoices(data.question || null);
     if (Array.isArray(data.members)) roomMembers = data.members;
     if (data.me) roomMe = data.me;
+    updateActionBars(data.state, data.votes);
+    document.getElementById('talkModeBar').hidden = roomMembers.length < 2;
+    if (roomMembers.length < 2 && !sendToAi) setTalkMode(true);
     if (data.design_url) hasDesign = true;
     memberCountEl.textContent = roomMembers.length ? `${roomMembers.length}명 참여 중` : '';
     memberCountEl.setAttribute('aria-label', roomMembers.length ? `참여자 목록 열기, ${roomMembers.length}명 참여 중` : '참여자 목록 열기');
@@ -1041,13 +1075,14 @@ async function pollMessages() {
   }
 }
 
-async function sendRoomMessage(text) {
+async function sendRoomMessage(text, toAi = true) {
   // 보내거나 고르는 순간 읽던 소리를 바로 끊는다.
   try { if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech(); } catch (e) { /* 무시 */ }
   try { if (typeof window.cancelHandsfreeListen === 'function') window.cancelHandsfreeListen(); } catch (e) { /* 무시 */ }
   try { if (typeof window.unlockSpeech === 'function') window.unlockSpeech(); } catch (e) { /* 무시 */ }
   // 첫 입장 메시지에만 주소창 invite 값을 함께 보낸다 (계약 §3).
   const body = { member_id: memberId, nickname, message: text };
+  if (!toAi) body.to_ai = false;
   if (!inviteAttached && inviteToken) body.invite = inviteToken;
   const res = await fetch(`/room/${roomId}/chat`, {
     method: 'POST',
@@ -1084,12 +1119,21 @@ async function sendRoomMessage(text) {
   return res.ok ? res.json() : null;
 }
 
+// D52: 공유방에서 '우리끼리'로 보내면 AI가 읽지 않는다. 선택지·투표 버튼은 늘 AI에게 간다.
+let sendToAi = true;
+function setTalkMode(toAi) {
+  sendToAi = toAi;
+  document.getElementById('talkAiBtn').setAttribute('aria-pressed', String(toAi));
+  document.getElementById('talkUsBtn').setAttribute('aria-pressed', String(!toAi));
+  document.getElementById('input').placeholder = toAi ? '메시지를 입력하세요...' : '우리끼리 이야기 (AI는 읽지 않아요)';
+}
+
 function send() {
   const input = document.getElementById('input');
   const text = input.value.trim();
   if (!text) return;
   input.value = '';
-  sendRoomMessage(text);
+  sendRoomMessage(text, sendToAi);
 }
 
 function vote(choice) { sendRoomMessage(choice); }

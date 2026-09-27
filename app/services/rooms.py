@@ -52,6 +52,9 @@ MSG_VOTE_RESET = "투표가 24시간 동안 끝나지 않아 초기화됐습니�
 MSG_QUOTE_EXPIRED = "견적 유효기간(7일)이 지났습니다. 요구사항이 바뀌지 않았다면 '다시 견적'을 보내 주세요"
 MSG_CLOSED = "30일 동안 활동이 없어 방이 닫혔습니다. 방장이 메시지를 보내면 다시 열립니다"
 MSG_REOPENED = "방장이 방을 다시 열었습니다."
+# D52: 두 번째 사람이 들어와 공유방이 되면 한 번 안내한다.
+MSG_GROUP_GUIDE = ("여러 분이 함께하는 방이 됐어요. 사람끼리 나누는 이야기는 입력칸 위 '우리끼리'로 보내면 AI가 읽지 않아요. "
+                   "AI 질문에는 누구나 답할 수 있고, 정리가 끝나면 모두 '동의'를 눌러야 다음 단계로 넘어가요.")
 # 사전 경고(ROOM_POLICY §4.2 "경고" 열). 마지막 활동 뒤 한 번만 남긴다.
 MSG_WARN_VOTE = "투표가 4시간 뒤 초기화돼요. '승인' 또는 '거절'을 보내 주세요"
 MSG_WARN_QUOTE = "견적이 하루 뒤 만료돼요. 이대로 만들려면 '진행'을 보내 주세요"
@@ -264,7 +267,7 @@ def tally(votes: dict) -> tuple[int, int]:
 
 
 def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_url: str,
-                 invite_raw: Optional[str] = None) -> dict:
+                 invite_raw: Optional[str] = None, to_ai: bool = True) -> dict:
     safe_id = _room_id(room_id)
     member_id = sanitize_token(member_id_raw or "")
     nickname = html.escape((nickname_raw or "익명")[:MAX_NICKNAME_LEN])
@@ -305,6 +308,8 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
                 raise RoomFull(room_id)  # D8
             room["members"].append({"member_id": member_id, "nickname": nickname, "joined_at": now, "last_seen": now})
             _append(room, "system", "시스템", f"{nickname}님이 입장했습니다.", kind="system")
+            if len(room["members"]) == 2:
+                _append(room, "system", "시스템", MSG_GROUP_GUIDE, kind="system")
         else:
             existing["last_seen"] = now
             existing["nickname"] = nickname
@@ -312,9 +317,14 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
         if not user_text:
             return {"ai_status": room["ai_status"], "fresh": fresh}
 
+        if not to_ai:
+            # D52: 사람끼리 나누는 이야기. 기록만 하고 AI·투표에는 넣지 않는다.
+            _append(room, member_id, nickname, user_text, kind="chat", meta={"aside": True})
+            return {"ai_status": room["ai_status"], "fresh": fresh}
+
         _append(room, member_id, nickname, user_text, kind="chat")
 
-        # 승인 게이트는 과반 투표. 동점·미달이면 투표만 기록하고 AI는 호출하지 않는다.
+        # 승인 게이트는 전원 동의(D52). 모두 동의하면 다음 단계, 한 명이라도 거절하면 고칠 점을 다시 모은다.
         vote_reject = chat_flow.intent(user_text, "reject")
         if session["state"] == "AWAIT_APPROVAL" and (vote_reject or chat_flow.intent(user_text, "approve")):
             vote = "reject" if vote_reject else "approve"
@@ -323,11 +333,11 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
             approve_n, reject_n = tally(room["votes"])
             _append(
                 room, "system", "시스템",
-                f"{nickname}님이 {'승인' if vote == 'approve' else '거절'}했습니다 "
-                f"(찬성 {approve_n}/{total}, 반대 {reject_n}/{total})",
+                f"{nickname}님이 {'동의' if vote == 'approve' else '거절'}했습니다 (동의 {approve_n}/{total})"
+                + (" · 모두 동의하면 다음 단계로 넘어가요" if vote == "approve" and approve_n < total else ""),
                 kind="vote",
             )
-            decision = "승인" if approve_n > total / 2 else "거절" if reject_n > total / 2 else None
+            decision = "거절" if reject_n else "승인" if approve_n == total else None
             if decision:
                 reply = chat_flow.process_turn(room["session_id"], session, decision, base_url, room=room)
                 _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")

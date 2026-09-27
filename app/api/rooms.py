@@ -13,6 +13,7 @@ class RoomMessageIn(BaseModel):
     nickname: Optional[str] = None
     message: Optional[str] = None
     invite: Optional[str] = None  # 처음 들어오는 사람만 (contracts/ROOM_FEATURES_API.md §3)
+    to_ai: bool = True  # False = '우리끼리' 대화, AI가 읽지 않는다 (D52)
 
 
 class OwnerIn(BaseModel):
@@ -37,7 +38,7 @@ def create_room(body: Optional[RoomCreateIn] = None):
 def room_chat(room_id: str, body: RoomMessageIn, request: Request):
     try:
         return rooms.post_message(room_id, body.member_id, body.nickname, body.message, str(request.base_url),
-                                  invite_raw=body.invite)
+                                  invite_raw=body.invite, to_ai=body.to_ai)
     except rooms.InviteRequired:
         raise HTTPException(status_code=403, detail="invite required")
     except rooms.InviteInvalid:

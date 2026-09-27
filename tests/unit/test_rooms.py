@@ -91,18 +91,18 @@ def test_room_message_truncated_2000(client):
     assert len(chat["text"]) == 2000
 
 
-def test_room_majority_approve_flow(client):
+def test_room_unanimous_approve_flow(client):
     room_id = _create_room(client)
     _drive_to_await_approval(client, room_id)
     _post(client, room_id, "m2", "영희", "")  # 2명 입장 완료
-    # 1명 승인 → 대기 (AWAIT_APPROVAL 유지 + vote 메시지)
+    # 1명 동의 → 대기 (AWAIT_APPROVAL 유지 + vote 메시지). D52: 전원 동의해야 넘어간다
     _post(client, room_id, "m1", "철수", "승인")
     mid = _get(client, room_id)
     assert mid["state"] == "AWAIT_APPROVAL"
     votes_msgs = [m for m in mid["messages"] if m["kind"] == "vote"]
     assert len(votes_msgs) == 1
-    assert "찬성 1/2" in votes_msgs[0]["text"]
-    # 2번째 승인 → QUOTED + votes 초기화
+    assert "동의 1/2" in votes_msgs[0]["text"] and "모두 동의하면" in votes_msgs[0]["text"]
+    # 2번째 동의 → QUOTED + votes 초기화
     _post(client, room_id, "m2", "영희", "승인")
     done = _get(client, room_id)
     assert done["state"] == "QUOTED"
@@ -111,17 +111,33 @@ def test_room_majority_approve_flow(client):
     assert any("견적" in m["text"] or "추천" in m["text"] for m in ai)
 
 
-def test_room_majority_reject_to_gathering(client):
+def test_room_one_reject_back_to_gathering(client):
+    # D52: 전원 동의 규칙이라 한 명이라도 거절하면 바로 고칠 점을 다시 모은다.
     room_id = _create_room(client)
     _drive_to_await_approval(client, room_id)
     _post(client, room_id, "m2", "영희", "")
-    _post(client, room_id, "m1", "철수", "거절")
-    mid = _get(client, room_id)
-    assert mid["state"] == "AWAIT_APPROVAL"
+    _post(client, room_id, "m1", "철수", "승인")
     _post(client, room_id, "m2", "영희", "거절")
     done = _get(client, room_id)
     assert done["state"] == "GATHERING"
     assert done["votes"] == {}
+
+
+def test_aside_chat_is_not_read_by_ai(client):
+    # D52: '우리끼리' 글은 기록만 하고 AI·투표에 넣지 않는다. 두 번째 사람이 오면 안내가 한 번 나온다.
+    room_id = _create_room(client)
+    _drive_to_await_approval(client, room_id)
+    _post(client, room_id, "m2", "영희", "")
+    before = _get(client, room_id)
+    assert sum("우리끼리" in m["text"] for m in before["messages"] if m["kind"] == "system") == 1
+    n_ai = sum(m["kind"] == "ai_reply" for m in before["messages"])
+    r = client.post(f"/room/{room_id}/chat", json={"member_id": "m1", "nickname": "철수", "message": "승인", "to_ai": False})
+    assert r.status_code == 200
+    after = _get(client, room_id)
+    assert after["state"] == "AWAIT_APPROVAL" and after["votes"] == {}
+    assert sum(m["kind"] == "ai_reply" for m in after["messages"]) == n_ai
+    aside = [m for m in after["messages"] if m["kind"] == "chat" and m.get("aside")]
+    assert len(aside) == 1 and aside[0]["text"] == "승인"
 
 
 def test_room_polling_generating_to_done_exactly_once(client):

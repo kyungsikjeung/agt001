@@ -275,6 +275,16 @@ class TestRunSimulation(unittest.TestCase):
         self.assertGreater(score["tkqr"], 0)
         self.assertTrue(score["passed"])
 
+    def test_group_passes_on_agree_rate_not_question_count(self):
+        """D52: 공유방은 질문 수가 상한을 넘어도 전원 동의(동의율 100%)면 그 항목은 통과로 본다."""
+        sc, eng, res, score = run_case("pension-terse")
+        self.assertIsNone(score["agree_rate"])  # 1:1은 기존대로 질문 수
+        group = dict(sc, group={"members": [{"name": "사장님", "role": "owner"}, {"name": "딸"}]})
+        many = dict(res, questions=list(res["questions"]) * 5, agree_rate=1.0)
+        self.assertGreater(rs.score_dialogue(group, many)["questions"], score["max_questions"])
+        self.assertTrue(rs.score_dialogue(group, many)["passed"])
+        self.assertFalse(rs.score_dialogue(group, dict(many, agree_rate=0.0))["passed"])
+
     def test_invented_phone_is_critical_fail(self):
         """근거 없는 전화번호가 filled면 지어낸 값 + 불합격."""
         sc, eng, res, _ = run_case("pension-terse")

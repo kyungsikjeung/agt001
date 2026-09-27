@@ -64,13 +64,11 @@ def fill_cafe_minus_goal(fake_extract, card):
 
 
 def pending_owner_card(fake_extract):
-    """공유방 비방장 발화로 방장 확인 대기 상태를 만든다."""
-    msg = "번호는 010-0000-3333이에요"
-    fake_extract[msg] = [u("phone", "010-0000-3333")]
+    """방장 확인 대기 상태(D52 전에 저장된 세션)를 직접 만든다. 새 대화에서는 더 생기지 않는다."""
     card = E.new_card()
-    r = E.turn(card, msg, by="h-daughter", is_owner=False)
-    assert status(card, "phone") == S.PENDING_OWNER
-    assert r["question"]["kind"] == "owner_confirm"
+    E._put(card, "phone", "010-0000-3333", S.PENDING_OWNER, 1, "h-daughter")
+    card["pending"] = E._confirm_question(card)
+    assert card["pending"]["kind"] == "owner_confirm"
     return card
 
 
