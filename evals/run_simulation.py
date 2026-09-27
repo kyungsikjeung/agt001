@@ -607,6 +607,8 @@ def live_owner_llm(prompt: str) -> str:
 
 # 이만큼 대비 모델로 넘어가면 측정을 멈춘다. 정상 r4는 36개 전체에서 57번이었다.
 MAX_FALLBACKS = 40
+# 외부 장애(연결 끊김 등)로 이만큼 연달아 건너뛰면 멈춘다
+MAX_SKIPS_IN_ROW = 3
 
 
 class LimitWatch(logging.Handler):
@@ -639,6 +641,7 @@ def quota_ok(watch: "LimitWatch", calls: int = 3) -> bool:
 def run_all(scenarios, engine, owner_llm_fn, watch: "LimitWatch | None" = None) -> list:
     import time
     results = []
+    skipped_in_row = 0
     for i, sc in enumerate(scenarios, 1):
         # 진행 표시: 몇 번째·걸린 시간·통과 여부 (r6: 한도에 걸려 44분 동안 어디서 막혔는지 알 수 없었다)
         t0 = time.monotonic()
@@ -648,7 +651,13 @@ def run_all(scenarios, engine, owner_llm_fn, watch: "LimitWatch | None" = None) 
             print(f"[{i}/{len(scenarios)}] {sc.get('id')} 건너뜀 {type(e).__name__} {time.monotonic() - t0:.0f}초",
                   file=sys.stderr, flush=True)
             results.append({"scenario": sc, "result": None, "score": None, "error": type(e).__name__})
+            skipped_in_row += 1
+            if skipped_in_row >= MAX_SKIPS_IN_ROW:
+                # 9/27 Zen 기준 측정: 인터넷이 끊겨 28개가 연달아 건너뛰어졌는데 "8개 중 8개 통과"로 끝났다.
+                print(f"연결 중단: {skipped_in_row}개 연속 건너뜀 — {i}/{len(scenarios)}개에서 멈춤.", file=sys.stderr, flush=True)
+                raise LimitStop(results)
             continue
+        skipped_in_row = 0
         score = score_dialogue(sc, res)
         fb = f" 대비모델 누적 {watch.fallbacks}회" if watch else ""
         print(f"[{i}/{len(scenarios)}] {sc.get('id')} {'통과' if score['passed'] else '실패'} "
@@ -714,7 +723,7 @@ def main(argv=None) -> int:
         with open(path, encoding="utf-8") as f:
             body = f.read()
         with open(path, "w", encoding="utf-8") as f:
-            f.write(f"> **한도 중단(비공식)**: NIM 대비 모델 전환 {watch.fallbacks}회에서 멈춤. "
+            f.write(f"> **중단(비공식)**: 한도·연결 문제로 멈춤(대비 모델 전환 {watch.fallbacks if watch else 0}회). "
                     f"{len(results)}/{len(scenarios)}개만 실행, 점수는 참고용.\n\n" + body)
         print(f"한도 중단 → {path}")
         return 4
