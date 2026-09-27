@@ -157,6 +157,42 @@ def _parse(raw: str) -> Optional[dict]:
     return data if isinstance(data, dict) else None
 
 
+# 명세 스키마 검증기 (D38/P3-6): AI가 쓴 명세를 엔진이 그리기 전에 검사한다.
+# 대비·44px 누름 칸·금지 속성은 렌더 단계(site_render·publish_check·run_site_quality)가 보고,
+# 여기서는 명세 자체(목록 안 키·분위기 3개·이름·이유)만 본다. _valid 강제 규칙과 같은 기준.
+_REQUIRED_KEYS = ("name", "mood", "palette", "font_pair", "density", "radius", "lead", "reason")
+
+
+def validate_concept(c: dict, shop: str = "", allowed_digits: frozenset = frozenset()) -> list:
+    """명세 문제를 짧은 한국어 문구 목록으로 돌려준다. 문제없으면 []."""
+    if not isinstance(c, dict):
+        return ["명세가 JSON 객체가 아니에요"]
+    problems = []
+    for key in _REQUIRED_KEYS:
+        if c.get(key) in (None, ""):
+            problems.append(f"{key}: 비어 있어요")
+    for key, allowed in (("palette", PALETTES), ("font_pair", FONT_PAIRS), ("density", DENSITIES),
+                         ("radius", RADII), ("lead", LEADS)):
+        if c.get(key) not in allowed:
+            problems.append(f"{key}: 목록 밖 값이에요")
+    name = str(c.get("name") or "").strip()
+    if name and not (2 <= len(name) <= 16):
+        problems.append("name: 2~16자로 해주세요")
+    if name and shop and (shop in name or name in shop):
+        problems.append("name: 가게 이름을 쓰지 말고 분위기를 이름으로 해주세요")
+    mood = [str(m).strip() for m in (c.get("mood") or []) if str(m).strip()]
+    if len(mood) != 3:
+        problems.append("mood: 분위기 형용사 3개로 해주세요")
+    elif not all(len(m) <= 8 for m in mood):
+        problems.append("mood: 8자 이내로 해주세요")
+    reason = str(c.get("reason") or "").strip()
+    if reason and not 8 <= len(reason) <= 90:
+        problems.append("reason: 8~90자로 해주세요")
+    if reason and not set(re.findall(r"\d+", reason)) <= set(allowed_digits):
+        problems.append("reason: 사장님이 말하지 않은 숫자는 빼주세요")
+    return problems
+
+
 def make(card: dict) -> dict:
     """카드 → 컨셉. NIM이 목록 안에서 고르고, 실패하면 업종 규칙 컨셉."""
     base = rule_concept(card)
@@ -166,6 +202,9 @@ def make(card: dict) -> dict:
         if data:
             shop = str((card["slots"].get("shop_name") or {}).get("value") or "")
             said = E.summary_text(card) + " " + " ".join(card.get("said") or [])
+            problems = validate_concept(data, shop, frozenset(re.findall(r"\d+", said)))
+            if problems:
+                log.info("디자인 명세 검증: %s", "; ".join(problems))
             out = _valid(data, base, shop, frozenset(re.findall(r"\d+", said)))
             out["source"] = "ai"
             return out

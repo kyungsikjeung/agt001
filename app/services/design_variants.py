@@ -18,12 +18,16 @@ from app.services import prd_schema as S
 _SAMPLE_FOR = {"individual": "workshop", "group": "academy", "webservice": "cafe", "other": "cafe"}
 
 # 3안: (id, 이름, 한 줄 설명, 바꿀 것). v1은 업종 기본 그대로.
+# H0-1: 색·여백뿐 아니라 첫 화면·상품형까지 다르게 (3안 차이 8 미만 4곳 해소용).
+#   v1 기본형: 업종 샘플 그대로 (photo-overlay 또는 text-only + list-price)
+#   v2 사진 강조형: 옆 배치 + 사진첩 그리드 + 상품 사진그리드
+#   v3 간결형: 글 중심 + 상품 탭 + 사진첩은 실사진 있을 때만 (_reorder에서 제거)
 VARIANTS = (
     ("v1", "기본형", "업종에 맞춘 기본 구성", {}),
-    ("v2", "사진 강조형", "큰 사진과 넉넉한 여백", {"hero": "photo", "gallery": "grid",
+    ("v2", "사진 강조형", "큰 사진과 넉넉한 여백", {"hero": "photo", "gallery": "grid", "offerings": "photo-grid",
                                              "density": "roomy", "radius": "round", "font_pair": "serif-elegant"}),
-    ("v3", "간결형", "글 중심, 빠르게 읽히는 구성", {"hero": "text-only", "density": "compact",
-                                            "radius": "sharp", "font_pair": "gothic-strong"}),
+    ("v3", "간결형", "글 중심, 빠르게 읽히는 구성", {"hero": "text-only", "gallery": "swipe", "offerings": "tabs",
+                                            "density": "compact", "radius": "sharp", "font_pair": "gothic-strong"}),
 )
 # 안마다 색 계열이 겹치지 않게 고른다(같은 초록끼리면 3안이 비슷해 보인다).
 _PALETTE_GROUPS = {"forest": "green", "moss": "green", "sage": "green", "navy": "blue", "coffee": "warm", "brick": "warm",
@@ -201,6 +205,14 @@ def base_spec(card: dict) -> dict:
     # 문의 부품은 후기 앞(보통 맨 끝 바로 앞)에 둔다.
     at = next((i for i, s in enumerate(sections) if s["type"] == "reviews"), len(sections))
     sections = sections[:at] + extra + sections[at:]
+    # H0-5: 전화 중복 제거 — 연락처에 전화가 있으면 하단 띠(cta call-sms)는 뺀다.
+    # 첫 화면 CTA(hero) + 연락처(contact)를 남기고 세 번째 전화 버튼을 없앤다 (Q-10).
+    if phone:
+        has_contact_phone = any(s["type"] == "contact" and s.get("variant") in
+                                ("call-first", "booking-first", "chat-first") for s in sections)
+        if has_contact_phone:
+            sections = [s for s in sections
+                        if not (s["type"] == "cta" and s.get("variant") == "call-sms")]
     # 컨셉의 "먼저 보여 줄 것"을 첫 화면 바로 뒤로
     lead = next((s for s in sections if s["type"] == concept.get("lead")), None)
     if lead is not None and sections and sections[0]["type"] == "hero":

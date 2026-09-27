@@ -85,3 +85,27 @@ def test_shop_name_is_not_concept_name_and_reason_matches_choices(monkeypatch):
     card = _card()
     card["said"] = ["3대째 가마솥에 끓여요"]
     assert "3대째" in DC.make(card)["reason"]  # 사장님이 말한 숫자는 써도 된다
+
+
+def test_validate_concept_accepts_rule_concepts():
+    """P3-6: 업종 규칙 컨셉 6개 + 기본값은 검증 통과."""
+    for key in ("restaurant", "cafe", "pension", "salon", "academy", "workshop"):
+        assert DC.validate_concept(DC._from_rule(key)) == []
+    assert DC.validate_concept(DC._from_rule("unknown")) == []
+
+
+def test_validate_concept_reports_schema_problems():
+    """P3-6: 목록 밖 키·분위기 개수·가게 이름·지어낸 숫자를 짚는다."""
+    bad = {"name": "황남밥상", "mood": ["따뜻한", "푸짐한"], "palette": "neon-pink",
+           "font_pair": "comic", "density": "roomy", "radius": "round",
+           "lead": "offerings", "reason": "창업 30년 노포라서요"}
+    problems = DC.validate_concept(bad, shop="황남밥상")
+    assert any("palette" in p for p in problems)
+    assert any("font_pair" in p for p in problems)
+    assert any("mood" in p for p in problems)
+    assert any("가게 이름" in p for p in problems)
+    assert any("숫자" in p for p in problems)
+    ok = {"name": "정직한 동네 밥상", "mood": ["따뜻한", "푸짐한", "정겨운"], "palette": "tomato",
+          "font_pair": "gothic-strong", "density": "comfortable", "radius": "soft",
+          "lead": "offerings", "reason": "메뉴를 가장 먼저 보여 드려요"}
+    assert DC.validate_concept(ok, shop="황남밥상", allowed_digits=frozenset()) == []

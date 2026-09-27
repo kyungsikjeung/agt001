@@ -23,18 +23,24 @@ log = logging.getLogger(__name__)
 RETENTION_DAYS = 90
 
 # 브라우저가 보낼 수 있는 이벤트. 목록 밖 이름은 버린다(아무 문자열로 DB를 채우지 못하게).
-CLIENT_EVENTS = frozenset({"landing_view", "start_click", "template_click", "login_click", "chat_open"})
+CLIENT_EVENTS = frozenset({"landing_view", "start_click", "template_click", "login_click", "chat_open",
+                           # 음성 인식 카운터(전사 원문·IP 저장 없음): 성공·빈결과·실패 횟수만
+                           "voice_stt_ok", "voice_stt_empty", "voice_stt_fail"})
 # 서버가 대화 상태 전이에서 남기는 이벤트.
 SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generate_start", "generate_done", "signup",
                            # 디자인 학습 기록(D44·D45, app/services/design_log.py)
                            "design_shown", "design_chosen", "design_restyled", "site_published", "inquiry_received",
-                           "unmet_need"})
+                           "unmet_need",
+                           # 사진 선택지 답·실제 업로드(D48·D45, 원문·개인정보 없음)
+                           "photo_answered", "photo_uploaded"})
 
 _TOKEN = re.compile(r"[^A-Za-z0-9_.:-]")
 _MAX_LEN = 64
 # props에 넣을 수 있는 칸. 값은 목록 키·사이트 키 같은 영문 토큰, 숫자, 참거짓만.
 PROP_KEYS = frozenset({"site", "industry", "variant", "v1", "v2", "v3", "palette", "font_pair", "density", "radius",
-                       "lead", "hero", "source", "kind", "ref", "verdict", "label"})
+                       "lead", "hero", "source", "kind", "ref", "verdict", "label", "choice",
+                       # 음성 인식 카운터 전용: 실패 사유·숫자 포함 여부만(원문·IP 금지)
+                       "reason", "has_number"})
 # label만 한글을 받는다(못 담은 섹션 이름 등, D44). 숫자는 지운다(전화·주소·가격이 섞여 들어오지 않게).
 _LABEL = re.compile(r"[^A-Za-z가-힣 ]")
 _LABEL_MAX = 20

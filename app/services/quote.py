@@ -93,17 +93,23 @@ BETA_NOTE = "지금은 베타 시연이라 무료로 만들어 드려요."
 
 
 def rule_quote(card: dict) -> dict:
-    """요구사항 카드 → 참고 견적 한 줄. 기존 견적 dict 모양(options/recommended)도 맞춰 시안·흐름이 그대로 쓴다."""
+    """요구사항 카드 → 참고 견적 한 줄. 산식을 함께 밝혀 신뢰를 준다."""
     from app.services import prd_engine as E
 
     kind = E.industry_of(card).key
     sections = (card["slots"].get("sections") or {}).get("value") or []
     judged = [v for v in card.get("features_judged") or [] if v["verdict"] in RULE_PER_FEATURE]
-    amount = RULE_BASE.get(kind, RULE_BASE_DEFAULT) + RULE_PER_SECTION * len(sections)
-    amount += sum(RULE_INQUIRY_FORM if v.get("id") in ("inquiry_form", "kakao_form_bridge") else RULE_PER_FEATURE[v["verdict"]]
-                  for v in judged)
-    amount = max(100_000, round(amount / 100_000) * 100_000)
+    base = RULE_BASE.get(kind, RULE_BASE_DEFAULT)
+    sec_part = RULE_PER_SECTION * len(sections)
+    feat_part = sum(RULE_INQUIRY_FORM if v.get("id") in ("inquiry_form", "kakao_form_bridge") else RULE_PER_FEATURE[v["verdict"]]
+                    for v in judged)
+    amount = max(100_000, round((base + sec_part + feat_part) / 100_000) * 100_000)
     basis = f"한 페이지 사이트, 담을 내용 {len(sections)}가지" + (f", 기능 {len(judged)}개" if judged else "")
-    text = f"참고 견적: 외주로 맡기면 보통 약 {amount // 10_000:,}만 원 상당이에요({basis}). {BETA_NOTE}"
+    # 산식 공개: 기본 60만 + 내용 5가지×8만 + 문의폼 20만 같은 식으로 풀어준다.
+    formula = f"기본 {base // 10_000}만 + 내용 {len(sections)}가지×8만"
+    if judged:
+        formula += f" + 기능 {len(judged)}개"
+    text = (f"참고 견적: 외주로 맡기면 보통 약 {amount // 10_000:,}만 원 상당이에요({basis}). "
+            f"계산: {formula}. {BETA_NOTE}")
     return {"ok": True, "rule": True, "amount": amount, "basis": basis,
             "options": [{"id": "R", "weeks": 1, "amount": amount, "desc": basis}], "recommended": "R", "raw": text}
