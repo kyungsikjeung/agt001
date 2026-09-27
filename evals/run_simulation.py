@@ -603,16 +603,22 @@ def live_owner_llm(prompt: str) -> str:
 
 
 def run_all(scenarios, engine, owner_llm_fn) -> list:
+    import time
     results = []
-    for sc in scenarios:
+    for i, sc in enumerate(scenarios, 1):
+        # 진행 표시: 몇 번째·걸린 시간·통과 여부 (r6: 한도에 걸려 44분 동안 어디서 막혔는지 알 수 없었다)
+        t0 = time.monotonic()
         try:
             res = run_dialogue(sc, engine, owner_llm_fn)
         except Exception as e:  # 한 시나리오의 외부 장애가 전체 실행을 멈추지 않게 하고, 결과에 남긴다
-            print(f"[건너뜀] {sc.get('id')}: {type(e).__name__}", file=sys.stderr)
+            print(f"[{i}/{len(scenarios)}] {sc.get('id')} 건너뜀 {type(e).__name__} {time.monotonic() - t0:.0f}초",
+                  file=sys.stderr, flush=True)
             results.append({"scenario": sc, "result": None, "score": None, "error": type(e).__name__})
             continue
-        results.append({"scenario": sc, "result": res,
-                        "score": score_dialogue(sc, res)})
+        score = score_dialogue(sc, res)
+        print(f"[{i}/{len(scenarios)}] {sc.get('id')} {'통과' if score['passed'] else '실패'} "
+              f"{time.monotonic() - t0:.0f}초", file=sys.stderr, flush=True)
+        results.append({"scenario": sc, "result": res, "score": score})
     return results
 
 
