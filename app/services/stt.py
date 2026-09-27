@@ -81,7 +81,42 @@ def normalize_digits(text: str) -> str:
     return _KO_DIGIT_RUN.sub(conv, text)
 
 
+# 펜션·식당 상위 STT 뭉개짐 정규화 (16개 ≤ 20). "객실세계"→"객실 세 개"류.
+# Parakeet RNNT가 숫자+수량·ㅐ/ㅔ를 뭉개는 상위 케이스만 둔다. 짧은 일반 발화는 건드리지 않는다.
+_WORD_FIXES = (
+    ("객실세계", "객실 세 개"),
+    ("객실세게", "객실 세 개"),
+    ("객실새개", "객실 세 개"),
+    ("객실두게", "객실 두 개"),
+    ("객실네게", "객실 네 개"),
+    ("객실다섯게", "객실 다섯 개"),
+    ("테이블세계", "테이블 세 개"),
+    ("테이블세게", "테이블 세 개"),
+    ("테이블두게", "테이블 두 개"),
+    ("테이블네게", "테이블 네 개"),
+    ("바베큐", "바비큐"),
+    ("삼겹쌀", "삼겹살"),
+    ("김치찌게", "김치찌개"),
+    ("된장찌게", "된장찌개"),
+    ("체크인세시", "체크인 세 시"),
+    ("단체세계", "단체 세 개"),
+)
+
+
+def normalize_words(text: str) -> str:
+    """펜션·식당 상위 뭉개짐 정규화 ("객실세계"→"객실 세 개"류, 16개).
+
+    transcribe()에서 normalize_digits 뒤에 적용한다. 오디오·전사 원문은 저장하지 않는다.
+    """
+    if not text:
+        return text
+    for old, new in _WORD_FIXES:
+        if old in text:
+            text = text.replace(old, new)
+    return text
+
+
 def transcribe(data: bytes) -> str:
     if len(data) > MAX_BYTES:
         raise BadAudio("너무 큼")
-    return normalize_digits(_recognize(to_wav16k(data)))
+    return normalize_words(normalize_digits(_recognize(to_wav16k(data))))

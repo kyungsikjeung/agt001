@@ -75,6 +75,15 @@
   function showNumCheck() { numEl.style.display = 'block'; }
   function hideNumCheck() { numEl.style.display = 'none'; }
 
+  // 음성 인식 카운터(전사 글자·IP 저장 없음, D16). 올리기 실패·빈결과를 1건씩만 POST /events로 센다.
+  // 성공은 서버(app/api/stt.py)가 has_number와 함께 센다. 손 안 쓰는 모드 재시도는 세지 않는다(중복 방지).
+  function countVoiceEvent(event) {
+    try {
+      var body = JSON.stringify({ event: event });
+      fetch('/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: body, keepalive: true }).catch(function () { /* 카운터 실패 무시 */ });
+    } catch (e) { /* 카운터 실패 무시 */ }
+  }
+
   function isInApp() {
     var ua = (navigator && navigator.userAgent) || '';
     return /kakaotalk|naver/i.test(ua);
@@ -788,6 +797,7 @@
       }
       if (!text) {
         showStatus(MSG.emptyText);
+        countVoiceEvent('voice_stt_empty');
         return;
       }
       handsfreeFail = 0;
@@ -825,6 +835,7 @@
       if (hasNumber(text)) showNumCheck(); else hideNumCheck();
       clearStatus();
     }).catch(function (err) {
+      countVoiceEvent('voice_stt_fail'); // 올리기 실패(HTTP 오류·네트워크 단절) 1건
       if (err instanceof TypeError) {
         showStatus(withInApp(MSG.networkFail)); // 네트워크 단절 등
       } else {
