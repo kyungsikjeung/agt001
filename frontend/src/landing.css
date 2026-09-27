@@ -271,3 +271,6 @@
   .lp-check, .lp-site-rows li, .lp-site-sub, .lp-site-map, .lp-site-cta, .lp-published { opacity: 1 !important; transform: none !important; }
   .lp-draft { transition: none; }
 }
+
+/* 예시 사진 위 글자 대비 (landing/photos.ts) */
+.lp-site-hero { text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); }

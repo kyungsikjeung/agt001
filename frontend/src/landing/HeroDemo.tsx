@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { TEMPLATES } from '../templates';
+import { PHOTOS, photoBg } from './photos';
 
 /**
  * 첫 화면 라이브 데모 무대. "말 한마디가 사이트로 바뀌는 순간"을 약 12초 주기로 반복한다.
@@ -139,6 +140,7 @@ export default function HeroDemo() {
   const showChat = staticMode ? false : phase < 2;
   const fullSay = staticMode ? demo.say : demo.say.slice(0, typed);
   const p = demo.palette;
+  const photo = PHOTOS[demo.key] ?? PHOTOS[`demo-${demo.key}`];
 
   return (
     <div ref={wrapRef} className="lp-stage" aria-hidden="true">
@@ -159,7 +161,7 @@ export default function HeroDemo() {
       </div>
       <div className="lp-phone">
         <span className="lp-phone-notch" />
-        <span className="lp-example">예시</span>
+        <span className="lp-example">예시 이미지</span>
         <div className="lp-screen">
           <div className="lp-screen-head">
             <span className="lp-screen-kind">{demo.kind}</span>
@@ -190,7 +192,7 @@ export default function HeroDemo() {
             </div>
           ) : (
             <div className="lp-site" key={`site-${idx}`} style={{ background: p.ground }}>
-              <div className="lp-site-hero" style={{ background: `linear-gradient(135deg, ${p.primary}, ${p.primary}cc 60%, ${p.accent})` }}>
+              <div className="lp-site-hero" style={{ background: photo ? photoBg(photo) : `linear-gradient(135deg, ${p.primary}, ${p.primary}cc 60%, ${p.accent})` }}>
                 <b style={{ color: '#fff' }}>{demo.shop}</b>
                 <span style={{ color: '#ffffffdd' }}>{demo.line}</span>
               </div>

@@ -3,6 +3,7 @@ import { PLACEHOLDERS, TEMPLATES, type Template } from './templates';
 import { logout, me, startLogin, type MeUser } from './auth';
 import { startRoom, track } from './api';
 import { MSG, voiceSupported, useVoiceInput } from './voice';
+import { PHOTOS, photoBg } from './landing/photos';
 import HeroDemo from './landing/HeroDemo';
 import './landing.css';
 
@@ -401,10 +402,14 @@ export default function Landing() {
 /** 템플릿의 색과 섹션으로 그린 작은 사이트 모형. 실제 예시 사이트(1-0f)가 생기면 그 화면으로 바꾼다. */
 function MiniSite({ t }: { t: Template }) {
   const p = t.palette;
+  const photo = PHOTOS[t.id];
   return (
     <span className="mini" style={{ background: p.ground, color: p.ink }} aria-hidden="true">
-      <span className="mini-tag">예시</span>
-      <span className="mini-hero" style={{ background: `linear-gradient(135deg, ${p.primary}, ${p.primary}cc 55%, ${p.accent})` }}>
+      <span className="mini-tag">{photo ? '예시 이미지' : '예시'}</span>
+      <span
+        className="mini-hero"
+        style={{ background: photo ? photoBg(photo) : `linear-gradient(135deg, ${p.primary}, ${p.primary}cc 55%, ${p.accent})` }}
+      >
         <span className="mini-shop">{t.shop}</span>
         <span className="mini-cta" style={{ background: p.accent, color: p.ink }}>
           문의하기
