@@ -51,6 +51,25 @@ def _parse_chunk(chunk: str):
     return value
 
 
+# 한자어 수 뒤에 오면 숫자로 보는 단위·세는 말
+_COUNTER_RE = re.compile(r"\s*(원|시|분|명|개|층|평|년|월|일|살|곳|박|인분|대|석|회|번째|km|m\b)")
+
+
+def _sino_is_number(chunk: str, after: str) -> bool:
+    """한글로 된 수 덩어리가 문맥상 숫자인지. 글자 목록이 아니라 앞뒤 모양으로 판단한다.
+
+    - 뒤에 단위·세는 말이 오면 숫자 ("삼만오천원", "이십 명", "만 원")
+    - 숫자 글자가 둘 이상 이어지면 숫자 ("십이만", "이십")
+    - 그 밖은 낱말의 일부 ("만들기", "천연", "천천히", "매일", "구성", "사실")
+    한 글자 수("이", "사", "구")는 "이분", "구분", "이곳"처럼 낱말에 흔해서 겹치지 않는 단위 앞에서만 숫자로 본다.
+    """
+    if len(chunk) == 1 and chunk in _SINO_DIGIT:
+        return re.match(r"\s*([시만천원층평]|인분|번째)", after) is not None
+    if _COUNTER_RE.match(after):
+        return True
+    return len(chunk) >= 2 and any(c in _SINO_DIGIT for c in chunk)
+
+
 def numbers_in(text: str) -> set:
     """글 속의 숫자들. 시각은 고유어도 숫자로 바꾼다('오후 세 시' → {3, 15})."""
     t = text or ""
@@ -63,8 +82,8 @@ def numbers_in(text: str) -> set:
         chunk = m.group(0)
         if re.fullmatch(r"[영공일이삼사오육칠팔구]{2,}", chunk):
             continue  # 한 자리씩 읽은 수(전화번호 등)는 전화 규칙이 맡는다
-        if re.fullmatch(r"[이사오육구]", chunk) and not re.search(re.escape(chunk) + r"\s*[시만천원]", t):
-            continue  # "이", "사"처럼 흔한 글자 하나는 뒤에 단위가 있을 때만 숫자로 본다
+        if not chunk[0].isdigit() and not _sino_is_number(chunk, t[m.end():]):
+            continue
         v = _parse_chunk(chunk)
         if v is not None:
             found.add(v)

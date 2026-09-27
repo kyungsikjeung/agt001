@@ -34,6 +34,8 @@ SKIP_KEYWORDS = ("시안먼저", "나머지알아서", "그만물어", "그만",
 REJECT_NEEDLESS = ("필요없", "없어도", "안해도", "안할래", "안할게")
 REJECT_REMOVE = ("빼주세요", "빼줘", "빼주세", "제외해", "제외", "없애", "제거", "빼고")
 REJECT_PATTERNS = REJECT_NEEDLESS + REJECT_REMOVE
+# 앞서 한 말을 고치는 발화: 물은 칸의 답이 아니다("일요일은 쉬는 걸로 바꿔주세요"가 목적 칸에 들어가던 T3 r4).
+CHANGE_NORMS = ("바꿔", "말고", "대신", "변경", "고쳐", "수정")
 # 부정 표현 (B-3): 숨은 항목 라벨 주변(정규화 후 앞뒤 8자)에 있으면 미선택으로 본다.
 # 한 글자("안" 등) 부분일치는 오탐("안내")이 나므로 두 글자 이상 패턴만 둔다.
 NEG_NORMS = ("안돼", "안되", "안됨", "안해", "안함", "못해", "못가", "못하",
@@ -262,6 +264,9 @@ def _is_control(text: str) -> bool:
 _META_GOAL = re.compile(r"(홈페이지|사이트|웹사이트)\s*(제작|만들|개설)")
 
 
+_COUNT_RE = re.compile(r"(\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(개|실|채|동|반|명|곳)")
+
+
 def _strip_label(ind, key: str, value: str) -> str:
     """"대표 메뉴 아메리카노", "대표 메뉴: 라떼"처럼 칸 이름이 값 앞에 붙어 오면 뗀다(T3 카페 시나리오)."""
     if isinstance(value, list):
@@ -271,7 +276,8 @@ def _strip_label(ind, key: str, value: str) -> str:
         for part in [label] + [x for x in re.split(r"[·/]", label) if len(x) >= 2]:
             if v.startswith(part) and len(v) > len(part):
                 rest = v[len(part):].lstrip(" :：-은는이가요")
-                if rest:
+                # "객실 3개"의 "객실"은 칸 이름이 아니라 값의 일부다(T3 r4: 사이트에 "3개"만 남던 문제).
+                if rest and not _COUNT_RE.match(rest):
                     return rest
     return v
 
@@ -624,6 +630,9 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
                 old_ind = card.get("industry")
                 card["industry"] = S.industry_for(o).key
                 _refresh_assumed_sections(card, old_ind)  # B-12
+    elif n in NONE_NORMS:
+        # 이어 묻기가 "없으면 '없음'이라고 해주세요"라고 안내한다. 받지 않으면 같은 질문을 3번 되풀이한다(T3 r4 academy).
+        _put(card, key, None, S.REJECTED, card["turn"], by)
     else:
         return None
     card["pending"] = None
@@ -846,7 +855,8 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
             ask_slot = (prev_pending or {}).get("slot") if (prev_pending or {}).get("kind") == "single" else None
             # 추출이 아무것도 못 뽑은 잡담은 여기 해당하지 않는다(뭔가 뽑았는데 칸만 엇나간 경우만).
             if (ask_slot and ups and ask_slot not in applied and not S.SLOTS[ask_slot].fact and ask_slot != "business_type"
-                    and len(t) <= 30 and not _satisfied(card, ask_slot) and not _is_control(t)):
+                    and len(t) <= 30 and not _satisfied(card, ask_slot) and not _is_control(t)
+                    and not any(w in n for w in CHANGE_NORMS)):
                 value = _split_items(t) if S.SLOTS[ask_slot].multi else t
                 _put(card, ask_slot, value, S.FILLED, card["turn"], by)
                 applied = list(applied) + [ask_slot]

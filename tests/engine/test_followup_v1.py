@@ -48,6 +48,16 @@ def test_staff_later_is_placeholder(monkeypatch):
     assert not (r["question"] and r["question"].get("slot") == "staff")
 
 
+def test_staff_none_closes_without_repeat(monkeypatch):
+    """질문이 "없으면 '없음'"이라 안내하므로 '없음'으로 닫힌다(T3 r4: 같은 질문 3번 반복)."""
+    fake_setup(monkeypatch, {})
+    card = E.new_card("academy")
+    card["pending"] = {"slot": "staff", "kind": "followup", "options": ["나중에 넣을게요"], "text": "담당자는?"}
+    r = E.turn(card, "없음")
+    assert card["slots"]["staff"]["status"] == S.REJECTED
+    assert not (r["question"] and r["question"].get("slot") == "staff")
+
+
 def test_naver_contact_asks_booking_url(monkeypatch):
     fake_setup(monkeypatch, {"네이버로 받아요": [u("contact_method", "네이버 예약")]})
     card = E.new_card("salon")

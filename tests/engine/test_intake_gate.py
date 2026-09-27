@@ -188,3 +188,26 @@ def test_label_prefix_is_stripped(fake_extract):
     card = E.new_card("cafe")
     E.turn(card, "대표 메뉴 아메리카노")
     assert card["slots"]["offerings"]["value"] == ["아메리카노"]
+
+
+def test_change_request_not_stored_in_asked_slot(fake_extract):
+    """T3 r4: 목적을 묻는 중 "일요일은 쉬는 걸로 바꿔주세요"는 영업시간 변경이지 목적 값이 아니다."""
+    card = E.new_card("restaurant")
+    card["pending"] = {"slot": "goal", "kind": "single", "options": [S.LET_AI], "text": "목적은?"}
+    fake_extract["일요일은 쉬는 걸로 바꿔주세요"] = [u("hours", "일요일 휴무")]
+    E.turn(card, "일요일은 쉬는 걸로 바꿔주세요")
+    assert card["slots"].get("goal", {}).get("value") is None
+
+
+def test_count_value_keeps_noun():
+    """T3 r4: "객실 3개"의 "객실"을 칸 이름으로 떼어 "3개"만 남기지 않는다. 진짜 칸 이름은 계속 뗀다."""
+    pension = S.INDUSTRIES["pension"]
+    assert E._strip_label(pension, "offerings", "객실 3개") == "객실 3개"
+    assert E._strip_label(S.INDUSTRIES["cafe"], "offerings", "메뉴: 아메리카노") == "아메리카노"
+
+
+def test_maeil_is_not_number_one():
+    """T3 r4: "매일"의 "일"을 1로 읽어 "매일 10~20시"와 "10시~20시"가 다르다고 보던 문제."""
+    from app.services.numbers import numbers_in
+    assert numbers_in("매일 10~20시") == {10, 20}
+    assert numbers_in("한 시에 열어요") == {1}
