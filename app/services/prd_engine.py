@@ -617,6 +617,30 @@ def _extra_items(text: str) -> list[str]:
     return out[:5]
 
 
+_ORDINAL = {"첫": 1, "두": 2, "세": 3, "네": 4, "다섯": 5}
+_SPOKEN_NUM = {"일": 1, "이": 2, "삼": 3, "사": 4, "오": 5, "한": 1, "두": 2, "세": 3, "네": 4, "다섯": 5}
+# 정규화(공백·문장부호 제거)한 답 전체가 번호 고르기일 때만. 뒤에 붙는 말: 거·걸로·으로 할게요·요 등.
+_TAIL = r"(거|것|꺼|걸|걸로|으로|로)?(요|이요|할게요|해주세요|주세요|해요)?"
+_CHOICE_RE = re.compile(r"(?:(?P<ord>첫|두|세|네|다섯)번째|(?P<num>[1-9]|일|이|삼|사|오|한|두|세|네|다섯)번|(?P<digit>[1-9]))" + _TAIL)
+_LAST_RE = re.compile(r"(맨)?마지막" + _TAIL)
+
+
+def _option_index(normed: str, n_options: int) -> Optional[int]:
+    """선택지 번호로 한 답이면 0부터 센 자리, 아니면 None. 선택지 개수 밖 번호는 고른 것으로 보지 않는다.
+    "하나", "둘"처럼 번·번째가 없는 말은 수량 답일 수 있어 보지 않는다."""
+    if not n_options or not normed:
+        return None
+    if _LAST_RE.fullmatch(normed):
+        return n_options - 1
+    m = _CHOICE_RE.fullmatch(normed)
+    if not m:
+        return None
+    k = (_ORDINAL.get(m["ord"]) if m["ord"] else
+         int(m["num"]) if m["num"] and m["num"].isdigit() else
+         _SPOKEN_NUM.get(m["num"]) if m["num"] else int(m["digit"]))
+    return k - 1 if k and 1 <= k <= n_options else None
+
+
 def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]:
     """직전 질문의 선택지·예/아니오 대답을 AI 없이 처리한다. 처리했으면 True, 선택지 대답이 아니면 None."""
     p = card.get("pending")
@@ -731,9 +755,11 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
         return None  # 목록 밖 대답은 자유 대답으로 추출한다
     # 한 칸 질문
     # 선택지가 "1) 2) 3)"로 보이므로 번호로 답하면 그 선택지다(T3: 목적 칸에 "3"이 들어가던 문제).
+    # 말로 고르기(VOICE FR-2): "이 번", "두 번째 거", "마지막 거요"도 같다.
     opts = p.get("options") or []
-    if re.fullmatch(r"\s*([1-9])\s*(번|번이요|번요)?\s*[.)]?\s*", t) and 1 <= int(re.search(r"[1-9]", t).group(0)) <= len(opts):
-        t = opts[int(re.search(r"[1-9]", t).group(0)) - 1]
+    idx = _option_index(n, len(opts))
+    if idx is not None:
+        t = opts[idx]
         n = _norm(t)
     # B-7: 거절 표현이면 그 칸을 REJECTED로 한다 (D23의 "이 항목 빼기"에 해당, 사실 칸 포함).
     # "빼주세요" 계열은 칸 이름이 함께 있어야 거절로 본다 (B-13 제외 흐름과 충돌 방지).
