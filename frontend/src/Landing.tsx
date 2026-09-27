@@ -116,7 +116,7 @@ export default function Landing() {
     <div className="page">
       <header className="topbar">
         <a className="brand" href="/">
-          agt001
+          한마디
         </a>
         <div className="login-wrap">
           <nav className="top-links" aria-label="계정">
@@ -284,7 +284,7 @@ export default function Landing() {
       </main>
 
       <footer className="foot">
-        <span>© {new Date().getFullYear()} agt001 · 베타</span>
+        <span>© {new Date().getFullYear()} 한마디 · 베타</span>
         <nav className="foot-links" aria-label="약관">
           <a href="/privacy.html">개인정보처리방침</a>
           <a href="/terms.html">이용약관</a>

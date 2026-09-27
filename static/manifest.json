@@ -1,6 +1,6 @@
 {
-  "name": "agt001 — 채팅으로 만드는 가게 사이트",
-  "short_name": "agt001",
+  "name": "한마디 — 말로 만드는 가게 사이트",
+  "short_name": "한마디",
   "description": "가게를 말로 설명하면 AI가 정리하고 시안 3안을 보여 드려요.",
   "lang": "ko",
   "start_url": "/?source=pwa",

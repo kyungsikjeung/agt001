@@ -96,7 +96,7 @@ def send_to_room_owner(room_id: str, text: str) -> bool:
         return False
     base = (settings.public_base_url or "https://144.24.91.250.sslip.io").rstrip("/")
     link = f"{base}/room.html?room={room_id}"
-    template = {"object_type": "text", "text": ("[agt001] " + text)[:200],
+    template = {"object_type": "text", "text": ("[한마디] " + text)[:200],
                 "link": {"web_url": link, "mobile_web_url": link}, "button_title": "채팅방 열기"}
     resp = httpx.post(MEMO_URL, headers={"Authorization": f"Bearer {token}"},
                       data={"template_object": json.dumps(template, ensure_ascii=False)}, timeout=10)

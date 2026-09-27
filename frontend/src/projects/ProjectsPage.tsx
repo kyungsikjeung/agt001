@@ -109,7 +109,7 @@ export default function ProjectsPage() {
     <div className="page">
       <header className="topbar">
         <a className="brand" href="/">
-          agt001
+          한마디
         </a>
         <nav className="top-links">
           <a className="projects-link on" href="/projects" aria-current="page">
@@ -187,7 +187,7 @@ export default function ProjectsPage() {
       </main>
 
       <footer className="foot">
-        <span>© {new Date().getFullYear()} agt001 · 베타</span>
+        <span>© {new Date().getFullYear()} 한마디 · 베타</span>
       </footer>
     </div>
   );

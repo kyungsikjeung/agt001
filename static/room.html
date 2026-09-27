@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>agt001 공유방</title>
+<title>한마디 공유방</title>
 <script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
 <style>
   :root {
@@ -231,7 +231,7 @@
 </head>
 <body>
   <header>
-    <h1>agt001 요구사항 도출방</h1>
+    <h1>한마디 · 요구사항 채팅방</h1>
     <button id="memberCount" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="memberPanelWrap" aria-label="참여자 목록 열기"></button>
   </header>
   <div id="statusBar"><span class="dot"></span><span id="statusText"></span></div>
@@ -971,9 +971,9 @@ function shareInviteUrl(absUrl) {
   Kakao.Share.sendDefault({
     objectType: 'feed',
     content: {
-      title: 'agt001 요구사항 도출방 초대',
+      title: '한마디 요구사항 채팅방 초대',
       description: '함께 요구사항을 정리해봐요! AI가 견적까지 도와드려요.',
-      imageUrl: 'https://placehold.co/600x400?text=agt001',
+      imageUrl: 'https://placehold.co/600x400?text=Hanmadi',
       link: { mobileWebUrl: absUrl, webUrl: absUrl },
     },
     buttons: [{ title: '방 입장하기', link: { mobileWebUrl: absUrl, webUrl: absUrl } }],
