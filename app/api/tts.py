@@ -7,7 +7,7 @@ from fastapi import APIRouter, Header, HTTPException, Request, Response
 from pydantic import BaseModel
 
 from app.security import sanitize_token
-from app.services import tts
+from app.services import tts, voice_turn
 
 router = APIRouter()
 
@@ -43,7 +43,10 @@ def text_to_speech(request: Request, body: TtsBody, x_member_id: Optional[str] =
     text = (body.text or "").strip()
     if not text:
         raise HTTPException(status_code=400, detail="empty text")
-    text = text[: tts.MAX_CHARS]  # 300자가 넘으면 앞에서 자른다
+    # 화면용 안내·기호는 빼고 읽을 말만 (FR-1). 안내뿐인 조각("(질문 3/8 …)")은 읽지 않는다.
+    text = voice_turn.speech_text(text)[: tts.MAX_CHARS]  # 300자가 넘으면 앞에서 자른다
+    if not text:
+        raise HTTPException(status_code=400, detail="empty text")
     try:
         wav = tts.synthesize(text)
     except tts.TtsUnavailable:

@@ -335,6 +335,8 @@
 
   function startRecording(isWalkie) {
     if (recording || uploading) return;
+    // 녹음이 시작되면 읽던 소리를 바로 끊는다.
+    try { if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech(); } catch (e) { /* 무시 */ }
     walkieSend = !!(isWalkie && walkieOn);
     if (walkieSend) buzz();
     hideNumCheck();
@@ -598,20 +600,41 @@
     return '';
   }
 
-  var currentAudio = null;
-  var currentBtn = null;
-  var currentUrl = null;
+  // 재생 상태: 손으로 누른 듣기와 자동 읽기가 하나로 합쳐진다. 새 답장이 오면 이전 것을 끊는다.
+  var activeAudio = null;
+  // iOS Safari는 사람이 누를 때 재생한 오디오 객체만 나중에 스스로 재생을 허락한다. 켜는 누름에서 푼 객체 하나를 계속 쓴다.
+  var sharedAudio = null;
+  var activeUrl = null;
+  var activeBtn = null;
+  var activeChunks = null;
+  var activeIndex = 0;
+  var prefetchUrl = null;
+  var prefetchIdx = -1;
   var loading = false;
+  var activeIsAuto = false;
+  // 끊기 세대 번호: 늦게 도착한 요청 결과는 버린다.
+  var speechGen = 0;
+  // 긴 답장 나누기 상수
+  var CHUNK_MAX = 280;
+  var MAX_CHUNKS = 4;
 
-  function cleanupAudio() {
-    if (currentAudio) {
-      try { currentAudio.pause(); } catch (e) { /* 무시 */ }
-      currentAudio = null;
+  function cleanupActive() {
+    if (activeAudio) {
+      try { activeAudio.pause(); } catch (e) { /* 무시 */ }
+      activeAudio = null;
     }
-    if (currentUrl) {
-      try { URL.revokeObjectURL(currentUrl); } catch (e) { /* 무시 */ }
-      currentUrl = null;
+    if (activeUrl) {
+      try { URL.revokeObjectURL(activeUrl); } catch (e) { /* 무시 */ }
+      activeUrl = null;
     }
+  }
+
+  function clearPrefetch() {
+    if (prefetchUrl) {
+      try { URL.revokeObjectURL(prefetchUrl); } catch (e) { /* 무시 */ }
+      prefetchUrl = null;
+    }
+    prefetchIdx = -1;
   }
 
   function resetBtn(btn, label) {
@@ -626,142 +649,390 @@
     btn.textContent = msg;
     btn.disabled = false;
     setTimeout(function () {
-      if (currentBtn !== btn) resetBtn(btn);
+      if (activeBtn !== btn) resetBtn(btn);
     }, 2500);
   }
 
-  function stopAll() {
-    cleanupAudio();
-    if (currentBtn) resetBtn(currentBtn);
-    currentBtn = null;
+  // 읽던 소리를 멈추고 대기 중인 읽기를 모두 비운다. 듣기 버튼 재생도 함께 멈춘다.
+  function stopAllSpeech() {
+    speechGen++;
+    cleanupActive();
+    clearPrefetch();
+    if (activeBtn) resetBtn(activeBtn);
+    activeBtn = null;
+    activeChunks = null;
+    activeIndex = 0;
+    activeIsAuto = false;
     loading = false;
-    pumpAutoSoon();
   }
-
-  // Walkie auto-read queue: one at a time, new replies wait.
-  var autoQueue = [];
-  var autoAudio = null;
-  var autoUrl = null;
 
   function isWalkieEnabled() {
     try {
       if (typeof window.isWalkieOn === 'function') return !!window.isWalkieOn();
       if (typeof localStorage !== 'undefined') return localStorage.getItem('agt001_walkie') === '1';
-    } catch (e) { /* ignore */ }
+    } catch (e) { /* 무시 */ }
     return false;
   }
 
-  function cleanupAuto() {
-    if (autoAudio) {
-      try { autoAudio.pause(); } catch (e) { /* ignore */ }
-      autoAudio = null;
+  // 답변 읽어주기 켜짐 여부: 무전기가 켜져 있으면 켜진 것으로 본다.
+  var AUTOREAD_KEY = 'agt001_autoread';
+  var autoreadOn = loadAutoread();
+  var autoreadSwitch = null;
+
+  function loadAutoread() {
+    try {
+      if (typeof localStorage !== 'undefined') return localStorage.getItem(AUTOREAD_KEY) === '1';
+    } catch (e) { /* 저장소 사용 불가 */ }
+    return false;
+  }
+
+  function saveAutoread(on) {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(AUTOREAD_KEY, on ? '1' : '0');
+    } catch (e) { /* 저장소 사용 불가 */ }
+  }
+
+  function shouldAutoRead() {
+    if (autoreadOn) return true;
+    return isWalkieEnabled();
+  }
+
+  function setAutoread(on) {
+    autoreadOn = !!on;
+    saveAutoread(autoreadOn);
+    updateAutoreadUI();
+  }
+
+  function updateAutoreadUI() {
+    try {
+      if (!autoreadSwitch) return;
+      autoreadSwitch.setAttribute('aria-checked', autoreadOn ? 'true' : 'false');
+      autoreadSwitch.textContent = autoreadOn ? '답변 읽어주기: 켜짐' : '답변 읽어주기: 꺼짐';
+      autoreadSwitch.setAttribute('aria-label', autoreadOn ? '답변 읽어주기 켜짐' : '답변 읽어주기 꺼짐');
+      autoreadSwitch.style.background = autoreadOn ? '#4338ca' : '#f7f7f8';
+      autoreadSwitch.style.color = autoreadOn ? '#fff' : '';
+      autoreadSwitch.style.borderColor = autoreadOn ? '#4338ca' : '';
+    } catch (e) { /* 무시 */ }
+  }
+
+  // 켜는 누름 안에서 소리 재생을 풀어 둔다. 막히면 조용히 넘어간다.
+  function unlockAudio() {
+    try {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) {
+        var ctx = new AC();
+        try {
+          if (ctx.state === 'suspended' && typeof ctx.resume === 'function') ctx.resume();
+        } catch (e) { /* 무시 */ }
+        try {
+          var rate = ctx.sampleRate || 44100;
+          var len = Math.floor(rate * 0.05);
+          if (len < 1) len = 1;
+          var buf = ctx.createBuffer(1, len, rate);
+          var src = ctx.createBufferSource();
+          src.buffer = buf;
+          src.connect(ctx.destination);
+          try { src.start(0); } catch (e2) { /* 무시 */ }
+        } catch (e) { /* 무시 */ }
+        try {
+          setTimeout(function () { try { ctx.close(); } catch (e2) { /* 무시 */ } }, 500);
+        } catch (e) { /* 무시 */ }
+      }
+    } catch (e) { /* 무시 */ }
+    try {
+      if (!sharedAudio) sharedAudio = new Audio();
+      var a = sharedAudio;
+      if (activeAudio === a) return;  // 읽는 중이면 이미 풀린 상태
+      a.src = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+      try {
+        var p = a.play();
+        if (p && typeof p.catch === 'function') p.catch(function () { /* 무시 */ });
+      } catch (e) { /* 무시 */ }
+    } catch (e) { /* 무시 */ }
+  }
+
+  function buildAutoreadUI() {
+    try {
+      autoreadSwitch = document.createElement('button');
+      autoreadSwitch.type = 'button';
+      autoreadSwitch.id = 'autoreadSwitch';
+      autoreadSwitch.setAttribute('role', 'switch');
+      autoreadSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;';
+      autoreadSwitch.addEventListener('click', function () {
+        setAutoread(!autoreadOn);
+        unlockAudio();
+        try {
+          var mic = document.getElementById('micBtn');
+          if (mic) mic.focus();
+        } catch (e) { /* 무시 */ }
+      });
+      var slot = document.getElementById('walkieSlot');
+      if (slot) {
+        slot.appendChild(autoreadSwitch);
+      } else {
+        var rowEl = document.getElementById('walkieRow');
+        if (rowEl) rowEl.appendChild(autoreadSwitch);
+      }
+      updateAutoreadUI();
+    } catch (e) { /* 화면 만들기가 실패해도 듣기는 유지 */ }
+  }
+
+  // 처음 방에 들어올 때 불러오는 지난 답장은 읽지 않는다. 방 화면이 첫 조회를 마치면 표시한다.
+  function historyReady() {
+    try {
+      return !!window.__agtHistoryDone;
+    } catch (e) { /* 무시 */ }
+    return false;
+  }
+
+  // 긴 답장을 280자 이하 조각으로 나눈다. 줄바꿈과 문장 끝에서 자르고 최대 4조각까지만 둔다.
+  function splitLongText(text) {
+    var s = (text || '').replace(/^\s+|\s+$/g, '');
+    if (!s) return [];
+    if (s.length <= MAX_CHARS) return [s.slice(0, MAX_CHARS)];
+    var out = [];
+    var rest = s;
+    while (rest && out.length < MAX_CHUNKS) {
+      rest = rest.replace(/^\s+/, '');
+      if (!rest) break;
+      if (rest.length <= MAX_CHARS && (rest.length <= CHUNK_MAX || out.length === MAX_CHUNKS - 1)) {
+        out.push(rest.slice(0, MAX_CHARS));
+        break;
+      }
+      var limit = CHUNK_MAX;
+      if (rest.length < limit) limit = rest.length;
+      var head = rest.slice(0, limit);
+      var cut = -1;
+      for (var i = head.length - 1; i >= 0; i--) {
+        var ch = head.charAt(i);
+        if (ch === '\n' || ch === '.' || ch === '?' || ch === '!') { cut = i + 1; break; }
+        if (ch === '요' || ch === '다') { cut = i + 1; break; }
+      }
+      if (cut < 120) cut = limit;
+      if (cut < 1) cut = limit;
+      out.push(rest.slice(0, cut));
+      rest = rest.slice(cut);
     }
-    if (autoUrl) {
-      try { URL.revokeObjectURL(autoUrl); } catch (e) { /* ignore */ }
-      autoUrl = null;
-    }
+    return out;
   }
 
-  function pumpAutoSoon() {
-    setTimeout(pumpAuto, 0);
-  }
-
-  function pumpAuto() {
-    if (autoAudio || currentAudio || loading) return;
-    var next = autoQueue.shift();
-    if (!next) return;
-    playAuto(next);
-  }
-
-  function playAuto(clean) {
-    fetch(TTS_URL, {
+  function fetchChunkBlob(chunkText) {
+    return fetch(TTS_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Member-Id': getMemberId() },
-      body: JSON.stringify({ text: clean })
+      body: JSON.stringify({ text: chunkText })
     }).then(function (res) {
       if (res.ok) return res.blob();
-      throw new Error('tts fail');
-    }).then(function (blob) {
-      if (!blob || !blob.size) throw new Error('empty');
-      var url = URL.createObjectURL(blob);
-      var audio = new Audio(url);
-      autoUrl = url;
-      autoAudio = audio;
-      audio.onended = function () { cleanupAuto(); pumpAutoSoon(); };
-      audio.onerror = function () { cleanupAuto(); pumpAutoSoon(); };
-      var played = audio.play();
-      if (played && typeof played.catch === 'function') {
-        played.catch(function (err) {
-          // Autoplay blocked: keep existing listen buttons as the only guide.
-          cleanupAuto();
-          autoQueue.length = 0;
-        });
-      }
-    }).catch(function () {
-      cleanupAuto();
-      pumpAutoSoon();
+      var err = new Error('tts fail');
+      err.status = res.status;
+      throw err;
     });
   }
 
-  window.queueWalkieTts = function (text) {
+  function finishReading() {
+    cleanupActive();
+    clearPrefetch();
+    if (activeBtn) resetBtn(activeBtn);
+    activeBtn = null;
+    activeChunks = null;
+    activeIndex = 0;
+    activeIsAuto = false;
+    loading = false;
+  }
+
+  function failReading(btn, gen, isAuto, err) {
+    if (gen !== speechGen) return;
+    finishReading();
+    if (isAuto) return;
+    if (err instanceof TypeError) {
+      flashBtn(btn, '인터넷 연결을 확인해 주세요');
+      return;
+    }
+    if (err && err.status === 429) {
+      flashBtn(btn, '요청이 많아요 잠시 뒤에');
+      return;
+    }
+    if (err && err.message === '소리가 비어 있어요') {
+      flashBtn(btn, '소리가 비어 있어요');
+      return;
+    }
+    flashBtn(btn, '지금은 듣기를 쓸 수 없어요');
+  }
+
+  // 다음 조각을 미리 요청해 둔다. 끊기 세대가 바뀌면 버린다.
+  function prefetchNext(chunks, nextIdx, gen) {
+    if (nextIdx < 0 || nextIdx >= chunks.length) return;
+    var myGen = gen;
+    fetchChunkBlob(chunks[nextIdx]).then(function (blob) {
+      if (myGen !== speechGen) return;
+      if (!blob || !blob.size) return;
+      if (prefetchIdx !== -1) return;
+      try {
+        prefetchUrl = URL.createObjectURL(blob);
+        prefetchIdx = nextIdx;
+      } catch (e) { /* 무시 */ }
+    }).catch(function () { /* 미리 요청 실패는 조용히 넘긴다 */ });
+  }
+
+  function playChunkUrl(url, chunks, idx, btn, gen, isAuto) {
+    if (gen !== speechGen) {
+      try { URL.revokeObjectURL(url); } catch (e) { /* 무시 */ }
+      return;
+    }
+    var audio = sharedAudio || new Audio();
+    audio.src = url;
+    activeUrl = url;
+    activeAudio = audio;
+    loading = false;
+    if (btn) {
+      btn.textContent = LABEL_STOP;
+      btn.disabled = false;
+    }
+    prefetchNext(chunks, idx + 1, gen);
+    audio.onended = function () {
+      if (gen !== speechGen) return;
+      playNextChunk(gen);
+    };
+    audio.onerror = function () {
+      if (gen !== speechGen) return;
+      if (isAuto) {
+        finishReading();
+        return;
+      }
+      finishReading();
+      flashBtn(btn, '재생에 실패했어요');
+    };
+    var played = null;
     try {
-      if (!isWalkieEnabled()) return;
-      var clean = (text || '').trim().slice(0, MAX_CHARS);
+      played = audio.play();
+    } catch (e) {
+      if (isAuto) { finishReading(); return; }
+      finishReading();
+      flashBtn(btn, '재생에 실패했어요');
+      return;
+    }
+    if (played && typeof played.catch === 'function') {
+      played.catch(function () {
+        if (gen !== speechGen) return;
+        if (isAuto) { finishReading(); return; }
+        finishReading();
+        flashBtn(btn, '재생에 실패했어요');
+      });
+    }
+  }
+
+  function playNextChunk(gen) {
+    if (gen !== speechGen) return;
+    cleanupActive();
+    activeIndex++;
+    if (!activeChunks || activeIndex >= activeChunks.length) {
+      finishReading();
+      return;
+    }
+    var btn = activeBtn;
+    var isAuto = activeIsAuto;
+    if (prefetchIdx === activeIndex && prefetchUrl) {
+      var url = prefetchUrl;
+      prefetchUrl = null;
+      prefetchIdx = -1;
+      playChunkUrl(url, activeChunks, activeIndex, btn, gen, isAuto);
+      return;
+    }
+    var chunks = activeChunks;
+    var idx = activeIndex;
+    fetchChunkBlob(chunks[idx]).then(function (blob) {
+      if (gen !== speechGen) return;
+      if (!blob || !blob.size) throw new Error('소리가 비어 있어요');
+      var url2 = URL.createObjectURL(blob);
+      playChunkUrl(url2, chunks, idx, btn, gen, isAuto);
+    }).catch(function (err) {
+      failReading(btn, gen, isAuto, err);
+    });
+  }
+
+  // 조각 목록을 처음부터 읽는다. 재생 시작과 함께 다음 조각을 미리 요청한다.
+  function startReading(chunks, btn, isAuto, gen) {
+    activeChunks = chunks;
+    activeIndex = 0;
+    activeBtn = btn || null;
+    activeIsAuto = !!isAuto;
+    loading = true;
+    if (btn) {
+      btn.textContent = LABEL_LOADING;
+      btn.disabled = true;
+    }
+    fetchChunkBlob(chunks[0]).then(function (blob) {
+      if (gen !== speechGen) return;
+      if (!blob || !blob.size) throw new Error('소리가 비어 있어요');
+      var url = URL.createObjectURL(blob);
+      playChunkUrl(url, chunks, 0, btn, gen, isAuto);
+    }).catch(function (err) {
+      failReading(btn, gen, isAuto, err);
+    });
+  }
+
+  function queueNewReading(text, btn, isAuto) {
+    var chunks = splitLongText(text);
+    if (!chunks.length) {
+      if (!isAuto) flashBtn(btn, '들을 내용이 없어요');
+      return;
+    }
+    stopAllSpeech();
+    var gen = speechGen;
+    startReading(chunks, btn || null, isAuto, gen);
+  }
+
+  window.queueWalkieTts = function (text, btn) {
+    try {
+      if (!shouldAutoRead()) return;
+      if (!historyReady()) return;
+      var clean = (text || '').replace(/^\s+|\s+$/g, '');
       if (!clean) return;
-      autoQueue.push(clean);
-      pumpAuto();
-    } catch (e) { /* ignore */ }
+      queueNewReading(clean, btn || null, true);
+    } catch (e) { /* 무시 */ }
   };
 
   window.speakAiText = function (text, btn) {
     if (!btn) return;
-    // 재생 중에 같은 버튼을 다시 누르면 멈춘다.
-    if (currentAudio && currentBtn === btn) {
-      stopAll();
+    // 읽던 말풍선의 버튼을 다시 누르면 멈춘다. 자동 읽기도 함께 멈춘다.
+    if (activeBtn === btn && (activeAudio || loading)) {
+      stopAllSpeech();
       return;
     }
     if (loading) return;
-    // 다른 답장을 듣던 중이면 멈추고 새로 시작한다. 자동 읽기도 멈춘다.
-    cleanupAuto();
-    stopAll();
-    var clean = (text || '').trim().slice(0, MAX_CHARS);
+    var clean = (text || '').replace(/^\s+|\s+$/g, '');
     if (!clean) {
       flashBtn(btn, '들을 내용이 없어요');
       return;
     }
-    loading = true;
-    currentBtn = btn;
-    btn.textContent = LABEL_LOADING;
-    btn.disabled = true;
-    fetch(TTS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Member-Id': getMemberId() },
-      body: JSON.stringify({ text: clean })
-    }).then(function (res) {
-      if (res.ok) return res.blob();
-      if (res.status === 429) throw new Error('요청이 많아요 잠시 뒤에');
-      throw new Error('지금은 듣기를 쓸 수 없어요');
-    }).then(function (blob) {
-      if (!blob || !blob.size) throw new Error('소리가 비어 있어요');
-      var url = URL.createObjectURL(blob);
-      var audio = new Audio(url);
-      currentUrl = url;
-      currentAudio = audio;
-      btn.textContent = LABEL_STOP;
-      btn.disabled = false;
-      audio.onended = function () { stopAll(); };
-      audio.onerror = function () { stopAll(); flashBtn(btn, '재생에 실패했어요'); };
-      var played = audio.play();
-      if (played && typeof played.catch === 'function') {
-        played.catch(function () { stopAll(); flashBtn(btn, '재생에 실패했어요'); });
-      }
-    }).catch(function (err) {
-      stopAll();
-      if (err instanceof TypeError) {
-        flashBtn(btn, '인터넷 연결을 확인해 주세요');
-      } else {
-        flashBtn(btn, err && err.message ? err.message : '지금은 듣기를 쓸 수 없어요');
-      }
-    });
+    queueNewReading(clean, btn, false);
   };
+
+  window.stopAllSpeech = stopAllSpeech;
+  // 보내기·🎤 누름마다 소리를 다시 풀어 둔다(새로고침 뒤 첫 답장이 막히지 않게). 읽어주기가 켜졌을 때만.
+  window.unlockSpeech = function () { try { if (shouldAutoRead()) unlockAudio(); } catch (e) { /* 무시 */ } };
+  window.queueAutoRead = window.queueWalkieTts;
+  window.setAutoreadMode = setAutoread;
+  window.isAutoreadOn = function () { return autoreadOn; };
+
+  // 입력창에 첫 글자가 들어오면 읽던 소리를 끊는다.
+  function bindInputStop() {
+    try {
+      var inp = document.getElementById('input');
+      if (!inp) return;
+      var prevLen = inp.value ? inp.value.length : 0;
+      inp.addEventListener('input', function () {
+        try {
+          var len = inp.value ? inp.value.length : 0;
+          if (len > 0 && (prevLen === 0 || len === 1)) {
+            if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech();
+          }
+          prevLen = len;
+        } catch (e) { /* 무시 */ }
+      });
+    } catch (e) { /* 무시 */ }
+  }
+
+  buildAutoreadUI();
+  bindInputStop();
 })();

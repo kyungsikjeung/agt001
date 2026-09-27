@@ -351,6 +351,8 @@ let memberId = safeGet('agt001_member_id');
 let nickname = safeGet('agt001_nickname');
 let lastSeq = 0;
 let pollTimer = null;
+// 첫 조회를 마친 뒤 새로 도착한 ai_reply만 읽는다. 그 전 말풍선은 지난 답장으로 본다.
+let historyDone = false;
 // 초대 토큰은 주소창 invite 값으로 들어오고 첫 입장 메시지에 한 번만 붙인다.
 let inviteToken = new URLSearchParams(location.search).get('invite') || '';
 let inviteAttached = false;
@@ -467,7 +469,7 @@ function hueFromString(s) {
     bubble.appendChild(wrap);
   }
 
-function addMessage(m) {
+function addMessage(m, isNew) {
   const row = document.createElement('div');
   row.className = 'row kind-' + m.kind;
   const safeName = (m.nickname || '').slice(0, 40);
@@ -528,8 +530,9 @@ function addMessage(m) {
       if (typeof window.speakAiText === 'function') window.speakAiText(m.text, listenBtn);
     };
     bubble.appendChild(listenBtn);
-    if (typeof window.queueWalkieTts === 'function') {
-      try { window.queueWalkieTts(m.text); } catch (e) { /* 자동 읽기는 실패해도 말풍선 유지 */ }
+    // 새로 도착한 답장만 자동으로 읽는다. 지난 답장과 첫 안내 글은 듣기 버튼으로만 듣는다.
+    if (isNew && typeof window.queueWalkieTts === 'function') {
+      try { window.queueWalkieTts(m.text, listenBtn); } catch (e) { /* 자동 읽기는 실패해도 말풍선 유지 */ }
     }
   }
   // 시안 고르기: 선택 번호를 기억하고 AI 안내 글 아래에 카드 3개를 단다
@@ -699,9 +702,14 @@ async function pollMessages() {
     const res = await fetch(`/room/${roomId}/messages?since=${lastSeq}`, { headers: { 'X-Member-Id': memberId } });
     if (!res.ok) return;
     const data = await res.json();
+    const freshBatch = !historyDone;
     for (const m of data.messages) {
-      addMessage(m);
+      addMessage(m, !freshBatch);
       if (m.kind === 'ai_reply' && findDesignId(m.text)) hasDesign = true;
+    }
+    if (!historyDone) {
+      historyDone = true;
+      try { window.__agtHistoryDone = true; } catch (e) { /* 무시 */ }
     }
     if (data.messages.length) lastSeq += data.messages.length;
     updateStatus(data.ai_status);
@@ -730,6 +738,9 @@ async function pollMessages() {
 }
 
 async function sendRoomMessage(text) {
+  // 보내거나 고르는 순간 읽던 소리를 바로 끊는다.
+  try { if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech(); } catch (e) { /* 무시 */ }
+  try { if (typeof window.unlockSpeech === 'function') window.unlockSpeech(); } catch (e) { /* 무시 */ }
   // 첫 입장 메시지에만 주소창 invite 값을 함께 보낸다 (계약 §3).
   const body = { member_id: memberId, nickname, message: text };
   if (!inviteAttached && inviteToken) body.invite = inviteToken;
@@ -1399,7 +1410,7 @@ function closeMoreSheet() {
   if (btn) btn.setAttribute('aria-expanded', 'false');
   if (moreReturnFocus && moreReturnFocus.focus) moreReturnFocus.focus();
 }
-// voice.js가 입력줄 위에 만드는 무전기 스위치를 더보기 안으로 옮긴다 (fetch 변경 없음).
+// voice.js가 입력줄 위에 만드는 무전기·읽어주기 스위치를 더보기 안으로 옮긴다 (fetch 변경 없음).
 function relocateWalkie() {
   try {
     const row = document.getElementById('walkieRow');
@@ -1407,6 +1418,8 @@ function relocateWalkie() {
     const sw = document.getElementById('walkieSwitch');
     const slot = document.getElementById('walkieSlot');
     if (sw && slot && sw.parentNode !== slot) slot.appendChild(sw);
+    const ar = document.getElementById('autoreadSwitch');
+    if (ar && slot && ar.parentNode !== slot) slot.appendChild(ar);
   } catch (e) { /* 스위치 이동 실패해도 입력은 유지 */ }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocateWalkie);
