@@ -15,10 +15,17 @@ services:
       - POSTGRES_USER=agt001
       - POSTGRES_DB=agt001
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD를 .env에 설정하세요}
+      # 모든 시간은 한국 시간 기준(사용자 결정 2026-09-27). 저장은 timestamptz라 값은 그대로, 보이는 시간대만 바뀐다.
+      - TZ=Asia/Seoul
+      - PGTZ=Asia/Seoul
     volumes:
       - pg_data:/var/lib/postgresql/data
     command:
       - postgres
+      - -c
+      - timezone=Asia/Seoul
+      - -c
+      - log_timezone=Asia/Seoul
       - -c
       - shared_buffers=32MB
       - -c
@@ -40,6 +47,8 @@ services:
       # 보내므로, 마운트 소스는 컨테이너 내부(/app) 경로가 아니라 이 호스트 실제 경로여야
       # 한다. compose가 실행되는 디렉토리(=이 파일이 있는 프로젝트 루트)를 그대로 넘긴다.
       - HOST_PROJECT_DIR=${PWD}
+      # 모든 시간은 한국 시간 기준(사용자 결정 2026-09-27): "오늘"·로그·타이머가 새벽 0~9시에 하루 어긋나지 않게.
+      - TZ=Asia/Seoul
       # 생성 사이트·시안 전용 주소(S-1, deploy/Caddyfile 두 번째 블록). 비우면 앱 주소에서 함께 연다.
       - PREVIEW_HOST=${PREVIEW_HOST-144-24-91-250.sslip.io}
       - DATABASE_URL=postgresql+psycopg://agt001:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD를 .env에 설정하세요}@db:5432/agt001

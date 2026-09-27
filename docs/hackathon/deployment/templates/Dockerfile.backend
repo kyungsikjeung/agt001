@@ -8,7 +8,7 @@ FROM python:3.11-slim
 # `shutil.which("docker")`가 실패해 팀C 코드생성이 "docker가 없다"며 건너뛰어진다.
 # ffmpeg: 휴대폰 녹음(webm/opus, iOS는 mp4/aac)을 음성 인식용 16kHz 모노 WAV로 바꾼다 (app/services/stt.py).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends docker.io docker-cli ffmpeg \
+    && apt-get install -y --no-install-recommends docker.io docker-cli ffmpeg tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
