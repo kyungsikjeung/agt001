@@ -136,15 +136,24 @@ def base_spec(card: dict) -> dict:
     if _wants_kakao_channel(card):
         extra.append({"id": "kakao", "type": "contact", "variant": "kakao-channel",
                       "content": {"kakao_channel_url": card.get("kakao_channel_url") or ""}})
-    # 편의 안내(방안 6): 사장님이 고른 숨은 항목(주차·반려동물 동반 등)을 아이콘 칸으로. 덧붙인 말은 설명으로.
+    # 편의 안내(방안 6): 사장님이 고른 숨은 항목(주차·반려동물 동반 등)을 아이콘 칸으로.
+    # 목록 밖에서 더한 항목(extra)도 별 모양 아이콘 칸으로 뒤에 잇는다. 덧붙인 말(note)은
+    # 첫 항목 설명에 붙이지 않고 내용(note 키)으로 따로 둔다(보기는 site_render이 한 줄로 그린다).
     chosen = [(k, label) for k, label in ind.hidden if k in (card.get("hidden") or {}).get("selected", [])]
-    if chosen:
-        note = (card.get("hidden") or {}).get("note") or ""
-        feats = [{"title": label, "desc": note if i == 0 else "", "icon": _FEATURE_ICON.get(k, "star")}
-                 for i, (k, label) in enumerate(chosen)]
+    hidden = card.get("hidden") or {}
+    raw_extra = hidden.get("extra") or []
+    extra_names = [n.strip() for n in raw_extra if isinstance(n, str) and n.strip()]
+    if chosen or extra_names:
+        note = hidden.get("note") or ""
+        feats = [{"title": label, "desc": "", "icon": _FEATURE_ICON.get(k, "star")}
+                 for k, label in chosen]
+        feats += [{"title": name, "desc": "", "icon": "star"} for name in extra_names]
+        content = {"label": "이용 안내", "items": feats}
+        if note:
+            content["note"] = note
         at = next((i + 1 for i, s in enumerate(sections) if s["type"] == "offerings"), len(sections))
         sections.insert(at, {"id": "features", "type": "features", "variant": "icons",
-                             "content": {"label": "이용 안내", "items": feats}})
+                             "content": content})
     # 영상 카드(방안 5): 소개 바로 뒤에
     if card.get("videos"):
         at_intro = next((i + 1 for i, s in enumerate(sections) if s["type"] == "intro"), 1)

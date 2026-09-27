@@ -616,6 +616,8 @@ def _section_context(
         ctx["label"] = _text(content, "label")
         ctx["items"] = items
         ctx["has_items"] = True
+        # 편의 안내 덧붙인 말: 항목 아래 한 줄로 보인다(chevron {{note}} 경로로 빠져나감)
+        ctx["note"] = _text(content, "note")
     elif section_type == "stats" and variant == "band":
         items = [{"value": _text(r, "value"), "label": _text(r, "label")}
                  for r in (content.get("items") or []) if isinstance(r, dict) and _text(r, "value")][:4]

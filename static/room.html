@@ -573,35 +573,76 @@ function renderChoices(q) {
   const picked = new Set();
   choiceHint.textContent = q.kind === 'multi' ? '해당되는 것을 모두 누른 뒤 "선택 완료"를 눌러 주세요'
     : q.owner_only ? '방장님이 눌러 주세요' : '누르면 바로 답이 전송돼요. 직접 적어도 돼요';
-  for (const opt of q.options) {
+  // 여러 개 고르기용 토글 버튼 만들기 (처음 선택지와 더 보기 펼침이 같은 방식)
+  const makeMultiBtn = (opt) => {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = opt;
-    if (q.kind === 'multi') {
-      b.setAttribute('aria-pressed', 'false');
-      b.onclick = () => {
-        if (opt === '없음') { choiceBar.classList.remove('show'); sendRoomMessage('없음'); return; }
-        if (picked.has(opt)) { picked.delete(opt); b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
-        else { picked.add(opt); b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); }
-      };
-    } else {
-      b.onclick = () => { choiceBar.classList.remove('show'); sendRoomMessage(opt); };
-    }
+    b.setAttribute('aria-pressed', 'false');
+    b.onclick = () => {
+      if (opt === '없음') { choiceBar.classList.remove('show'); sendRoomMessage('없음'); return; }
+      if (picked.has(opt)) { picked.delete(opt); b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
+      else { picked.add(opt); b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); }
+    };
+    return b;
+  };
+  for (const opt of q.options) {
+    if (q.kind === 'multi') { choicesEl.appendChild(makeMultiBtn(opt)); continue; }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = opt;
+    b.onclick = () => { choiceBar.classList.remove('show'); sendRoomMessage(opt); };
     choicesEl.appendChild(b);
   }
   if (q.kind === 'multi') {
+    // 목록 밖 항목: 처음에는 q.options만 보이고, 더 보기를 누르면 q.more_options를 같은 토글 방식으로 펼친다
+    const moreOpts = Array.isArray(q.more_options) ? q.more_options.filter((o) => typeof o === 'string' && o && q.options.indexOf(o) < 0) : [];
+    if (moreOpts.length) {
+      const moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.textContent = '더 보기';
+      moreBtn.setAttribute('aria-label', '선택지 더 보기');
+      moreBtn.setAttribute('aria-expanded', 'false');
+      moreBtn.onclick = () => {
+        for (const opt of moreOpts) choicesEl.appendChild(makeMultiBtn(opt));
+        moreBtn.remove();
+      };
+      choicesEl.appendChild(moreBtn);
+    }
     const extraWrap = document.createElement('div');
     extraWrap.id = 'choiceExtraWrap';
-    extraWrap.style.cssText = 'margin-top:8px;display:flex;gap:8px;';
+    // 작은 화면(360px)에서도 가로로 넘치지 않게 입력칸은 세로로 쌓는다
+    extraWrap.style.cssText = 'margin-top:8px;display:flex;flex-direction:column;gap:8px;';
+    // 목록에 없는 것 추가 입력칸
+    const extraLabel = document.createElement('label');
+    extraLabel.setAttribute('for', 'choiceExtra');
+    extraLabel.textContent = '+ 목록에 없는 것 추가';
+    extraLabel.style.cssText = 'font-size:0.8125rem;color:var(--text-muted);';
+    extraWrap.appendChild(extraLabel);
     const extra = document.createElement('input');
     extra.id = 'choiceExtra';
     extra.type = 'text';
-    extra.placeholder = '예: 소형견만 가능해요, 주차는 2대';
-    extra.setAttribute('aria-label', '덧붙일 말 선택');
+    extra.placeholder = '예: 바비큐, 테라스석';
+    extra.setAttribute('aria-label', '목록에 없는 항목 추가');
     extra.autocomplete = 'off';
     extra.maxLength = 200;
-    extra.style.cssText = 'flex:1;min-width:0;min-height:44px;padding:0 12px;font-size:0.9375rem;border:1px solid var(--border);border-radius:8px;';
+    extra.style.cssText = 'width:100%;max-width:100%;min-width:0;min-height:44px;padding:0 12px;font-size:0.9375rem;border:1px solid var(--border);border-radius:8px;';
     extraWrap.appendChild(extra);
+    // 덧붙일 말 입력칸
+    const noteLabel = document.createElement('label');
+    noteLabel.setAttribute('for', 'choiceNote');
+    noteLabel.textContent = '덧붙일 말';
+    noteLabel.style.cssText = 'font-size:0.8125rem;color:var(--text-muted);';
+    extraWrap.appendChild(noteLabel);
+    const noteInput = document.createElement('input');
+    noteInput.id = 'choiceNote';
+    noteInput.type = 'text';
+    noteInput.placeholder = '예: 소형견만 가능해요';
+    noteInput.setAttribute('aria-label', '덧붙일 말');
+    noteInput.autocomplete = 'off';
+    noteInput.maxLength = 200;
+    noteInput.style.cssText = 'width:100%;max-width:100%;min-width:0;min-height:44px;padding:0 12px;font-size:0.9375rem;border:1px solid var(--border);border-radius:8px;';
+    extraWrap.appendChild(noteInput);
     choiceBar.appendChild(extraWrap);
     const done = document.createElement('button');
     done.type = 'button';
@@ -609,16 +650,23 @@ function renderChoices(q) {
     done.textContent = '선택 완료';
     done.style.cssText = 'min-height:44px;border:1px solid var(--border);background:var(--accent-dark);color:#fff;border-radius:999px;padding:0 16px;font-size:0.9375rem;cursor:pointer;white-space:nowrap;';
     const submitMulti = () => {
-      const note = extra.value.trim();
+      // 화면에서 서버로 보내는 여러 개 고르기 답 형식: 고른 항목 + 덧붙일 말 + 목록 밖 추가 항목
       const base = picked.size ? [...picked].join(', ') : '';
+      const note = noteInput.value.trim();
+      const added = extra.value.split(',').map((s) => s.trim()).filter(Boolean).join(', ');
       let msg = '없음';
-      if (base && note) msg = base + ' — ' + note;
+      if (base && note && added) msg = base + ' — ' + note + ' / 추가: ' + added;
+      else if (base && note) msg = base + ' — ' + note;
+      else if (base && added) msg = base + ' / 추가: ' + added;
       else if (base) msg = base;
-      else if (note) msg = note;
+      else if (note && added) msg = '— ' + note + ' / 추가: ' + added;
+      else if (note) msg = '— ' + note;  // 고른 것 없이 덧붙일 말만: 앞의 "—"로 추가 항목과 구분한다
+      else if (added) msg = '추가: ' + added;
       choiceBar.classList.remove('show'); sendRoomMessage(msg);
     };
     done.onclick = submitMulti;
     extra.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMulti(); });
+    noteInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMulti(); });
     extraWrap.appendChild(done);
   } else {
     const direct = document.createElement('button');

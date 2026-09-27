@@ -598,6 +598,25 @@ def _negated_around(normed: str, idx: int, length: int) -> bool:
     return any(p in window for p in NEG_NORMS)
 
 
+_EXTRA_RE = re.compile(r"(?:^|/)\s*추가\s*[:：]\s*(.*)$", re.S)
+# 항목 뒤에 붙는 서술("바비큐 가능해요", "테라스석 있어요")
+_PREDICATE_RE = re.compile(r"\s*(도|은|는|이|가)?\s*(가능(해요|합니다|함|하고)?|있어요|있음|있습니다|있고|돼요|됩니다|되고|해요|제공(해요|합니다)?)?[\s.!~]*$")
+
+
+def _strip_predicate(item: str) -> str:
+    return _PREDICATE_RE.sub("", (item or "").strip()).strip(" ,·/—-:")
+
+
+def _extra_items(text: str) -> list[str]:
+    """사장님이 목록 밖에서 더한 항목 이름들. 서술을 떼고 2자 이상만, 최대 5개."""
+    out: list[str] = []
+    for part in re.split(r"[,、·/]|\s그리고\s", text or ""):
+        item = _strip_predicate(part)[:20]
+        if len(_norm(item)) >= 2 and item not in out:
+            out.append(item)
+    return out[:5]
+
+
 def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]:
     """직전 질문의 선택지·예/아니오 대답을 AI 없이 처리한다. 처리했으면 True, 선택지 대답이 아니면 None."""
     p = card.get("pending")
@@ -651,6 +670,13 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
         return True
     if p["kind"] == "multi":
         hidden = industry_of(card).hidden
+        # 목록 밖 항목: 화면은 "... / 추가: 바비큐, 테라스석"으로 보낸다. 먼저 떼어 둔다.
+        extra = []
+        m = _EXTRA_RE.search(t)
+        if m:
+            extra = _extra_items(m.group(1))
+            t = t[:m.start()].strip()
+            n = _norm(t)
         # B-2: "없음"은 메시지 전체가 없음 계열일 때만. 고른 항목이 있으면 선택을 먼저 살린다.
         labels = [(k, label) for k, label in hidden]
         selected = []
@@ -667,6 +693,8 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
                 selected.append(hit)
         if selected:
             card["hidden"] = {"asked": True, "selected": selected}
+            if extra:
+                card["hidden"]["extra"] = extra
             # 고른 항목 말고 덧붙인 말("소형견만 돼요")은 버리지 않는다: 안내 메모로 남기고 칸 추출에도 넘긴다.
             rest = t
             for k, label in labels:
@@ -674,15 +702,32 @@ def _answer_pending(card: dict, text: str, by, is_owner: bool) -> Optional[bool]
                     for cand in sorted((label, label.split("·")[0]), key=len, reverse=True):
                         rest = rest.replace(cand, " ")
             rest = re.sub(r"^[\s,·/\-—:()]+|[\s,·/\-—:()]+$", "", re.sub(r"\s+", " ", rest))
-            if len(_norm(rest)) >= 3:
+            # "주차 — 바비큐도 돼요"에서 라벨을 떼고 남은 "도 돼요" 같은 찌꺼기는 메모로 남기지 않는다.
+            if len(_norm(_strip_predicate(rest))) >= 2:
                 card["hidden"]["note"] = rest[:200]
                 card["pending_remainder"] = rest[:200]
             card["pending"] = None
             return True
-        if n in NONE_NORMS:
+        # 고른 것 없이 "— 덧붙일 말"(화면 형식)이나 추가 항목만 온 경우: 남은 말은 메모이지 항목이 아니다.
+        note = t.lstrip("—-– ").strip() if (extra or t.startswith(("—", "-", "–"))) else ""
+        if n in NONE_NORMS or extra or note:
             card["hidden"] = {"asked": True, "selected": []}
+            if extra:
+                card["hidden"]["extra"] = extra
+            if note and _norm(note) not in NONE_NORMS and len(_norm(_strip_predicate(note))) >= 2:
+                card["hidden"]["note"] = note[:200]
             card["pending"] = None
             return True
+        # 목록에 하나도 안 맞는 짧은 답("바비큐 가능해요")은 사장님이 더한 항목이다. 전에는 버려지고 같은 질문을 되풀이했다.
+        # 다른 칸 이야기("가게 이름은 …")·숫자·진행 말은 자유 대답 추출로 넘긴다.
+        ind = industry_of(card)
+        if (len(t) <= 30 and not re.search(r"\d", t) and not _is_control(t)
+                and not any(_slot_label_hit(ind, k, n) for k in S.SLOTS)):
+            extra = _extra_items(t)
+            if extra:
+                card["hidden"] = {"asked": True, "selected": [], "extra": extra}
+                card["pending"] = None
+                return True
         return None  # 목록 밖 대답은 자유 대답으로 추출한다
     # 한 칸 질문
     # 선택지가 "1) 2) 3)"로 보이므로 번호로 답하면 그 선택지다(T3: 목적 칸에 "3"이 들어가던 문제).
@@ -849,8 +894,11 @@ def next_question(card: dict) -> Optional[dict]:
             and (done_count >= 3 or not missing)):
         # B-11: 선택지 합계 4개 이하 (조사 #9) — 상위 3개 + 없음. 판정은 전체 목록으로 한다.
         labels = [label for _, label in ind.hidden[:3]]
-        return {"slot": None, "kind": "multi", "options": labels + ["없음"],
-                "text": "해당되는 것을 모두 골라 주세요. 사이트에 안내해 드릴게요."}
+        q = {"slot": None, "kind": "multi", "options": labels + ["없음"],
+             "text": "해당되는 것을 모두 골라 주세요. 목록에 없는 것도 적어 주시면 넣어 드릴게요."}
+        if ind.hidden[3:]:
+            q["more_options"] = [label for _, label in ind.hidden[3:]]  # 화면 "더 보기" (첫 화면 4개 규칙은 유지)
+        return q
     if missing:
         q = S.question_for(ind, missing[0])
         return {"slot": missing[0], "kind": "single", "options": list(q.options) + [S.LET_AI], "text": q.ask}
@@ -1223,6 +1271,7 @@ def summary_text(card: dict) -> str:
     lines = [f"• {S.label_for(ind, k)}: {_display(ind, k, card['slots'][k])}"
              for k in _SUMMARY_ORDER if k in card["slots"] and card["slots"][k]["status"] != S.REJECTED]
     hidden = [label for key, label in ind.hidden if key in card["hidden"]["selected"]]
+    hidden += card["hidden"].get("extra") or []
     if hidden:
         note = card["hidden"].get("note")
         lines.append(f"• 안내할 것: {', '.join(hidden)}" + (f" ({note})" if note else ""))
