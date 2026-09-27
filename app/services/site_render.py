@@ -132,6 +132,13 @@ def _bundle() -> dict:
     density = json.loads((tokens / "density.json").read_text(encoding="utf-8"))
     radius = json.loads((tokens / "radius.json").read_text(encoding="utf-8"))
     site_css = (base / "site.css").read_text(encoding="utf-8")
+    # 2주차 부품 CSS: site.css 뒤에 templates/css/*.css를 이름순으로 이어 붙인다 (C1).
+    # 폴더가 없어도 동작한다 (glob 빈 목록 → site.css만).
+    css_dir = base / "css"
+    if css_dir.is_dir():
+        extra = [path.read_text(encoding="utf-8") for path in sorted(css_dir.glob("*.css"))]
+        if extra:
+            site_css = "\n".join([site_css, *extra])
     built = {
         "templates": templates,
         "palettes": palettes,
@@ -492,6 +499,92 @@ def _booking_days(content: dict) -> list:
             days.append({"label": _text(entry, "label") or date[5:].replace("-", "/"),
                          "dow": _text(entry, "dow"), "slots": slots})
     return days
+
+
+def _class_items(content: dict) -> list:
+    """반 카드: [{name, target, level, desc, when, capacity, fee, fee_example, example}] 최대 12개."""
+    raw = content.get("classes")
+    items = []
+    for entry in (raw if isinstance(raw, list) else [])[:12]:
+        if not isinstance(entry, dict) or not _text(entry, "name").strip():
+            continue
+        when = f"{_text(entry, 'days')} {_text(entry, 'time')}".strip()
+        items.append({"name": _text(entry, "name"), "target": _text(entry, "target"),
+                      "level": _text(entry, "level"), "desc": _text(entry, "desc"),
+                      "when": when, "capacity": _text(entry, "capacity"),
+                      "fee": _text(entry, "fee"),
+                      "fee_example": entry.get("fee_example") is True,
+                      "example": entry.get("example") is True})
+    return items
+
+
+def _booking_dates(content: dict) -> list:
+    """입실일 현황: [{label, dow, value, key, state, state_label, is_full}] 최대 21일."""
+    raw = content.get("days")
+    days = []
+    for entry in (raw if isinstance(raw, list) else [])[:21]:
+        if not isinstance(entry, dict) or not _SLOT_VALUE.match(_text(entry, "date")):
+            continue
+        date = _text(entry, "date")
+        state = entry.get("state") if entry.get("state") in _SLOT_STATES else "open"
+        days.append({"label": _text(entry, "label") or date[5:].replace("-", "/"),
+                     "dow": _text(entry, "dow"), "value": date,
+                     "key": date.replace("-", ""), "state": state,
+                     "state_label": _SLOT_STATES[state], "is_full": state == "full"})
+    return days
+
+
+def _nights_max(content: dict) -> int:
+    """박 수 상한: 1~14 정수만, 아니면 기본 3."""
+    raw = content.get("nights_max", 3)
+    if isinstance(raw, bool):
+        return 3
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return 3
+    return value if 1 <= value <= 14 else 3
+
+
+def _room_items(content: dict) -> list:
+    """객실 카드: [{name, image_*, capacity, size, price, price_example, features, example}] 최대 8개."""
+    raw = content.get("rooms")
+    rooms = []
+    for entry in (raw if isinstance(raw, list) else [])[:8]:
+        if not isinstance(entry, dict) or not _text(entry, "name").strip():
+            continue
+        name = _text(entry, "name").strip()
+        image = _clean_url(_text(entry, "image"))
+        tags = entry.get("features")
+        tags = [{"text": s} for s in (tags if isinstance(tags, list) else []) if isinstance(s, str) and s.strip()][:6]
+        rooms.append({"name": name, "capacity": _text(entry, "capacity"), "size": _text(entry, "size"),
+                      "price": _text(entry, "price"), "price_example": entry.get("price_example") is True,
+                      "image_src": image, "image_alt": _text(entry, "image_alt") or f"{name} 사진",
+                      "image_example": bool(image and entry.get("image_example")),
+                      "features": tags, "has_features": bool(tags),
+                      "example": entry.get("example") is True})
+    return rooms
+
+
+def _timetable_rows(content: dict, days: list) -> list:
+    """시간표 행: [{time, cells:[{text}]}] 최대 12행. cells는 days 순서에 맞춘다."""
+    raw = content.get("rows")
+    rows = []
+    for entry in (raw if isinstance(raw, list) else [])[:12]:
+        if not isinstance(entry, dict) or not _text(entry, "time").strip():
+            continue
+        by_day = {}
+        cells = entry.get("cells")
+        if isinstance(cells, list):
+            for cell in cells:
+                if not isinstance(cell, dict):
+                    continue
+                day, text = _text(cell, "day"), _text(cell, "text")
+                if day and isinstance(text, str) and day not in by_day:
+                    by_day[day] = text
+        rows.append({"time": _text(entry, "time"),
+                     "cells": [{"text": by_day.get(day, "")} for day in days]})
+    return rows
 
 
 def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
@@ -866,6 +959,40 @@ def _section_context(
         ctx["days"] = _booking_days(content)
         ctx["has_days"] = bool(ctx["days"])
         ctx["days_example"] = content.get("days_example") is True and ctx["has_days"]
+    elif section_type == "classes" and variant == "cards":
+        # 학원 반 카드 (C1): 상담 신청 주소는 #만.
+        ctx["label"] = _text(content, "label")
+        href = _clean_url(_text(content, "cta_href"))
+        ctx["cta_href"] = href if href.startswith("#") else ""
+        ctx["classes"] = _class_items(content)
+        ctx["has_classes"] = bool(ctx["classes"])
+    elif section_type == "timetable" and variant == "week":
+        # 학원 시간표 (C1): <table> + <caption> 필수.
+        ctx["label"] = _text(content, "label")
+        days = [d for d in (content.get("days") or []) if isinstance(d, str) and d.strip()][:7]
+        ctx["days"] = [{"label": day} for day in days]
+        ctx["rows"] = _timetable_rows(content, days)
+        ctx["has_rows"] = bool(ctx["rows"])
+        ctx["example"] = content.get("example") is True
+    elif section_type == "rooms" and variant == "cards":
+        # 펜션 객실 카드 (C1): 예약 주소는 #만.
+        ctx["label"] = _text(content, "label")
+        href = _clean_url(_text(content, "booking_href"))
+        ctx["booking_href"] = href if href.startswith("#") else ""
+        ctx["rooms"] = _room_items(content)
+        ctx["has_rooms"] = bool(ctx["rooms"])
+    elif section_type == "booking" and variant == "dates":
+        # 펜션 입실일 + 객실 + 박 수 (C1): 입실일은 date로, 객실은 service로, 박 수는 nights로 보낸다.
+        ctx["site_key"] = site_key
+        ctx["retention_days"] = int(retention_days)
+        ctx["label"] = _text(content, "label")
+        ctx["note"] = _text(content, "note")
+        rooms = [{"name": s} for s in (content.get("rooms") or []) if isinstance(s, str) and s.strip()]
+        ctx["rooms"], ctx["has_rooms"] = rooms, bool(rooms)
+        ctx["nights_max"] = _nights_max(content)
+        ctx["days"] = _booking_dates(content)
+        ctx["has_days"] = bool(ctx["days"])
+        ctx["days_example"] = content.get("days_example") is True and ctx["has_days"]
     elif section_type == "order" and variant == "soon":
         # 주문 준비 중 안내창 (D53⑤). 스크립트 없이 #order-soon(:target)으로 열린다.
         phone, digits = _phone_pair(content)
@@ -961,7 +1088,27 @@ def _empty_for_public(section_type: str, variant: str, ctx: dict) -> bool:
     if section_type == "contact" and variant in ("call-first", "booking-first", "chat-first"):
         # 연락 줄이 모두 빈칸이면 제목만 남으므로 뺀다(9/26 휴대폰 점검)
         return not any(ctx.get(k) for k in ("phone", "hours", "address", "booking_url", "channel_url"))
+    if section_type == "classes":
+        return not ctx.get("has_classes")
+    if section_type == "timetable":
+        # 예시 시간표는 값이 전부 예시이므로 공개본에서 뺀다.
+        return not ctx.get("has_rows") or bool(ctx.get("example"))
+    if section_type == "rooms":
+        return not ctx.get("has_rooms")
     return False
+
+
+def _apply_tone(part: str, section: dict) -> str:
+    """tone이 inverse면 섹션 뿌리 요소의 첫 여는 태그에 data-tone을 붙인다 (C1)."""
+    if not isinstance(section, dict) or section.get("tone") != "inverse":
+        return part
+    start = part.find("<")
+    if start < 0:
+        return part
+    end = part.find(">", start)
+    if end < 0 or "data-tone" in part[start:end]:
+        return part
+    return part[:end] + ' data-tone="inverse"' + part[end:]
 
 
 def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
@@ -1025,7 +1172,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         if public and _empty_for_public(section_type, variant, ctx):
             continue
         if ctx.pop("is_example", False):
-            rendered_parts.append(_gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")))
+            rendered_parts.append(_apply_tone(
+                _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section))
             continue
         part = chevron.render(template, _safe(ctx))
         if (section_type == "hero" and variant in _HERO_PHOTO_VARIANTS
@@ -1033,7 +1181,12 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             # 사진 없음: 빈 자리 표시를 업종별 예시 그림으로 갈아끼운다.
             # 사진 있음: 그림을 쓰지 않는다.
             part = part.replace(_HERO_EMPTY_MARK, _illustration_block(kind, "hero"), 1)
-        rendered_parts.append(part)
+        rendered_parts.append(_apply_tone(part, section))
+
+    # 첫 화면 두 번째 행동(글자 링크)도 빠진 섹션(공개본에서 빠진 예시 담당자 등)을 가리키면 지운다.
+    ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+    rendered_parts = [re.sub(r'<a class="s-hero__link" href="#([^"]+)">.*?</a>',
+                             lambda m: m.group(0) if m.group(1) in ids else "", part) for part in rendered_parts]
 
     if isinstance(nav, dict):
         # 내비는 섹션 다음에 그린다: 빠진 부품(공개본 빈칸·v3 사진첩)으로 가는 링크를 빼기 위해.

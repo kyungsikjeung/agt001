@@ -14,7 +14,7 @@ from app.services import site_render as SR  # noqa: E402
 
 GOLD = ROOT / "evals" / "fit_gold"
 OUT = ROOT / "static" / "compare" / "fit"
-KIND = {"cafe": "cafe", "salon": "salon"}
+KIND = {"cafe": "cafe", "salon": "salon", "academy": "academy", "pension": "pension"}
 
 
 def main() -> int:

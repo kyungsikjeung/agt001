@@ -607,11 +607,17 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
             concept_note = (f"디자인 컨셉을 잡았어요.\n{design_concept.summary_line(card['concept'])}\n\n"
                             if card and card.get("concept") else "")
+            # 시안 안내: 실제 안 이름(variants의 name)으로 번호를 매긴다. 번호 고르기는 그대로.
+            _guides = [(w.get("id"), w.get("name")) for w in (d.get("design_variants") or [])]
+            if len(_guides) >= 3:
+                _guide = (" · ".join(f"{n}안 {nm}" for n, (_, nm) in zip(("1", "2", "3"), _guides))
+                          + " 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
+            else:
+                _guide = ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
             reply = (
                 concept_note +
                 f"컨셉 보드와 시안 3안: {d['design_url']}\n"
-                + ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n"
-                   if len(d.get("design_variants", [])) >= 3 else "\n") +
+                + (_guide if len(d.get("design_variants", [])) >= 3 else "\n") +
                 ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
                 ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
                    if (card or {}).get("copy") else "") +

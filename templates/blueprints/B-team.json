@@ -1,0 +1,40 @@
+{
+  "archetype": "B",
+  "mode": "team",
+  "primary": {"label": "예약하기", "target": "booking"},
+  "secondary": {"label": "디자이너 보기", "target": "staff"},
+  "actionbar_secondary": "phone",
+  "tokens": {"font_pair": "serif-elegant", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "strategies": [
+    {"id": "v1", "name": "디자이너 선택형", "journey": "디자이너 고르고 → 시간 고르기", "tone": "calm",
+     "hero": "photo-overlay",
+     "sections": [
+       {"id": "staff", "type": "staff", "variant": "team", "bind": "staff", "label": "디자이너", "nav": "디자이너"},
+       {"id": "price", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "시술·가격", "nav": "시술·가격"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "예약"},
+       {"id": "style", "type": "gallery", "variant": "swipe", "bind": "style_photos", "label": "스타일", "nav": "스타일"},
+        {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+        {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v2", "name": "스타일형", "journey": "스타일 보고 → 디자이너 → 예약", "tone": "rich",
+     "hero": "photo-side",
+     "sections": [
+       {"id": "style", "type": "gallery", "variant": "marquee", "bind": "style_photos", "label": "스타일", "nav": "스타일"},
+       {"id": "staff", "type": "staff", "variant": "team", "bind": "staff", "label": "디자이너", "nav": "디자이너", "tone": "inverse"},
+       {"id": "price", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "시술·가격", "nav": "시술·가격"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "예약"},
+        {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+        {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v3", "name": "시술·가격형", "journey": "시술·가격 보고 → 예약", "tone": "calm",
+     "hero": "arch",
+     "sections": [
+       {"id": "price", "type": "offerings", "variant": "list-price", "bind": "catalog", "label": "시술·가격", "nav": "시술·가격"},
+       {"id": "staff", "type": "staff", "variant": "team", "bind": "staff", "label": "디자이너", "nav": "디자이너"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "예약"},
+       {"id": "style", "type": "gallery", "variant": "swipe", "bind": "style_photos", "label": "스타일", "nav": "스타일"},
+        {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+        {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]}
+  ]
+}

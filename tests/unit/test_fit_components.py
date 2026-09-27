@@ -178,8 +178,9 @@ def test_hero_second_action_is_text_link_not_second_button():
     hero = {"id": "hero", "type": "hero", "variant": "photo-overlay", "content": {
         "title": "가게", "cta": {"label": "길찾기", "href": "#around-title-around"},
         "cta2": {"label": "메뉴 보기", "href": "#offerings-title-menu"}}}
-    doc = _page([hero, _map("주소")])
-    part = doc[doc.find("s-hero--photo-overlay"):doc.find("</section>")]
+    doc = _page([hero, _menu(), _map("주소")])
+    part = doc[doc.find('<section class="s-hero s-hero--photo-overlay'):]
+    part = part[:part.find("</section>")]
     assert part.count('class="s-btn') == 1 and 'class="s-hero__link"' in part and "메뉴 보기" in part
 
 
@@ -193,3 +194,12 @@ def test_drop_examples_rules():
     got = SR._drop_examples({"a": [{"x": 1, "example": True}, {"x": 2}], "price": "1원", "price_example": True,
                              "image": "/art/a.webp", "image_example": True, "days": [1], "days_example": True})
     assert got["a"] == [{"x": 2}] and got["price"] == "" and got["image"] == "/art/a.webp" and got["days"] == []
+
+
+def test_hero_second_action_dropped_when_target_missing_on_public():
+    hero = {"id": "hero", "type": "hero", "variant": "photo-overlay", "content": {
+        "title": "가게", "cta": {"label": "예약하기", "href": "#booking-title-booking"},
+        "cta2": {"label": "디자이너 보기", "href": "#staff-title-staff"}}}
+    only_example = _staff("team", [{"name": "예시", "example": True}])
+    assert "디자이너 보기" in _page([hero, only_example])
+    assert "디자이너 보기" not in _page([hero, only_example], public=True)

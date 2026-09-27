@@ -1,0 +1,21 @@
+<section class="s-classes s-classes--cards" data-section-id="{{id}}" aria-labelledby="classes-title-{{id}}">
+  <h2 id="classes-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}반 안내{{/label}}</h2>
+  {{#has_classes}}
+  <ul class="s-classes__list">
+    {{#classes}}
+    <li class="s-class">
+      <p class="s-class__head"><strong class="s-class__name">{{name}}</strong>{{#level}}<span class="s-class__level">{{level}}</span>{{/level}}{{#example}} <span class="s-example" title="예시 반: 공개할 때 빠져요">예시</span>{{/example}}</p>
+      {{#target}}<p class="s-class__target"><span class="s-chip s-chip--sm">{{target}}</span></p>{{/target}}
+      {{#when}}<p class="s-class__when">{{when}}</p>{{/when}}
+      {{#capacity}}<p class="s-class__meta">정원 {{capacity}}</p>{{/capacity}}
+      <p class="s-class__fee">{{#fee}}{{fee}}{{#fee_example}} <span class="s-example" title="예시 수강료: 공개할 때 사장님 수강료로 바뀌어요">예시</span>{{/fee_example}}{{/fee}}{{^fee}}<span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[수강료 입력]</span>{{/fee}}</p>
+      {{#desc}}<p class="s-class__desc">{{desc}}</p>{{/desc}}
+      {{#cta_href}}<p class="s-class__cta"><a class="s-btn s-btn--ghost s-btn--block" href="{{cta_href}}">상담 신청</a></p>{{/cta_href}}
+    </li>
+    {{/classes}}
+  </ul>
+  {{/has_classes}}
+  {{^has_classes}}
+  <p><span class="is-placeholder" aria-label="반: 아직 입력되지 않음">[반 입력]</span></p>
+  {{/has_classes}}
+</section>

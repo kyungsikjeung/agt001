@@ -1,50 +1,80 @@
 {
-  "forest": {
-    "primary": "#2f5d50",
-    "accent": "#b97f26",
-    "ground": "#faf7f2",
-    "ink": "#1f2622"
+  "espresso": {
+    "primary": "#292524",
+    "accent": "#c2410c",
+    "ground": "#f5f3ef",
+    "ink": "#1c1917"
+  },
+  "cobalt": {
+    "primary": "#1d4ed8",
+    "accent": "#b45309",
+    "ground": "#f7f6f2",
+    "ink": "#0f172a"
+  },
+  "evergreen": {
+    "primary": "#047857",
+    "accent": "#be185d",
+    "ground": "#f5f5f0",
+    "ink": "#122019"
+  },
+  "ink-rose": {
+    "primary": "#1c1917",
+    "accent": "#be123c",
+    "ground": "#f8f5f4",
+    "ink": "#1c1917"
+  },
+  "plum": {
+    "primary": "#6b21a8",
+    "accent": "#0f766e",
+    "ground": "#f7f5f8",
+    "ink": "#1e1526"
   },
   "coffee": {
-    "primary": "#6f4e37",
-    "accent": "#a86a1f",
-    "ground": "#fbf6ef",
-    "ink": "#2a2320"
+    "primary": "#3a2618",
+    "accent": "#0e7490",
+    "ground": "#f6f3ee",
+    "ink": "#1f1712"
   },
-  "brick": {
-    "primary": "#8c2f2f",
-    "accent": "#a86a1f",
-    "ground": "#fdf8f1",
-    "ink": "#26211e"
-  },
-  "charcoal-gold": {
-    "primary": "#3a3a3c",
-    "accent": "#8a6d2b",
-    "ground": "#fafaf8",
-    "ink": "#1e1e20"
+  "forest": {
+    "primary": "#166534",
+    "accent": "#c2410c",
+    "ground": "#f4f5f0",
+    "ink": "#14201a"
   },
   "moss": {
-    "primary": "#4a6741",
-    "accent": "#8a6d2b",
-    "ground": "#f7f4ec",
-    "ink": "#23281f"
-  },
-  "navy": {
-    "primary": "#2b4c9b",
-    "accent": "#0f7aa8",
-    "ground": "#f4f7fd",
-    "ink": "#1d2433"
-  },
-  "tomato": {
-    "primary": "#b3402c",
-    "accent": "#b7791f",
-    "ground": "#fff8f1",
-    "ink": "#2b1d17"
+    "primary": "#3f6212",
+    "accent": "#9d174d",
+    "ground": "#f5f5ef",
+    "ink": "#1a2010"
   },
   "sage": {
-    "primary": "#4d6457",
-    "accent": "#a8683a",
-    "ground": "#f6f5f0",
-    "ink": "#1f2521"
+    "primary": "#1c2b25",
+    "accent": "#c2410c",
+    "ground": "#f3f6f5",
+    "ink": "#132421"
+  },
+  "brick": {
+    "primary": "#9a3412",
+    "accent": "#0f766e",
+    "ground": "#faf6f3",
+    "ink": "#241712"
+  },
+  "tomato": {
+    "primary": "#b91c1c",
+    "accent": "#15803d",
+    "ground": "#fdf7f5",
+    "ink": "#261414"
+  },
+  "navy": {
+    "primary": "#1e3a8a",
+    "accent": "#c2410c",
+    "ground": "#f5f7fb",
+    "ink": "#111827"
+  },
+  "charcoal-gold": {
+    "primary": "#18181b",
+    "accent": "#a16207",
+    "ground": "#fafaf9",
+    "ink": "#18181b"
   }
 }

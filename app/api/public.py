@@ -129,6 +129,14 @@ def site_root_redirect(requirement_id: str):
 def serve_site(requirement_id: str, filename: str = ""):
     # 사장님이 고른 시안을 공개했으면 그것을, 아니면 코드생성 결과를 연다.
     web_dir = _project_dir(requirement_id, "published")
+    if web_dir.is_dir() and (not filename or filename == "index.html"):
+        # J7: 날짜가 바뀌었으면(스케줄러 없이) 응답 전에 예약 현황을 다시 그린다
+        try:
+            from app.services import availability as availability_module
+            availability_module.refresh_if_stale(requirement_id)
+        except Exception:
+            import logging as _logging
+            _logging.getLogger(__name__).exception("공개본 날짜 확인 실패 %s", requirement_id)
     if not web_dir.is_dir():
         web_dir = _project_dir(requirement_id, "web")
     if not web_dir.is_dir():

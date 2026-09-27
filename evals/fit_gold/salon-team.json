@@ -432,7 +432,8 @@
       "ai": true
      }
     ]
-   }
+   },
+   "tone": "inverse"
   },
   {
    "id": "around",

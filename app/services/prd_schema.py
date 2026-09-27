@@ -44,6 +44,11 @@ SLOTS: dict[str, Slot] = {s.key: s for s in [
     Slot("detail", "특징", "가게만의 특징이나 자랑. 예: 바다가 보이는 객실, 직접 로스팅. 대상이 섞여 있으면('중년 아주머니가 많이 와요') 그 부분은 target으로 나눈다"),
     Slot("booking_url", "예약 주소", "손님이 예약하는 페이지 주소. 사장님이 직접 붙여넣은 URL만. '네이버 예약으로 받아요' 같은 말은 contact_method이지 주소가 아니다. 주소가 없으면 넣지 않는다"),
     Slot("staff", "담당자", "담당 디자이너·선생님·의료진. 예: 원장 김미용(컷트), 영어 김선생님. 메뉴·시술 이름은 담당자가 아니다", multi=True),
+    # 상황 탐색 칸 (BUILD_W1_W2 §1.6, D53 ③): 사실 칸이 아니고 질문 한도 밖이다.
+    # 어느 업종의 required에도 넣지 않는다.
+    Slot("team_mode", "운영 인원", "가게를 혼자 운영하는지 담당자가 여럿인지. 값: 혼자, 2~3명, 4명 이상"),
+    Slot("order_mode", "주문 방식", "손님 주문 방식. 값: 매장 방문, 주문 앱 링크, 픽업 주문"),
+    Slot("menu_categories", "메뉴 분류", "메뉴를 나누는 분류 이름. 예: 커피, 음료, 디저트", multi=True),
 ]}
 
 FACT_SLOTS = frozenset(k for k, s in SLOTS.items() if s.fact)

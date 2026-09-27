@@ -56,9 +56,10 @@ def test_full_design_flow_is_recorded_and_reported(client):
 
     assert [e.props["variant"] for e in _events("design_chosen")] == ["v2"]
     [restyle] = _events("design_restyled")
-    # 고른 안의 색·글꼴은 잠긴다(design_concept.lock_tokens) — "고급스럽게"여도 2안 팔레트 유지
-    v2_palette = shown.props["v2"].split(":")[0]
-    assert restyle.props["palette"] == v2_palette and "text" not in restyle.props
+    # 고른 안의 색·글꼴은 잠긴다(design_concept.lock_tokens) — "고급스럽게"여도 색·글꼴은 그대로, 나머지만 바뀐 칸으로 남는다
+    changed = {k: v for k, v in restyle.props.items() if k not in ("site", "industry")}
+    assert changed.get("radius") == "sharp" and "text" not in changed  # 잠기지 않은 칸은 "고급" 값으로
+    assert changed.get("palette") != "charcoal-gold" and changed.get("font_pair") != "serif-elegant"  # 잠긴 칸은 2안 값
     assert [e.props["variant"] for e in _events("site_published")] == ["v2"]
     [inq] = _events("inquiry_received")
     assert inq.props == {"site": rid}  # 문의 내용·연락처는 남기지 않는다
@@ -69,7 +70,8 @@ def test_full_design_flow_is_recorded_and_reported(client):
     assert rep["sites_shown"] == 1 and rep["choice_rate"] == 1.0 and rep["publish_rate"] == 1.0
     assert rep["chosen_variant"] == {"v2": 1} and rep["inquiries_30d_total"] == 1
     assert rep["published_with_inquiry_rate"] == 1.0
-    assert rep["restyle_changes"][f"palette={v2_palette}"] == 1
+    assert sum(rep["restyle_changes"].values()) == len(changed)
+    assert rep["restyle_changes"]["radius=sharp"] == 1
 
 
 def _card(sections, features_judged=()):

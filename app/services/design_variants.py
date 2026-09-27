@@ -489,7 +489,79 @@ def _apply_structure(spec: dict, change: dict) -> None:
             sec["variant"] = want
 
 
+def _blueprint_variants(card: dict, blueprint: dict, archetype: str) -> list[dict]:
+    """청사진 새 경로 (BUILD_W1_W2 J5): skeleton → tokens → resolve로 3안.
+
+    카드 사본에 card_data.build 결과를 넣어 구조 데이터를 고정하고,
+    전략마다 청사진 토큰 + palette.pick(①②③) 색을 입힌다.
+    결과 형식 [{id, name, summary, spec}]은 기존 경로와 같다.
+    """
+    from app.services import card_data as CD
+    from app.services import palette as PAL
+    from app.services import site_data as SD
+    data = CD.build(card)
+    work = copy.deepcopy(card)
+    work["data"] = data
+    concept = work.get("concept")
+    mood = concept.get("palette") if isinstance(concept, dict) else None
+    base_tokens = blueprint.get("tokens") or {}
+    out = []
+    used: list = []
+    for pos, strategy in enumerate(blueprint.get("strategies") or []):
+        spec = SD.skeleton(blueprint, pos)
+        pal = PAL.pick(archetype, pos + 1, mood=mood, used=tuple(used))
+        used.append(pal)
+        tokens = dict(base_tokens)
+        tokens["palette"] = pal
+        spec["tokens"] = tokens
+        resolved = SD.resolve(spec, work, archetype=archetype)
+        out.append({"id": strategy.get("id") or f"v{pos + 1}",
+                    "name": strategy.get("name") or f"{pos + 1}안",
+                    "summary": strategy.get("journey") or "",
+                    "spec": resolved})
+    if len(out) == 3 and min_distance([v["spec"] for v in out]) < MIN_DISTANCE:
+        out[2]["spec"] = _recolor_v3(out, archetype)
+    return out
+
+
+def _recolor_v3(items: list[dict], archetype: str) -> dict:
+    """3안 최소 차이 미달이면 v3 팔레트를 다음 후보로 바꾼다 (D42-4)."""
+    from app.services import palette as PAL
+    specs = [v["spec"] for v in items]
+    current = specs[2]["tokens"]["palette"]
+    try:
+        lib = PAL.library()
+    except Exception:
+        return specs[2]
+    start = lib.index(current) + 1 if current in lib else 0
+    tried = {specs[0]["tokens"]["palette"], specs[1]["tokens"]["palette"], current}
+    for cand in lib[start:] + lib[:start]:
+        if cand in tried:
+            continue
+        trial = copy.deepcopy(specs[2])
+        trial["tokens"]["palette"] = cand
+        if min_distance([specs[0], specs[1], trial]) >= MIN_DISTANCE:
+            return trial
+    return specs[2]
+
+
 def variants(card: dict) -> list[dict]:
+    """[{id, name, summary, spec}] 3개. 역할 고정 (P3-8, D43): ① 정석 ② 분위기 ③ 대비."""
+    try:
+        from app.services import archetype as AT
+        blueprint = AT.blueprint(card)
+        arch, _ = AT.of(card)
+    except Exception:
+        blueprint, arch = None, ""
+    if blueprint is not None and arch in ("A", "B"):
+        try:
+            return _blueprint_variants(card, blueprint, arch)
+        except Exception:
+            pass
+    return _legacy_variants(card)
+
+
+def _legacy_variants(card: dict) -> list[dict]:
     """[{id, name, summary, spec}] 3개. 역할 고정 (P3-8, D43): ① 정석 ② 분위기 ③ 대비."""
     rule = DC.rule_concept(card)
     mood = card.get("concept") or rule

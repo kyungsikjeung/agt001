@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.services import design_variants as DV  # noqa: E402
+from app.services import palette as PAL  # noqa: E402
 from app.services import site_render as SR  # noqa: E402
 from scripts import draft_corpus as C  # noqa: E402
 
@@ -38,6 +39,8 @@ THRESH = {
     "navbar_rate": 1.0,
     "logo_rate": 1.0,
     "marquee_v2_rate": 1.0,
+    "palette_rules_fail": 0,
+    "inverse_contrast_min": 7.0,
 }
 
 
@@ -188,6 +191,12 @@ def main() -> int:
     finally:
         _settings.gemini_image_model_hero = _prev
 
+    # 색 시스템 (§1.5): 팔레트 규칙 위반 수 + 짙은 띠 위 흰 글자 대비 최소값
+    palette_rules_fail = sum(len(PAL.check(name)) for name in PAL.library())
+    inverse_contrast_min = min(
+        SR.contrast_ratio("#ffffff", PAL.inverse_hex(PAL.get(name)["primary"]))
+        for name in PAL.library()
+    )
     res = {
         "text_only_hero_rate": round(n_text_only / n_heroes, 3),
         "svg_fallback_rate": round(n_svg / n_pages, 3),
@@ -209,6 +218,8 @@ def main() -> int:
         "navbar_rate": round(n_nav / n_pages, 3),
         "logo_rate": round(n_logo / n_pages, 3),
         "marquee_v2_rate": round(n_marquee_v2 / len(C.CASES), 3),
+        "palette_rules_fail": palette_rules_fail,
+        "inverse_contrast_min": round(inverse_contrast_min, 3),
     }
     overflow = _overflow_failures()
     if overflow is not None:
@@ -256,6 +267,10 @@ def main() -> int:
         fails.append("logo_rate")
     if res["marquee_v2_rate"] < 1.0:
         fails.append("marquee_v2_rate")
+    if res["palette_rules_fail"] != 0:
+        fails.append("palette_rules_fail")
+    if res["inverse_contrast_min"] < THRESH["inverse_contrast_min"]:
+        fails.append("inverse_contrast_min")
     if res["overflow_fail"] != 0 and res["overflow_fail"] != "skip":
         fails.append("overflow_fail")
     print("\n".join(rows))

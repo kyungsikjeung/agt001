@@ -15,6 +15,10 @@ from app.services import prd_schema as S
 _DATA = Path(__file__).resolve().parents[1] / "data"
 
 READY, ALTERNATIVE, OWNER_SETUP, OUT_OF_BETA = "ready", "alternative", "owner_setup", "out_of_beta"
+# 데이터 연결표 바인딩 값 (UI_AGENT_PLAN §5.2: 정적·자원·계산·외부·없음)
+BINDINGS = ("static", "resource", "computed", "external", "none")
+# 지금 있는 플랫폼 자원은 bookings·inquiries뿐 (UI_AGENT_PLAN §5.3)
+RESOURCES = ("", "bookings", "inquiries")
 # 확인 질문이 필요한 판정 (질문 예산 +1 대상, §6)
 NEEDS_CONFIRM = (ALTERNATIVE, OWNER_SETUP)
 MATCH_MIN = 0.5  # 사례집 별칭과 요구 문장의 글자 쌍 겹침 비율 하한
@@ -34,9 +38,31 @@ def _bigrams(s: str) -> set[str]:
 @lru_cache(maxsize=1)
 def _catalog() -> list[dict]:
     items = json.loads((_DATA / "feature_catalog.json").read_text(encoding="utf-8"))["items"]
+    _check_bindings(items)
     for it in items:
         it["_keys"] = [_norm(a) for a in [it["name"], *it.get("aliases", [])] if _norm(a)]
     return items
+
+
+def _check_bindings(items: list[dict]) -> None:
+    """데이터 연결표 검증. 어기면 개발 중에 바로 알 수 있게 ValueError."""
+    from app.services import site_render
+    known = set(site_render.list_variants())
+    for it in items:
+        fid = it.get("id")
+        comps = it.get("components")
+        if not isinstance(comps, list) or any(c not in known for c in comps):
+            raise ValueError(f"feature_catalog {fid}: components가 실제 부품이 아님: {comps!r}")
+        if it.get("binding") not in BINDINGS:
+            raise ValueError(f"feature_catalog {fid}: binding이 허용 값이 아님: {it.get('binding')!r}")
+        if it.get("resource") not in RESOURCES:
+            raise ValueError(f"feature_catalog {fid}: resource가 플랫폼 자원이 아님: {it.get('resource')!r}")
+
+
+def ready_components(archetype: str | None = None) -> dict[str, list[str]]:
+    """verdict가 ready인 기능 id → components. 원형 인자는 2주차 UI 에이전트가 쓴다(지금은 거르지 않음)."""
+    return {it["id"]: list(it.get("components") or [])
+            for it in _catalog() if it.get("verdict") == READY}
 
 
 def blocked_reason(text: str) -> Optional[str]:

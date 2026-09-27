@@ -1,0 +1,240 @@
+/* ==== 2주차 부품 (C1: classes--cards, timetable--week, rooms--cards, booking--dates) ====
+ * 휴대폰 390px 1열 우선, 760px 이상에서 넓은 배치. 색·여백·모서리·글꼴은 토큰 변수만 쓴다.
+ * 모션은 MOTION_PLAN 원형만: 눌림(M4)·선택 칩(M7). 움직임은 transform·opacity만. */
+
+.s-classes__list,
+.s-rooms__list {
+  display: grid;
+  gap: var(--space-gap);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.s-class,
+.s-room {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.s-class__head,
+.s-room__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+}
+
+.s-class__name,
+.s-room__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.s-class__level {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.s-class__target { margin: 8px 0 0; }
+.s-chip--sm { min-height: 44px; font-size: 13px; }
+
+.s-class__when {
+  margin: 8px 0 0;
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.s-class__meta,
+.s-room__meta {
+  margin: 4px 0 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.s-class__fee,
+.s-room__price {
+  margin: 6px 0 0;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.s-class__desc {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.s-class__cta,
+.s-room__cta { margin: 14px 0 0; }
+.s-class__cta .s-btn,
+.s-room__cta .s-btn { min-height: 44px; }
+
+/* 눌림 (M4): 카드 안 버튼·칩 */
+.s-class__cta .s-btn:active,
+.s-room__cta .s-btn:active { transform: scale(0.97); }
+
+/* ---- 객실 사진 3:2 ---- */
+.s-room__photo {
+  position: relative;
+  margin: calc(var(--space-card) * -1) calc(var(--space-card) * -1) 10px;
+  overflow: hidden;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  aspect-ratio: 3 / 2;
+  background: var(--ground-soft);
+}
+
+.s-room__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ---- 시간표: 표 자체만 가로로 넘친다 (페이지는 넘치면 안 됨) ---- */
+.s-timetable__scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+}
+
+.s-timetable__table {
+  width: 100%;
+  min-width: 480px;
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.s-timetable__table caption {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: left;
+  caption-side: bottom;
+}
+
+.s-timetable__table th,
+.s-timetable__table td {
+  min-width: 64px;
+  padding: 12px 8px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+.s-timetable__table thead th {
+  font-weight: 700;
+  background: var(--ground-soft);
+  border-bottom: 1.5px solid var(--line);
+}
+
+.s-timetable__table tbody th[scope="row"] {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* 휴대폰에서 첫 열(시간) 고정 */
+.s-timetable__table thead th:first-child,
+.s-timetable__table tbody th[scope="row"] {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--c-ground);
+  box-shadow: 1px 0 0 var(--line);
+}
+
+.s-timetable__table thead th:first-child { background: var(--ground-soft); }
+
+/* ---- 입실일 고르기: 선택 칩 (M7) ---- */
+.s-dates__opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.s-form__row .s-date {
+  display: inline-flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 76px;
+  min-height: 48px;
+  margin: 0;
+  padding: 6px 10px;
+  font-weight: 700;
+  line-height: 1.25;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: calc(var(--radius-btn) * 0.5 + 6px);
+  cursor: pointer;
+  transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base), transform var(--motion-fast) var(--motion-ease-spring);
+}
+
+.s-date__day {
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.s-date__state {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.s-form__row .s-date--few { border-color: var(--c-accent); }
+.s-date--few .s-date__state { color: var(--c-accent); }
+.s-form__row .s-date--full {
+  cursor: not-allowed;
+  opacity: 0.45;
+  text-decoration: line-through;
+  background: transparent;
+}
+
+.s-pick__in:checked + .s-date {
+  color: var(--on-primary);
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  transform: scale(1.04);
+}
+
+.s-pick__in:checked + .s-date .s-date__state { color: inherit; }
+.s-pick__in:focus-visible + .s-date { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* 박 수·인원 입력 칸은 예약 폼(input) 기본값을 그대로 쓴다 */
+.s-booking--dates .s-form__row input[type="number"] {
+  min-height: 44px;
+}
+
+/* ---- 760px 이상: 넓은 배치 ---- */
+@media (min-width: 760px) {
+  .s-classes__list,
+  .s-rooms__list { grid-template-columns: 1fr 1fr; }
+  .s-timetable__scroll { overflow-x: visible; }
+  .s-timetable__table { min-width: 0; }
+  .s-timetable__table thead th:first-child,
+  .s-timetable__table tbody th[scope="row"] {
+    position: static;
+    box-shadow: none;
+  }
+  .s-dates__opts { gap: 10px; }
+}
+
+/* ---- 동작 줄이기: 새 부품 모션을 전부 끈다 ---- */
+@media (prefers-reduced-motion: reduce) {
+  .s-class__cta .s-btn,
+  .s-room__cta .s-btn,
+  .s-form__row .s-date { transition: none; }
+  .s-pick__in:checked + .s-date { transform: none; }
+}

@@ -1851,3 +1851,83 @@ body:has(.s-actionbar) { padding-bottom: 84px; }
   background: linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, rgba(0, 0, 0, 0) 28%, rgba(0, 0, 0, 0.3) 56%, rgba(0, 0, 0, 0.68) 100%);
 }
 .s-hero--photo-overlay .s-hero__body { background: none; padding: 96px 4px 36px; }
+
+/* ---- 색 역할 (BUILD_W1_W2 §1.5) ----
+ * 바탕 60 / 틴트 면 30 / 버튼·강조 10 + 페이지마다 짙은 띠 1곳(--inverse).
+ * --ground-soft = 주색 9% + 바탕, --line = 주색 18% + 바탕,
+ * --card = 바탕 35% + 흰색. --inverse = 주색을 밝기 0.25·채도 최대 0.08로.
+ * 렌더러 :root 뒤에 오므로 여기서 덮어쓴다. 움직임 없음. */
+:root {
+  --ground-soft: var(--c-ground);
+  --ground-soft: color-mix(in oklch, var(--c-primary) 9%, var(--c-ground));
+  --line: color-mix(in srgb, var(--c-ink) 14%, transparent);
+  --line: color-mix(in oklch, var(--c-primary) 18%, var(--c-ground));
+  --card: #fff;
+  --card: color-mix(in oklch, var(--c-ground) 35%, #fff);
+  --inverse: color-mix(in oklch, var(--c-primary) 70%, #000);
+  /* 보조 글자(--muted)는 렌더러가 잉크 60%로 깔지만 옅은 띠(--ground-soft) 위에서
+   * 4.5:1이 안 나오므로(예약 마감·메뉴 설명·예시 딱지) 여기서 75%로 덮어쓴다.
+   * 렌더러보다 뒤에 오므로 지원 브라우저에서는 이 값이 이기고,
+   * 모르는 브라우저에서는 이 줄이 무효가 되어 렌더러 값이 남는다. */
+  --muted: color-mix(in srgb, var(--c-ink) 75%, var(--c-ground));
+}
+@supports (color: oklch(from red 0.25 0.05 180)) {
+  :root {
+    --inverse: oklch(from var(--c-primary) 0.25 min(c, 0.08) h);
+  }
+}
+
+/* 짙은 전체 너비 띠: 리듬 띠와 같은 그림자+잘라내기 기법. 명세 tone=inverse인 섹션 뿌리에 붙는다.
+ * 리듬 띠 규칙(0,4,1)보다 특이성이 낮아(0,2,1) 짝수 번째에서는 지므로
+ * background·box-shadow만 !important로 이긴다. 리듬 띠 규칙은 건드리지 않는다. */
+section[class^="s-"][data-tone="inverse"] {
+  background: #1c1917;
+  background: var(--inverse) !important;
+  box-shadow: 0 0 0 100vmax var(--inverse) !important;
+  clip-path: inset(0 -100vmax);
+  color: #fff;
+  /* 띠 안 색 역할 재정의: 흰 카드(var(--card))는 짙은 바탕에서 흰 글자가 안 보이므로
+   * 카드·선·보조 글자·틴트 면을 짙은 쪽으로 섞는다. 카드는 글자색을 상속받아 흰 글자가 읽힌다.
+   * 말풍선 꼬리(::after)도 같은 --card를 쓰므로 자연히 맞는다. */
+  --card: color-mix(in oklch, var(--inverse) 82%, #fff);
+  --line: color-mix(in oklch, #fff 22%, transparent);
+  --muted: color-mix(in oklch, #fff 74%, var(--inverse));
+  --ground-soft: color-mix(in oklch, var(--inverse) 88%, #fff);
+}
+/* 띠 안 강조색 글자(인용부호·가격·분류 제목·태그 등)는 짙은 바탕에서 4.5:1이 안 되므로
+ * 띠 안에서만 흰색 쪽으로 섞는다. */
+section[class^="s-"][data-tone="inverse"] .ed-worry__quote::before,
+section[class^="s-"][data-tone="inverse"] .s-card__price,
+section[class^="s-"][data-tone="inverse"] .s-menu__cat,
+section[class^="s-"][data-tone="inverse"] .s-tags li,
+section[class^="s-"][data-tone="inverse"] .s-staff__avatar--mono,
+section[class^="s-"][data-tone="inverse"] .s-kicker,
+section[class^="s-"][data-tone="inverse"] .s-menu__add {
+  color: color-mix(in oklch, var(--c-accent) 45%, #fff);
+}
+section[class^="s-"][data-tone="inverse"] .s-kicker {
+  background: color-mix(in oklch, #fff 16%, transparent);
+}
+section[class^="s-"][data-tone="inverse"] h2,
+section[class^="s-"][data-tone="inverse"] figcaption,
+section[class^="s-"][data-tone="inverse"] a {
+  color: #fff;
+}
+section[class^="s-"][data-tone="inverse"] .s-btn {
+  background: #fff;
+  border-color: #fff;
+  color: #1c1917;
+  color: var(--inverse);
+}
+section[class^="s-"][data-tone="inverse"] .s-btn:visited {
+  color: #1c1917;
+  color: var(--inverse);
+}
+
+/* 분류 제목은 주색, 분류 칩 바탕은 틴트 면 */
+.s-menu__cat {
+  color: var(--c-primary);
+}
+.s-menu__chips .s-chip {
+  background: var(--ground-soft);
+}

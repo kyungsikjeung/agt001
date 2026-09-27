@@ -82,3 +82,69 @@ def test_three_variants_differ_in_structure():
     assert order[1][:2] == ["hero", "gallery"]
     assert order[2][1] == "offerings" and "gallery" not in order[2]
     assert len({tuple(o) for o in order}) == 3
+
+
+def _cafe_card():
+    card = E.new_card("cafe")
+    E._put(card, "business_type", "카페", S.FILLED, 1)
+    E._put(card, "shop_name", "연남 느린오후", S.FILLED, 1)
+    E._put(card, "offerings", ["아메리카노", "카페라떼"], S.FILLED, 1)
+    E._put(card, "phone", "02-123-4567", S.FILLED, 1)
+    E._put(card, "hours", "매일 10~21시", S.FILLED, 1)
+    E._put(card, "location", "서울 마포구 연남로 12", S.FILLED, 1)
+    card["turn"] = 1
+    return card
+
+
+def _salon_card(*staff):
+    card = E.new_card("salon")
+    E._put(card, "business_type", "미용실", S.FILLED, 1)
+    E._put(card, "shop_name", "단정손끝", S.FILLED, 1)
+    E._put(card, "offerings", ["컷", "펌"], S.FILLED, 1)
+    if staff:
+        E._put(card, "staff", list(staff), S.FILLED, 1)
+    card["turn"] = 1
+    return card
+
+
+def test_blueprint_path_cafe_names_sections_palette():
+    """J5 새 경로(A): 안 이름이 청사진 전략 이름, 두 번째 섹션이 서로 다름,
+    ① 팔레트는 원형 기본(espresso), 예시 표시가 붙는다."""
+    vs = DV.variants(_cafe_card())
+    assert [v["id"] for v in vs] == ["v1", "v2", "v3"]
+    assert [v["name"] for v in vs] == ["메뉴판형", "공간·방문형", "시그니처형"]
+    assert [v["summary"] for v in vs] == ["메뉴 보고 → 길찾기", "공간 보고 → 길찾기", "대표 메뉴 보고 → 길찾기"]
+    seconds = [v["spec"]["sections"][1]["type"] for v in vs]
+    assert len(set(seconds)) == 3
+    assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "espresso"
+    assert DV.min_distance([v["spec"] for v in vs]) >= DV.MIN_DISTANCE
+    hero = vs[0]["spec"]["sections"][0]["content"]
+    assert hero.get("ai_example") is True  # 사장님 사진 없음 → 예시 팩 + 표시
+    menu = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "catalog")
+    guess = [i for c in menu["content"]["categories"] for i in c["items"]]
+    assert guess and all(i.get("price_example") is True for i in guess)  # 가격 없음 → 예시 가격 + 표시
+    around = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "location")
+    assert {"name": "전화", "note": "02-123-4567"} in around["content"]["items"]
+    assert {"name": "영업시간", "note": "매일 10~21시"} in around["content"]["items"]
+
+
+def test_blueprint_path_salon_solo_and_team():
+    """J5 새 경로(B): 1인분은 solo, 2인분은 team 청사진을 쓴다."""
+    solo = DV.variants(_salon_card("원장 김단정(컷·펌)"))
+    assert [v["name"] for v in solo] == ["원장 브랜드형", "스타일 포트폴리오형", "시술·가격형"]
+    assert solo[0]["spec"]["tokens"]["palette"] == "charcoal-gold"
+    staff = next(s for s in solo[0]["spec"]["sections"] if s.get("bind") == "staff")
+    assert staff["variant"] == "solo"
+    assert [m["name"] for m in staff["content"]["members"]] == ["김단정"]
+    team = DV.variants(_salon_card("원장 김미용(컷)", "실장 박하나(염색)"))
+    assert [v["name"] for v in team] == ["디자이너 선택형", "스타일형", "시술·가격형"]
+    staff = next(s for s in team[0]["spec"]["sections"] if s.get("bind") == "staff")
+    assert staff["variant"] == "team"
+    assert DV.min_distance([v["spec"] for v in team]) >= DV.MIN_DISTANCE
+
+
+def test_blueprint_path_staff_example_when_empty():
+    """J5: 담당자가 없으면 예시 파일 staff를 예시 표시로 채운다(빈 섹션 없음)."""
+    vs = DV.variants(_salon_card())
+    staff = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "staff")
+    assert staff["content"]["members"] and all(m.get("example") is True for m in staff["content"]["members"])

@@ -13,6 +13,7 @@ from typing import Optional
 from app import llm
 from app.services import intake, numbers
 from app.services import prd_schema as S
+from app.services import situation
 from app.services import validate as V
 from app.services.stt import normalize_digits as _stt_normalize_digits
 
@@ -320,7 +321,8 @@ def grounded(slot: str, value: str, text: str) -> bool:
 def _split_items(value) -> list[str]:
     if isinstance(value, list):
         return [v for v in value if v]
-    return [p.strip() for p in re.split(r"[,·/]|그리고|랑|와|과", value or "") if p.strip()]
+    # 천 단위 쉼표("4,500원")는 나누지 않는다. 숫자 사이 쉼표는 가격 표기로 본다.
+    return [p.strip() for p in re.split(r"(?<!\d),|,(?!\d)|[·/]|그리고|랑|와|과", value or "") if p.strip()]
 
 
 _EXCLUDE_SUFFIX = re.compile(
@@ -385,8 +387,10 @@ def _is_later_norm(t: str, n: str) -> bool:
 
 
 def _counts_toward_budget(q: Optional[dict]) -> bool:
-    """질문 예산을 쓰는 종류인지. 확인·이어묻기는 예산 밖이다."""
-    return bool(q) and q.get("kind") in BUDGET_KINDS
+    """질문 예산을 쓰는 종류인지. 확인·이어묻기·상황 탐색(budget_free)은 예산 밖이다."""
+    if not q or q.get("kind") not in BUDGET_KINDS:
+        return False
+    return not q.get("budget_free")
 
 
 def _close_single_as_unknown(card: dict, key: str, by=None) -> None:
@@ -448,6 +452,10 @@ _PRICE_RE = re.compile(
     r"[0-9영공일이삼사오육칠팔구십백천만억\s,]*\s*(?:만원|천원|백원|십원|원)")
 
 
+# 한 글자라도 품목인 낱말 (미용실 컷·펌 등). 그 밖의 한 글자("총"·"각" 등)는 품목으로 보지 않는다.
+_ONE_SYLLABLE_ITEMS = frozenset({"컷", "펌", "팩", "빵", "떡", "밥", "면", "죽", "차", "룸", "방"})
+
+
 def _cut_price(item: str) -> tuple[str, Optional[str]]:
     """값 하나를 (메뉴 부분, 가격 부분)으로 나눈다. 나눌 게 없으면 (원본, None)."""
     m = _PRICE_RE.search(item or "")
@@ -458,7 +466,7 @@ def _cut_price(item: str) -> tuple[str, Optional[str]]:
     menu = re.sub(r"\s+", " ", menu).strip(" ·,/-")
     menu = _LEADING_FILLER.sub("", menu).strip()
     menu = re.sub(r"(부터|까지|정도|약)$", "", menu).strip()
-    if not menu or len(menu) < 2 or _is_control(menu):
+    if not menu or (len(menu) < 2 and menu not in _ONE_SYLLABLE_ITEMS) or _is_control(menu):
         return item, None
     return menu, price
 
@@ -631,6 +639,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
     """추출 결과를 규칙에 맞춰 카드에 넣는다. 반영한 칸 키 목록을 돌려준다."""
     turn = card["turn"]
     applied = []
+    _record_price_pairs(card, updates, text)
     updates = _separate_menu_price(updates, text)  # N-2: 메뉴·가격 뭉침 분리
     # N-3: 근거 판단용 대화 기록 (turn()은 said에 현재 메시지를 먼저 넣어 둔다).
     history = "\n".join([*(card.get("said") or []), text])
@@ -1248,12 +1257,24 @@ def next_question(card: dict) -> Optional[dict]:
     if missing:
         q = S.question_for(ind, missing[0])
         return {"slot": missing[0], "kind": "single", "options": list(q.options) + [S.LET_AI], "text": q.ask}
+    # 상황 탐색 (J1b, D53 ③): 필수·숨은 질문이 끝난 뒤 요약 직전에 한 번만 묻는다.
+    # 질문 한도 밖(budget_free)이라 asked를 세지 않는다. "시안 먼저"는 여기를 거치지 않고 finalize로 간다.
+    if not card.get("situation_probed"):
+        card["situation_probed"] = True
+        for item in situation.probe(card):
+            card.setdefault("followup_queue", []).append(
+                {"slot": item["slot"], "text": item["text"],
+                 "options": list(item.get("options") or [LATER]), "budget_free": True})
     # V2-1: 쌓아둔 심화 질문은 필수·숨은 질문이 끝난 뒤에 꺼낸다.
     queue = card.get("followup_queue") or []
     while queue:
         item = queue.pop(0)
         if not _satisfied(card, item["slot"]):
-            return {"slot": item["slot"], "kind": "followup", "options": [LATER], "text": item["text"]}
+            q = {"slot": item["slot"], "kind": "followup",
+                 "options": list(item.get("options") or [LATER]), "text": item["text"]}
+            if item.get("budget_free"):
+                q["budget_free"] = True
+            return q
     return None
 
 
@@ -1278,6 +1299,8 @@ def finalize(card: dict) -> None:
     card["hidden"]["asked"] = True
     card["pending"] = None
     card["done"] = True
+    # 질문이 끝났으면 상황 탐색도 닫는다: 건너뛰기·상한 뒤의 수정에는 묻지 않는다(J1b).
+    card["situation_probed"] = True
 
 
 def _stuck_key(pending: Optional[dict]) -> Optional[str]:

@@ -56,7 +56,8 @@ def test_concept_drives_first_variant_and_lead():
     card = _card()
     card["concept"] = {**DC.rule_concept(card), "palette": "sage", "lead": "offerings"}
     variants = DV.variants(card)
-    assert variants[0]["spec"]["tokens"]["palette"] == DC.rule_concept(card)["palette"]
+    from app.services import palette
+    assert variants[0]["spec"]["tokens"]["palette"] == palette.pick("A", 1)  # D54: ① = 업종 유형 기본색
     assert [s["type"] for s in variants[0]["spec"]["sections"]][:2] == ["hero", "offerings"]
     spec = variants[1]["spec"]
     assert spec["tokens"]["palette"] == "sage"

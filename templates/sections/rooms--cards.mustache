@@ -1,0 +1,25 @@
+<section class="s-rooms s-rooms--cards" data-section-id="{{id}}" aria-labelledby="rooms-title-{{id}}">
+  <h2 id="rooms-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}객실{{/label}}</h2>
+  {{#has_rooms}}
+  <ul class="s-rooms__list">
+    {{#rooms}}
+    <li class="s-room">
+      {{#image_src}}
+      <figure class="s-room__photo"><img src="{{image_src}}" alt="{{image_alt}}" loading="lazy">{{#image_example}}<span class="s-illu-badge">예시 이미지</span>{{/image_example}}</figure>
+      {{/image_src}}
+      <div class="s-room__body">
+        <p class="s-room__head"><strong class="s-room__name">{{name}}</strong>{{#example}} <span class="s-example" title="예시 객실: 공개할 때 빠져요">예시</span>{{/example}}</p>
+        {{#capacity}}<p class="s-room__meta">{{capacity}}</p>{{/capacity}}
+        {{#size}}<p class="s-room__meta">{{size}}</p>{{/size}}
+        <p class="s-room__price">{{#price}}{{price}}{{#price_example}} <span class="s-example" title="예시 요금: 공개할 때 사장님 요금으로 바뀌어요">예시</span>{{/price_example}}{{/price}}{{^price}}<span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[요금 입력]</span>{{/price}}</p>
+        {{#has_features}}<ul class="s-tags" aria-label="{{name}} 편의 시설">{{#features}}<li>{{text}}</li>{{/features}}</ul>{{/has_features}}
+        {{#booking_href}}<p class="s-room__cta"><a class="s-btn s-btn--ghost s-btn--block" href="{{booking_href}}">이 객실 예약</a></p>{{/booking_href}}
+      </div>
+    </li>
+    {{/rooms}}
+  </ul>
+  {{/has_rooms}}
+  {{^has_rooms}}
+  <p><span class="is-placeholder" aria-label="객실: 아직 입력되지 않음">[객실 입력]</span></p>
+  {{/has_rooms}}
+</section>

@@ -64,6 +64,10 @@ def build_card(case: dict) -> dict:
     card = E.new_card(case["industry"])
     for key, value in case["slots"].items():
         E._put(card, key, value, S.FILLED, 1)
+    # 가격 짝 (실제 대화 경로와 같게: price 칸 값을 넣은 뒤 짝을 기록한다).
+    price = case["slots"].get("price")
+    if price:
+        E._record_price_pairs(card, [{"slot": "price", "value": price}], price)
     card["turn"] = 1
     if case.get("photo"):
         rid = "lab-" + case["id"]
@@ -72,6 +76,7 @@ def build_card(case: dict) -> dict:
             {"id": "p2", "url": f"/uploads/{rid}/p2.jpg", "caption": "내부 사진"},
         ]
     return card
+
 
 
 def get(case_id: str) -> dict:

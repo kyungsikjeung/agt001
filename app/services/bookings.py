@@ -169,6 +169,18 @@ def decide(room_id: str, member_id_raw, booking_id: int, decision: str) -> dict:
                               kind="booking_result", meta={"booking_id": booking_id, "status": status})
     except Exception:
         log.exception("예약 결과 알림 실패 room=%s", room_id)
+    try:
+        # J7: 상태를 바꾼 뒤 공개돼 있으면 공개본을 다시 그린다 (실패해도 decide 결과는 그대로)
+        room = store.read_room(rooms._room_id(room_id))
+        card = None
+        if room is not None:
+            session = store.read_session(room["session_id"])
+            card = (session or {}).get("prd")
+        if isinstance(card, dict) and card.get("published"):
+            from app.services import design as design_module
+            design_module.publish_choice(key, card, card["published"])
+    except Exception:
+        log.exception("예약 확정·거절 뒤 공개본 다시 그리기 실패 room=%s", room_id)
     return {"id": booking_id, "status": status}
 
 

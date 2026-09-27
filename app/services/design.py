@@ -2,7 +2,9 @@
 
 카드가 없으면(예전 1:1 흐름) 예전 한 장짜리 템플릿으로 만든다.
 """
+import datetime
 import html
+import json
 import logging
 from typing import Optional
 
@@ -218,6 +220,12 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     for sec in v["spec"]["sections"]:
         if sec["type"] == "hero" and not sec["content"].get("title") and kind_name:
             sec["content"]["title"] = kind_name
+    try:
+        # J7: 공개 전에 예약 현황을 확정 예약으로 계산한다 (실패해도 기존 동작대로 공개)
+        from app.services import availability as _availability
+        v["spec"] = _availability.apply(v["spec"], card, requirement_id)
+    except Exception:
+        log.exception("예약 현황 계산 실패, 계산 없이 공개 %s", requirement_id)
     out = settings.generated_dir / requirement_id / "published"
     page = site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card),
                                    kind=DV.kind_for(card), public=True)
@@ -225,6 +233,11 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     publish_check.assert_publishable(page)  # S-5: 위반이면 게시 차단 (파일을 쓰지 않음)
     out.mkdir(parents=True, exist_ok=True)
     (out / "index.html").write_text(page, encoding="utf-8")
+    kst_today = (datetime.datetime.now(datetime.timezone.utc)
+                 + datetime.timedelta(hours=9)).date().isoformat()
+    (out / "meta.json").write_text(
+        json.dumps({"kst_date": kst_today, "variant": variant_id}, ensure_ascii=False),
+        encoding="utf-8")
 
 
 def render_design(requirement_id: str, platform: str, features: list[str], quote_amount: int, quote_basis: str,
