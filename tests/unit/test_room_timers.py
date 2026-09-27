@@ -74,6 +74,27 @@ def test_closed_after_30_days_owner_reopens(client, monkeypatch):
     assert rooms.MSG_REOPENED in texts
 
 
+def test_vote_reset_follows_setting(client, monkeypatch):
+    # S-9: 타이머 값이 설정값에서 오므로 코드를 고치지 않고 바꿀 수 있다.
+    monkeypatch.setattr(settings, "room_vote_reset_hours", 1)
+    rid = _room(client)
+    _post(client, rid, "", "guest")
+    _to_approval(client, rid)
+    _post(client, rid, "승인")  # 1/2 → 결론 없음
+    assert _msgs(client, rid)["votes"]
+    _later(monkeypatch, hours=2)
+    m = _msgs(client, rid)
+    assert m["votes"] == {} and m["messages"][-1]["text"] == rooms.MSG_VOTE_RESET
+
+
+def test_member_cap_follows_setting(client, monkeypatch):
+    # S-9: 인원 상한이 설정값에서 오므로 코드를 고치지 않고 바꿀 수 있다.
+    monkeypatch.setattr(settings, "room_max_members", 2)
+    rid = _room(client)
+    assert _post(client, rid, "", "guest").status_code == 200
+    assert _post(client, rid, "", "one-too-many").status_code == 403
+
+
 def test_active_room_untouched(client):
     rid = _room(client)
     _to_approval(client, rid)

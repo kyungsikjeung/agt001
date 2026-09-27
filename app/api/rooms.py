@@ -47,7 +47,7 @@ def room_chat(room_id: str, body: RoomMessageIn, request: Request):
     except rooms.InvalidRequest as e:
         raise HTTPException(status_code=400, detail=str(e))
     except rooms.RoomFull:
-        raise HTTPException(status_code=403, detail="room full")  # D8: 10명
+        raise HTTPException(status_code=403, detail="room full")  # D8: 상한은 settings.room_max_members
     except rooms.RoomClosed:
         raise HTTPException(status_code=423, detail="room closed")  # T4: 방장만 다시 열 수 있다
 

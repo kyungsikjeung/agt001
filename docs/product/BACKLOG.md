@@ -32,7 +32,7 @@
 | S-6 | ✅ 완료(9/26 밤, 테스트 11개) S-5 게시 전 검사 — 외부 스크립트·외부 폼·자동 이동·열쇠·우회 iframe 5종 적중 시 게시 차단 + 사장님 안내 | DESIGN §13.5 S-5 | Claude | 없음 | 2시간 |
 | S-7 | C3 평가 1회 실행 (추출 60개·시나리오 36개) | DELIVERY C3, DECISIONS D28 | Claude | O1 | 2시간 |
 | S-8 | O1 실제 대화 평가 도구 마무리 | DELIVERY O1 | OpenCode | chat_turns | 3시간 |
-| S-9 | D7·D8 타이머·인원 상한 설정값 분리 확인 | ROOM_POLICY §4·§8, DECISIONS D7·D8 | Claude | 없음 | 30분 |
+| S-9 | ✅ 완료(9/26 밤, 회귀 테스트 2개) D7·D8 타이머·인원 상한 설정값 분리 확인 (`config.py` 값 사용, `test_room_timers.py`) | ROOM_POLICY §4·§8, DECISIONS D7·D8 | Claude | 없음 | 30분 |
 | S-10 | 카카오 채널·전화 버튼 대체안 문구 손질 | INTAKE §4, DECISIONS D32 | OpenCode | 없음 | 1시간 |
 
 ## 3. 베타 뒤

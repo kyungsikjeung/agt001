@@ -56,6 +56,7 @@ flowchart LR
 - **보안:** 생성물은 별도 주소 + CSP sandbox. 로그인은 state+PKCE와 `__Host-` HttpOnly 쿠키.
 - **채팅방 규칙:** 투표 24시간·견적 7일·30일 닫기 타이머, 10명 상한.
 - **채팅방 하단(N-5):** 초대하기·더보기 2개만 노출·나머지 더보기 안, 360px 1줄 확인(9/26).
+- **타이머·인원 상한(S-9):** 24시간·7일·30일·10명은 설정값(`config.py`) 사용 확인, 회귀 테스트 2개(9/26 밤).
 - **배포:** git 방식. 스냅샷 + 자동 되돌리기.
 - **서버 밖 백업:** 서버 매일 03:30 덤프 → Mac이 매일 13:00에 `~/agt001-backups-offsite/`로 가져옴(최근 30개). 9/26 예약 실행으로 2개 받음·검사 통과.
 
@@ -65,7 +66,7 @@ flowchart LR
 
 | # | 안 된 것 | 영향 | 다음 행동 |
 |---|---|---|---|
-| 1 | AI 대화 평가 T3(시나리오 36개): 1차 10/34 → 2차 11/36 → **3차 14/36 통과(39%)**. 3차 뒤 주원인 수정 완료: 메뉴·가격 분리 규칙(N-2), 근거 없는 대상·기능 차단(N-3, 지어낸 값 9건 중 7건 해당), 추출 프롬프트 반례 보강. 남은 확인은 라이브 4차(r4) 측정 1회 (9/26 저녁 NIM 무료 한도 소진으로 대기, 회복 후 `evals/run_simulation.py --live` 실행). restaurant-unordered 중복 8회 루프는 r4 기록을 보고 판단 | 데모 대화에서 엉뚱한 칸에 들어간 내용이 요약에 보일 수 있다 | 결과: [3차](docs/product/evals/simulation-2026-09-26-r3.md) · [1차](docs/product/evals/simulation-2026-09-26.md) · 분석 [T3_FAILURE_ANALYSIS](docs/product/reviews/T3_FAILURE_ANALYSIS.md) · 수정 [REQUIREMENTS_ENGINE_FIXES](docs/product/reviews/REQUIREMENTS_ENGINE_FIXES.md) |
+| 1 | AI 대화 평가 T3(시나리오 36개): r3 14/36 → r4 18/36 → **r5 21/36(58%, 9/27)**. 9/27 수정: 이어 묻기 "없음"·변경 발화·"객실 3개" 개수 값·한자어 수 문맥 해석·근거 판단 공용화·"모르겠어요" 닫기·막연한 값 거르기. 실행마다 ±3 흔들림. 공식 r6(NIM)은 한도 소진으로 9/28 09:00 예약, 한도와 무관한 **Zen(Qwen 3.8 Flash) 기준선**을 따로 측정 중 | 데모 대화에서 엉뚱한 칸에 들어간 내용이 요약에 보일 수 있다 | 결과: [r5](docs/product/evals/simulation-2026-09-27-r5.md) · [r4](docs/product/evals/simulation-2026-09-27-r4.md) · 분석 [T3_R4_OPENCODE_ANALYSIS](docs/product/reviews/T3_R4_OPENCODE_ANALYSIS.md) |
 | 2 | AI 추출 평가 T2(60개): 1차 77.3%·지어낸 값 3건 → **2차 90.2% / 3차 87.1%·지어낸 값 0건**. 실행마다 ±3%p 흔들림 | 합격선(90%·0건)에 걸쳐 있다 | 대상 손님·상품 칸 표현 차이 보정 후 재측정. 결과: [1차](docs/product/evals/extraction-2026-09-26.md) · [2차](docs/product/evals/extraction-2026-09-26-r2.md) · [3차](docs/product/evals/extraction-2026-09-26-r3.md) |
 | 3 | 사장님 카톡 알림 실제 수신 확인 | 코드는 배포됐지만 9/26 운영 DB에 동의한 계정이 0개라 아직 한 번도 나간 적 없다 | 사용자(휴대폰): 카카오 로그인 → 내가 방장인 방 → "문의를 카톡으로 받기" → 동의 → "카톡 알림 켜짐" 확인. 그 뒤 Claude가 테스트 문의 1건 보내고 서버 기록 확인. KOE205 에러면 카카오 콘솔 동의항목에서 "카카오톡 메시지 전송" 켜기 |
 | 5 | 다른 기기에서 같은 참여자로 들어가기, 72시간 알림, 게스트 방 자동 삭제 | 공유방이 조금 불편 | 베타 뒤(ROOM_POLICY) |
