@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "quote_to_design.schema.json",
-  "title": "BND-2: 견적(팀원 A) → 시안생성(팀원 B)",
+  "title": "BND-2: 견적(병렬작업 1) → 시안생성(병렬작업 2)",
   "type": "object",
   "required": ["requirement_id", "platform", "features", "quote"],
   "properties": {

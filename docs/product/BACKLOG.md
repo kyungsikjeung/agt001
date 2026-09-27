@@ -1,6 +1,6 @@
-# BACKLOG (2026-09-26 기준, 마감 2026-09-28)
+# BACKLOG (2026-09-26 기준)
 
-> 범위: 해커톤 제출까지 남은 일만. 읽은 문서: README, DELIVERY_PIPELINE §5, DECISIONS, USER_DB_PLAN, REQUIREMENTS_RAG_REVIEW, ROOM_POLICY, INTAKE_GATE_DESIGN §7, DESIGN_PIPELINE_PLAN, VOICE_INPUT_PLAN, reviews 7종, git log 40.
+> 범위: 출시 전 남은 일만. 읽은 문서: README, DELIVERY_PIPELINE §5, DECISIONS, USER_DB_PLAN, REQUIREMENTS_RAG_REVIEW, ROOM_POLICY, INTAKE_GATE_DESIGN §7, DESIGN_PIPELINE_PLAN, VOICE_INPUT_PLAN, reviews 7종, git log 40.
 > 끝난 것: C1 엔진 16건, C2 입구 게이트, C4 로그인 코드, C5 계정별 프로젝트, C6 문의 받기, O4 문의 부품, T1 듣기 버튼 뼈대, R1 렌더러 모듈, NIM super-ultra-lightning. 진행 중: C7 시안 3안 연결.
 
 ## 1. 마감까지 반드시 (제출에 필요)

@@ -1,6 +1,6 @@
 # Hermes 코드생성 샌드박스 이미지.
 #
-# 목적: backend.py 팀C 코드생성(Hermes)을 호스트와 격리된 Docker 컨테이너 안에서 실행.
+# 목적: backend.py 병렬작업 3 코드생성(Hermes)을 호스트와 격리된 Docker 컨테이너 안에서 실행.
 # 발견된 문제: 호스트에서 `hermes -z ...` 를 cwd=generated/<id>/web 로 실행해도
 # `--in DIR --no-restore-cwd` 옵션을 줘도 Hermes가 작업 디렉토리를 무시하고
 # 호스트 홈(~/index.html)에 파일을 쓰는 격리 실패가 재현됨.

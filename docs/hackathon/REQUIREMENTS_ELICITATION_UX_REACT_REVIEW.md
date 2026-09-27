@@ -14,7 +14,7 @@
 1. A와 B는 진단에서 완전히 일치: `backend.py:731-744`가 후속 질문 없이 1턴 만에 `AWAIT_APPROVAL`로 직행해 ④접수·⑤검증·⑥질의가 생략되고, `platform="web"` 고정(`:773-774`)·`features=[원문 1건]`으로 BND-2/BND-3 필수값이 무너진다.
 2. 해법 방향도 일치: "빠진 것만 되묻기 + 객관식(옵션 3개+추천) + 반려 시 해당 항목 복귀"가 공통 코어다.
 3. 차이는 수단이다: A=NIM 슬롯추출 우선+스마트디폴트+2등급+fast-track, B=결정적규칙 우선+한번에1개+질문상한3+self-check+공유방 매칭.
-4. 최종 권고: B의 결정적 체크리스트를 게이트로, A의 NIM 추출·스마트디폴트·fast-track을 가속기로 결합하고, B의 self-check는 폴백付き 2차망으로만 쓴다.
+4. 최종 권고: B의 결정적 체크리스트를 게이트로, A의 NIM 추출·스마트디폴트·fast-track을 가속기로 결합하고, B의 self-check는 폴백 첨부 2차망으로만 쓴다.
 5. 마감(2026-09-28) 전: 슬롯+한번에1~2개 질문+확인요약+거절시 항목복귀+`platform`/`features` 하류교체. 이후: self-check·타이머·acceptance 자동생성 고도화.
 
 ---
@@ -45,13 +45,13 @@
 
 ### Thought 3: A와 B가 서로 다르게 판단했거나, 한쪽이 놓친 부분이 있는지 확인해야 한다.
 
-**Action 3:** `backend.py` 전체(특히 `:225-256 build_quote`, `:590-686 ROOM`, `:689-805 _process_chat_turn`, `:773-792 QUOTED`), `contracts/gate_to_spec.schema.json`·`gate_to_quote.schema.json`·`quote_to_design.schema.json`, `static/room.html`(`#statusBar`·`voteBar`·`updateActionBars`), `docs/hackathon/REQUIREMENTS.md`·`TEAM_A_SPEC.md`를 다시 열어 누가 더 정확한지, 둘 다 놓친 게 있는지 검증. `pending_question`·`slots`·`self_check`·`asked_keys`·`NIM_TIMEOUT_SEC` 존재 여부도 grep으로 확인.
+**Action 3:** `backend.py` 전체(특히 `:225-256 build_quote`, `:590-686 ROOM`, `:689-805 _process_chat_turn`, `:773-792 QUOTED`), `contracts/gate_to_spec.schema.json`·`gate_to_quote.schema.json`·`quote_to_design.schema.json`, `static/room.html`(`#statusBar`·`voteBar`·`updateActionBars`), `docs/hackathon/REQUIREMENTS.md`·`PARALLEL_1_SPEC.md`를 다시 열어 누가 더 정확한지, 둘 다 놓친 게 있는지 검증. `pending_question`·`slots`·`self_check`·`asked_keys`·`NIM_TIMEOUT_SEC` 존재 여부도 grep으로 확인.
 
 **Observation 3 (실제 검증 결과):**
 
 1. **기본 진단은 둘 다 정확.** `backend.py:731-744`를 직접 읽어 확인: `rag_precheck(user_text)` 1회 → `session["last_request"]=user_text` → 승인문구 → `state="AWAIT_APPROVAL"`. 슬롯 파싱·질문 루프 코드 없음. `pending_question`·`slots`·`self_check`·`asked_keys`·`update_slots`·`next_question`은 grep 0건(미구현)으로 양쪽 "미구현" 판정이 맞다.
 2. **스키마 required는 B의 합집합 표가 정확하고 A의 표도 맞다.** 실측: BND-3 required=`requirement_id, confirmed_items, platform(enum web|android), acceptance_criteria`; BND-1 required=`requirement_id, confirmed_items, customer_id`; BND-2 required=`requirement_id, platform, features, quote{amount,basis}`. A §1.2표와 B §1.1표 모두 이 내용과 일치. B가 추가로 `customer_id=세션/방 대표 식별자`로 해석한 것은 설계 제안이며, 현 코드에 `customer_id` 필드 자체가 없음(`SESSIONS.setdefault`는 `state`+`requirement_id`만 생성, `:573`,`:815`)을 확인 — B의 "filled로 둔다"는 신규 설계라서 타당.
-3. **수단의 우선순위가 정반대 — 검증상 B의 순서가 스펙에 더 가깝다.** A는 "매 턴 NIM 슬롯추출이 가장 자연스러움"(A §2 방법1)이라 하고, B는 "결정적 규칙이 먼저, LLM은 보조"(B §1.2, REQUIREMENTS REQ-VALIDATE-001 "전부 LLM 판단에 맡기지 않는다", TEAM_A_SPEC §4 "LLM 판정 금지, 결정적 규칙 우선")를 든다. REQUIREMENTS.md §REQ-VALIDATE-001과 TEAM_A_SPEC §4 원문을 열어본 결과 B의 인용이 정확하므로, 1차 판정은 B안(규칙 우선)이 스펙 정합성이 높다. A의 NIM 우선은 폴백·환각 대책(A §3.1 방어선)이 있어도 단독 수단으로는 REQ-VALIDATE 원칙과 충돌한다.
+3. **수단의 우선순위가 정반대 — 검증상 B의 순서가 스펙에 더 가깝다.** A는 "매 턴 NIM 슬롯추출이 가장 자연스러움"(A §2 방법1)이라 하고, B는 "결정적 규칙이 먼저, LLM은 보조"(B §1.2, REQUIREMENTS REQ-VALIDATE-001 "전부 LLM 판단에 맡기지 않는다", PARALLEL_1_SPEC §4 "LLM 판정 금지, 결정적 규칙 우선")를 든다. REQUIREMENTS.md §REQ-VALIDATE-001과 PARALLEL_1_SPEC §4 원문을 열어본 결과 B의 인용이 정확하므로, 1차 판정은 B안(규칙 우선)이 스펙 정합성이 높다. A의 NIM 우선은 폴백·환각 대책(A §3.1 방어선)이 있어도 단독 수단으로는 REQ-VALIDATE 원칙과 충돌한다.
 4. **질문 배치 숫자가 다르다 (A: 최대 2개/턴 vs B: 1개/턴 + 상한 3회).** 둘 다 "추정·조정 가능"을 명시(A §6, B §5)했으므로 틀린 쪽은 없다. 다만 B의 상한+게이트 일괄확인(B §2.1-5)이 무한질의 안전밸브로서 더 완결되고, A의 fast-track 키워드(A §4.1-1)가 서두르는 사용자 대책으로서는 더 구체적이다. 상호보완 관계.
 5. **B만 다룬 영역 2건은 실측상 유효하다.**
    - (a) RAG 내부 파일명 노출: `rag_precheck`이 `f"기존 프로젝트: {top['source']}"`(`backend.py:188`)를 반환하고 GATHERING이 이를 그대로 채팅에 붙임(`:739`)을 확인 — B §2.4의 "사람말 템플릿으로 감싸라" 지적이 맞고, A는 이 UX 결함을 놓쳤다.
@@ -86,10 +86,10 @@
 
 ## 3. A에게 주는 자문 (bullet point)
 
-- **NIM-우선 순서를 규칙-우선으로 뒤집어라.** TEAM_A_SPEC §4와 REQ-VALIDATE-001 DoD("전부 LLM 판단에 맡기지 않는다")상 1차 판정은 키워드·정규식 결정적 규칙이 맡고, NIM 추출은 2차 보완으로 두는 편이 스펙 정합·감사·재현성에서 유리하다. B §1.2의 4상태(`empty|partial|filled|confirmed`)+규칙표가 좋은 출발점이다.
+- **NIM-우선 순서를 규칙-우선으로 뒤집어라.** PARALLEL_1_SPEC §4와 REQ-VALIDATE-001 DoD("전부 LLM 판단에 맡기지 않는다")상 1차 판정은 키워드·정규식 결정적 규칙이 맡고, NIM 추출은 2차 보완으로 두는 편이 스펙 정합·감사·재현성에서 유리하다. B §1.2의 4상태(`empty|partial|filled|confirmed`)+규칙표가 좋은 출발점이다.
 - **매턴 NIM 호출의 지연·비용 가드를 정량화하라.** 현 `NIM_TIMEOUT_SEC=25`(`backend.py:30-31`) 하에서 매턴 추출은 체감 지연을 누적시킨다. "NIM 호출은 GATHERING 턴당 최대 1회, 실패 시 현행 동작으로 폴백" 같은 상한을 명시하고, 1차는 규칙만으로 다음 질문을 고르게 하라 (B §3.2의 "검사 생략 폴백" 패턴을 추출에도 적용).
 - **스마트디폴트의 환각 대책을 B의 3층 구조에 맞춰라.** "말하지 않은 내용을 채움" 위험(A §2 방법1 단점)은 `assumed` 표기만으로 부족하다. 고위험 슬롯 제외(A §3.2)는 유지하되, 추정값은 `basis`·확인요약에 "(가정)" 표기 + 승인 전 self-check 1회로 재검증하는 2차망을 추가하라.
-- **required 집합을 스키마 역산으로 고정하라.** A §3.2의 `platform/features≥1/budget_band또는deadline 중 ≥1`은 좋은 초안이지만 "추정" 상태다. B §1.1처럼 BND-3/BND-1/BND-2 required 합집합에서 출발해, 게이트 하드조건은 `platform + features≥1 + existing_ref 확정 + customer_id(대표)`로 좁히고 예산/일정은 선택질문으로 두는 안을 팀C와 합의하라 (예산 없이는 견적 3안 분별력이 떨어진다는 B 지적과 fast-track 필요라는 A 지적의 절충점).
+- **required 집합을 스키마 역산으로 고정하라.** A §3.2의 `platform/features≥1/budget_band또는deadline 중 ≥1`은 좋은 초안이지만 "추정" 상태다. B §1.1처럼 BND-3/BND-1/BND-2 required 합집합에서 출발해, 게이트 하드조건은 `platform + features≥1 + existing_ref 확정 + customer_id(대표)`로 좁히고 예산/일정은 선택질문으로 두는 안을 병렬작업 3와 합의하라 (예산 없이는 견적 3안 분별력이 떨어진다는 B 지적과 fast-track 필요라는 A 지적의 절충점).
 - **RAG 내부 파일명 노출을 고쳐라 (A가 놓친 B의 지적).** `rag_precheck` 반환(`SRS-2025-014.md` 등)을 그대로 붙이는 현행(`backend.py:739`) 대신 "비슷한 ○○ 프로젝트가 있었어요. 확장/신규 중 어느 쪽인가요?(1/2)" 사람말 템플릿으로 감싸라.
 - **공유방·QUOTED/DONE 리셋을 보완하라 (A의 공백).** B §2.5의 `pending_question` 단일화+`seq` 인용 귀속+질의중 투표바 숨김을 수용하고, 거절 복귀는 AWAIT(`:757-759`)뿐 아니라 QUOTED(`:790-792`)·DONE 후 재입장(`:794-796`)까지 "해당 슬롯으로 복귀, 슬롯 유지·`asked_keys` 재사용"으로 통일하라.
 - **질문 상한+게이트 일괄확인을 받아들여라.** A의 "최대 2개/턴"은 체감부하 대책으로 유효하지만 무한질의 방지 상한이 없다. B의 "상한 3회(조정가능) 초과 시 잠정확정 후 게이트에서 한 번에 확인"을 안전밸브로 채택하고, "한 턴 1개(기본)/최대 2개(연관 슬롯 묶음일 때만)"로 절충하라.
@@ -101,7 +101,7 @@
 - **서두르는 사용자용 fast-track 단축경로를 추가하라.** B안은 성실 응답자를 전제로 하며 "빨리" 신호 대책이 "선택질문 건너뛰기" 수준에 머문다. A §4.1의 명시적 키워드(`그냥 진행/충분해/빨리/견적 먼저` → `platform`만 확보 후 확인요약과 함께 즉시 게이트, 생략 전제는 견적 근거에 명시)를 하드 가드(REQ-GATE-001 "확인 없이 BND-3 금지" 유지)와 함께 수용하라. 암묵신호(NIM 보조판정)는 required 생략에 쓰지 않는다는 A의 단서도 그대로 가져가라.
 - **타이핑 부담 저감책으로 스마트디폴트를 수용하라.** B의 "예시값 먼저 주기"(B §2.2)는 좋지만 여전히 사용자가 쓴다. A §2 방법3의 "추정값 묶음 확인요약 1개 + 맞음 한 마디 확정"을 고위험 제외(플랫폼·예산상한은 추정확정 금지)와 함께 도입하면, 질문 상한 3회와 충돌 없이 턴을 압축할 수 있다.
 - **6슬롯 전체를 게이트 하드조건에 걸지 마라.** B §1.2의 "6개 모두 `filled` 이상일 때만 전이"는 스펙상 과도하다: `acceptance`(기능당 1개 매핑 권장)와 `budget_or_time`(DoD상 필수 아님)까지 막으면 fast-track이 성립하지 않고 REQ-VALIDATE-001 DoD("다 차면 질의 없이 게이트")의 "필수" 범위를 넓게 해석한 셈이 된다. 하드조건은 `platform/features/existing_ref/customer_id`로 좁히고 나머지는 선택·추정확정으로 두라 (A §3.2 등급안과 절충).
-- **`platform` 단일값 전제의 예외 경로를 스키마 개정과 묶어라.** B §5-3의 "(추정) 단일 선택, 둘 다 요구 시 스키마 개정"은 정확하다. A는 이 문제를 다루지 않았다. "웹+앱 둘 다" 응답이 오면 현 enum(`web|android`)에서蹴られる前に 1차는 단일 선택+확인요약에 전제 명시, 개정은 마감 후 과제로 미루는 2단계 계획을 명시하라.
+- **`platform` 단일값 전제의 예외 경로를 스키마 개정과 묶어라.** B §5-3의 "(추정) 단일 선택, 둘 다 요구 시 스키마 개정"은 정확하다. A는 이 문제를 다루지 않았다. "웹+앱 둘 다" 응답이 오면 현 enum(`web|android`)에서 제외되기 전에 1차는 단일 선택+확인요약에 전제 명시, 개정은 마감 후 과제로 미루는 2단계 계획을 명시하라.
 - **self-check의 과잉지적·지연·재현성 가드를 설계에 고정하라.** B §3.2 대책(사소한 것 지적금지·`missing` 최대 2건·전이당 1회·실패 시 생략·`session["self_check"]` 로그)은 방향이 맞다. 여기에 A 관점의 한 줄을 추가하라: self-check 프롬프트에 `build_quote` JSON 강제 패턴(`backend.py:233-253`)을 재사용하고, 지적 수용은 "첫 1건만 질문, 나머지는 게이트 확인요약에 (미확인) 표기로 이관"으로 못박아 질문 증가를 차단하라.
 - **질문 상한 초과 시 문구를 구체화하라.** "잠정 확정 후 게이트에서 한 번에 확인"(B §2.1-5)만 있고 문구가 없다. A §3.1의 확인요약 형식(확정값+추정값 구분 표기)을 빌려 예시 1개를 박아라. 예: `지금까지: 웹(확정) / 예약·결제(확정) / 알림톡(가정·제외 전제) (3/4). 이대로 견적 낼까요? (진행/수정)`.
 - **반려 시 "어느 항목" 질문의 선택지를 고정하라.** B §4.3의 "1번 기능 2번 견적방향 3번 기타"는 좋은 시작이다. A §4.2의 "슬롯 상태 보여주기+번호 선택"과 합쳐 `1번 기능 2번 플랫폼 3번 예산/일정 4번 기타(자유서술→슬롯 재추출 입력으로만 사용)` 4지선다로 고정하고, 자유서술 직확인을 금지(REQUIREMENTS §9)하는 한 줄을 추가하라.
@@ -121,7 +121,7 @@ session["slots"] = {
   "existing_ref":  {"status": "empty", "value": None, "note": ""},  # required(확장/신규 확정)
   "customer_id":   {"status": "filled","value": session_id_or_room_rep, "note": ""},
   "budget_or_time":{"status": "empty", "value": None, "note": ""},  # 선택(건너뛰기 가능)
-  "acceptance":    {"status": "empty", "value": [],   "note": ""},  # 선택(게이트에서 보완可)
+  "acceptance":    {"status": "empty", "value": [],   "note": ""},  # 선택(게이트에서 보완 가능)
 }
 session["slots_assumed"] = {}    # A안: 추정값 출처 표기 (확인요약·basis에 "(가정)" 표시)
 session["pending_question"] = None  # B안: {"slot","options","seq"} 단일화
@@ -141,7 +141,7 @@ session["self_check"] = None     # B안: 감사 로그용
 **S2. `next_question(slots)` (신규 헬퍼 — 한 턴 1개 기본·최대 2개, 옵션 3개+추천):**
 
 - 순서: `platform` → `existing_ref`(RAG hit 시만) → `features` 쪼개기(예/아니오, `confirmed_items` 1개 단위) → `budget_or_time`(선택·"건너뛰셔도 됩니다" 명시).
-- 형태: 닫힌 질문=번호 객관식+추천, 반열린=예/아니오 쪼개기, 열린=예시값 선제시(`300만원대/2주`). 한 응답 300자·불릿 4개以内(추정).
+- 형태: 닫힌 질문=번호 객관식+추천, 반열린=예/아니오 쪼개기, 열린=예시값 선제시(`300만원대/2주`). 한 응답 300자·불릿 4개 이내(추정).
 - 매 질문은 "지금까지 요약 + 다음 질문" 2단 + 진행률 `(n/m)` (B §2.3). RAG source명은 사람말 템플릿으로 감싸 노출 금지.
 
 **S3. `self_check_nim(slots_summary)` (신규 헬퍼, `call_nim` 재사용·전이당 최대 1회):**
@@ -168,14 +168,14 @@ GATHERING 수신:
 
 **S6. 공유방 최소 추가 (B안 그대로):** `pending_question`+`seq` 인용 귀속, 질의중 투표바 숨김·투표중 질의입력 분리(`updateActionBars`에 질의바 1종 추가), `ai_status` 재사용 또는 `ASKING` 1종 추가 (추정·프론트 1줄).
 
-### 5.2 구현 우선순위 (마감 2026-09-28 기준)
+### 5.2 구현 우선순위 (1차 완성 목표 2026-09-28 기준)
 
 **마감 전 필수 (P0 — 데모·DoD 직결):**
 
 1. S1 `update_slots` + S2 `next_question` + S4 게이트 조건(required 3종) — 1턴 직행 누락을 막는 최소 장치. REQ-VALIDATE/ASK DoD의 핵심.
 2. 확인요약(확정/(가정) 구분) + S5의 `platform`/`features` 하류 교체 — BND-2/BND-3 스키마 위반 해소. 시안·견적 데모 품질에 직결.
 3. A §4.1 명시 키워드 fast-track ("그냥 진행" → platform 확보 후 즉시 게이트 + 생략 전제 명시) — 마찰 체감 개선 중 최저비용.
-4. 거절 시 항목별 복귀(AWAIT+QUOTED) + 슬롯 유지 — REQ-GATE-001 "처음부터 다시 묻지 않음" 충족. 심사 시나리오(반려 경로)에 노출됨.
+4. 거절 시 항목별 복귀(AWAIT+QUOTED) + 슬롯 유지 — REQ-GATE-001 "처음부터 다시 묻지 않음" 충족. 평가 시나리오(반려 경로)에 노출됨.
 5. RAG 파일명 사람말 래핑 — 내부명 노출은 데모 감점 요인. 5줄 템플릿 수정 수준.
 
 **마감 후로 미뤄도 되는 것 (P1 — 안정화·고도화):**
@@ -183,7 +183,7 @@ GATHERING 수신:
 6. S3 self-check 2차망 — 규칙+질의가 먼저 안정된 뒤. 단독 도입 시 과잉지적·지연 리스크.
 7. 스마트디폴트 고도화(전 슬롯 추정·`acceptance_criteria` 템플릿+NIM 다듬기) — P0 확인요약의 확장판.
 8. 암묵신호(장문·단답연속) 판정 + thorough 모드(한 턴 1항목 늦추기) — 실측 로그 후 조정.
-9. 타이머 기반 에스컬레이션(reqpipe G12, TEAM_A_SPEC §9) — 현 코드에 타이머 없음이 확인됨. 공수 별도.
+9. 타이머 기반 에스컬레이션(reqpipe G12, PARALLEL_1_SPEC §9) — 현 코드에 타이머 없음이 확인됨. 공수 별도.
 10. `platform` 배열화(웹+앱 둘 다) 스키마 개정(BND-2·BND-3) — 현 enum 단일값 전제 유지, 1차는 단일선택+전제명시로 대응.
 11. 질문 상한·300자·불릿수 등 임계값 튜닝 — 파일럿 대화 로그(A/B) 후 확정.
 
@@ -200,7 +200,7 @@ GATHERING 수신:
 
 ### 5.4 확실하지 않은 점 (추정 명시)
 
-- required 하드조건을 `platform·features≥1·existing_ref`로 좁히는 것은 본 리뷰의 절충 제안이며 **(추정)** — 팀C(스펙생성 최소입력) 합의 후 확정 필요.
+- required 하드조건을 `platform·features≥1·existing_ref`로 좁히는 것은 본 리뷰의 절충 제안이며 **(추정)** — 병렬작업 3(스펙생성 최소입력) 합의 후 확정 필요.
 - "한 턴 1개 기본·최대 2개", "질문 상한 3회", "300자·불릿 4개"는 UX 일반론 기반 **(추정)** — 실측 없이 확정 불가.
 - `platform` 단일값·`budget_or_time` 선택 취급은 현 스키마 enum 실측에 근거하나 "둘 다" 수요 빈도는 **(추정)** — 로그 후 스키마 개정 판단.
 - self-check 지연·NIM 추출 지연의 체감 영향은 `NIM_TIMEOUT_SEC=25` 실측과 폴백 설계로 완화 가능하나 실측 전 확정 불가 **(추정)**.

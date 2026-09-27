@@ -1,12 +1,12 @@
 # 효율화 계획 (EFFICIENCY_PLAN)
 
-> 작성일: 2026-09-23 / 마감: 2026-09-28 (D+5)
+> 작성일: 2026-09-23 / 1차 완성 목표: 2026-09-28 (D+5)
 > 성격: 분석 + 계획 문서. **코드는 수정하지 않는다.**
 > 조사 범위: `backend.py` 전체(547줄), `docker-compose.yml`, `requirements.txt`,
 > `docker/hermes-sandbox/Dockerfile`, `docs/hackathon/deployment/templates/Dockerfile.backend`,
 > `static/index.html`, `templates/variant-1.html`, `scripts/check_oci_cost.sh`,
 > `docs/hackathon/*.md` 전체(ARCHITECTURE / REQUIREMENTS / INTEGRATION_STRATEGY /
-> TEAM_A·B·C_SPEC / PM_ORCHESTRATION / ENVIRONMENT / LOCAL_SETUP / RESPONSIVE_SPEC),
+> PARALLEL_1·2·3_SPEC / PM_ORCHESTRATION / ENVIRONMENT / LOCAL_SETUP / RESPONSIVE_SPEC),
 > `STATUS.md`, `contracts/`, git 로그.
 > 제약: `.env` 미열람, git add/commit/push 없음.
 
@@ -26,7 +26,7 @@
 
 **하지 말아야 할 것 (마감 전 금지):** `backend.py` 파일 분리, 벡터DB(Pinecone/Qdrant) 도입,
 Hermes 게이트웨이 전환(`HERMES_GATEWAY_URL`), 서버리스/K8s 이전, 시안 N종 확장 외
-대규모 기능 추가. 전부 임팩트 대비 작업량이 상(上)이고 데모 리스크를 키운다.
+대규모 기능 추가. 전부 임팩트 대비 작업량이 상(상)이고 데모 리스크를 키운다.
 
 ---
 
@@ -66,7 +66,7 @@ Hermes 게이트웨이 전환(`HERMES_GATEWAY_URL`), 서버리스/K8s 이전, �
 | ② | `hermes-sandbox` 2.68GB 이미지의 재빌드/재배포 시간 | `install.sh` 네트워크 설치 + `build-essential` 컴파일. Dockerfile 변경 시 전체 레이어 재빌드, OCI A1(느린 디스크/네트워크)에서 수 분~수십 분 | 이미지 **재빌드 금지 정책**(마감까지 Dockerfile 동결) + 배포 시 backend만 `--build`하고 샌드박스 이미지는 인스턴스에 상주시킨 채 재사용. `docker images` 존재 확인 후 빌드 스킷을 `deploy.sh`에 포함 | 중 | 하 |
 | ③ | backend 이미지 자체도 무거움 (Chromium `--with-deps`) | `Dockerfile.backend:20`의 `playwright install --with-deps chromium`이 OS 의존성까지 포함 (~1GB+). `requirements.txt`/`Dockerfile` 수정 시마다 재다운로드 | ②와 동일: 마감까지 backend Dockerfile 동결 + 레이어 캐시 유지(`pip` 레이어와 `playwright` 레이어 순서 현행 유지 — 지금 순서가 맞음). 구조 변경은 마감 후 | 하 | 하 |
 | ④ | `generated/<id>/{design,web}` 무한 누적 → 디스크 압박 | 요청마다 디렉토리 생성, 정리 로직 없음. OCI 부트볼륨(기본 46~50GB)은 크지만 방치 시 증가. `generated/` 현재 0B이나 데모 반복 시 증가 | 데모 픽스처 외 7일 경과 디렉토리 삭제하는 5줄 cron/스크립트 또는 기동 시 정리. **단, 마감 직전엔 삭제 로직이 데모 산출물을 지울 위험이 있으니 D+6 이후에만 실행** | 하 | 하 |
-| ⑤ | NIM API 과금 (인스턴스는 $0이나 NIM은 별도 요금제) | 매 대화턴 임베딩 1회 + 견적 chat 1회 + 코드생성 Hermes NIM 호출. ENVIRONMENT.md §5도 "NIM은 범위 밖"으로 명시 | §1-② 캐시로 호출 수削減. 별도 요금 대시보드(build.nvidia.com) D+6에 1회 확인을 체크리스트에 추가 | 중 | 하 |
+| ⑤ | NIM API 과금 (인스턴스는 $0이나 NIM은 별도 요금제) | 매 대화턴 임베딩 1회 + 견적 chat 1회 + 코드생성 Hermes NIM 호출. ENVIRONMENT.md §5도 "NIM은 범위 밖"으로 명시 | §1-② 캐시로 호출 수 절감. 별도 요금 대시보드(build.nvidia.com) D+6에 1회 확인을 체크리스트에 추가 | 중 | 하 |
 
 ---
 
@@ -92,7 +92,7 @@ Hermes 게이트웨이 전환(`HERMES_GATEWAY_URL`), 서버리스/K8s 이전, �
 |---|---|---|---|---|---|
 | ① | 수동 배포 절차 (순서 실수·빌드 누락 유발) | 스크립트 없음. 매번 사람이 명령 조합. 마감 주간 배포 빈도 증가 예상 | **Top 3**: `scripts/deploy.sh` 작성 — `rsync -avz --delete --exclude generated --exclude .env` + 조건부 `--build`(아래 ②) + `/health` 대기 확인(warmup.sh 재사용). 수동 절차를 코드화할 뿐이므로 리스크 최소 | 중 | 하 |
 | ② | 매번 전체 리빌드 (`--build` 상시) | 습관적 `--build`. 캐시 있어도 playwright/pip 레이어 검증에 시간 소모, Dockerfile 변경 시 대참사 | `deploy.sh`에서 `git diff --name-only HEAD~1` 기준으로 `Dockerfile*`/`requirements.txt` 변경 시에만 `--build`, 그 외엔 코드만 rsync(바인드 마운트 `.:/app`라 `.py`는 재기동만으로 반영) 후 `compose restart backend` | 중 | 하 |
-| ③ | OCI→GitHub API 404 (인스턴스에서 API 호출 차단 추정) | Oracle 무료티어 egress IP 대역이 GitHub API rate-limit/abuse 차단에 걸린 것으로 추정 (`git` 프로토콜과 API는 차단 정책이 다름) | 인스턴스에서 GitHub **API를 쓰지 않는 방향**으로 고정: ① 인스턴스에서 `git pull` 대신 로컬→인스턴스 `rsync`를 정식 경로로 (이미 부분 적용 중 — 문서화만), ② Hermes `install.sh`(nousresearch 도메인, GitHub API 아님)는 영향 없음 확인済み 취급, ③ 배포에 필요한 tarball은 로컬에서 묶어 `scp` 1회. API 우회용 프록시/토큰 추가 같은 꼼수는 도입하지 않음 | 중 | 하 |
+| ③ | OCI→GitHub API 404 (인스턴스에서 API 호출 차단 추정) | Oracle 무료티어 egress IP 대역이 GitHub API rate-limit/abuse 차단에 걸린 것으로 추정 (`git` 프로토콜과 API는 차단 정책이 다름) | 인스턴스에서 GitHub **API를 쓰지 않는 방향**으로 고정: ① 인스턴스에서 `git pull` 대신 로컬→인스턴스 `rsync`를 정식 경로로 (이미 부분 적용 중 — 문서화만), ② Hermes `install.sh`(nousresearch 도메인, GitHub API 아님)는 영향 없음 확인 처리 완료 취급, ③ 배포에 필요한 tarball은 로컬에서 묶어 `scp` 1회. API 우회용 프록시/토큰 추가 같은 꼼수는 도입하지 않음 | 중 | 하 |
 | ④ | CI/CD 없음 | 3인·5일 일정에 Actions 자가러너/시크릿 관리 비용이 과함. OCI 차단 이슈와 겹치면 디버깅 지옥 | **마감 전 도입하지 않음.** 대신 `deploy.sh` + 푸시 전 로컬 스모크(`curl /health`, `/chat` 1턴)를 `STATUS.md` 체크리스트에 명문화. CI는 마감 후 과제 | 하 | 상(→보류) |
 | ⑤ | dev/prod compose 미분리 (`.:/app` 바인드 + `COPY . .` 공존) | 로컬 개발 편의용 바인드가 프로덕션에도 그대로. rsync 실수 시 `.env`·`generated`까지 덮어쓸 위험 | `deploy.sh`의 rsync exclude로 방어(①에 포함). compose override 분리는 마감 후 | 하 | 하 |
 
@@ -100,8 +100,8 @@ Hermes 게이트웨이 전환(`HERMES_GATEWAY_URL`), 서버리스/K8s 이전, �
 
 ## 5. 코드 구조 (`backend.py` 단일 파일)
 
-전제 확인: 547줄 단일 파일에 팀A(대화/RAG/견적: `call_nim`~`format_quote_text`) +
-팀B(시안/스크린샷: `render_design` 일대) + 팀C(코드생성/배포: `_run_hermes_codegen_job`~`deploy_generated_site`) +
+전제 확인: 547줄 단일 파일에 병렬작업 1(대화/RAG/견적: `call_nim`~`format_quote_text`) +
+병렬작업 2(시안/스크린샷: `render_design` 일대) + 병렬작업 3(코드생성/배포: `_run_hermes_codegen_job`~`deploy_generated_site`) +
 라우트(`/chat` 상태머신)가 공존. "얇은 관통 우선" 의도적 선택이며 STATUS.md상 전 구간 관통 완료 —
 **마감 전 분리는 권하지 않는다.** 이유는 (a) 분리는 동작 변경 없이 테스트만 느는 작업이라
 데모 가치 0, (b) import 경로 변경이 데모 직전 최대 리스크, (c) 현재 547줄은 단일 파일로
@@ -109,7 +109,7 @@ Hermes 게이트웨이 전환(`HERMES_GATEWAY_URL`), 서버리스/K8s 이전, �
 
 | # | 문제 | 원인 | 개선안 | 예상 임팩트 | 예상 작업량 |
 |---|---|---|---|---|---|
-| ① | 상태머신(`/chat`, 100줄+)과 도메인 로직이 한 함수에 혼재 | 관통 우선 개발의 자연스러운 결과 | **마감 전: 손대지 않음.** 마감 후 1순위: `/chat` 분기만 `handlers.py`로, 세션 저장만 `store.py`로 — 2파일 분리로 충분. 그 이상(팀별 패키지화)은 불필요 | 하(마감전) | 상(→보류) |
+| ① | 상태머신(`/chat`, 100줄+)과 도메인 로직이 한 함수에 혼재 | 관통 우선 개발의 자연스러운 결과 | **마감 전: 손대지 않음.** 마감 후 1순위: `/chat` 분기만 `handlers.py`로, 세션 저장만 `store.py`로 — 2파일 분리로 충분. 그 이상(작업자별 패키지화)은 불필요 | 하(마감전) | 상(→보류) |
 | ② | 매직값 산재 (`90`, `15000`, `0.70`, 상태 문자열) | 상수명은 이미 일부 존재(`CODEGEN_TIMEOUT_SEC` 등). 상태 문자열(`"GENERATING"` 등)은 하드코딩 | **허용 범위 내 최소 개입**: 상태 문자열만 모듈 상수로 (오타 방지, 데모 중 오타 수정 비용 절감). 그 외 리팩토링 없음 | 하 | 하 |
 | ③ | 스레드 경합 (`SESSIONS` 무잠금) | §3-①과 동일 원인 | §3-①의 Lock 추가로 해결. 구조 분리 없이 해결 가능하므로 분리 명분이 안 됨 | 상 | 하 |
 | ④ | 테스트 없음 (계약 테스트도 없음) | INTEGRATION_STRATEGY §4가 계약 테스트를 우선하라 했으나 미구현 | 마감 전: `/health`+`/chat` 1턴 스모크를 `deploy.sh`에 내장(§4-①). 정식 계약 테스트(`contracts/*.schema.json` 검증)는 마감 후 | 중(마감후) | 중(→보류) |
@@ -128,6 +128,6 @@ Hermes 게이트웨이 전환(`HERMES_GATEWAY_URL`), 서버리스/K8s 이전, �
 | D+6 (9/27) | 리허설 + Dockerfile 동결 확인 + NIM 요금 1회 확인 + 백업 영상 | §2-②⑤ |
 | D+7 (9/28) | warmup.sh 실행 후 제출. 코드 변경 금지 | — |
 
-> 모든 항목은 "문제 → 원인 → 개선안 → 임팩트 → 작업량" 표의 작업량 하(下) 위주로 배치했다.
-> 작업량 중(中)은 §1-③(스크린샷 비동기화)과 §3-③(자동 재시도) 둘뿐이며, 둘 다 리허설 결과에 따라
+> 모든 항목은 "문제 → 원인 → 개선안 → 임팩트 → 작업량" 표의 작업량 하(하) 위주로 배치했다.
+> 작업량 중(중)은 §1-③(스크린샷 비동기화)과 §3-③(자동 재시도) 둘뿐이며, 둘 다 리허설 결과에 따라
 > 생략 가능(폴백: 현행 유지)하도록 설계했다.

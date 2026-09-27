@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "rag_query.schema.json",
-  "title": "BND-8: RAG 검색 요청/응답 (팀원 A 내부)",
+  "title": "BND-8: RAG 검색 요청/응답 (병렬작업 1 내부)",
   "type": "object",
   "properties": {
     "request": {

@@ -1,5 +1,7 @@
 # Environment 관리 문서
 
+> 참고: 이 문서의 backend.py 는 초기 구조다. 지금 코드는 app/ (FastAPI) 구조이며 에이전트 목록은 docs/product/AGENTS.md 를 본다.
+
 > 이 프로젝트와 관련해 로컬/클라우드에 세팅된 모든 환경을 정리한다. 각 환경의 "무엇을, 왜, 어떻게" 확인하는지와 비용/보안 관련 주의사항을 한 곳에 모은다.
 
 ## 1. 개요
@@ -54,7 +56,7 @@
 | 항목 | 값 |
 |---|---|
 | 문제 | 로컬 `hermes` 서브프로세스(`cwd=generated/<id>/web`) + `--in DIR --no-restore-cwd` 조합으로도 격리 실패 — Hermes가 작업 디렉토리를 무시하고 호스트 홈(`~/index.html`)에 파일 기록 (재현 확인) |
-| 해결 | `backend.py` 팀C 코드생성을 `docker run --rm` 기반 샌드박스로 전환. 요청별 디렉토리만 `/workspace`에 bind mount, 컨테이너 `WORKDIR=/workspace` 고정, 마운트 밖 쓰기는 `--rm`과 함께 폐기 |
+| 해결 | `backend.py` 병렬작업 3 코드생성을 `docker run --rm` 기반 샌드박스로 전환. 요청별 디렉토리만 `/workspace`에 bind mount, 컨테이너 `WORKDIR=/workspace` 고정, 마운트 밖 쓰기는 `--rm`과 함께 폐기 |
 | 이미지 | `docker/hermes-sandbox/Dockerfile` → `reqpipe-hermes-sandbox:latest` (빌드 성공, Hermes v0.21.4, 키 없이 빌드됨·이미지에 키 없음 확인) |
 | 키 전달 | 빌드 시점 주입 없음. 실행 시점에 호스트 환경변수(`NVIDIA_API_KEY` 우선, 없으면 `NIM_API_KEY`)를 `-e` + `env=` 로 컨테이너에 전달 (`.env` 직접 읽기 아님) |
 | 네트워크 | `--network none` 미사용 (의도적) — Hermes가 NIM API(`integrate.api.nvidia.com`)를 호출해야 생성 가능하므로. 외부 요청 방지는 프롬프트 지시 수준 |
@@ -132,7 +134,7 @@
 | 보안리스트 | SSH(22)+ICMP에 더해 **TCP 8643(챗봇 API/웹) 인바운드 오픈** |
 | 겪은 문제 | `openai==1.51.0`이 최신 `httpx`(0.28+)와 호환 안 됨(`Client.__init__() got an unexpected keyword argument 'proxies'`) → `requirements.txt`에 `httpx==0.27.2` 고정해서 해결 |
 
-### 3-6. 카카오톡 공유 (팀B, 실구현·검증 완료)
+### 3-6. 카카오톡 공유 (병렬작업 2, 실구현·검증 완료)
 
 | 항목 | 값 |
 |---|---|

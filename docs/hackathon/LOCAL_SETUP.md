@@ -1,5 +1,7 @@
 # 로컬 개발 환경 셋업
 
+> 참고: 이 문서의 backend.py 는 초기 구조다. 지금 코드는 app/ (FastAPI) 구조이며 에이전트 목록은 docs/product/AGENTS.md 를 본다.
+
 > 배포(Render/OCI)와 무관하게, 로컬에서 백엔드(Hermes 게이트웨이 + NIM 연동)를 바로 띄우고 개발하기 위한 가이드다.
 > 배포 관련 내용은 [deployment/RENDER_DEPLOY.md](deployment/RENDER_DEPLOY.md)를 본다.
 
@@ -60,7 +62,7 @@ curl -X POST http://localhost:8643/chat \
 | [`requirements.txt`](../../requirements.txt) | `flask`, `python-dotenv`, `openai`(NIM 호출용 클라이언트), `requests` |
 | [`docker-compose.yml`](../../docker-compose.yml) | 로컬/배포 공통 컨테이너 정의 |
 
-`backend.py`는 최소 골격이다. 실제 요구사항(RAG 사전확인, 검증/질의, 견적, Hermes 플래너 연동 등)은 [ARCHITECTURE.md](ARCHITECTURE.md)와 [TEAM_A_SPEC.md](TEAM_A_SPEC.md) / [TEAM_C_SPEC.md](TEAM_C_SPEC.md)를 참고해 위에 계속 확장한다.
+`backend.py`는 최소 골격이다. 실제 요구사항(RAG 사전확인, 검증/질의, 견적, Hermes 플래너 연동 등)은 [ARCHITECTURE.md](ARCHITECTURE.md)와 [PARALLEL_1_SPEC.md](PARALLEL_1_SPEC.md) / [PARALLEL_3_SPEC.md](PARALLEL_3_SPEC.md)를 참고해 위에 계속 확장한다.
 
 ## 5. 로컬 개발 중 알아둘 점
 
@@ -177,7 +179,7 @@ hermes dashboard --status   # 대시보드 상태
 
 ### 7-1. 발견된 문제: Hermes `--in` 옵션이 작업 디렉토리를 보장하지 않음
 
-`backend.py` 팀C 코드생성이 로컬 `hermes` CLI를 `cwd=generated/<requirement_id>/web` 서브프로세스로
+`backend.py` 병렬작업 3 코드생성이 로컬 `hermes` CLI를 `cwd=generated/<requirement_id>/web` 서브프로세스로
 직접 실행하던 시절, 아래 격리 실패가 재현 확인됐다:
 
 - `--in DIR --no-restore-cwd` 옵션을 줘도 Hermes가 지정한 작업 디렉토리를 무시하고

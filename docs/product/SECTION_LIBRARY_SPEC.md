@@ -395,6 +395,19 @@ content 스키마:
 | 명세 `actionbar` | `{primary:{label, href}, secondary:{label, href}}` | 섹션이 아니다. 가리키는 섹션이 없으면 그리지 않는다 |
 | `hero--*` `cta2` · `gallery--*` `label` | 두 번째 행동(글자 링크) · 사진첩 제목 | 첫 화면 주 버튼은 1개로 유지한다 |
 
+### 2.10 2주차 부품 (2026-09-28, BUILD_W1_W2 §1.7 C1)
+
+§2.9 공통 규칙(예시 표시·공개본 제거·안쪽 링크 `#`만)을 그대로 따른다. 렌더러가 형식이 틀린 값을 버린다.
+
+| type--variant | content | 비고 |
+|---|---|---|
+| `classes--cards` | `label`, `cta_href`(#), `classes:[{name*, target, days, time, capacity, fee, fee_example, level, desc, example}]`(≤12) | 카드: 대상 칩, "`days` `time`" 한 줄(예: 월·수 16:00), "정원 `capacity`", 수강료(예시 표시) + "`fee`가 비면 `[수강료 입력]`", "상담 신청" 링크 |
+| `timetable--week` | `label`, `days[]`(예: 월~토, ≤7), `rows:[{time*, cells:[{day, text}]}]`(≤12행), `example` | `<table>` + `<caption>` 필수. cells는 `days` 순서에 맞춰 렌더한다. 휴대폰은 첫 열 고정 + 가로 넘김(표 자체만). `example`이면 시안에 '예시' 표시, 공개본에서는 뺀다 |
+| `rooms--cards` | `label`, `booking_href`(#), `rooms:[{name*, image, image_example, capacity, size, price, price_example, features[≤6], example}]`(≤8) | 사진 3:2(`loading=lazy`, `aspect-ratio`), 인원·평형 줄, 요금(예시 표시, 비면 `[요금 입력]`), 편의 칩, "이 객실 예약" 링크 |
+| `booking--dates` | `label`, `note`, `rooms[]`, `nights_max`(기본 3, 1~14 밖은 3), `days:[{date YYYY-MM-DD*, label, dow, state open/few/full}]`(≤21), `days_example` | 라디오 `name="date"`(입실일, `value`는 날짜), 객실은 `name="service"` 고르기, 박 수는 `name="nights"` 숫자(`min=1`, `max=nights_max`), 인원은 `name="party"`. `days`가 없으면 날짜 입력으로 대체. API는 `nights`가 1~14 정수일 때 service 뒤에 " · N박"을 붙인다 |
+
+CSS는 `templates/css/40-w2-parts.css`에 두고, 렌더러가 `site.css` 뒤에 `templates/css/*.css`를 이름순으로 붙인다. 섹션 dict에 `"tone": "inverse"`가 있으면 뿌리 요소에 `data-tone="inverse"`를 붙인다(색 띠는 J2 영역).
+
 ## 3. 생성물 규격 준수 (R2 §3.3 + 파이프라인 §13 S-2·S-5)
 
 부품이 기본적으로 지켜야 할 규칙이다. 렌더러 출력과 Hermes 제작물에 동일 적용되며, 게시 전 검사(P-8, S-5)의 검사 항목이 된다.

@@ -45,11 +45,11 @@
 경로 기준: https://developers.kakao.com/console/app (내 애플리케이션 > `agt001`)
 
 1. **[카카오 로그인] > [사용 설정] > 상태 ON** (필수. OFF면 KOE004).
-2. **Redirect URI 등록** (필수): `https://144.24.91.250.sslip.io/auth/kakao/callback` — 정확히 일치해야 함 (末尾 슬래시·쿼리 유무까지 비교하므로 상수로 고정).
+2. **Redirect URI 등록** (필수): `https://144.24.91.250.sslip.io/auth/kakao/callback` — 정확히 일치해야 함 (맨 끝 슬래시·쿼리 유무까지 비교하므로 상수로 고정).
    등록 위치는 콘솔 UI 개편에 따라 [카카오 로그인] 메뉴 또는 [앱] > [플랫폼 키] > [REST API 키] 하단에 있음 **(추정 — 콘솔에서 직접 확인)**.
 3. **동의항목** ([카카오 로그인] > [동의항목]):
-   - 닉네임·프로필 사진: 기본 제공, 별도 심사 없이 필수/선택 동의로 설정 가능 **(추정 — 1단계는 닉네임 필수 동의만으로 충분)**.
-   - 카카오계정(이메일): **비즈앱 전환 필요 (추정)**. 일반 앱은 선택 동의도 제한될 수 있으므로, 이메일이 필요하면 비즈앱 전환(사업자 정보 등록, 별도 심사 없음 — 출처: https://developers.kakao.com/docs/ko/kakaosync/prerequisite §1) 후 설정. 1단계 권장: **이메일 없이 닉네임만** (users.email NULL 허용 — LANDING_AUTH_DB_UPLOAD_PLAN §3.1 스키마와 정합).
+   - 닉네임·프로필 사진: 기본 제공, 별도 평가 없이 필수/선택 동의로 설정 가능 **(추정 — 1단계는 닉네임 필수 동의만으로 충분)**.
+   - 카카오계정(이메일): **비즈앱 전환 필요 (추정)**. 일반 앱은 선택 동의도 제한될 수 있으므로, 이메일이 필요하면 비즈앱 전환(사업자 정보 등록, 별도 평가 없음 — 출처: https://developers.kakao.com/docs/ko/kakaosync/prerequisite §1) 후 설정. 1단계 권장: **이메일 없이 닉네임만** (users.email NULL 허용 — LANDING_AUTH_DB_UPLOAD_PLAN §3.1 스키마와 정합).
    - 동의항목별 정확한 권한 표는 콘솔의 동의항목 설정 화면에서 직접 확인 (문서 개정이 잦으므로 콘솔 표시를 최종 기준으로).
 4. 기존 등록(`http://144.24.91.250.sslip.io:8643` 웹 도메인·JS SDK 도메인)은 **유지** (카카오톡 공유 기능이 사용 중). HTTPS 도메인 추가 등록 필요 여부는 콘솔 안내에 따름 **(추정: 웹 도메인에도 `https://144.24.91.250.sslip.io` 추가 권장)**.
 
@@ -83,7 +83,7 @@ Discovery 문서: `https://accounts.google.com/.well-known/openid-configuration`
 
 | 단계 | 메서드·URL | 파라미터 |
 |---|---|---|
-| ① 인가 요청 | `GET https://accounts.google.com/o/oauth2/v2/auth` | `client_id`, `redirect_uri`(등록값과 exact match — scheme·대소문자·末尾 슬래시까지 일치, 출처: https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow ), `response_type=code`, `scope=openid email profile`, `state`(필수, CSRF), `nonce`(권장, §3), `access_type=offline`+`prompt=consent` (refresh token이 필요할 때만 — 1단계는 불필요하므로 사용 안 함) |
+| ① 인가 요청 | `GET https://accounts.google.com/o/oauth2/v2/auth` | `client_id`, `redirect_uri`(등록값과 exact match — scheme·대소문자·맨 끝 슬래시까지 일치, 출처: https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow ), `response_type=code`, `scope=openid email profile`, `state`(필수, CSRF), `nonce`(권장, §3), `access_type=offline`+`prompt=consent` (refresh token이 필요할 때만 — 1단계는 불필요하므로 사용 안 함) |
 | ② 콜백 수신 | `GET {redirect_uri}?code=...&state=...` | 실패 시 `error=access_denied` 등 |
 | ③ 토큰 교환 | `POST https://oauth2.googleapis.com/token` | `code`, `client_id`, `client_secret`, `redirect_uri`(①과 동일), `grant_type=authorization_code` |
 | ④ 신원 확인 | ③ 응답의 **`id_token`(JWT) 검증** (아래 2.4) | `sub`를 `provider_user_id`로 사용. userinfo 엔드포인트(`https://openidconnect.googleapis.com/v1/userinfo`) 호출은 보조 수단 (id_token 검증이 1순위) |
@@ -105,7 +105,7 @@ Discovery 문서: `https://accounts.google.com/.well-known/openid-configuration`
 
 근거 (2026-09-25 확인):
 
-- a) 구글 검증 규칙상 막히는 조건: scheme HTTPS 필수( `http` 불가, localhost만 예외), **raw IP 불가**, Host TLD가 public suffix list 소속이어야 함. 출처: https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow ("Validation rules"). `https://144.24.91.250.sslip.io/...`는 HTTPS·도메인 형태·TLD(`.io`) 정상이므로 이 규칙에는抵触하지 않음.
+- a) 구글 검증 규칙상 막히는 조건: scheme HTTPS 필수( `http` 불가, localhost만 예외), **raw IP 불가**, Host TLD가 public suffix list 소속이어야 함. 출처: https://developers.google.com/identity/protocols/oauth2/javascript-implicit-flow ("Validation rules"). `https://144.24.91.250.sslip.io/...`는 HTTPS·도메인 형태·TLD(`.io`) 정상이므로 이 규칙에는충돌하지 않음.
 - b) PSL 실측: 2026-09-25 스냅샷(`publicsuffix.org` 다운로드 후 grep)에서 **`sslip.io`·`nip.io` 모두 미등재 확인**. 즉 top private domain은 `sslip.io` 자체(소유자: Brian Cunnie, 출처: https://www.whois.com/whois/sslip.io )가 되므로, **사용자는 Search Console로 `sslip.io`의 소유권을 확인할 수 없음** → 브랜드 검수(홈페이지·개인정보처리방침·도메인 확인 요구, 출처: https://developers.google.com/identity/protocols/oauth2/production-readiness/brand-verification )를 통과할 방법이 없음 **(추정 — 검수 정책 해석)**.
 - c) 정책상 회색지대: "자신이 소유·사용 허가·라이선스를 받은 도메인의 URI만 사용" (출처: https://developers.google.com/identity/protocols/oauth2/policies ). sslip.io는 무료 공용 DNS 서비스이므로 엄밀한 '소유'가 아님 **(추정 — 테스트 용도 허용 여부는 구글 재량)**.
 - d) 테스트 모드 완화: User type External + Publishing status **Testing**인 앱은 테스트 사용자 최대 **100명**까지 허용. 단, **기본 신원 scope(`openid`, `email`, `profile`)만 요청하는 앱은 allowlist에 없는 사용자도 접근 가능**이라는 예외가 명시돼 있음. 출처: https://developers.google.com/identity/protocols/oauth2/production-readiness/overview . 본 서비스가 요청하는 scope가 정확히 이 3개이므로 테스트 모드 제약이 가장 약한 조합임.
@@ -163,7 +163,7 @@ Discovery 문서: `https://accounts.google.com/.well-known/openid-configuration`
 
 - [ ] K1. 내 애플리케이션 > `agt001` 선택 (ID 1585973 맞는지 확인).
 - [ ] K2. [제품 설정] > [카카오 로그인] > [사용 설정] > 상태 **ON** (OFF면 KOE004).
-- [ ] K3. 같은 메뉴에서 **Redirect URI 등록**: `https://144.24.91.250.sslip.io/auth/kakao/callback` 추가 (정확히 일치, 末尾 슬래시 없음).
+- [ ] K3. 같은 메뉴에서 **Redirect URI 등록**: `https://144.24.91.250.sslip.io/auth/kakao/callback` 추가 (정확히 일치, 맨 끝 슬래시 없음).
 - [ ] K4. [카카오 로그인] > [동의항목]: **닉네임 필수 동의** 설정 (프로필 사진은 선택 또는 미사용 — 1단계 최소). 이메일은 설정하지 않음 (필요해지면 비즈앱 전환 후 별도 WP).
 - [ ] K5. [앱] > [플랫폼 키] > **REST API 키 값 복사** → §6 `KAKAO_REST_API_KEY`에 보관 (타인과 공유·커밋 금지).
 - [ ] K6. 같은 화면 [클라이언트 시크릿] 상태 확인 → 활성화돼 있으면 **시크릿 값 복사** → `KAKAO_CLIENT_SECRET`에 보관. 비활성화면 그대로 두고 구현 담당(Claude)에게 통보 (토큰 요청 분기가 달라짐).
@@ -198,7 +198,7 @@ KAKAO_REDIRECT_URI=https://144.24.91.250.sslip.io/auth/kakao/callback
 # 구글: Cloud Console > Clients > agt001-web에서 복사 (체크리스트 G6)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-# 고정값. 콘솔 등록 URI와 정확히 일치해야 함 (scheme·대소문자·末尾 슬래시까지)
+# 고정값. 콘솔 등록 URI와 정확히 일치해야 함 (scheme·대소문자·맨 끝 슬래시까지)
 GOOGLE_REDIRECT_URI=https://144.24.91.250.sslip.io/auth/google/callback
 # 전 배포 공통
 APP_BASE_URL=https://144.24.91.250.sslip.io

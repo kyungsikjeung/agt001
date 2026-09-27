@@ -1,13 +1,14 @@
 # 문서 인덱스 (최신순)
 
 > 기준: 각 파일의 마지막 커밋일. 최신이 위. 날짜가 같으면 가나다순.
-> 링크가 전부 클릭 가능하다 (전수 검사済, 외부 URL 55/59 정상·4건은 비공개/봇차단 추정).
+> 링크가 전부 클릭 가능하다 (전수 검사 완료, 외부 URL 55/59 정상·4건은 비공개/봇차단 추정).
 
 ## L4 운영·검증 (56개)
 
 | 최신 갱신 | 문서 |
 |---|---|
-| 2026-09-27 | [BACKLOG (2026-09-26 기준, 마감 2026-09-28)](product/BACKLOG.md) |
+| 2026-09-28 | [에이전트와 개발 도구: 무엇을 만들었고 어떻게 만들었나](product/AGENTS.md) |
+| 2026-09-27 | [BACKLOG (2026-09-26 기준)](product/BACKLOG.md) |
 | 2026-09-27 | [홈페이지 채팅 에이전트 설계 (공통 모듈)](product/research/CHATBOT_AGENT_DESIGN.md) |
 | 2026-09-27 | [웹사이트 카테고리 50종: 항목·UIUX·토큰·기능·공통모듈 조사](product/research/UI_CATEGORIES_50.md) |
 | 2026-09-27 | [2026 UI 시안 리서치: 카테고리 30종 섹션 구성표](product/research/UI_REFERENCE_2026.md) |
@@ -68,22 +69,22 @@
 
 | 최신 갱신 | 문서 |
 |---|---|
-| 2026-09-28 | [1·2주차 구현 계약·작업판 (OpenCode 작업 13개)](product/BUILD_W1_W2.md) |
-| 2026-09-28 | [요구사항 → UI 에이전트와 데이터 연결 계획 (원형 8개·울타리 에이전트·리졸버)](product/UI_AGENT_PLAN.md) |
-| 2026-09-28 | [모션 라이브러리 조사·사용 계획](product/MOTION_PLAN.md) |
-| 2026-09-28 | [시안 적합성 재설계 플랜 (구조 데이터·목적 부품·동선 3안·적합성 채점)](product/DESIGN_FIT_PLAN.md) |
+| 2026-09-28 | [1·2주차 구현 계약·작업판 (BUILD_W1_W2)](product/BUILD_W1_W2.md) |
+| 2026-09-28 | [요구사항 → UI 에이전트와 데이터 연결 계획 (UI_AGENT_PLAN)](product/UI_AGENT_PLAN.md) |
+| 2026-09-28 | [모션 라이브러리 조사·사용 계획 (MOTION_PLAN)](product/MOTION_PLAN.md) |
+| 2026-09-28 | [시안 적합성 재설계 플랜 (DESIGN_FIT_PLAN)](product/DESIGN_FIT_PLAN.md) |
 | 2026-09-27 | [예약 신청 받기 (플랫폼 공용 ②) — 1단계 계획·계약](product/BOOKING_PLAN.md) |
 | 2026-09-27 | [음성 요구사항 대화 요구사항 (VOICE_QA_REQUIREMENTS)](product/VOICE_QA_REQUIREMENTS.md) |
 | 2026-09-26 | [요구사항 엔진 → 시안: 사용자가 원하는 UI를 받아내는 계획](product/DESIGN_PIPELINE_PLAN.md) |
 | 2026-09-26 | [기능 사례집 (입구 게이트 참조용 초안)](product/FEATURE_CATALOG.md) |
-| 2026-09-26 | [FLOWDOC: 에이전트 실행 흐름 (주최 요구 9, REQ-FLOW-001)](product/FLOWDOC.md) |
+| 2026-09-26 | [FLOWDOC: 에이전트 실행 흐름 (기본 요구 9, REQ-FLOW-001)](product/FLOWDOC.md) |
 | 2026-09-26 | [문의 분류 게이트와 기능 가능성 판정 — 설계 초안](product/INTAKE_GATE_DESIGN.md) |
 | 2026-09-26 | [섹션 부품 라이브러리 명세 초안 (WP P-3)](product/SECTION_LIBRARY_SPEC.md) |
 | 2026-09-26 | [음성 요구사항 입력 계획 (VOICE_INPUT_PLAN) — agt001 사장님용](product/VOICE_INPUT_PLAN.md) |
 | 2026-09-25 | [개발자 결정 음성 인터페이스 조사 (STT·TTS·판정 프로토콜) — WP 0-6b](product/DEV_DECISION_VOICE.md) |
 | 2026-09-25 | [채팅방 정책 — 초대, 기록, 종료·초기화, 알림](product/ROOM_POLICY.md) |
 | 2026-09-25 | [외부 접속 불가 재조사 V2 (경영진 "모든 사람이 안 된다" 반박 대응)](hackathon/EXTERNAL_ACCESS_TROUBLESHOOTING_V2.md) |
-| 2026-09-25 | [랜딩 + 인증 + PostgreSQL + 이미지 업로드 통합 계획 (LANDING_AUTH_DB_U](hackathon/LANDING_AUTH_DB_UPLOAD_PLAN.md) |
+| 2026-09-25 | [랜딩 + 인증 + PostgreSQL + 이미지 업로드 통합 계획 (LANDING_AUTH_DB_UPLOAD_PLAN)](hackathon/LANDING_AUTH_DB_UPLOAD_PLAN.md) |
 | 2026-09-25 | [PM 경영진 지시 대응 계획 (PM_EXECUTIVE_DIRECTIVE_PLAN)](hackathon/PM_EXECUTIVE_DIRECTIVE_PLAN.md) |
 | 2026-09-23 | [회원가입/로그인 도입 여부 — 조사·설계·비용·Go/No-Go 판단 문서](hackathon/AUTH_DB_COST_DECISION.md) |
 | 2026-09-23 | [데모 가능 여부 판정 + 마일스톤 계획 (경영진 보고용)](hackathon/DEMO_READINESS_MILESTONE.md) |
@@ -93,15 +94,13 @@
 | 2026-09-23 | [효율화 계획 (EFFICIENCY_PLAN)](hackathon/EFFICIENCY_PLAN.md) |
 | 2026-09-23 | [Environment 관리 문서](hackathon/ENVIRONMENT.md) |
 | 2026-09-23 | [외부 접속 불가 문제 조사 (EXTERNAL_ACCESS_TROUBLESHOOTING)](hackathon/EXTERNAL_ACCESS_TROUBLESHOOTING.md) |
-| 2026-09-23 | [NVIDIA 해커톤 Top 10 진입 가능성 평가 (agt001, D-5 시점)](hackathon/HACKATHON_TOP10_ASSESSMENT.md) |
-| 2026-09-23 | [NVIDIA 해커톤 우승을 위한 빌드업 전략 (agt001)](hackathon/HACKATHON_WINNING_STRATEGY.md) |
 | 2026-09-23 | [카카오톡 연동 검증 계획 (room.html Error 4019)](hackathon/KAKAO_VERIFICATION_PLAN.md) |
 | 2026-09-23 | [로컬 개발 환경 셋업](hackathon/LOCAL_SETUP.md) |
-| 2026-09-23 | [Lovable 리서치 — agt001 팀B/팀C 개선 참고용](hackathon/LOVABLE_RESEARCH.md) |
+| 2026-09-23 | [Lovable 리서치 — agt001 병렬작업 2/병렬작업 3 개선 참고용](hackathon/LOVABLE_RESEARCH.md) |
 | 2026-09-23 | [다인원 공유 채팅 (Multi-user Chat) 조사/설계 문서](hackathon/MULTIUSER_CHAT_DESIGN.md) |
 | 2026-09-23 | [다인원 공유채팅 — PM 통합 전략 플랜](hackathon/MULTIUSER_PM_INTEGRATION_PLAN.md) |
 | 2026-09-23 | [OCI 다인원 공유채팅(room) E2E 검증 기록](hackathon/OCI_ROOM_E2E_VERIFICATION.md) |
-| 2026-09-23 | [PM 다음 전략 (마감 2026-09-28까지) — 병렬 배치 실행 계획](hackathon/PM_NEXT_STRATEGY.md) |
+| 2026-09-23 | [PM 다음 전략 (1차 완성 목표 2026-09-28까지) — 병렬 배치 실행 계획](hackathon/PM_NEXT_STRATEGY.md) |
 | 2026-09-23 | [병행 실행 전략 + 경영진 보고용 개발 전략 (agt001)](hackathon/PM_PARALLEL_EXECUTION_STRATEGY.md) |
 | 2026-09-23 | [PM 보고: ReAct 통합 권고안 실행 계획 (REQUIREMENTS_ELICITATION_UX)](hackathon/PM_REACT_PLAN_REPORT.md) |
 | 2026-09-23 | [PRD — 요구사항 도출( elicitation ) UX 개선 (GATHERING 상태)](hackathon/PRD_REQUIREMENTS_ELICITATION.md) |
@@ -112,9 +111,9 @@
 | 2026-09-21 | [한마디(agt001) 시스템 아키텍처 (v0.2)](hackathon/ARCHITECTURE.md) |
 | 2026-09-21 | [통합 전략 및 상세 마일스톤](hackathon/INTEGRATION_STRATEGY.md) |
 | 2026-09-21 | [PM 오케스트레이션 플랜 — 병목/에러 점검 및 실행 절차](hackathon/PM_ORCHESTRATION.md) |
-| 2026-09-21 | [팀원 A 상세 스펙 — 대화·요구사항·견적 (②~⑧)](hackathon/TEAM_A_SPEC.md) |
-| 2026-09-21 | [팀원 B 상세 스펙 — 디자인·전달 (⑨~⑪)](hackathon/TEAM_B_SPEC.md) |
-| 2026-09-21 | [팀원 C 상세 스펙 — 코드 생성·배포 (⑫~⑰)](hackathon/TEAM_C_SPEC.md) |
+| 2026-09-21 | [병렬작업 1 상세 스펙 — 대화·요구사항·견적 (②~⑧)](hackathon/PARALLEL_1_SPEC.md) |
+| 2026-09-21 | [병렬작업 2 상세 스펙 — 디자인·전달 (⑨~⑪)](hackathon/PARALLEL_2_SPEC.md) |
+| 2026-09-21 | [병렬작업 3 상세 스펙 — 코드 생성·배포 (⑫~⑰)](hackathon/PARALLEL_3_SPEC.md) |
 | 2026-09-21 | [Render 배포 가이드 (AI 에이전트 온보딩용)](hackathon/deployment/RENDER_DEPLOY.md) |
 | 2026-09-21 | [reqpipe 통합 이력·근거 문서 (01/03)](reqpipe/01_OVERVIEW_AND_HISTORY.md) |
 | 2026-09-21 | [reqpipe v1.2 구현 스펙 (AI 드리븐 개발 파이프라인)](reqpipe/03_SPEC.md) |
@@ -127,14 +126,14 @@
 | 최신 갱신 | 문서 |
 |---|---|
 | 2026-09-27 | [진행 상황 (경영진 확인용)](../STATUS.md) |
-| 2026-09-26 | [agt001 — 말하면 가게 사이트가 된다](../README.md) |
+| 2026-09-26 | [한마디 — 말하면 가게 사이트가 된다](../README.md) |
 
 ## L2 요구 정본 (7개)
 
 | 최신 갱신 | 문서 |
 |---|---|
 | 2026-09-26 | [결정 기록](product/DECISIONS.md) |
-| 2026-09-25 | [agt001 제품 로드맵 — 해커톤 프로토타입에서 실서비스 코드 에이전트로](product/PRODUCT_ROADMAP.md) |
+| 2026-09-25 | [agt001 제품 로드맵 — 초기 프로토타입에서 실서비스 코드 에이전트로](product/PRODUCT_ROADMAP.md) |
 | 2026-09-23 | [요구사항 도출 UX 분석 — 분석가 A](hackathon/REQUIREMENTS_ELICITATION_UX_A.md) |
 | 2026-09-23 | [요구사항 도출( elicitation ) UX 분석 — 분석가 B](hackathon/REQUIREMENTS_ELICITATION_UX_B.md) |
 | 2026-09-23 | [요구사항 도출 UX 교차검토 — ReAct 자문 리뷰 (A × B 통합)](hackathon/REQUIREMENTS_ELICITATION_UX_REACT_REVIEW.md) |

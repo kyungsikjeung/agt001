@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "deploy_to_review.schema.json",
-  "title": "BND-5: 배포(팀원 C) → 사람 최종 검토(⑱). 팀원 B로 직접 가지 않는다",
+  "title": "BND-5: 배포(병렬작업 3) → 사람 최종 검토(⑱). 병렬작업 2로 직접 가지 않는다",
   "type": "object",
   "required": ["requirement_id", "status"],
   "properties": {

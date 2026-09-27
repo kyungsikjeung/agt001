@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "gate_to_spec.schema.json",
-  "title": "BND-3: 승인게이트(팀원 A) → 스펙생성(팀원 C)",
+  "title": "BND-3: 승인게이트(병렬작업 1) → 스펙생성(병렬작업 3)",
   "type": "object",
   "required": ["requirement_id", "confirmed_items", "platform", "acceptance_criteria"],
   "properties": {

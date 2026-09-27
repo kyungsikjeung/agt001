@@ -1,6 +1,6 @@
 # PM 보고: ReAct 통합 권고안 실행 계획 (REQUIREMENTS_ELICITATION_UX)
 
-> 작성일: 2026-09-23 (PM 관점) / 마감: 2026-09-28 / 코드 수정 없음 (계획 문서만)
+> 작성일: 2026-09-23 (PM 관점) / 1차 완성 목표: 2026-09-28 / 코드 수정 없음 (계획 문서만)
 > 입력: `REQUIREMENTS_ELICITATION_UX_REACT_REVIEW.md` §5 + 원본 A/B + `backend.py` 실측 + 기존 PM 일정 2종
 > 제약 준수: `.env` 미열람, git add/commit/push 없음. 확실하지 않은 것은 **(추정)** 표기.
 
@@ -59,9 +59,9 @@
 
 | 순서 | 세션 | 산출물 (파일) | 내용 | 선행 조건 | 소요 (추정) |
 |---|---|---|---|---|---|
-| 1 | 다음 세션 A (문서, 즉시 착수 가능) | `docs/hackathon/ELICIT_SLOTS_SPEC.md` (신규) | S0 슬롯 테이블 확정: 6슬롯 키·상태 4값·required 하드조건(`platform·features≥1·existing_ref`)·선택(`budget_or_time`·`acceptance`)·`customer_id=세션/방 대표` 정의. ReAct §5.4의 "(추정) 팀C 합의 필요" 항목을 합의 대기 태그로 명시 | 없음 (T-D/T-T 문서와 병행 가능) | 0.5일 |
+| 1 | 다음 세션 A (문서, 즉시 착수 가능) | `docs/hackathon/ELICIT_SLOTS_SPEC.md` (신규) | S0 슬롯 테이블 확정: 6슬롯 키·상태 4값·required 하드조건(`platform·features≥1·existing_ref`)·선택(`budget_or_time`·`acceptance`)·`customer_id=세션/방 대표` 정의. ReAct §5.4의 "(추정) 병렬작업 3 합의 필요" 항목을 합의 대기 태그로 명시 | 없음 (T-D/T-T 문서와 병행 가능) | 0.5일 |
 | 2 | 다음 세션 A 연계 (문서) | 동일 파일 부록 | S1 결정적 규칙표 (platform 키워드, features 불릿·쉼표+`partial` 패턴, budget 숫자+단위) + S2 질문 템플릿 4종 (platform 닫힌형·features 예/아니오 쪼개기·budget 예시값·확인요약 형식) + fast-track 키워드 4개 + RAG 사람말 템플릿 1개 | 순서 1 | 순서 1에 포함 |
-| 3 | 다음 세션 B (문서, A와 병행 가능) | `docs/hackathon/ELICIT_TRANSITION_SPEC.md` (신규) 또는顺序 1 파일 §2부 | S4 전이 순서도 (fast-track→첫 진입→점진→확인요약→self-check 위치) + S5 AWAIT/QUOTED/DONE 분기별 교체 diff 초안 (행번호 지정: `:731-744`, `:746-761`, `:763-792`, `:794-796`) + S6 공유방 `pending_question`+`seq` 규칙 | 순서 1 | 0.5일 |
+| 3 | 다음 세션 B (문서, A와 병행 가능) | `docs/hackathon/ELICIT_TRANSITION_SPEC.md` (신규) 또는 순서 1 파일 §2부 | S4 전이 순서도 (fast-track→첫 진입→점진→확인요약→self-check 위치) + S5 AWAIT/QUOTED/DONE 분기별 교체 diff 초안 (행번호 지정: `:731-744`, `:746-761`, `:763-792`, `:794-796`) + S6 공유방 `pending_question`+`seq` 규칙 | 순서 1 | 0.5일 |
 | 4 | 코드 세션 C (D-4~D-3, 직렬 큐 합류) | `backend.py` 1차분 | P0-1+P0-2+P0-5만 구현: S0 setdefault + S1/S2 헬퍼 + S4 분기 + 확인요약 + 하류 교체 + RAG 래핑. self-check·fast-track·항목복귀는 제외 (아래 §4 절충안) | 순서 1~3 문서 + T-C 큐 순서 (§4) | 0.5~1일 |
 | 5 | 코드 세션 D (D-3 이후 여유 있을 때만) | `backend.py` 2차분 | P0-3 fast-track + P0-4 항목복귀. 없으면 운영 규칙(데모 시나리오에서 거절 경로 시연 제외 선언)으로 대체 | 순서 4 + 리허설 결과 | 0.5일 |
 | 6 | 마감 후 백로그 | — | P1 6항 전체 (self-check→스마트디폴트→타이머→스키마 개정 순) | 마감 후 | 별도 산정 |
@@ -76,7 +76,7 @@
 |---|---|---|
 | T-N 네트워크/외부접속 해결 | 파일 겹침 없음 (읽기전용 검증·인프라) | ✅ 병행 가능. 순서 1~3 문서 세션과 동시 가동 |
 | T-D 데모 준비 (스크립트·Q&A·슬라이드·백업영상) | 파일 겹침 없음 (신규 문서) | ✅ 병행 가능 |
-| T-T 팀B 템플릿 스펙 (variant-2~N) | 파일 겹침 없음 (스펙 문서 단계) | ✅ 병행 가능. 단 배선 단계(`render_design` 배선)는 backend 공유이므로 ReAct 순서 4·5와 직렬 |
+| T-T 병렬작업 2 템플릿 스펙 (variant-2~N) | 파일 겹침 없음 (스펙 문서 단계) | ✅ 병행 가능. 단 배선 단계(`render_design` 배선)는 backend 공유이므로 ReAct 순서 4·5와 직렬 |
 | T-C 코드 큐: ① OCI curl 버그픽스 → ② 세마포어+캐시+좀비정리 → ③ ⑱ 최소구현 | 전부 `backend.py` 단일 파일. ReAct 순서 4·5도 동일 파일 | ❌ **직렬 필수 — ReAct 코드를 T-C 큐 맨 뒤(③ 다음, 4번째)로 편입**. `PM_NEXT_STRATEGY.md` §3-1 "backend.py를 건드리는 모든 코드 수정은 순차 필수" 규칙 그대로 적용 |
 | `PM_NEXT_STRATEGY.md` 배치 1 (B1-a OCI e2e 읽기전용 + B1-b ⑱ 설계 + B1-c 템플릿 스펙 + B1-d STATUS) | B1-a 읽기전용 검증 + B1-b/B1-c 문서는 ReAct 문서 세션(순서 1~3)과 파일이 다름 | ✅ 병행 가능 |
 | 배치 2 (B2-1 버그픽스 → B2-2 템플릿 배선 → B2-3 ⑱ 구현) | ReAct 순서 4·5와 동일 파일 경합 | ❌ **직렬 — ReAct는 B2-3 다음(B2-4)으로 편입** |
@@ -84,9 +84,9 @@
 
 ### 4.2 왜 P0 전체가 아니라 절충안인가 (PM 판단 근거 3개)
 
-1. **큐 길이**: T-C에 이미 3개(버그픽스·안정화·⑱구현, 각 0.5~1일 추정)가 줄 서 있다. ReAct P0 5항(0.5~1일 추정)을 전부 앞에 넣으면 ⑱(유일 미착수 정식 요구)가 D-2 동결을 넘길 위험이 있다. 정식 DoD 미달(⑱ 없음)보다 UX 개선 미흡(GATHERING 거칠음)이 심사 감점이 작다는 판단 — **(추정)** (심사 배점 미공개이므로).
+1. **큐 길이**: T-C에 이미 3개(버그픽스·안정화·⑱구현, 각 0.5~1일 추정)가 줄 서 있다. ReAct P0 5항(0.5~1일 추정)을 전부 앞에 넣으면 ⑱(유일 미착수 정식 요구)가 D-2 동결을 넘길 위험이 있다. 정식 DoD 미달(⑱ 없음)보다 UX 개선 미흡(GATHERING 거칠음)이 평가 감점이 작다는 판단 — **(추정)** (평가 배점 미공개이므로).
 2. **데모 노출도**: P0-1·P0-2(질문 루프+확인요약+시안/견적 정상화)는 정상 경로(관객이 반드시 보는 흐름)에 노출되지만, P0-3·P0-4(fast-track·반려 복귀)는 분기 경로(시연자가 유도해야 보이는 흐름)라 스크립트·운영 규칙(예: "반려 경로는 Q&A에서 구두 설명")으로 커버 가능하다.
-3. **회귀 위험**: S4·S5는 상태머신 전이를 직접 바꾸므로, D-2 이후에 손대면 전체 e2e 재검증(1:1+room 양쪽)을 다시 해야 한다. D-3までに P0-1·P0-2를 고정하고 동결하는 편이 리허설 안정성에 유리하다.
+3. **회귀 위험**: S4·S5는 상태머신 전이를 직접 바꾸므로, D-2 이후에 손대면 전체 e2e 재검증(1:1+room 양쪽)을 다시 해야 한다. D-3까지 P0-1·P0-2를 고정하고 동결하는 편이 리허설 안정성에 유리하다.
 
 ### 4.3 반영 후 일정 (D-5 기준, 기존 일정 유지 + B2-4 추가)
 
@@ -118,7 +118,7 @@ PRD 작성자는 아래 ID를 그대로 인용하면 된다. 출처는 ReAct §5
 
 | ID | 함수 | 시그니처 (제안) | LLM 사용 | 비고 |
 |---|---|---|---|---|
-| REQ-ELICIT-FUNC-01 | `update_slots(slots, user_text)` | `-> slots` | 없음 (정규식·키워드만) | B안 우선 원칙 (TEAM_A_SPEC §4 "LLM 판정 금지") |
+| REQ-ELICIT-FUNC-01 | `update_slots(slots, user_text)` | `-> slots` | 없음 (정규식·키워드만) | B안 우선 원칙 (PARALLEL_1_SPEC §4 "LLM 판정 금지") |
 | REQ-ELICIT-FUNC-02 | `next_question(slots)` | `-> str \| None` | 없음 (템플릿) | 옵션 3개+추천, 한 턴 1개 기본·최대 2개 **(추정)** |
 | REQ-ELICIT-FUNC-03 | `self_check_nim(slots_summary)` (P1) | `-> {"ok": bool, "missing": [...]}` | `call_nim` 재사용, 전이당 1회, 실패 시 `{"ok": true}` 폴백 | 과잉지적 가드 (사소한 것 금지·missing 최대 2건) |
 | REQ-ELICIT-FUNC-04 | `build_quote` 입력 변경 (본체 무수정) | `build_quote(슬롯 조립 텍스트)` | 기존 유지 | S5a. 추정 전제는 `basis`에 "(가정)" 기록 |
@@ -128,7 +128,7 @@ PRD 작성자는 아래 ID를 그대로 인용하면 된다. 출처는 ReAct §5
 
 | ID | 컴포넌트 | 내용 | 건드리는 면 |
 |---|---|---|---|
-| REQ-ELICIT-UX-01 | 점진 질문 메시지 | "지금까지 요약 + 다음 질문" 2단 + 진행률 `(n/m)`, 300자·불릿 4개以内 **(추정)** | `/chat`·room 공통 reply |
+| REQ-ELICIT-UX-01 | 점진 질문 메시지 | "지금까지 요약 + 다음 질문" 2단 + 진행률 `(n/m)`, 300자·불릿 4개 이내 **(추정)** | `/chat`·room 공통 reply |
 | REQ-ELICIT-UX-02 | 확인요약 (게이트 전) | 확정값 vs (가정) 구분 표기 + "진행/수정" 분기. 예: `웹(확정) / 예약·결제(확정) / 알림톡(가정·제외 전제) (3/4). 이대로 견적 낼까요?` | AWAIT 전이 직전 |
 | REQ-ELICIT-UX-03 | fast-track 분기 | 키워드 `그냥 진행/충분해/빨리/견적 먼저` → platform 확보 후 즉시 게이트 + 생략 전제 명시 | S4-1 |
 | REQ-ELICIT-UX-04 | 항목별 복귀 질문 | `1번 기능 2번 플랫폼 3번 예산/일정 4번 기타(자유서술→재추출 입력)` 4지선다, 자유서술 직확인 금지 | AWAIT+QUOTED 거절 공통 |
@@ -148,15 +148,15 @@ REQ-INTAKE-001→S0+`note`; REQ-VALIDATE-001→S1+S4; REQ-ASK-001→S2; REQ-GATE
 
 ## 6. 리스크·미확정 항목 (추정 명시)
 
-1. required 하드조건(`platform·features≥1·existing_ref`)은 ReAct 절충 제안 **(추정)** — 팀C 합의 후 확정 (순서 1 문서에 합의 대기 태그).
+1. required 하드조건(`platform·features≥1·existing_ref`)은 ReAct 절충 제안 **(추정)** — 병렬작업 3 합의 후 확정 (순서 1 문서에 합의 대기 태그).
 2. "1개 기본·최대 2개/턴", "상한 3회", "300자·불릿 4개"는 UX 일반론 **(추정)** — 파일럿 로그 후 튜닝 (P1-11).
 3. `platform` 단일값·`budget_or_time` 선택 취급의 "둘 다" 수요 빈도는 **(추정)** — 로그 후 스키마 개정 판단.
 4. NIM 지연 체감 (`NIM_TIMEOUT_SEC=25` 실측)은 폴백으로 완화하나 실측 전 확정 불가 **(추정)** — 호출 상한(턴당 1회·전이당 1회)으로 규율.
 5. DONE 후 슬롯 초기화·`asked_keys` 수명·"네"의 답변/투표 경계 판별은 신규 제안 **(추정)** — 방 로그로 검증 필요.
-6. 본 계획의 공수(문서 0.5+0.5일, 코드 0.5~1+0.5일)는 기존 PM 문서 인용 **(추정)** — 심사·재작업 버퍼 미포함.
-7. P0-3·P0-4를 운영 규칙으로 대체할 경우 심사 질의 대비 멘트(데모 스크립트 Q&A에 1문 추가)가 필요 — T-D 트랙에 전달.
+6. 본 계획의 공수(문서 0.5+0.5일, 코드 0.5~1+0.5일)는 기존 PM 문서 인용 **(추정)** — 평가·재작업 버퍼 미포함.
+7. P0-3·P0-4를 운영 규칙으로 대체할 경우 평가 질의 대비 멘트(데모 스크립트 Q&A에 1문 추가)가 필요 — T-D 트랙에 전달.
 
 ## 부록. 읽은 것 / 안 읽은 것
 
 - 읽은 것: ReAct 리뷰 전체(207행) + A(149행) + B(274행) 전부, `backend.py:689-805`·`:225-256`·`:175-188`·`:815` 실측, 세 스키마 required 실측, `PM_NEXT_STRATEGY.md`·`PM_PARALLEL_EXECUTION_STRATEGY.md` 전부, `git log` D-day 대조.
-- 안 읽은 것: `.env` (제약), `static/room.html` 원문 (B·ReAct의 인용을 신뢰 — `#statusBar`·`voteBar`·`updateActionBars` 존재 주장은 재검증하지 않았으므로 PRD 작성 시 1회 실측 권장), TEAM_A/B/C_SPEC 원문 (ReAct의 인용을 신뢰).
+- 안 읽은 것: `.env` (제약), `static/room.html` 원문 (B·ReAct의 인용을 신뢰 — `#statusBar`·`voteBar`·`updateActionBars` 존재 주장은 재검증하지 않았으므로 PRD 작성 시 1회 실측 권장), PARALLEL_1·2·3_SPEC 원문 (ReAct의 인용을 신뢰).

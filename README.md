@@ -2,6 +2,45 @@
 
 > 소상공인이 채팅(글·음성·사진)으로 원하는 것을 설명하면, AI가 요구사항을 정리해 확인받은 뒤 실제로 동작하는 웹사이트를 만들어 바로 공개해 주는 서비스. 베타 기간 무료.
 
+## 배경 — 왜 이 서비스를 만들었나
+
+**코드는 이제 AI가 금방 짠다. 어려운 건 "무엇을 만들지"를 여러 사람이 함께 정하는 일이다. 한마디는 그 일을 대화방에서 끝내고, 합의된 내용을 실제 사이트로 공개하는 데까지 잇는다.**
+
+AI로 코드를 짜는 도구가 좋아지면서, 여러 사람이 함께 "바이브 코딩"을 해 본 일이 있다.
+원하는 것을 말로 설명하면 AI가 코드를 짜 주는 방식이다.
+코드는 금방 나왔다.
+그런데 여러 사람이 함께 만들려고 하니, 코드보다 그 앞 단계가 더 어려웠다.
+무엇을 만들지(요구사항)를 여러 사람이 함께 정하고 합의하는 일이 가장 느렸다.
+각자 다른 말로 설명하고, 대화는 메신저 여기저기에 흩어졌다.
+꼭 필요한 조건은 빠지고, 누가 무엇을 확정했는지도 알 수 없었다.
+
+그래서 이런 모습을 바랐다.
+여러 사람이 한 대화방에 모여 말로 요구사항을 함께 만들어 낸다.
+AI가 그 말을 정리하고, 모자란 부분은 되묻고, 정리한 내용은 확인을 받는다.
+합의가 되면 그 내용을 코드로 만들고, 만든 것을 바로 공개하는 데까지 이어진다.
+말로 정하는 일과 실제로 만드는 일이 끊어지지 않는 흐름이다.
+
+이 흐름을 만들면서, 일을 나누어 맡는 여러 에이전트로 직접 만들어 보고 싶었다.
+요구사항 정리, 리뷰, 시안, 공개 전 검사, 음성처럼 역할을 나눈다.
+에이전트 사이는 입력과 출력의 약속(`contracts/` 스키마)으로 잇는다.
+고치는 기준은 느낌이 아니라 평가 도구로 재면서 정한다.
+자세한 목록은 [docs/product/AGENTS.md](docs/product/AGENTS.md)에 있다.
+
+왜 가게 사이트부터 시작했는지는 세 가지 이유다.
+첫째, 이 흐름이 가장 절실한 사람은 코드를 모르는 가게 사장님이다.
+둘째, 한 페이지 사이트는 결과가 작아서 "요구에서 구현, 공개까지" 한 바퀴를 끝까지 돌려 보기 좋다.
+셋째, 가게 일은 사장님과 가족, 직원처럼 여러 사람이 함께 정하는 경우가 많다.
+
+| 겪은 문제 | 제품에서의 답 | 근거 |
+|---|---|---|
+| 여러 사람이 따로 말함 | 공유방에서 함께 답하고, 요약 단계에서 전원 동의가 있어야 넘어감 | docs/product/DECISIONS.md D52, app/services/rooms.py |
+| 빠진 조건, 지어낸 값 | 요구사항 엔진의 근거 검사와 리뷰어 에이전트로 걸러 다시 묻기 | docs/product/DECISIONS.md D34, app/services/prd_engine.py |
+| 누가 확정했는지 모름 | 요약 카드에서 사장님 최종 확인을 한 번만 거침 | docs/product/DECISIONS.md D22 |
+| 구현과 공개가 따로 놈 | 고른 시안을 그대로 공개 사이트로 열고, 공개 전 자동 검사로 막음 | app/services/publish_check.py |
+
+앞으로는 가게 사이트에서 개인, 단체, 웹서비스로 넓힌다.
+입구 게이트가 이미 가게, 개인, 단체, 웹서비스를 나눈다(app/services/intake.py).
+
 ## 왜 필요한가
 
 | 문제 | 기존 방식의 한계 | 이 서비스의 답 |
@@ -24,7 +63,7 @@ flowchart LR
 | 2 | 말하기 | 글·음성(🎤, 답변 읽어주기, 손 안 쓰는 모드)·사진으로 설명한다 |
 | 3 | 정리·확인 | 요구사항 엔진이 근거 있는 값만 칸에 넣고, 틀린 값(자리수 틀린 전화·25시 등)은 저장하지 않고 다시 묻는다 |
 | 4 | 시안 | 분위기가 다른 3안 중 하나를 고른다 |
-| 5 | 공개 | 공개 사이트에서 손님이 문의·예약을 신청하면 채팅방과 사장님 카톡으로 알린다 |
+| 5 | 공개 | 공개 사이트에서 손님이 문의·예약을 신청하면 채팅방으로 알린다. 사장님 카톡 전달은 코드는 배포됐으나 실제 수신 확인 전이다(STATUS.md §4 3번) |
 
 ## 3분 안에 써 보기
 
@@ -35,7 +74,7 @@ flowchart LR
 3. 질문에 답하거나, 바로 보려면 "시안 먼저"라고 보낸다. → 답할 때마다 다음 질문이, "시안 먼저" 뒤에는 정리된 요약이 보인다.
 4. 요약을 보고 "승인"이라고 보내면 참고 견적이, 이어서 "진행"이라고 보내면 시안 준비 안내가 보인다. → 참고 견적 한 줄과 시안 3안 안내가 보인다.
 5. 시안 3안에서 마음에 드는 번호를 골라 "2안으로 할게요"라고 보내고, 이어서 "공개"라고 보낸다. → 고른 시안 그대로 열린 사이트 주소가 보인다.
-6. 공개 사이트의 문의 폼으로 글을 보내 본다. → 채팅방에 "문의 알림"이 뜨고, 사장님 카톡으로도 전달된다.
+6. 공개 사이트의 문의 폼으로 글을 보내 본다. → 채팅방에 "문의 알림"이 뜬다. 사장님 카톡 전달은 코드는 배포됐으나 실제 수신 확인 전이다(STATUS.md §4 3번).
 - 로그인은 선택이다. 카카오는 누구나 쓸 수 있다. 구글은 테스트 모드라 버튼을 숨겼다(초대 계정만, 서버 경로는 유지).
 
 소상공인이 채팅(글·음성·사진)으로 원하는 것을 설명하면, AI가 요구사항을 정리해 확인받은 뒤 실제로 동작하는 웹사이트를 만들어 바로 공개해 주는 서비스.
@@ -73,14 +112,14 @@ flowchart LR
 | 사장님 직접 편집 화면: 실제 카드를 불러와 바뀐 칸만 저장, 공개본에 바로 반영(`/editor?room=`, 방장만 편집) | `/editor?room=<id>` |
 | 사진 올리기: 위치 정보 제거·1600px JPEG, 시안·공개본 자동 갱신 | 채팅방 사진 버튼 |
 | 영상 링크 → 영상 카드(유튜브·인스타·네이버TV, 소개 뒤에 썸네일) | 채팅에 링크 붙이기 |
-| 카카오톡 채널 주소 자동 인식, 문의 → 사장님 카톡("나에게 보내기", 이용 중 동의) | 채팅방·공개 사이트 |
+| 카카오톡 채널 주소 자동 인식, 문의 → 사장님 카톡 전송 시도("나에게 보내기", 이용 중 동의, 실제 수신 확인 전) | 채팅방·공개 사이트 |
 | 규칙 참고 견적 한 줄 + 베타 무료 (D25) | 채팅방에서 승인 → 견적 |
 | 시안 3안(기본형·사진 강조형·간결형): 고르기 페이지, 채팅방 미리보기 카드와 "이걸로 할게요". 3안 구성 차별화(2안은 사진첩을 첫 화면 바로 뒤에, 3안은 상품 먼저·사진 없으면 사진첩 생략), 업종별 예시 그림, 디자인 다듬기(섹션 배경·그림자·나타나기) | `/design/<id>` → 채팅방 |
 | RAG 자료를 기능 사례집·프로필로 교체(가짜 과거 프로젝트 제거) | 채팅방 유사 사례 안내 |
 | NIM 대비 모델(super→ultra→lightning) | 요구사항 추출·대화 응답 (`app/llm.py`) |
 | 카카오·구글 로그인. 카카오는 누구나, 구글은 테스트 모드라 버튼을 숨김(초대 계정만, 서버 경로·콘솔 설정은 유지). 운영 동작은 2026-09-26 실제 계정으로 확인: 로그인 → 내 프로젝트, `/api/me`, 로그아웃. state+PKCE, `__Host-` HttpOnly 세션 쿠키, 카카오는 닉네임만 받음 | 랜딩 로그인 메뉴 (카카오만 표시) |
 | 내 프로젝트 목록 (`/projects`): 로그인하면 계정에 옮긴 방(다른 기기 포함)도 목록에 | `/projects` (로그인 뒤) |
-| 사이트 문의 받기 (`POST /api/inquiries/{site_key}` → 채팅방 "문의 알림" + 사장님 카톡, 30일 보관, 스팸 숨김 칸, IP당 10분 5건, 생성 사이트 CSP에 allow-forms) | 공개 사이트의 문의 폼 |
+| 사이트 문의 받기 (`POST /api/inquiries/{site_key}` → 채팅방 "문의 알림" + 사장님 카톡 전송 시도(실제 수신 확인 전, STATUS.md §4 3번), 30일 보관, 스팸 숨김 칸, IP당 10분 5건, 생성 사이트 CSP에 allow-forms) | 공개 사이트의 문의 폼 |
 | 공개 사이트 빈칸 감추기(빈 부품 빼기, 빈 줄 숨김, 빈 가격은 "가격 문의". 시안에서는 그대로 보임), AI 소개 문구 초안(첫 화면 한 줄·소개·상품 설명, 원문에 없는 숫자 문장은 버림), 문의 양식 기본 포함, 편의 안내 아이콘 칸 | 공개 사이트·시안 |
 | 개인정보처리방침 초안 갱신 + 랜딩 아래 약관 링크 | 랜딩 하단 |
 | 문의 부품 `contact--form`, `contact--kakao-channel` 추가 (섹션 22종) | 시안·공개 사이트 |
@@ -121,25 +160,38 @@ flowchart LR
 - `guided_json`·`response_format` 스키마 강제는 이 모델에서 형식을 깨뜨려 사용하지 않는다.
 - 채택: 추론 끔(`enable_thinking=false`) + 스키마를 프롬프트에 + 서버 검증. 발화 8개 시험에서 형식 통과 8/8, 지어낸 사실 0건, 평균 응답 3.4초.
 
-## 주최 요구 1~11 대응표
+## 기본 요구사항 1~11 대응표
 
 원 요구 목록은 `docs/hackathon/REQUIREMENTS.md` §8, 상세 REQ는 같은 문서 §2~§7.
 
 | 요구 | 어떻게 | 코드·문서 위치 | 상태 |
 |---|---|---|---|
-| 1. 인프라 설계 + Mermaid + 역할분담 | 본 README 구조도 + `ARCHITECTURE.md` 시스템 컨텍스트 | `docs/hackathon/ARCHITECTURE.md` §1~§3 | 완료 |
+| 1. 인프라 설계 + Mermaid + 병렬작업 나누기 | 본 README 구조도 + `ARCHITECTURE.md` 시스템 컨텍스트 | `docs/hackathon/ARCHITECTURE.md` §1~§3 | 완료 |
 | 2. 채팅 요구사항 전달 | 1:1 `/chat` + 공유방 `/room/<id>/chat`, 4초 폴링 조회 | `app/api/chat.py`, `app/api/rooms.py`, `app/services/chat_flow.py`, `app/services/rooms.py`, `static/room.html` | 완료 |
-| 3. 접수/검증/질의(옵션+추천)/게이트 | 입구 게이트(종류 분류·금지 거절) → PRD 엔진(추출→근거 검사→질문 1개, 종류별 예산) → 리뷰어 에이전트(D34) → 요약. 공유방 사실은 방장 확인 | `app/services/intake.py`, `prd_engine.py`, `tests/engine/` (65건) | 완료 (T2 추출 87~90%, T3 r3 14/36·r4 측정 대기) |
+| 3. 접수/검증/질의(옵션+추천)/게이트 | 입구 게이트(종류 분류·금지 거절) → PRD 엔진(추출→근거 검사→질문 1개, 종류별 예산) → 리뷰어 에이전트(D34) → 요약. 공유방은 요약 단계 전원 동의(D52) | `app/services/intake.py`, `prd_engine.py`, `tests/engine/` (65건) | 완료 (T2 추출 2차 90.2%·3차 87.1%·3차 지어낸 값 0건(`docs/product/evals/extraction-2026-09-26-r2.md`, `docs/product/evals/extraction-2026-09-26-r3.md`), T3 대화 평가 최신 z3 32/35(91%)·지어낸 값 0건(`docs/product/evals/simulation-2026-09-27-zen-qwen-z3.md`, 측정 모델 Qwen·운영 모델 NIM 기준 공식 측정 아직 없음)) |
 | 4. RAG 사전확인 | NIM 임베딩 코사인 유사도, 임계값 미만은 신규, 실패해도 대화 중단 없음 | `app/services/rag.py`, `app/llm.py` (`embed`) | 완료 |
 | 5. 동작하는 산출물 (웹/안드로이드) | 웹: 고른 시안을 `/site/<id>/`로 공개(문의 폼 동작). 안드로이드: **PWA**로 홈 화면에 앱처럼 설치(standalone, 아이콘·오프라인 안내). 네이티브 앱은 나중에 다른 방식으로 | `app/api/public.py` (`serve_site`), `static/manifest.json`, `static/sw.js`, `static/pwa.js` | 완료 (안드로이드는 PWA 1차) |
 | 6. 채팅 확인 필수 + 견적 근거 | 공유방 과반 투표 승인 게이트. 견적은 규칙 계산 한 줄 + 근거(종류·담을 내용·기능 수) + 베타 무료(D25) | `app/services/rooms.py`, `app/services/quote.py` (`rule_quote`) | 완료 |
 | 7. UI 시안 선택 | 카드 → 시안 3안(기본형·사진 강조형·간결형), 고르기 페이지, 채팅방 미리보기 카드와 "이걸로 할게요" | `app/services/design_variants.py`, `site_render.py`, `design.py`, `static/room.html` | 완료 |
-| 8. 시안 링크 전송 | 시안(`/design/<id>`)·공개(`/site/<id>/`) 링크를 채팅방으로. 공개 전 빈 자리 확인(사람 최종 검토) 후 고른 안 그대로 공개. 생성물은 별도 주소 | `app/services/chat_flow.py` (`_publish`), `app/api/public.py`, `app/main.py` (`_split_hosts`) | 완료 |
+| 8. 시안 링크 전송 | 시안(`/design/<id>`)·공개(`/site/<id>/`) 링크를 채팅방으로. 공개 전 빈 자리 목록을 보여주고 "그대로 공개"로 한 번 더 확인하는 사장님 확인 게이트는 구현(`app/services/chat_flow.py` `_publish`, D46 승인 전 게이트·D22 시안과 함께 한 번 확정) 후 고른 안 그대로 공개. 생성물은 별도 주소 | `app/services/chat_flow.py` (`_publish`), `app/api/public.py`, `app/main.py` (`_split_hosts`) | 완료 |
 | 9. 에이전트 분리 + Flow 검토 산출물 | 역할별 모듈(대화 진행·입구 게이트·요구사항 엔진·리뷰어·RAG·견적·시안·공개·코드생성·문의·음성) + 실행 흐름 산출물 | `docs/product/FLOWDOC.md` (시퀀스·상태도, 운영 실측 기준) | 완료 |
 | 10. 동일 개발환경 | `docker compose up --build` 한 줄 기동, `.env.example` 템플릿, 비밀 키 미커밋 | `docker-compose.yml`, `.env.example`, `docs/hackathon/deployment/templates/Dockerfile.backend` | 완료 |
 | 11. 온보딩 가이드 | 배경/목적/핸즈온 3단 구조 문서, 로컬 셋업·배포 가이드 | `docs/hackathon/LOCAL_SETUP.md`, `docs/hackathon/ENVIRONMENT.md`, `docs/hackathon/deployment/RENDER_DEPLOY.md` | 완료 |
 
-추가 (REVIEW): 사람 최종 검토 게이트는 설계 문서(`docs/hackathon/REVIEW_GATE_DESIGN.md`)까지 완료, 구현은 미착수.
+추가 (REVIEW): 공개 전 사장님 확인 게이트와 게시 전 검사(`app/services/publish_check.py`)는 구현됨. 원안(`docs/hackathon/REVIEW_GATE_DESIGN.md`)의 검토자 순번 사람이 배포본을 직접 열어 확인하는 절차는 코드로 강제되지 않아 미구현.
+
+## 에이전트 구성
+
+| 구분 | 맡은 일 | 코드 |
+|---|---|---|
+| 입구·요구·리뷰·승인 | 금지 거절·종류 분류, 추출·근거 검사·다음 질문, 요약 직전 대조, 요약·투표 통과 때만 진행 | `app/services/intake.py`, `app/services/prd_engine.py`, `app/services/chat_flow.py` |
+| 시안·문구 | 컨셉·3안 렌더·소개 문구 초안·예시 그림 (사장님 사진이 오면 먼저 씀) | `app/services/design_concept.py`, `app/services/design_variants.py`, `app/services/design.py`, `app/services/copywriter.py`, `app/services/ai_images.py` |
+| 공개·검사 | 빈 자리 확인·게시 전 위험 차단 뒤 고른 안을 `/site/<id>/`로 공개 | `app/services/chat_flow.py` (`_publish`), `app/services/publish_check.py`, `app/services/deploy.py` |
+| 문의·알림 | 폼 저장·채팅방 알림·사장님 카톡 전송 시도 (실제 수신 확인 전, STATUS.md §4 3번) | `app/services/inquiries.py`, `app/services/bookings.py`, `app/services/notify.py`, `app/services/kakao_talk.py` |
+| 음성·사진·공유방 | 말→글·답장 읽기·통화 PoC, 사진 정리·반영, 다인원 방·전원 동의 | `app/services/stt.py`, `app/services/tts.py`, `app/services/photos.py`, `app/services/rooms.py` |
+| 기반 | 모든 NIM 호출 1곳·지표 기록·키 교체 기반 | `app/llm.py`, `app/services/funnel.py`, `app/services/keystore.py` |
+
+자세히: [docs/product/AGENTS.md](docs/product/AGENTS.md)
 
 ## 구조도
 
@@ -247,7 +299,7 @@ agt001/
 ├── templates/            # 시안 템플릿 (현재 1종)
 ├── tests/unit, tests/engine, tests/e2e # 단위 269개·엔진 검증 65개(CI 합계 334개)·E2E 5개
 ├── evals/               # 시나리오 36개, 추출 평가 60개, 평가 실행기
-├── contracts/            # 팀원 간 경계(BND) 스키마 + 예시
+├── contracts/            # 병렬작업 간 경계(BND) 스키마 + 예시
 ├── scripts/              # deploy.sh, rollback.sh, backup_db.sh
 ├── deploy/Caddyfile      # HTTPS 리버스 프록시
 ├── docker-compose.yml    # db + backend + caddy

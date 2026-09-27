@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "review_to_deliver.schema.json",
-  "title": "BND-9: 사람 최종 검토(⑱) → 전송(팀원 B). review_status가 approved일 때만 ⑪ 전송을 실행한다",
+  "title": "BND-9: 사람 최종 검토(⑱) → 전송(병렬작업 2). review_status가 approved일 때만 ⑪ 전송을 실행한다",
   "type": "object",
   "required": ["requirement_id", "review_status", "reviewer", "checked_at"],
   "properties": {

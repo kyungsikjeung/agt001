@@ -1,8 +1,8 @@
-# 팀원 A 상세 스펙 — 대화·요구사항·견적 (②~⑧)
+# 병렬작업 1 상세 스펙 — 대화·요구사항·견적 (②~⑧)
 
-> 작성일: 2026-09-21 / 제출 기한: 2026-09-28
+> 작성일: 2026-09-21 / 1차 완성 목표: 2026-09-28
 > 전제: [ARCHITECTURE.md](ARCHITECTURE.md)의 전체 그림·번호 체계, [INTEGRATION_STRATEGY.md](INTEGRATION_STRATEGY.md)의 경계(BND) 계약을 따른다
-> 성격: 팀원 A가 이 문서 하나만 보고 자기 파트를 처음부터 끝까지 구현할 수 있도록 만든 상세 스펙
+> 성격: 병렬작업 1가 이 문서 하나만 보고 자기 파트를 처음부터 끝까지 구현할 수 있도록 만든 상세 스펙
 
 ## 목차
 
@@ -22,7 +22,7 @@
 
 ## 0. 개요
 
-팀원 A는 파이프라인의 **시작점**이다. 고객 채팅을 처음 받는 곳도, RAG로 기존 프로젝트를 확인하는 곳도, 요구사항을 검증·질의·승인받는 곳도, 견적을 만드는 곳도 모두 A다. B와 C는 A가 만들어내는 출력(BND-2, BND-3)이 있어야 비로소 시작할 수 있으므로, **A의 진행 속도가 곧 팀 전체의 병목**이다([INTEGRATION_STRATEGY.md §2](INTEGRATION_STRATEGY.md#2-팀원별-통합-전략) 참고). 품질보다 "무엇이든 먼저 산출하는 것"이 D0~D1의 최우선 목표다.
+병렬작업 1는 파이프라인의 **시작점**이다. 고객 채팅을 처음 받는 곳도, RAG로 기존 프로젝트를 확인하는 곳도, 요구사항을 검증·질의·승인받는 곳도, 견적을 만드는 곳도 모두 A다. B와 C는 A가 만들어내는 출력(BND-2, BND-3)이 있어야 비로소 시작할 수 있으므로, **A의 진행 속도가 곧 프로젝트 전체의 병목**이다([INTEGRATION_STRATEGY.md §2](INTEGRATION_STRATEGY.md#2-작업자별-통합-전략) 참고). 품질보다 "무엇이든 먼저 산출하는 것"이 D0~D1의 최우선 목표다.
 
 ## 0.1 용어
 
@@ -44,8 +44,8 @@ flowchart LR
     ASK --> GATE{"⑦ 게이트"}
     GATE -->|반려| ASK
     GATE -->|승인| QUOTE["⑧ 견적"]
-    QUOTE --> OUT1["⑨ BND-2 출력\n(A → 팀원 B)"]
-    GATE --> OUT2["⑩ BND-3 출력\n(A → 팀원 C)"]
+    QUOTE --> OUT1["⑨ BND-2 출력\n(A → 병렬작업 2)"]
+    GATE --> OUT2["⑩ BND-3 출력\n(A → 병렬작업 3)"]
 ```
 
 | 번호 | 노드 | 설명 |
@@ -58,14 +58,14 @@ flowchart LR
 | ⑥ | 질의 | 애매한 항목을 옵션 3개+추천으로 되물음 |
 | ⑦ | 승인 게이트 | 고객이 채팅으로 반드시 확인해야 통과하는 필수 지점 |
 | ⑧ | 견적 산정 | 승인된 요구로 견적+근거를 만든다 |
-| ⑨ | BND-2 출력 | 견적 완료 후 팀원 B에게 전달 |
-| ⑩ | BND-3 출력 | 게이트 승인과 동시에(⑨와 별개로) 팀원 C에게 전달 |
+| ⑨ | BND-2 출력 | 견적 완료 후 병렬작업 2에게 전달 |
+| ⑩ | BND-3 출력 | 게이트 승인과 동시에(⑨와 별개로) 병렬작업 3에게 전달 |
 
 **입력**: 고객 채팅(①) 외에는 외부 의존이 없다 — A는 파이프라인의 시작점이므로 아무도 기다리지 않는다.
 
 **출력 계약** (전체 스키마는 [INTEGRATION_STRATEGY.md §1](INTEGRATION_STRATEGY.md#1-계약-우선-원칙--경계boundary-정의)):
-- BND-2 (A → 팀원 B): `{ requirement_id, platform: "web"|"android", features: [...], quote: {amount, basis} }`
-- BND-3 (A → 팀원 C): `{ requirement_id, confirmed_items: [...], platform, acceptance_criteria: [...] }`
+- BND-2 (A → 병렬작업 2): `{ requirement_id, platform: "web"|"android", features: [...], quote: {amount, basis} }`
+- BND-3 (A → 병렬작업 3): `{ requirement_id, confirmed_items: [...], platform, acceptance_criteria: [...] }`
 - BND-1 (A 내부, ⑦→⑧): `{ requirement_id, confirmed_items: [...], customer_id }`
 - BND-8 (A 내부, RAG 검색): `{ query, top_k }` → `{ chunks: [{text, source, score}] }`
 
@@ -105,7 +105,7 @@ flowchart LR
 ## 7. ⑧ 견적 산정 + 근거
 
 - 승인된 요구사항(`confirmed_items`)을 항목별 공수/난이도로 매핑해 견적 금액과 근거 문구를 만든다. 근거는 반드시 사람이 읽고 납득할 수 있는 형태(예: "화면 4개 x 표준단가 + 결제연동 가산")로 만든다(요구 6, 근거 있는 견적).
-- 출력은 BND-2로 팀원 B에게 넘어가 시안 페이지에 노출된다([TEAM_B_SPEC.md §3](TEAM_B_SPEC.md#3--시안-확인-링크-페이지) 참고) — A는 견적을 "만들기"까지만 하고, 고객에게 보여주는 화면은 B가 만든다.
+- 출력은 BND-2로 병렬작업 2에게 넘어가 시안 페이지에 노출된다([PARALLEL_2_SPEC.md §3](PARALLEL_2_SPEC.md#3--시안-확인-링크-페이지) 참고) — A는 견적을 "만들기"까지만 하고, 고객에게 보여주는 화면은 B가 만든다.
 
 ## 8. 데이터 모델
 
@@ -155,4 +155,4 @@ flowchart LR
 
 ## 11. 일정
 
-일자별 상세 작업은 [INTEGRATION_STRATEGY.md §3](INTEGRATION_STRATEGY.md#3-상세-마일스톤-d0d7)의 "팀원 A" 열을 따른다.
+일자별 상세 작업은 [INTEGRATION_STRATEGY.md §3](INTEGRATION_STRATEGY.md#3-상세-마일스톤-d0d7)의 "병렬작업 1" 열을 따른다.

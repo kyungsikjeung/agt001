@@ -1,6 +1,6 @@
 # PM 경영진 지시 대응 계획 (PM_EXECUTIVE_DIRECTIVE_PLAN)
 
-> 작성일: 2026-09-23 (KST) / 마감: 2026-09-28 (D-0) / 작성자: PM
+> 작성일: 2026-09-23 (KST) / 1차 완성 목표: 2026-09-28 (D-0) / 작성자: PM
 > 제약 준수: 코드 수정 없음(문서만), `.env` 미열람, git add/commit/push 없음. 확실하지 않은 것은 **(추정)** 표기.
 > 읽은 것: `STATUS.md`, `docs/hackathon/AUTH_DB_COST_DECISION.md` 전부, `PRODUCT_PLANNING_REVIEW.md` 전부, `PM_PARALLEL_EXECUTION_STRATEGY.md` 전부, `DEMO_READINESS_MILESTONE.md` 전부, `PRD_REQUIREMENTS_ELICITATION.md`(§0~§2 대조표 실측, 전체 603행 중 앞부분), `PM_REACT_PLAN_REPORT.md` 전부, `REVIEW_GATE_DESIGN.md`(§0~§2 실측), `backend.py:555-684` 실측, `git log`(최신 `2a8537f`, 2026-09-23 19:08 KST).
 

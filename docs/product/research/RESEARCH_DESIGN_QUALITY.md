@@ -34,7 +34,7 @@
   - 출처: https://www.digitalcitizen.life/what-is-google-stitch-and-how-it-turns-text-into-app-designs/ (2026-09-26 확인)
 - 출력 형식: HTML·CSS 코드와 Figma 붙여넣기(자동 배치·고칠 수 있는 층 구조). React·JS 동작 코드는 직접 안 나오고, AI Studio·Antigravity로 넘겨서 붙인다. 반응형·JS 동작은 확인 못 함.
   - 출처: https://developers.googleblog.com/en/stitch-a-new-way-to-design-uis/ (2026-09-26 확인)
-- API·내보내기·자동화: Stitch MCP 서버와 SDK(`@google/stitch-sdk`, npm꾸러미)가 있다. 화면 만들기·고치기·변형 만들기를 코드로 부르고 HTML과 스크린샷 주소를 받아온다. 생성 횟수 제한은 화면版과 같다고 적혀 있다. SDK가 공식 Google 저장소인지는 확인 못 함(둘러보기 사이트·미러 문서에서만 확인).
+- API·내보내기·자동화: Stitch MCP 서버와 SDK(`@google/stitch-sdk`, npm꾸러미)가 있다. 화면 만들기·고치기·변형 만들기를 코드로 부르고 HTML과 스크린샷 주소를 받아온다. 생성 횟수 제한은 화면판과 같다고 적혀 있다. SDK가 공식 Google 저장소인지는 확인 못 함(둘러보기 사이트·미러 문서에서만 확인).
   - 출처: https://stitch.withgoogle.com/docs/mcp/setup (2026-09-26 확인, 내용은 자바스크립트로 그려져 본문 확인 못 함)
   - 출처: https://googlestitch.me/integration/sdk (2026-09-26 확인, 비공식 안내 사이트)
   - 출처: https://deepwiki.com/google-labs-code/stitch-sdk (2026-09-26 확인, 미러 문서)
@@ -57,7 +57,7 @@
   - 출처: https://sfailabs.com/guides/figma-mcp-vs-paper (2026-09-26 확인)
 - API·내보내기·자동화: Paper 데스크톱 앱을 열면 MCP 서버가 켜지고, 읽기 11종·쓰기 8종 등 24개 도구를 AI 비서(Cursor·Claude Code 등)에 연결한다. 그림판에서 바로 코드를 만들고 Git에 올리는 흐름을 노린다.
   - 출처: https://paper.design/docs/mcp (2026-09-26 확인)
-- 요금: 무료版은 MCP 주 100번·그림 조금. Pro는 월 20달러(1년 내면 월 16달러), MCP 주 100만 번.
+- 요금: 무료판은 MCP 주 100번·그림 조금. Pro는 월 20달러(1년 내면 월 16달러), MCP 주 100만 번.
   - 출처: https://paper.design/pricing (2026-09-26 확인)
 - 이용 조건: 만든 코드·프로젝트는 사용자가 가진다(문서 설명 기준). 자동 대량 생성 허용 약관은 확인 못 함.
 
@@ -65,15 +65,15 @@
 
 - 쓰는 모델: Figma Make에서 GPT-5.6 같은 바깥 모델을 고를 수 있다고 한다. 기본 모델이 무엇인지는 확인 못 함.
   - 출처: https://www.figma.com/solutions/ai-code-generator/ (2026-09-26 확인)
-- 디자인 시스템·토큰 방식: Figma 디자인 파일의 부품·스타일·변수를 Make에 "스타일 맥락"으로 붙여서 쓴다(유료版). 디자인과 코드를 한 화면에서 오가며 고친다.
+- 디자인 시스템·토큰 방식: Figma 디자인 파일의 부품·스타일·변수를 Make에 "스타일 맥락"으로 붙여서 쓴다(유료판). 디자인과 코드를 한 화면에서 오가며 고친다.
   - 출처: https://help.figma.com/hc/en-us/articles/31304412302231-Explore-Figma-Make (2026-09-26 확인)
-- 이미지 처리: 그림·Figma 디자인을 지시에 붙여서 쓴다. 사진 자동 생성量·조건은 확인 못 함.
+- 이미지 처리: 그림·Figma 디자인을 지시에 붙여서 쓴다. 사진 자동 생성 양·조건은 확인 못 함.
 - 출력 형식: HTML·CSS·자바스크립트. 코드 편집기에서 직접 고치고, 미리보기·게시( собственным 주소·내 도메인)까지 된다.
   - 출처: https://www.figma.com/solutions/design-to-code/ (2026-09-26 확인)
 - API·내보내기·자동화: Figma MCP 서버(`https://mcp.figma.com/mcp`)로 디자인을 읽고 쓰는 도구를 준다. Dev Mode MCP 안내 저장소가 있다. 단, 무료·보기 권한은 월 6번까지만 쓸 수 있고 제대로 쓰려면 유료 Full 자리가 필요하다.
   - 출처: https://github.com/figma/dev-mode-mcp-server-guide (2026-09-26 확인)
   - 출처: https://developers.figma.com/docs/figma-mcp-server/tools-and-prompts/ (2026-09-26 확인)
-- 요금: Starter 무료版은 AI 점수 월 500점. Professional Full 자리는 월 16달러 + AI 점수 월 3,000점. Make 파일 만들기는 유료 Full 자리가 필요(임시 파일은 다른 자리도 시도 가능).
+- 요금: Starter 무료판은 AI 점수 월 500점. Professional Full 자리는 월 16달러 + AI 점수 월 3,000점. Make 파일 만들기는 유료 Full 자리가 필요(임시 파일은 다른 자리도 시도 가능).
   - 출처: https://www.figma.com/pricing/ (2026-09-26 확인)
   - 출처: https://help.figma.com/hc/en-us/articles/31722591905559-Figma-Make-FAQs (2026-09-26 확인)
 - 이용 조건: 만든 코드 내보내기·게시는 자리·요금제에 따라 된다. 가게마다 자동 대량 생성 허용 여부는 약관에서 확인 못 함. Make에 비밀키·개인정보를 넣지 말라는 안내는 있다.
@@ -89,7 +89,7 @@
 - 출력 형식: React 코드. GitHub 양방향 연결로 가져오고, Vercel에 바로 올릴 수 있다. 순수 정적 HTML만 뽑는 흐름은 주 흐름이 아니다.
   - 출처: https://v0.app/docs/faqs (2026-09-26 확인)
 - API·자동화: API·내보내기 자동화 약관은 확인 못 함.
-- 요금: 무료版 월 5달러어 점수·하루 7번. Plus 팀版 월 30달러(한 사람당), Business 월 100달러(한 사람당).
+- 요금: 무료판 월 5달러어 점수·하루 7번. Plus 팀판 월 30달러(한 사람당), Business 월 100달러(한 사람당).
   - 출처: https://v0.app/docs/pricing (2026-09-26 확인)
 - 이용 조건: 만든 코드는 Vercel 것이 아니고 사용자가 상업용으로 쓸 수 있다. 단 결과물이 남과 비슷하거나 틀릴 수 있어 사람이 검토해야 한다.
   - 출처: https://v0.app/docs/faqs (2026-09-26 확인)
@@ -103,10 +103,10 @@
 - 이미지 처리: 자세한 조건은 확인 못 함.
 - 출력 형식: 코드 내보내기가 없다. Framer 안에서 게시·내 도메인 연결만 된다. 옮기려면 처음부터 다시 만들어야 한다는 평가가 있다.
   - 출처: https://www.rapidevelopers.com/review/framer (2026-09-26 확인, 외부 평가)
-- 요금: 무료版(상업용 아님), Basic 월 10달러, Pro 월 30달러. AI 점수는 Free 하루 500점, Basic 월 1,000점, Pro 월 3,000점. 랜딩 1개에 약 300점 든다고 한다.
+- 요금: 무료판(상업용 아님), Basic 월 10달러, Pro 월 30달러. AI 점수는 Free 하루 500점, Basic 월 1,000점, Pro 월 3,000점. 랜딩 1개에 약 300점 든다고 한다.
   - 출처: https://www.framer.com/pricing (2026-09-26 확인)
   - 출처: https://www.framer.com/blog/ai-credits-simpler-plans-and-lower-prices/ (2026-09-26 확인)
-- 이용 조건: 무료版은 비상업용. 코드 반출이 안 되어 우리 구조(정적 HTML 파일 entrega)와 맞지 않는다.
+- 이용 조건: 무료판은 비상업용. 코드 반출이 안 되어 우리 구조(정적 HTML 파일 entrega)와 맞지 않는다.
 
 ### 1.6 Lovable
 
@@ -116,7 +116,7 @@
 - 이미지 처리: 자세한 조건은 확인 못 함.
 - 출력 형식: TanStack Start(TypeScript 풀스택) 코드. GitHub 연결로 언제든 코드를 가져올 수 있고, 게시·내 도메인도 된다.
   - 출처: https://lovable.dev/en/use-cases/websites (2026-09-26 확인)
-- 요금: 무료版은 하루 만들기 5점(월 최대 30점). 유료는 점수 뭉치制. 정확한 월액은 요금 페이지 구조가 복잡해 확인 못 함.
+- 요금: 무료판은 하루 만들기 5점(월 최대 30점). 유료는 점수 묶음제. 정확한 월액은 요금 페이지 구조가 복잡해 확인 못 함.
   - 출처: https://lovable.dev/pricing (2026-09-26 확인)
 - 이용 조건: 만든 앱·사이트·코드는 사용자가 가진다(AI 모델 쪽 권리는 제외). AI 결과물은 틀릴 수 있어 직접 검토해야 하며, 점수는 결과가 틀려도 돌아오지 않는다.
   - 출처: https://lovable.dev/terms (2026-09-26 확인)
@@ -140,11 +140,11 @@
 - (B)의 Stitch 자동화는 기술적으로는 있다(MCP·SDK). 그러나 상업용·대량 자동화 허용 여부는 약관을 확인 못 했고(1.1 참고), 실험실 제품이라 갑자기 바뀌거나 끊길 수 있다. 가게 사이트를 맡기기에 위험하다.
 - (B)의 Figma MCP는 읽기 중심이고 쓰기 자동화는 제한적이며, 무료는 월 6번이라 가게마다 쓰기에는 양이 모자라다.
 - (D) 후보 예시(식당·카페, MIT 라이선스로 상업용 가능, 2026-09-26 확인):
-  - Bistro Astro版 랜딩(메뉴·예약·후기 구성): https://github.com/shadcnstudio/shadcn-astro-bistro-landing-page-free
-  - Bistro Next.js版 랜딩: https://github.com/shadcnstudio/shadcn-nextjs-bistro-landing-page-free
+  - Bistro Astro판 랜딩(메뉴·예약·후기 구성): https://github.com/shadcnstudio/shadcn-astro-bistro-landing-page-free
+  - Bistro Next.js판 랜딩: https://github.com/shadcnstudio/shadcn-nextjs-bistro-landing-page-free
   - TableFork 식당 템플릿(HTML 메뉴·예약·가게 정보 구조화): https://github.com/haider484991/tablefork-nextjs-restaurant-template
   - 주의: 코드는 MIT라도 사진·글꼴·아이콘은 따로 라이선스를 확인해야 한다(확인 못 함이 아니라 반드시 확인할 것).
-- (E)의 보안 위험(외부 스크립트·추적 코드·지어낸 전화번호 등)이 실제로起きた 사례를 찾지는 못했고, 일반 주의 사항으로만 적는다. 우리 구조에서는 LLM이 부품 배합·문구만 정하고 HTML 뼈대는 템플릿이 만드는 지금 방식이 더 안전하다.
+- (E)의 보안 위험(외부 스크립트·추적 코드·지어낸 전화번호 등)이 실제로 발생한 사례를 찾지는 못했고, 일반 주의 사항으로만 적는다. 우리 구조에서는 LLM이 부품 배합·문구만 정하고 HTML 뼈대는 템플릿이 만드는 지금 방식이 더 안전하다.
 
 ---
 
@@ -173,7 +173,7 @@
 
 - 바깥 기준: 요즘 좋은 평가는 진짜 사진 1장을 크게, 또는 사진 없이 맞춤 글자로 깨끗하게. "사진 위에 흰 글자 얹기"는 남용되어 진부하다는 평가가 있다. 자동 재생 영상·무거운 효과는 휴대폰 속도를 떨어뜨려 피한다.
   - 출처: https://latte.dev/guide/modern-website-design-examples (2026-09-26 확인)
-- 우리 지금: 사진이 없을 때 인라인 SVG 예시 그림을 쓰고, 겹침형 첫 화면(photo-overlay)에 예시 그림이 들어가 Q-7(글자 읽기 어려움·어두운 띠 끊김)이起きた. 2차 점검에서 공개본 예시 표시는 숨겼으나, 겹침형 선택 규칙은 그대로다.
+- 우리 지금: 사진이 없을 때 인라인 SVG 예시 그림을 쓰고, 겹침형 첫 화면(photo-overlay)에 예시 그림이 들어가 Q-7(글자 읽기 어려움·어두운 띠 끊김)이 발생했다. 2차 점검에서 공개본 예시 표시는 숨겼으나, 겹침형 선택 규칙은 그대로다.
 - 부족한 것: 사진이 없으면 겹침형 대신 옆 배치·글자만 쓰기(Q-7 수정). 예시 그림 자체를 "사진 자리"가 아니라 업종 분위기(따뜻한 색·큰 모양)로 바꿀 것. 사장님 사진이 오면 첫 화면·메뉴 사진 자리에 그대로 들어가게 사진 규격(가로·세로 비율) 안내를 정할 것.
 
 ### 3.4 색 사용
@@ -204,7 +204,7 @@
 | 예시 | 주소 | 볼 것 |
 |---|---|---|
 | Bistro 식당 랜딩 데모(오픈소스·MIT) | https://shadcn-nextjs-bistro-landing-page.vercel.app (2026-09-26 확인, 저장소: https://github.com/shadcnstudio/shadcn-nextjs-bistro-landing-page-free) | 큰 예약 버튼 1개, 메뉴 사진·가격 나열, 후기·오시는 길 순서 |
-| Bistro Astro版 데모(오픈소스·MIT) | https://shadcn-astro-bistro-landing-page.vercel.app (2026-09-26 확인, 저장소: https://github.com/shadcnstudio/shadcn-astro-bistro-landing-page-free) | 같은 구성의 정적 版. 우리 정적 구조와 가까움 |
+| Bistro Astro판 데모(오픈소스·MIT) | https://shadcn-astro-bistro-landing-page.vercel.app (2026-09-26 확인, 저장소: https://github.com/shadcnstudio/shadcn-astro-bistro-landing-page-free) | 같은 구성의 정적 판. 우리 정적 구조와 가까움 |
 | Stitch 소개·예시 | https://blog.google/innovation-and-ai/models-and-research/google-labs/stitch-ai-ui-design/ (2026-09-26 확인) | 지시→고급 화면→Figma·코드 흐름. 개별 식당 예시 고유 주소는 확인 못 함 |
 | Paper 예시·문서 | https://paper.design/docs (2026-09-26 확인) | HTML=그림판이라 코드 틀어짐이 없다는 것. 개별 식당 예시 고유 주소는 확인 못 함 |
 | Figma Make 소개 | https://www.figma.com/solutions/ai-website-builder/ (2026-09-26 확인) | 지시→반응형 사이트→게시 흐름 |

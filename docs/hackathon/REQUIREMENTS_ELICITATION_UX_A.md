@@ -5,7 +5,7 @@
 ## 0. 분석 범위와 방법
 
 - 코드: `backend.py`의 `_process_chat_turn()` 상태머신(GREETING→GATHERING→AWAIT_APPROVAL→QUOTED→GENERATING→DONE) 전체를 읽음.
-- 문서: `docs/hackathon/TEAM_A_SPEC.md`(§4 접수·검증, §5 ⑥질의, §6 ⑦게이트), `docs/hackathon/REQUIREMENTS.md`(REQ-INTAKE/VALIDATE/ASK/GATE/QUOTE).
+- 문서: `docs/hackathon/PARALLEL_1_SPEC.md`(§4 접수·검증, §5 ⑥질의, §6 ⑦게이트), `docs/hackathon/REQUIREMENTS.md`(REQ-INTAKE/VALIDATE/ASK/GATE/QUOTE).
 - 계약: `contracts/gate_to_spec.schema.json`(BND-3), `contracts/gate_to_quote.schema.json`(BND-1), `contracts/quote_to_design.schema.json`(BND-2).
 - `.env`는 읽지 않음. 다른 분석가의 결과물은 탐색하지 않음.
 
@@ -41,7 +41,7 @@ elif state in ("GREETING", "GATHERING"):
 | REQ-ASK-001 | 애매 항목마다 옵션 3개+추천 1개, 자유 서술 답변 시 재질문 | 미구현 — 질의 턴이 0회 |
 | REQ-GATE-001 | 반려 시 "원래 애매했던 항목으로 정확히 되돌아감(처음부터 다시 묻지 않음)" | 부분 위반 — 거절 시 전체를 처음부터 다시 묻는 구조 |
 | BND-3 `gate_to_spec` | `confirmed_items[]`, `platform(web\|android)`, `acceptance_criteria[]` 필수 | 위험 — 원문 1건으로 채워질 수밖에 없는 구조. `platform`은 호출부에서 "web" 하드코딩, `acceptance_criteria`는 생성 경로 자체가 없음 |
-| BND-2 `quote_to_design` | `features[]`, `quote{amount, basis}` 필수 | 위험 — `features`가 원문 1건짜리 배열이 됨. 견적 근거(`basis`)는 NIM이 `last_request` 원문만 보고 지어내므로 항목별 공수 매핑(TEAM_A_SPEC §7)과 무관 |
+| BND-2 `quote_to_design` | `features[]`, `quote{amount, basis}` 필수 | 위험 — `features`가 원문 1건짜리 배열이 됨. 견적 근거(`basis`)는 NIM이 `last_request` 원문만 보고 지어내므로 항목별 공수 매핑(PARALLEL_1_SPEC §7)과 무관 |
 
 ### 1.3 구체적 실패 예시
 
@@ -52,7 +52,7 @@ elif state in ("GREETING", "GATHERING"):
 - 플랫폼: 웹인가 앱인가(BND-2/BND-3의 `platform` enum 필수). 현 코드는 무조건 "web"으로 고정하므로, 안드로이드를 원한 고객은 시안·코드생성 단계까지 가서야 문제를 알게 된다.
 - 기능 목록: 예약 접수? 메뉴판? 카카오 알림톡? 관리자 페이지? → `confirmed_items`/`features`가 원문 1건이라 견적(`build_quote`, backend.py:225-256)이 항목별 단가가 아닌 막연한 총액 추정이 된다.
 - 예산/일정 제약: `build_quote` 프롬프트가 고객 요청 원문만 받으므로, 고객 예산 상한·오픈 일정을 견적 3안(A/B/C)에 반영할 방법이 없다.
-- 인수조건: `acceptance_criteria`를 만들 재료(확정된 기능별 완료 정의)가 수집 단계에 없으므로 하류 팀C 프롬프트 품질이 원문 운에 좌우된다.
+- 인수조건: `acceptance_criteria`를 만들 재료(확정된 기능별 완료 정의)가 수집 단계에 없으므로 하류 병렬작업 3 프롬프트 품질이 원문 운에 좌우된다.
 
 반대로 이걸 모두 자유 서술형으로 물으면("예산은? 일정은? 플랫폼은? 기능 1번은? 2번은? …") 5~10턴의 심문(interrogation)이 되어 이탈률이 올라간다. 이것이 completeness–friction 트레이드오프의 핵심이다.
 
@@ -67,10 +67,10 @@ elif state in ("GREETING", "GATHERING"):
 - 단점: NIM JSON 파싱 실패·환각(말하지 않은 내용을 채움) 위험이 있어 `build_quote`와 같은 폴백(정적/자유 텍스트)이 필요하다. 슬롯 스키마 설계·프롬프트 튜닝 비용이 든다.
 - 마찰 저감 포인트: "이미 말한 것을 또 묻는" 최악의 UX를 원천 차단한다.
 
-### 방법 2 — 점진적 공개: 한 턴에 최대 1~2개, 선택형으로 (TEAM_A_SPEC §5 원칙의 직접 구현)
+### 방법 2 — 점진적 공개: 한 턴에 최대 1~2개, 선택형으로 (PARALLEL_1_SPEC §5 원칙의 직접 구현)
 
 - 내용: REQ-ASK-001이 이미 정한 "옵션 3개+추천 1개, 자유 서술형 금지"를 질문 UI 규칙으로 강제한다. 한 턴에 묻는 항목은 최대 2개(예: 플랫폼 + 예산대). 각 항목은 번호 선택(1/2/3) 또는 단답으로 답할 수 있게 한다.
-- 장점: 턴당 인지 부하가 낮아 중도 이탈이 줄어든다. 선택형이라 답변 파싱이 규칙 기반으로 가능해(숫자/키워드 매칭) NIM 의존도가 낮다. TEAM_A_SPEC §5·REQUIREMENTS §9("자유 서술을 그대로 확정안에 반영하지 않는다")와 정합한다.
+- 장점: 턴당 인지 부하가 낮아 중도 이탈이 줄어든다. 선택형이라 답변 파싱이 규칙 기반으로 가능해(숫자/키워드 매칭) NIM 의존도가 낮다. PARALLEL_1_SPEC §5·REQUIREMENTS §9("자유 서술을 그대로 확정안에 반영하지 않는다")와 정합한다.
 - 단점: 필수 슬롯이 5개면 최소 3턴이 필요해, 서두르는 사용자에게는 지루하다(§4의 fast-track으로 보완 필요). 옵션 설계가 부실하면 고객 의도를 옵션 틀에 가두는 왜곡이 생긴다.
 - 마찰 저감 포인트: 질문 개수 자체보다 "한 번에 쏟아지는 질문"이 이탈 원인이라는 점에 착안. 턴 수는 늘어도 체감 마찰은 줄인다.
 
@@ -83,7 +83,7 @@ elif state in ("GREETING", "GATHERING"):
 
 ### 방법 4 — 필수/선택 2등급 + 생략 허용 ("충분해요" 경로의 제도화)
 
-- 내용: 슬롯을 `required`(게이트 통과에 필수: 플랫폼, 핵심 기능 ≥1, 예산대 또는 일정 중 하나 — 추정, 정확한 집합은 팀 합의 필요) vs `optional`(관리자 페이지 유무, 알림톡 종류, 디자인 톤 등 — 추정)로 나눈다. required가 차면 "이 정도면 견적 나갈 수 있어요. 더 다듬을까요, 진행할까요?"라는 명시적 분기를 제공한다. optional은 생략 시 디폴트로 확정하고 견적 근거에 "제외 전제"로 기록한다.
+- 내용: 슬롯을 `required`(게이트 통과에 필수: 플랫폼, 핵심 기능 ≥1, 예산대 또는 일정 중 하나 — 추정, 정확한 집합은 작업자 합의 필요) vs `optional`(관리자 페이지 유무, 알림톡 종류, 디자인 톤 등 — 추정)로 나눈다. required가 차면 "이 정도면 견적 나갈 수 있어요. 더 다듬을까요, 진행할까요?"라는 명시적 분기를 제공한다. optional은 생략 시 디폴트로 확정하고 견적 근거에 "제외 전제"로 기록한다.
 - 장점: 꼼꼼한 고객과 서두르는 고객을 같은 플로우에서 모두 수용한다. REQ-GATE-001 DoD("반려 시 원래 애매했던 항목으로 복귀")와도 맞물린다 — 생략된 optional은 반려 시 다시 꺼낼 수 있는 상태로 보관한다.
 - 단점: 등급 경계를 잘못 그으면 필수 누락이 하류에서 터진다(예: 플랫폼을 optional로 두면 BND-3 스키마 위반). "생략된 항목의 디폴트"를 문서화·고지하지 않으면 고객 분쟁 소지가 있다.
 - 마찰 저감 포인트: 사용자가 대화 길이를 자기결정한다(autonomy). "시스템이 질문을 멈추지 않는다"는 무력감이 사라진다.
@@ -101,13 +101,13 @@ elif state in ("GREETING", "GATHERING"):
 방어선(기존 설계 원칙 유지):
 
 - NIM 슬롯 추출 실패 시 현행 동작(원문 그대로 게이트)으로 폴백 — `/chat` 500 방지는 기존 `build_quote`/`rag_precheck` 폴백 철학과 동일하게.
-- 침묵·무응답 시 에스컬레이션은 TEAM_A_SPEC §9 + REQ-GATE 관련 reqpipe G12 개념을 따른다(추정: 현 코드에 타이머 없음 — 신규 필요).
+- 침묵·무응답 시 에스컬레이션은 PARALLEL_1_SPEC §9 + REQ-GATE 관련 reqpipe G12 개념을 따른다(추정: 현 코드에 타이머 없음 — 신규 필요).
 - 자유 서술 답변은 확정 슬롯에 직접 쓰지 않고 슬롯 재추출 입력으로만 사용한다(REQUIREMENTS §9 원칙).
 
-### 3.2 슬롯 등급 예시 (팀 합의용 초안 — 추정)
+### 3.2 슬롯 등급 예시 (작업자 합의용 초안 — 추정)
 
 - required(게이트 통과 조건): `platform(web|android)`, `features ≥ 1개(핵심 동사 포함)`, `budget_band 또는 deadline 중 ≥1`.
-- optional(생략 시 디폴트 + 견적 근거에 전제 명시): `admin_page 유무`, `notification 종류`, `design_tone`, `rag_reuse_confirmed`(유사 프로젝트 발견 시에만 required로 승격 — TEAM_A_SPEC §3 분기).
+- optional(생략 시 디폴트 + 견적 근거에 전제 명시): `admin_page 유무`, `notification 종류`, `design_tone`, `rag_reuse_confirmed`(유사 프로젝트 발견 시에만 required로 승격 — PARALLEL_1_SPEC §3 분기).
 - 고위험(스마트 디폴트 적용 제외, 반드시 명시적 선택): `platform`, `budget 상한`. 이 둘은 방법 3의 추정 대상에서 빼고 방법 2의 선택형으로만 묻는다.
 
 ### 3.3 견적·하류 연결
@@ -119,7 +119,7 @@ elif state in ("GREETING", "GATHERING"):
 
 ### 4.1 권장: 명시적 신호 + 암묵적 신호의 2층 판정
 
-1. 명시적 키워드(결정적 규칙 우선 — TEAM_A_SPEC §4 "LLM 판정 금지, 결정적 규칙 우선" 원칙 준용):
+1. 명시적 키워드(결정적 규칙 우선 — PARALLEL_1_SPEC §4 "LLM 판정 금지, 결정적 규칙 우선" 원칙 준용):
    - fast-track: "그냥 진행", "충분해", "빨리", "견적 먼저", "대충" → required 중 플랫폼만 확보(스키마상 필수이므로) 후 확인 요약과 함께 즉시 `AWAIT_APPROVAL`. 생략된 슬롯은 디폴트 + 견적 근거에 전제 명시.
    - thorough: "꼼꼼하게", "자세히", "다 물어봐" → optional까지 순차 질문 모드. 한 턴 1항목으로 더 늦춘다.
 2. 암묵적 신호(NIM 보조 판정, 규칙 판정 없을 때만):
@@ -143,7 +143,7 @@ elif state in ("GREETING", "GATHERING"):
 
 ## 6. 확실하지 않은 점 (추정 명시)
 
-- required 슬롯의 정확한 집합(§3.2)은 명세에 명시적 목록이 없어 추정으로 제안함. 팀 합의(특히 팀C: 스펙생성에 최소 무엇이 필요한지) 후 확정 필요.
+- required 슬롯의 정확한 집합(§3.2)은 명세에 명시적 목록이 없어 추정으로 제안함. 팀 합의(특히 병렬작업 3: 스펙생성에 최소 무엇이 필요한지) 후 확정 필요.
 - "한 턴 최대 2항목" 숫자(방법 2)는 UX 일반론 기반 추정치이며, 실측(A/B 또는 파일럿 대화 로그) 없이 확정할 수 없음.
 - 슬롯 추출용 NIM 프롬프트·JSON 스키마는 현 레포에 존재하지 않아(확인됨: `build_quote`/`rag_precheck` 외 NIM 호출 없음) 신규 설계가 필요함.
-- 타이머 기반 에스컬레이션(reqpipe G12)은 TEAM_A_SPEC에서 참조만 되고 현 코드에 구현이 없어(확인됨: 타이머/스케줄러 코드 없음) 공수 별도 산정 필요.
+- 타이머 기반 에스컬레이션(reqpipe G12)은 PARALLEL_1_SPEC에서 참조만 되고 현 코드에 구현이 없어(확인됨: 타이머/스케줄러 코드 없음) 공수 별도 산정 필요.

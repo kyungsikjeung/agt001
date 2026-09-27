@@ -1,7 +1,7 @@
-# 팀원 A/B/C 공통 개발환경 (REQ-ENV-001)
+# 병렬작업 1·2·3 공통 개발환경 (REQ-ENV-001)
 # 사용법: cp .env.example .env 로 값 채운 뒤 `docker compose up --build`
 # 배포용 Dockerfile은 docs/hackathon/deployment/templates/Dockerfile.backend 를 재사용한다.
-# 팀원 B(정적 시안 페이지)·팀원 C(웹/워커)가 각자 서비스를 이 파일에 추가해 나간다 — 지금은 backend 서비스(팀원 A 담당 챗봇/게이트웨이) 골격만 있다.
+# 병렬작업 2(정적 시안 페이지)·병렬작업 3(웹/워커)가 각자 서비스를 이 파일에 추가해 나간다 — 지금은 backend 서비스(병렬작업 1 담당 챗봇/게이트웨이) 골격만 있다.
 
 # 프로젝트 이름을 고정한다. 기본값은 디렉터리 이름이라, 서버 경로가 바뀌면 볼륨 이름
 # (agt001_pg_data, agt001_caddy_data)이 달라져 DB와 인증서가 빈 볼륨으로 바뀐다.
@@ -43,7 +43,7 @@ services:
     env_file:
       - .env
     environment:
-      # 팀C 코드생성 격리(docker run -v)가 host docker.sock을 통해 호스트 데몬에 명령을
+      # 병렬작업 3 코드생성 격리(docker run -v)가 host docker.sock을 통해 호스트 데몬에 명령을
       # 보내므로, 마운트 소스는 컨테이너 내부(/app) 경로가 아니라 이 호스트 실제 경로여야
       # 한다. compose가 실행되는 디렉토리(=이 파일이 있는 프로젝트 루트)를 그대로 넘긴다.
       - HOST_PROJECT_DIR=${PWD}
@@ -59,7 +59,7 @@ services:
       - "8643:8643"
     volumes:
       - .:/app
-      # 팀C(코드생성) 격리용 Docker-outside-of-Docker: 컨테이너 안에서 `docker run`으로
+      # 병렬작업 3(코드생성) 격리용 Docker-outside-of-Docker: 컨테이너 안에서 `docker run`으로
       # 별도 샌드박스 컨테이너(docker/hermes-sandbox)를 띄우려면 호스트 데몬 소켓이 필요하다.
       # 주의: 이 소켓에 접근 가능한 프로세스는 사실상 호스트에 대한 루트급 권한과 동급이다 —
       # backend 컨테이너 자체가 신뢰된 코드(우리 자신의 백엔드)만 실행한다는 전제에서만 안전하다.

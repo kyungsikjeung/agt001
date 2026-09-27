@@ -105,7 +105,7 @@ STATE: GENERATING | AI_STATUS: GENERATING | DEPLOY: None | N: 8
 DESIGN_URL: /design/0b7c29a7
 DESIGN_PREVIEW: /design/0b7c29a7/preview.png
 seq=6 chat "진행"
-seq=7 ai_reply "진행합니다! UI 시안이 준비됐어요: /design/0b7c29a7 … 팀C 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. 완료까지 최대 90초 …"
+seq=7 ai_reply "진행합니다! UI 시안이 준비됐어요: /design/0b7c29a7 … 병렬작업 3 코드생성 에이전트(Hermes)를 백그라운드로 시작했습니다. 완료까지 최대 90초 …"
 ```
 
 판정: 정상. QUOTED→GENERATING 전이, design_url(`/design/0b7c29a7`) 응답에 포함.
@@ -141,7 +141,7 @@ POLL #1 09:20:13 STATE: GENERATING | AI: GENERATING | DEPLOY: None | N: 8
 POLL #2 09:20:18 STATE: GENERATING | AI: GENERATING | DEPLOY: None | N: 8
 POLL #3 09:20:23 STATE: GENERATING | AI: GENERATING | DEPLOY: None | N: 8
 POLL #4 09:20:28 STATE: DONE | AI: DONE | DEPLOY: http://144.24.91.250:8643/site/0b7c29a7/ | N: 9
-  seq=8 ai_reply "코드 생성이 완료됐습니다! - 생성된 파일: index.html - 배포 링크: http://144.24.91.250:8643/site/0b7c29a7/ … 파이프라인 뼈대 관통 완료 (팀C 실구현)."
+  seq=8 ai_reply "코드 생성이 완료됐습니다! - 생성된 파일: index.html - 배포 링크: http://144.24.91.250:8643/site/0b7c29a7/ … 파이프라인 뼈대 관통 완료 (병렬작업 3 실구현)."
 POLL #5~#10 09:20:33~09:20:59 STATE: DONE 유지 (동일 seq=8, deploy_url 동일)
 ```
 

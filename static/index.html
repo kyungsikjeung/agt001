@@ -41,7 +41,7 @@
   </div>
 
 <script>
-// ⑦카카오링크(팀B): JS 키는 클라이언트에 노출되는 공개 키라 그대로 하드코딩한다 (비밀키 아님).
+// ⑦카카오링크(병렬작업 2): JS 키는 클라이언트에 노출되는 공개 키라 그대로 하드코딩한다 (비밀키 아님).
 const KAKAO_JS_KEY = 'db5e5247ff48a792df0cc393b4453c6d';
 if (window.Kakao && !Kakao.isInitialized()) {
   Kakao.init(KAKAO_JS_KEY);
@@ -91,7 +91,7 @@ function stopPolling() {
   }
 }
 
-// ⑧팀C 코드생성(Hermes)은 백그라운드에서 돌기 때문에, GENERATING 상태인 동안
+// ⑧병렬작업 3 코드생성(Hermes)은 백그라운드에서 돌기 때문에, GENERATING 상태인 동안
 // 화면에 메시지를 새로 찍지 않고 조용히 폴링만 하다가 상태가 바뀌면 결과를 보여준다.
 function startPolling() {
   stopPolling();

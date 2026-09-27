@@ -24,9 +24,9 @@
 |---|---|---|
 | API·대상 | `POST https://kapi.kakao.com/v2/api/talk/memo/default/send` (기본 템플릿), `.../talk/memo/send` (사용자 정의). 로그인한 본인의 "나와의 채팅"에만 발송. 남에게 보낼 수 없음 | https://developers.kakao.com/docs/ko/kakaotalk-message/common |
 | 필요 동의 항목 | 접근권한 `talk_message` (카카오톡 메시지 전송). 친구에게 보낼 때는 `friends`(친구 목록)도 필요 | https://developers.kakao.com/docs/ko/kakaotalk-message/common |
-| 검수 여부 | 나에게 보내기: 검수 없이 제한 없이 발송 가능. 친구에게 보내기: 비즈 앱 전환 + 신청 자격 확인 + 비즈니스 정보 심사 + 추가 기능 신청(심사) 필요 | https://developers.kakao.com/docs/ko/kakaotalk-message/common , https://devtalk.kakao.com/t/api/139246 |
+| 검수 여부 | 나에게 보내기: 검수 없이 제한 없이 발송 가능. 친구에게 보내기: 비즈 앱 전환 + 신청 자격 확인 + 비즈니스 정보 평가 + 추가 기능 신청(평가) 필요 | https://developers.kakao.com/docs/ko/kakaotalk-message/common , https://devtalk.kakao.com/t/api/139246 |
 | 비즈 앱 필요 여부 | 나에게 보내기만 쓰면 불필요. 친구 발송·이메일 필수 동의는 비즈 앱 필요 | https://developers.kakao.com/docs/ko/kakaotalk-message/common , https://developers.kakao.com/docs/ko/app-setting/app |
-| 발송 한도 | 나에게 보내기: 제한 없음(심사 전후 동일). 친구에게: 심사 전 일 30건, 심사 후 앱 기준 일 30,000건 + 발신자당 100건·수신자당 100건·같은 쌍 20건 | https://developers.kakao.com/docs/ko/kakaotalk-message/common |
+| 발송 한도 | 나에게 보내기: 제한 없음(평가 전후 동일). 친구에게: 평가 전 일 30건, 평가 후 앱 기준 일 30,000건 + 발신자당 100건·수신자당 100건·같은 쌍 20건 | https://developers.kakao.com/docs/ko/kakaotalk-message/common |
 | 기본 템플릿 형식 | 피드·리스트·위치·커머스·텍스트 (나에게/친구에게 공통). 사용자 정의 템플릿은 도구에서 구성 후 `template_id` 사용 | https://developers.kakao.com/docs/ko/kakaotalk-message/common |
 | 사용자 토큰 필요 여부 | 필요. 본인(사장님) 카카오 로그인 액세스 토큰으로 호출. 리프레시 토큰 보관이 실용상 필수 | https://developers.kakao.com/docs/ko/kakaotalk-message/rest-api |
 | 토큰 만료 기간 | REST API 액세스 토큰 6시간, 리프레시 토큰 2개월(만료 1개월 전부터 갱신 가능). 갱신 시 새 리프레시 토큰 발급 + 기존 폐기 | https://developers.kakao.com/docs/ko/kakaologin/common |
@@ -49,8 +49,8 @@
 | 항목 | 내용 | 출처 (확인 날짜 2026-09-26) |
 |---|---|---|
 | 이메일 항목 ID | `account_email` (카카오계정 대표 이메일). 필수·선택·이용 중 동의로 설정 가능 표기 | https://developers.kakao.com/docs/ko/kakaologin/utilize |
-| 필요 조건 | 비즈 앱 (사업자 정보 등록). 개인 개발자 비즈 앱만으로는 개인정보 동의 항목 권한 신청 불가. 테스트 앱은 팀 멤버 한정으로 미리 사용 가능 | https://developers.kakao.com/docs/ko/app-setting/app , https://developers.kakao.com/docs/ko/kakaologin/faq , https://devtalk.kakao.com/t/topic/139725 |
-| 심사 | 개인정보 동의 항목 추가 기능 신청 → 영업일 기준 3~5일 심사. 신청 정보·제출 자료 일치, 회원가입 방식과 활용 범위 일치 검토 | https://developers.kakao.com/docs/ko/kakaologin/prerequisite |
+| 필요 조건 | 비즈 앱 (사업자 정보 등록). 개인 개발자 비즈 앱만으로는 개인정보 동의 항목 권한 신청 불가. 테스트 앱은 작업자 한정으로 미리 사용 가능 | https://developers.kakao.com/docs/ko/app-setting/app , https://developers.kakao.com/docs/ko/kakaologin/faq , https://devtalk.kakao.com/t/topic/139725 |
+| 평가 | 개인정보 동의 항목 추가 기능 신청 → 영업일 기준 3~5일 평가. 신청 정보·제출 자료 일치, 회원가입 방식과 활용 범위 일치 검토 | https://developers.kakao.com/docs/ko/kakaologin/prerequisite |
 | 주의 | 필수 동의로 해도 카카오계정에 이메일이 없으면 빈 값. `email_needs_agreement` 확인 + 수집 후 제공 옵션·추가 동의 요청으로 대응 | https://developers.kakao.com/docs/ko/kakaologin/faq |
 | 현재 코드 정합 | `app/services/auth.py`는 이메일 없이 닉네임만으로 가입 가능(`email` NULL 허용). D32 문의 구현에 이메일 불필요 | 코드 직접 확인 2026-09-26 |
 
@@ -93,5 +93,5 @@
 | 사장님 리프레시 토큰 암호화 보관 설계 | 나에게 보내기 발송에 필수. 현 UQ-1(미저장)과 충돌하므로 사장님 토큰만 예외로 명시 | DB 설계 문서, `app/services/auth.py` (후속 작업) |
 | `talk_message` 동의는 사장님 온보딩에서만 요청 | 방문자에게 불필요한 동의 노출 방지 | 로그인 플로우 문서 (후속 작업) |
 | 채널 1:1 채팅 링크(`/_xxxx/chat`)를 문의 섹션 기본값 구조로 유지 | 토큰 없이 동작하는 문의 경로 | `templates/sections/contact--kakao-channel.mustache` (현 유지) |
-| 이메일 동의(비즈 앱·심사)는 보류 | 문의 구현에 불필요, 사업자 등록 필요 | `docs/product/OAUTH_SETUP.md` §1.2 (현 권장 유지) |
+| 이메일 동의(비즈 앱·평가)는 보류 | 문의 구현에 불필요, 사업자 등록 필요 | `docs/product/OAUTH_SETUP.md` §1.2 (현 권장 유지) |
 | 나에게 보내기 푸시 울림 실측 | 메모 용도라 알림 보장 없음 | 후속 작업 검증 항목으로 기록 |

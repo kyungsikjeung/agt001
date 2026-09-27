@@ -30,11 +30,11 @@
 - `@media (max-width: 480px)`: body 여백 축소(`margin: 16px auto`), `#log` 높이 축소(예: `height: 60vh`), `#row` 입력창·버튼 터치 영역 유지, `h2` 폰트 축소.
 - 카카오 공유 버튼·채팅 입력창 등 기존 JS/기능은 그대로 둔다.
 
-### (b) templates/variant-1.html (팀B UI 시안 템플릿)
+### (b) templates/variant-1.html (병렬작업 2 UI 시안 템플릿)
 - viewport meta 태그 추가.
 - 플레이스홀더 `{{TITLE}}`, `{{PLATFORM}}`, `{{FEATURES_HTML}}`, `{{QUOTE_AMOUNT}}`, `{{QUOTE_BASIS}}`, `{{REQUIREMENT_ID}}` 의 이름·위치는 절대 변경 금지 (`backend.py`의 `render_design()`이 문자열 치환하므로 바꾸면 깨진다).
 - CSS만 반응형으로 개선: `@media (max-width: 480px)` 에서 `.hero` 패딩 축소(`24px 16px`), `h1` 폰트 축소(`20px`), `.section` 패딩 축소(`16px`), `.quote-amount` 폰트 축소(`22px`). `img`/`ul` 넘침 방지를 위해 `max-width: 100%`, `box-sizing: border-box` 적용.
 
-### (c) 팀C Hermes 코드생성 산출물
+### (c) 병렬작업 3 Hermes 코드생성 산출물
 - `backend.py`의 `_run_hermes_codegen_job()` 프롬프트에 반응형 요구사항을 명시한다: "반응형 웹(모바일/데스크톱에서 모두 잘 보이게, viewport meta 태그 포함)으로 만들어라".
 - Hermes 산출물은 서버가 검증하지 않는 최종 고객 인도물이므로, 프롬프트 지시 한 줄이 품질을 좌우한다. 산출물 HTML에도 위 §2의 viewport + fluid width + media query 원칙이 그대로 적용되도록 유도한다.

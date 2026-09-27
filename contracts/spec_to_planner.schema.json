@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "spec_to_planner.schema.json",
-  "title": "BND-6: 스펙생성 → Hermes 플래너 (팀원 C 내부)",
+  "title": "BND-6: 스펙생성 → Hermes 플래너 (병렬작업 3 내부)",
   "type": "object",
   "required": ["requirement_id", "spec_doc_url", "tasks"],
   "properties": {
@@ -17,7 +17,7 @@
           "description": { "type": "string" }
         }
       },
-      "description": "플랫폼 단위로만 분해(화면 단위 금지, TEAM_C_SPEC.md §3)"
+      "description": "플랫폼 단위로만 분해(화면 단위 금지, PARALLEL_3_SPEC.md §3)"
     }
   },
   "additionalProperties": true

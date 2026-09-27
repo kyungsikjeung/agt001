@@ -2,7 +2,7 @@
 
 > 작성일: 2026-09-25 / 상위: [PRODUCT_ROADMAP.md](PRODUCT_ROADMAP.md) 2단계, [DESIGN_PIPELINE_PLAN.md](DESIGN_PIPELINE_PLAN.md) §13.6 P-1
 > **v2 (2026-09-26): 조사([research/REQUIREMENTS_ENGINE_RESEARCH.md](research/REQUIREMENTS_ENGINE_RESEARCH.md))와 인터뷰 결정(DECISIONS.md D20~D28) 반영. §7이 앞 절과 다르면 §7을 따른다.**
-> 근거: 해커톤 때 정리한 [PRD_REQUIREMENTS_ELICITATION.md](../hackathon/PRD_REQUIREMENTS_ELICITATION.md) (REQ-ELICIT-001~024)의 골격을 실서비스 기준으로 다시 짠다.
+> 근거: 초기 개발 때 정리한 [PRD_REQUIREMENTS_ELICITATION.md](../hackathon/PRD_REQUIREMENTS_ELICITATION.md) (REQ-ELICIT-001~024)의 골격을 실서비스 기준으로 다시 짠다.
 
 ## 0. 현재 상태 (2026-09-25 실측)
 

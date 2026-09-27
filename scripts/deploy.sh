@@ -9,7 +9,7 @@
 #
 # 조건부 빌드: Dockerfile.backend / requirements.txt가 바뀌지 않았으면 `--build`
 # 없이 컨테이너만 재시작한다 (코드는 .:/app 바인드 마운트라 재기동만으로 반영됨).
-# 바뀌었으면 새로 빌드한다. docker/hermes-sandbox/Dockerfile(팀C 샌드박스 이미지)은
+# 바뀌었으면 새로 빌드한다. docker/hermes-sandbox/Dockerfile(병렬작업 3 샌드박스 이미지)은
 # `docker compose build` 대상이 아니라 별도 `docker build`로 관리되므로 이 스크립트
 # 범위 밖이다 — 그 파일을 바꿨으면 원격에서 직접 재빌드해야 한다.
 #

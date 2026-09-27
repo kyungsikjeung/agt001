@@ -3,7 +3,7 @@
 > 작성일: 2026-09-23 / 작성자: 작업자(기획 문서 담당, PM 지시 수행)
 > PM 지시: `docs/hackathon/REQUIREMENTS_ELICITATION_UX_REACT_REVIEW.md`(ReAct 자문 리뷰)의 요청사항을 하나도 빠짐없이 PRD 형태로 정리
 > 범위: GATHERING 상태 개선 (대화·요구사항 도출 UX). 코드 수정 없음(본 PRD는 설계 문서).
-> 마감: 2026-09-28
+> 1차 완성 목표: 2026-09-28
 > 근거 우선순위: (1) 원본 A/B/ReAct 문서 최우선, (2) 스키마 실측값, (3) `docs/hackathon/REQUIREMENTS.md` 스타일 준용.
 > 참고: PM 지시문에 언급된 `docs/hackathon/PM_REACT_PLAN_REPORT.md` 파일은 리포에 존재하지 않음(2026-09-23 glob 실측). 따라서 본 PRD는 A/B/ReAct 원본 3종을 근거로 작성했으며, PM 보고서 요약이 아님.
 
@@ -21,7 +21,7 @@
 
 ## 1. 개요 (이 PRD가 다루는 범위 — GATHERING 상태 개선)
 
-현 `backend.py:731-744`의 GATHERING은 `rag_precheck` 1회 후 원문 그대로 `AWAIT_APPROVAL`로 직행하므로(후속 질문 루프 0회), ④접수·⑤검증·⑥질의가 생략되고 `platform="web"` 고정·`features=[원문 1건]`으로 BND-2/BND-3 필수값이 무너진다(A §1.1, B §0.1, ReAct §1). 본 PRD는 이 진단을 전제로, ReAct 리뷰 §3(A 자문 7항)·§4(B 자문 7항)·§5(통합안 S0~S6, P0/P1 11항)와 원본 A/B의 세부사항을 하나도 빠짐없이 요구사항으로 전환한다. 처방 코어는 "빠진 것만 되묻기 + 선택형(옵션 3개+추천) + 승인 시 슬롯 조립값 하류 전달 + 반려 시 해당 항목 복귀"이며, 수단은 "B의 결정적 체크리스트를 게이트로, A의 NIM 추출·스마트디폴트·fast-track을 가속기로, B의 self-check는 폴백付き 2차망으로" 결합한다(ReAct §1-4).
+현 `backend.py:731-744`의 GATHERING은 `rag_precheck` 1회 후 원문 그대로 `AWAIT_APPROVAL`로 직행하므로(후속 질문 루프 0회), ④접수·⑤검증·⑥질의가 생략되고 `platform="web"` 고정·`features=[원문 1건]`으로 BND-2/BND-3 필수값이 무너진다(A §1.1, B §0.1, ReAct §1). 본 PRD는 이 진단을 전제로, ReAct 리뷰 §3(A 자문 7항)·§4(B 자문 7항)·§5(통합안 S0~S6, P0/P1 11항)와 원본 A/B의 세부사항을 하나도 빠짐없이 요구사항으로 전환한다. 처방 코어는 "빠진 것만 되묻기 + 선택형(옵션 3개+추천) + 승인 시 슬롯 조립값 하류 전달 + 반려 시 해당 항목 복귀"이며, 수단은 "B의 결정적 체크리스트를 게이트로, A의 NIM 추출·스마트디폴트·fast-track을 가속기로, B의 self-check는 폴백 첨부 2차망으로" 결합한다(ReAct §1-4).
 
 ---
 
@@ -33,10 +33,10 @@
 
 | 대조ID | 제안 원문 요약 | 출처 |
 |---|---|---|
-| C-A1 | NIM-우선 순서를 규칙-우선으로 뒤집기. 1차 판정은 키워드·정규식 결정적 규칙, NIM 추출은 2차 보완. B §1.2의 4상태(`empty\|partial\|filled\|confirmed`)+규칙표가 출발점 | ReAct §3-1, B §1.2, TEAM_A_SPEC §4, REQ-VALIDATE-001 |
+| C-A1 | NIM-우선 순서를 규칙-우선으로 뒤집기. 1차 판정은 키워드·정규식 결정적 규칙, NIM 추출은 2차 보완. B §1.2의 4상태(`empty\|partial\|filled\|confirmed`)+규칙표가 출발점 | ReAct §3-1, B §1.2, PARALLEL_1_SPEC §4, REQ-VALIDATE-001 |
 | C-A2 | 매턴 NIM 호출의 지연·비용 가드 정량화. `NIM_TIMEOUT_SEC=25` 하에서 "GATHERING 턴당 최대 1회, 실패 시 현행 동작 폴백", 1차는 규칙만으로 다음 질문 선정 | ReAct §3-2, A §2 방법1, B §3.2 |
 | C-A3 | 스마트디폴트 환각 대책을 B 3층 구조에. `assumed` 표기 유지 + 추정값은 `basis`·확인요약에 "(가정)" 표기 + 승인 전 self-check 1회 재검증. 고위험 슬롯 제외(A §3.2) 유지 | ReAct §3-3, A §2 방법3·§3.2 |
-| C-A4 | required 집합을 스키마 역산으로 고정. 게이트 하드조건은 `platform + features≥1 + existing_ref 확정 + customer_id(대표)`로 좁히고 예산/일정은 선택질문으로. 팀C와 합의 | ReAct §3-4, B §1.1, A §3.2 |
+| C-A4 | required 집합을 스키마 역산으로 고정. 게이트 하드조건은 `platform + features≥1 + existing_ref 확정 + customer_id(대표)`로 좁히고 예산/일정은 선택질문으로. 병렬작업 3와 합의 | ReAct §3-4, B §1.1, A §3.2 |
 | C-A5 | RAG 내부 파일명 노출 수정. `rag_precheck` 반환(`SRS-2025-014.md` 등)을 그대로 붙이는 현행(`backend.py:739`) 대신 사람말 템플릿("비슷한 ○○ 프로젝트가 있었어요. 확장/신규 중 어느 쪽인가요?(1/2)")으로 감싸기 | ReAct §3-5, B §2.4 |
 | C-A6a | 공유방 보완. B §2.5의 `pending_question` 단일화 + `seq` 인용 귀속 + 질의중 투표바 숨김 수용 | ReAct §3-6, B §2.5 |
 | C-A6b | QUOTED/DONE 리셋 통일. 거절 복귀는 AWAIT(`:757-759`)뿐 아니라 QUOTED(`:790-792`)·DONE 후 재입장(`:794-796`)까지 "해당 슬롯으로 복귀, 슬롯 유지·`asked_keys` 재사용"으로 통일 | ReAct §3-6, A §1.1-4, B §0.1-5, ReAct Thought 3-7a·7b |
@@ -60,7 +60,7 @@
 |---|---|---|
 | C-S0 | 세션 확장(로직 무변경, `additionalProperties` 허용·`setdefault` 마이그레이션): `slots` 6종(platform required·고위험 / features required ≥1 / existing_ref required / customer_id filled=세션·방대표 / budget_or_time 선택 / acceptance 선택) + `slots_assumed` + `pending_question`{slot,options,seq} + `asked_keys` + `ask_count`(상한 3, 추정·조정가능) + `self_check` | ReAct §5.1-S0, B §4.1 |
 | C-S1 | `update_slots(slots, user_text)` 신규 헬퍼, 결정적 규칙만·LLM 없음(B안 우선, A안 2차). platform 키워드 매칭(혼재·전무→partial), features 불릿·쉼표 분리 ≥1개("관리자/통계/알림"+"~도/~있었으면"→partial), existing_ref는 rag 1회+고객 선택 시 confirmed, budget_or_time 숫자+단위 패턴(없어도 게이트 가능). 자유서술은 슬롯에 직접 쓰지 않고 재추출 입력으로만(REQUIREMENTS §9) | ReAct §5.1-S1, B §1.2, A §2 방법1 |
-| C-S2 | `next_question(slots)` 신규 헬퍼. 한 턴 1개 기본·최대 2개, 옵션 3개+추천. 순서: platform → existing_ref(RAG hit 시만) → features 쪼개기(예/아니오, confirmed_items 1개 단위) → budget_or_time(선택·"건너뛰셔도 됩니다" 명시). 형태: 닫힌=번호 객관식+추천, 반열린=예/아니오 쪼개기, 열린=예시값 선제시(`300만원대/2주`). 한 응답 300자·불릿 4개以内(추정). "지금까지 요약 + 다음 질문" 2단 + 진행률 `(n/m)`(B §2.3). RAG source명 사람말 래핑, 노출 금지 | ReAct §5.1-S2, B §2.1·§2.2·§2.3, A §2 방법2 |
+| C-S2 | `next_question(slots)` 신규 헬퍼. 한 턴 1개 기본·최대 2개, 옵션 3개+추천. 순서: platform → existing_ref(RAG hit 시만) → features 쪼개기(예/아니오, confirmed_items 1개 단위) → budget_or_time(선택·"건너뛰셔도 됩니다" 명시). 형태: 닫힌=번호 객관식+추천, 반열린=예/아니오 쪼개기, 열린=예시값 선제시(`300만원대/2주`). 한 응답 300자·불릿 4개 이내(추정). "지금까지 요약 + 다음 질문" 2단 + 진행률 `(n/m)`(B §2.3). RAG source명 사람말 래핑, 노출 금지 | ReAct §5.1-S2, B §2.1·§2.2·§2.3, A §2 방법2 |
 | C-S3 | `self_check_nim(slots_summary)` 신규 헬퍼, `call_nim` 재사용·전이당 최대 1회. `{"ok": true}` 또는 `{"ok": false, "missing": [...]}` JSON만 반환. 실패·타임아웃 시 `{"ok": true}` 폴백(검사 생략, 대화 차단 금지). 프롬프트에 "사소한 것은 지적 금지", `missing` 최대 2건 수용·첫 1건만 질문·나머지는 확인요약에 (미확인) 이관 | ReAct §5.1-S3, B §3.1·§3.2 |
 | C-S4 | `_process_chat_turn` GATHERING 분기(`backend.py:731-744`) 교체. (1) fast-track 키워드 → platform만 확보(없으면 platform 1문만) 후 확인요약 + AWAIT_APPROVAL, 생략 슬롯은 디폴트+(가정) 표기·견적 basis에 전제 명시. (2) 첫 진입이면 rag_precheck 1회 → existing_ref 후보 기록 → platform 질문 1개만 하고 잔류(게이트 직행 금지). (3) 그 외 update_slots 반영 → 미충족 슬롯 1개 질문 + 요약(ask_count+1). (4) required 충족이면 확인요약(확정/(가정) 구분) → self-check 최대 1회 → ok면 AWAIT_APPROVAL / missing이면 해당 슬롯 복귀(상한 초과 시 잠정확정 후 게이트) | ReAct §5.1-S4, A §3.1·§4.1, B §4.2 |
 | C-S5a | 승인 시 슬롯 조립 텍스트(`platform+features+acceptance+budget_or_time+(가정) 전제`)를 `build_quote`에 전달. `build_quote` 본체 무수정 | ReAct §5.1-S5, B §4.3, A §3.3 |
@@ -69,7 +69,7 @@
 | C-S5d | DONE 후(`:794-796`) 새 요청이면 슬롯 초기화 후 GATHERING (신규 규칙, 추정) | ReAct §5.1-S5, ReAct Thought 3-7b |
 | C-S6 | 공유방 최소 추가(B안 그대로): `pending_question`+`seq` 인용 귀속, 질의중 투표바 숨김·투표중 질의입력 분리(`updateActionBars`에 질의바 1종 추가), `ai_status` 재사용 또는 `ASKING` 1종 추가(추정·프론트 1줄) | ReAct §5.1-S6, B §2.5·§4.4 |
 
-### 2.4 ReAct §5.2 — 구현 우선순위 P0/P1 (11항, 마감 2026-09-28 기준)
+### 2.4 ReAct §5.2 — 구현 우선순위 P0/P1 (11항, 1차 완성 목표 2026-09-28 기준)
 
 | 대조ID | 제안 원문 요약 | 출처 |
 |---|---|---|
@@ -81,29 +81,29 @@
 | C-P1a | P1-6. S3 self-check 2차망 — 규칙+질의 안정 후. 단독 도입 시 과잉지적·지연 리스크 | ReAct §5.2, B §3 |
 | C-P1b | P1-7. 스마트디폴트 고도화(전 슬롯 추정·`acceptance_criteria` 템플릿+NIM 다듬기) — P0 확인요약의 확장판 | ReAct §5.2, A §2 방법3·§3.1-3 |
 | C-P1c | P1-8. 암묵신호(장문·단답연속) 판정 + thorough 모드(한 턴 1항목 늦추기) — 실측 로그 후 조정 | ReAct §5.2, A §4.1-2 |
-| C-P1d | P1-9. 타이머 기반 에스컬레이션(reqpipe G12, TEAM_A_SPEC §9) — 현 코드에 타이머 없음 확인. 공수 별도 | ReAct §5.2, A §3.1, TEAM_A_SPEC §9 |
+| C-P1d | P1-9. 타이머 기반 에스컬레이션(reqpipe G12, PARALLEL_1_SPEC §9) — 현 코드에 타이머 없음 확인. 공수 별도 | ReAct §5.2, A §3.1, PARALLEL_1_SPEC §9 |
 | C-P1e | P1-10. `platform` 배열화(웹+앱 둘 다) 스키마 개정(BND-2·BND-3) — 1차는 단일선택+전제명시로 대응 | ReAct §5.2, B §5-3 |
 | C-P1f | P1-11. 질문 상한·300자·불릿수 등 임계값 튜닝 — 파일럿 대화 로그(A/B) 후 확정 | ReAct §5.2, B §5-1 |
 
-### 2.5 원본 A 고유 세부 (ReAct 요약外界 — 원본 대조로 추가 발굴)
+### 2.5 원본 A 고유 세부 (ReAct 요약 외부 — 원본 대조로 추가 발굴)
 
 | 대조ID | 제안 원문 요약 | 출처 |
 |---|---|---|
-| C-AO1 | 침묵·무응답 시 에스컬레이션은 TEAM_A_SPEC §9 + reqpipe G12 개념 준용 (추정: 현 코드에 타이머 없음 — 신규 필요) | A §3.1 |
+| C-AO1 | 침묵·무응답 시 에스컬레이션은 PARALLEL_1_SPEC §9 + reqpipe G12 개념 준용 (추정: 현 코드에 타이머 없음 — 신규 필요) | A §3.1 |
 | C-AO2 | optional 생략 시 디폴트로 확정 + 견적 근거에 "제외 전제"로 기록. "생략된 항목의 디폴트"를 문서화·고지하지 않으면 분쟁 소지. 생략된 optional은 반려 시 다시 꺼낼 수 있게 보관 | A §2 방법4, A §4.2 |
 | C-AO3 | 모드 전환 언제든 가능. "아까 생략한 것도 물을게" 한 마디면 thorough로 복귀, `asked_keys` + 보관된 optional 슬롯 재사용 | A §4.2 |
 | C-AO4 | fast-track 견적서에는 생략 전제 반드시 노출(예: "관리자 페이지 제외 전제"). `build_quote(slots, assumed_notes)` 확장 방향(추정), 추정 전제는 `basis`에 "(플랫폼: 웹으로 가정)"처럼 기록 | A §3.3, A §4.2 |
-| C-AO5 | A 원안 required 초안(추정·팀 합의 필요): `platform(web\|android)` + `features ≥ 1개(핵심 동사 포함)` + `budget_band 또는 deadline 중 ≥1`. optional: `admin_page 유무, notification 종류, design_tone, rag_reuse_confirmed`(유사 발견 시 required 승격). 고위험(스마트디폴트 제외·선택형으로만): `platform`, `budget 상한` | A §3.2 |
+| C-AO5 | A 원안 required 초안(추정·작업자 합의 필요): `platform(web\|android)` + `features ≥ 1개(핵심 동사 포함)` + `budget_band 또는 deadline 중 ≥1`. optional: `admin_page 유무, notification 종류, design_tone, rag_reuse_confirmed`(유사 발견 시 required 승격). 고위험(스마트디폴트 제외·선택형으로만): `platform`, `budget 상한` | A §3.2 |
 | C-AO6 | 매 GATHERING 턴 누적 대화 전체로 NIM 슬롯 추출(`{platform, features[], budget_limit, deadline, has_admin, rag_reuse_confirmed}`), `slots{}`·`slots_assumed{}`(출처 표기)·`asked_keys[]`(중복 방지) 누적. `last_request` 단일 저장 대신 누적 대화 + 슬롯 함께 보관. NIM 실패 시 현행 동작(원문 게이트)으로 폴백 | A §2 방법1, A §3.1 |
 
-### 2.6 원본 B 고유 세부 (ReAct 요약外界 — 원본 대조로 추가 발굴)
+### 2.6 원본 B 고유 세부 (ReAct 요약 외부 — 원본 대조로 추가 발굴)
 
 | 대조ID | 제안 원문 요약 | 출처 |
 |---|---|---|
 | C-BO1 | B 원안 게이트 조건(기록용·절충 대상): 6슬롯 모두 `filled` 이상일 때만 AWAIT_APPROVAL 전이. `acceptance`(기능당 1개 매핑 권장)와 `budget_or_time`(DoD상 필수 아님) 포함. → 본 PRD는 C-B3 절충안(하드조건 축소)을 채택하고, 본 항은 결의 근거로 보관 | B §1.2 |
 | C-BO2 | 자유서술 대응: REQ-ASK-001대로 옵션 3개+추천 재질문, 재질문은 1회로 제한(무한 루프 방지). 그래도 안 맞으면 원문을 `partial` 메모로 붙여 게이트에서 사람이 확인 | B §2.2 |
 | C-BO3 | 전문용어 금지: "BND", "acceptance_criteria" 같은 내부어를 사용자에게 노출하지 않는다 | B §2.4 |
-| C-BO4 | AI 질문 메시지에 "○○ 슬롯 질문" 라벨 + `room.html` 아바타+닉네임+`BOT` 뱃지 유지로 "누가何에 답해야 하는지" 방 전원이 보게 하기 | B §2.5-4 |
+| C-BO4 | AI 질문 메시지에 "○○ 슬롯 질문" 라벨 + `room.html` 아바타+닉네임+`BOT` 뱃지 유지로 "누가 무엇에 답해야 하는지" 방 전원이 보게 하기 | B §2.5-4 |
 | C-BO5 | room 투표 로직(`backend.py:626-645`)은 그대로 두고 GATHERING 질의 답변은 투표 판정에서 제외 | B §4.3 |
 | C-BO6 | 진행률 표시를 `room.html` `#statusBar` 패턴에 재사용 (추정: 프론트 1줄 확장 수준) | B §2.1-4 |
 | C-BO7 | `save_sessions()`/`load_sessions()` 직렬화에 자동 포함(저장 로직 변경 불필요). 구 세션(필드 없음)은 `setdefault`로 마이그레이션 | B §4.1 |
@@ -116,7 +116,7 @@
 | 대조ID | 제안 원문 요약 | 출처 |
 |---|---|---|
 | C-D1 | DoD 닫힘 선언 6건: REQ-INTAKE-001→S0 slots+원문발췌 note / REQ-VALIDATE-001→S1 규칙+S4 required→self-check→게이트 / REQ-ASK-001→S2 형태별 질문+재질문 1회 상한 / REQ-GATE-001→승인 본체 유지+S5 해당 슬롯 복귀 / REQ-QUOTE-001→S5 슬롯 조립 입력+(가정) basis+self_check 로그 / REQ-RAG-001→첫 진입 1회+실패 시 신규 폴백 유지+사람말 래핑 → §3 각 REQ의 DoD·§6 매핑표로 수용 | ReAct §5.3 |
-| C-E1 | 추정 5건(미확정으로 수용·§7 기록): required 하드조건 절충(팀C 합의 후 확정) / "1개·3회·300자·불릿4" 수치(실측 후 확정) / platform 단일·budget 선택 취급("둘 다" 수요 빈도는 추정) / self-check·NIM 추출 지연 체감(실측 전 확정 불가) / DONE 초기화·asked_keys 수명·경계 utterance("네"가 답변인지 투표인지)(방 로그로 검증) | ReAct §5.4 |
+| C-E1 | 추정 5건(미확정으로 수용·§7 기록): required 하드조건 절충(병렬작업 3 합의 후 확정) / "1개·3회·300자·불릿4" 수치(실측 후 확정) / platform 단일·budget 선택 취급("둘 다" 수요 빈도는 추정) / self-check·NIM 추출 지연 체감(실측 전 확정 불가) / DONE 초기화·asked_keys 수명·경계 utterance("네"가 답변인지 투표인지)(방 로그로 검증) | ReAct §5.4 |
 
 ---
 
@@ -139,7 +139,7 @@
 ### REQ-ELICIT-002 — 결정적 규칙 `update_slots` (LLM 없음, 규칙-우선)
 
 - **요약**: 사용자 발화를 키워드·정규식 결정적 규칙으로만 슬롯에 반영한다. NIM 추출은 2차 보완이다.
-- **요약 상세**: TEAM_A_SPEC §4·REQ-VALIDATE-001 "전부 LLM 판단에 맡기지 않는다" 원칙에 따라 1차 판정은 규칙이 맡는다. 규칙은 "확정"이 아니라 "질의 트리거"까지만 담당하고 최종 해소는 질의+self-check 3층 구조로 맡긴다.
+- **요약 상세**: PARALLEL_1_SPEC §4·REQ-VALIDATE-001 "전부 LLM 판단에 맡기지 않는다" 원칙에 따라 1차 판정은 규칙이 맡는다. 규칙은 "확정"이 아니라 "질의 트리거"까지만 담당하고 최종 해소는 질의+self-check 3층 구조로 맡긴다.
 - **Input**: `slots` + 당 턴 `user_text`
 - **Output**: 갱신된 `slots`(상태 전이만, 질문문 생성 없음)
 - **완료 조건 (DoD)**:
@@ -198,7 +198,7 @@
 
 ### REQ-ELICIT-006 — 게이트 조건 + GATHERING 분기 교체 (1턴 직행 금지)
 
-- **요약**: `backend.py:731-744`의 "rag→즉시 게이트"를 슬롯充足 게이트 분기로 교체한다.
+- **요약**: `backend.py:731-744`의 "rag→즉시 게이트"를 슬롯 충족 게이트 분기로 교체한다.
 - **요약 상세**: 현재 구조의 실패 모드("못 들은 것을 모른 채 넘어감")를 뒤집어, 못 들은 것이 있으면 상태 전이 자체가 막히게 한다.
 - **Input**: GATHERING 수신 메시지
 - **Output**: 잔류(질문 1개) 또는 required 충족 시 확인요약 후 AWAIT_APPROVAL
@@ -207,7 +207,7 @@
   - [ ] 그 외: `update_slots` 반영 → 미충족 슬롯 1개 질문 + 요약(`ask_count`+1)
   - [ ] 하드조건(`platform` + `features`≥1 + `existing_ref` 확정 + `customer_id` 대표) 충족 시에만 확인요약 → self-check(마감 전에는 생략 가능, REQ-ELICIT-017) → AWAIT_APPROVAL. 하나라도 미충족이면 GATHERING에 잔류한다
   - [ ] 필수 항목이 모두 채워졌으면 질의 없이 바로 게이트로 진행한다(REQ-VALIDATE-001 DoD)
-- **Description**: 하드조건을 `platform·features≥1·existing_ref`로 좁히는 것은 절충 제안이며 **(추정)** — 팀C 합의 후 확정(REQ-ELICIT-024). B 원안 "6슬롯 모두 filled"(C-BO1)는 과도하므로 본 PRD는 축소안을 채택한다.
+- **Description**: 하드조건을 `platform·features≥1·existing_ref`로 좁히는 것은 절충 제안이며 **(추정)** — 병렬작업 3 합의 후 확정(REQ-ELICIT-024). B 원안 "6슬롯 모두 filled"(C-BO1)는 과도하므로 본 PRD는 축소안을 채택한다.
 - **우선순위**: P0 / **마감 전**
 - **출처**: C-S4, C-P0a, C-A4, C-B3, C-BO1(결의), C-D1(VALIDATE)
 
@@ -233,7 +233,7 @@
 - **Input**: GATHERING 수신 메시지 중 fast-track 키워드(`그냥 진행/충분해/빨리/견적 먼저/대충`)
 - **Output**: `platform` 확보(없으면 platform 1문만) 후 확인요약 + AWAIT_APPROVAL
 - **완료 조건 (DoD)**:
-  - [ ] 키워드 매칭은 결정적 규칙으로 판정한다(TEAM_A_SPEC §4 "LLM 판정 금지" 준용)
+  - [ ] 키워드 매칭은 결정적 규칙으로 판정한다(PARALLEL_1_SPEC §4 "LLM 판정 금지" 준용)
   - [ ] 생략된 슬롯은 디폴트 + 견적 근거에 전제 명시(예: "관리자 페이지 제외 전제")하고 견적서에 반드시 노출한다
   - [ ] REQ-GATE-001 "확인 없이 BND-3 금지" 하드 가드는 유지된다(확인요약 없이 발화 금지)
   - [ ] 암묵신호(NIM 보조판정)만으로는 required를 건너뛰지 않는다
@@ -283,7 +283,7 @@
   - [ ] 처음부터 전체 재질문하지 않는다(REQ-GATE-001 DoD)
   - [ ] AWAIT 거절과 QUOTED 거절이 동일 규칙으로 처리된다
   - [ ] 4번 기타의 자유서술은 슬롯에 직접 쓰지 않고 재추출 입력으로만 사용한다(REQUIREMENTS §9)
-- **Description**: 심사 시나리오(반려 경로)에 노출되므로 P0-4.
+- **Description**: 평가 시나리오(반려 경로)에 노출되므로 P0-4.
 - **우선순위**: P0 / **마감 전**
 - **출처**: C-S5b, C-B7, C-A6b, C-P0d, B §4.3, A §4.2
 
@@ -362,7 +362,7 @@
 
 - **요약**: GATHERING→AWAIT_APPROVAL 전이 직전에 NIM self-check 1회로 빠진 정보를 마지막 점검한다.
 - **요약 상세**: 결정적 규칙이 못 잡는 모호함(은유·생략·상충)을 잡는 2차망이다. 규칙→질의→자가점검 3층 중 마지막 층이며, 단독 완전성 수단으로 쓰면 REQ-VALIDATE-001 "전부 LLM 판단에 맡기지 않는다"에 어긋나므로 반드시 REQ-ELICIT-002와 묶어 도입한다.
-- **Input**: 슬롯充足 시점의 슬롯 요약
+- **Input**: 슬롯 충족 시점의 슬롯 요약
 - **Output**: `{"ok": true}` → 게이트 / `{"ok": false, "missing": [...]}` → 해당 슬롯 복귀
 - **완료 조건 (DoD)**:
   - [ ] 프롬프트는 `build_quote` JSON 강제 패턴(`backend.py:233-253`)을 재사용하고 구조화 JSON만 반환한다
@@ -408,12 +408,12 @@
 
 ### REQ-ELICIT-020 — 침묵·무응답 에스컬레이션 타이머 (마감 후)
 
-- **요약**: 침묵·무응답 시 에스컬레이션을 TEAM_A_SPEC §9 + reqpipe G12 개념으로 도입한다.
+- **요약**: 침묵·무응답 시 에스컬레이션을 PARALLEL_1_SPEC §9 + reqpipe G12 개념으로 도입한다.
 - **요약 상세**: 현 코드에 타이머/스케줄러 코드가 없음이 확인되므로 신규 필요 **(추정)** — 공수 별도 산정.
 - **Input**: 무응답 경과 시간
 - **Output**: 에스컬레이션 메시지(재촉 질문 또는 사람 개입)
 - **완료 조건 (DoD)**:
-  - [ ] 침묵·무응답 시 에스컬레이션 정책이 TEAM_A_SPEC §9 + reqpipe G12 개념을 따른다
+  - [ ] 침묵·무응답 시 에스컬레이션 정책이 PARALLEL_1_SPEC §9 + reqpipe G12 개념을 따른다
   - [ ] 현 코드에 타이머가 없으므로 신규 구현 공수를 별도 산정한다
 - **Description**: A §3.1 방어선 + ReAct P1-9.
 - **우선순위**: P1 / **마감 후**
@@ -461,14 +461,14 @@
 - **우선순위**: P0(원칙 선언) / **마감 전부터 적용**
 - **출처**: C-BO8, C-BO5(투표행), C-AO6(폴백행), A §3.1, B §3.2·§4.2
 
-### REQ-ELICIT-024 — required 집합 최종 합의 (팀C 포함)
+### REQ-ELICIT-024 — required 집합 최종 합의 (병렬작업 3 포함)
 
-- **요약**: 게이트 하드조건의 정확한 집합을 팀 합의(특히 팀C: 스펙생성 최소입력)로 확정한다.
-- **요약 상세**: A 원안(`platform` + `features≥1` + `budget_band 또는 deadline 중 ≥1`, §3.2 — 추정)과 B 원안(6슬롯 모두 filled, §1.2)은 서로 충돌하므로, 본 PRD는 절충안(하드조건=`platform`+`features≥1`+`existing_ref`+`customer_id`, 예산/일정·acceptance는 선택·추정확정)을 채택하고 합의를 요구한다. 예산 없이는 견적 3안 분별력이 떨어진다는 B 지적과 fast-track 필요라는 A 지적의 절충점이다. `rag_reuse_confirmed`는 유사 프로젝트 발견 시에만 required로 승격한다(TEAM_A_SPEC §3 분기).
-- **Input**: 본 PRD + 팀C 스펙생성 최소입력 의견
+- **요약**: 게이트 하드조건의 정확한 집합을 팀 합의(특히 병렬작업 3: 스펙생성 최소입력)로 확정한다.
+- **요약 상세**: A 원안(`platform` + `features≥1` + `budget_band 또는 deadline 중 ≥1`, §3.2 — 추정)과 B 원안(6슬롯 모두 filled, §1.2)은 서로 충돌하므로, 본 PRD는 절충안(하드조건=`platform`+`features≥1`+`existing_ref`+`customer_id`, 예산/일정·acceptance는 선택·추정확정)을 채택하고 합의를 요구한다. 예산 없이는 견적 3안 분별력이 떨어진다는 B 지적과 fast-track 필요라는 A 지적의 절충점이다. `rag_reuse_confirmed`는 유사 프로젝트 발견 시에만 required로 승격한다(PARALLEL_1_SPEC §3 분기).
+- **Input**: 본 PRD + 병렬작업 3 스펙생성 최소입력 의견
 - **Output**: 확정 required 집합 문서
 - **완료 조건 (DoD)**:
-  - [ ] A 원안·B 원안·절충안이 모두 기록되고(본 PRD §2 C-AO5·C-BO1·C-A4) 팀C 합의로 1개가 확정된다
+  - [ ] A 원안·B 원안·절충안이 모두 기록되고(본 PRD §2 C-AO5·C-BO1·C-A4) 병렬작업 3 합의로 1개가 확정된다
   - [ ] 확정 전까지는 절충안(REQ-ELICIT-006 하드조건)을 잠정치로 사용한다
 - **Description**: ReAct §5.4 추정 1항. 합의 전까지 개발이 막히지 않게 잠정치로 진행한다.
 - **우선순위**: P0(합의) / **마감 전**
@@ -594,7 +594,7 @@
 
 ## 7. 미확정 사항 (추정 명시 — ReAct §5.4 + A §6 + B §5 수용)
 
-1. required 하드조건 절충안(`platform·features≥1·existing_ref` + `customer_id`)은 본 PRD의 절충 제안이며 **(추정)** — REQ-ELICIT-024 팀C 합의 후 확정.
+1. required 하드조건 절충안(`platform·features≥1·existing_ref` + `customer_id`)은 본 PRD의 절충 제안이며 **(추정)** — REQ-ELICIT-024 병렬작업 3 합의 후 확정.
 2. "한 턴 1개 기본·최대 2개", "질문 상한 3회", "300자·불릿 4개"는 UX 일반론 기반 **(추정)** — REQ-ELICIT-022 파일럿 로그 후 확정.
 3. `platform` 단일값·`budget_or_time` 선택 취급은 현 스키마 enum 실측에 근거하나 "둘 다" 수요 빈도는 **(추정)** — REQ-ELICIT-021 로그 후 개정 판단.
 4. self-check·NIM 추출 지연의 체감 영향은 `NIM_TIMEOUT_SEC=25` 실측과 폴백 설계로 완화 가능하나 실측 전 확정 불가 **(추정)**.

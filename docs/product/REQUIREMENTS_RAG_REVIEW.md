@@ -68,7 +68,7 @@
 | 확인된 사실 | 34개 언어 평가에 **한국어 포함**. 동급 크기 SOTA 주장(RTEB 72.38, MMTEB Retrieval 71.05, NDCG@10). 차원 2048, 최대 32,768 토큰. NIM 서버리스 요금 $0.01/1M 토큰 표기. 출처: https://build.nvidia.com/nvidia/nemotron-3-embed-1b , https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-embed-1b , https://huggingface.co/blog/nvidia/nemotron-3-embed-wins-rteb |
 | 확인 필요 | **언어별(한국어 단독) 점수 미확인.** 벤치 평균만 공개돼 있고 한국어 NDCG@10 단독 수치는 모델카드·MTEB 리더보드에서 찾지 못함. 출처: https://leaderboard.mteb.org/models/nvidia/Nemotron-3-Embed-1B-BF16 (점수 로딩 미확인). → WP-R0에서 한국어 질문-정답 30쌍으로 직접 잰다(§5) |
 | 대안 (교체 가능성만 확보, 지금 교체 아님) | `multilingual-e5-large-instruct`, `Qwen3-Embedding` 계열이 한국어 포함 다국어 강자로 알려짐. 단, NIM 제공 여부·요금은 **확인 필요** (NIM 카탈로그에서 `qwen3-embedding`·`e5` 제공 여부 미확인). `app/llm.py`가 단일 진입점이라 교체는 모델명 변경 수준 — 교체가 필요해지면 그때 실측 비교 |
-| 현재 코드의 문제 | `app/services/rag.py`는 해커톤용 가짜 문서 3개 + 임계값 0.70 하드코딩(`config.py` 실측 주석). 실데이터 연결 시 이 파일은 폐기하고 §7 스키마로 교체. 임계값은 WP-R0 실측으로 다시 정함 |
+| 현재 코드의 문제 | `app/services/rag.py`는 초기 개발용 가짜 문서 3개 + 임계값 0.70 하드코딩(`config.py` 실측 주석). 실데이터 연결 시 이 파일은 폐기하고 §7 스키마로 교체. 임계값은 WP-R0 실측으로 다시 정함 |
 
 ---
 
