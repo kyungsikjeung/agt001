@@ -1,4 +1,30 @@
-# agt001 — 말하면 가게 사이트가 된다
+# 한마디 — 말하면 가게 사이트가 된다
+
+> 소상공인이 채팅(글·음성·사진)으로 원하는 것을 설명하면, AI가 요구사항을 정리해 확인받은 뒤 실제로 동작하는 웹사이트를 만들어 바로 공개해 주는 서비스. 베타 기간 무료.
+
+## 왜 필요한가
+
+| 문제 | 기존 방식의 한계 | 이 서비스의 답 |
+|---|---|---|
+| 외주는 비싸다 | 한 페이지에 수십만~수백만원, 수정 때마다 추가 비용 | AI가 정리·제작, 베타 무료 |
+| 직접 만들기는 어렵다 | 개발 지식 없이 휴대폰만 있는 사장님 | 말과 사진만으로 완성 |
+| AI만 쓰면 지어낸다 | 없는 전화·가격을 만들어냄 | 근거 검사 + 틀린 값 저장 차단, 확정 전 사람 확인 |
+
+```mermaid
+flowchart LR
+    P1(["1 비싸다·어렵다·지어낸다"]) --> P2["2 말하기(채팅·음성·사진)"]
+    P2 --> P3["3 AI 정리 + 사장님 확인"]
+    P3 --> P4["4 시안 3안 중 선택"]
+    P4 --> P5["5 공개 + 문의·예약 알림"]
+```
+
+| 번호 | 단계 | 설명 |
+|---|---|---|
+| 1 | 문제 | 외주는 비싸고, 직접 만들기는 어렵고, AI만 쓰면 없는 전화·가격을 지어낸다 |
+| 2 | 말하기 | 글·음성(🎤, 답변 읽어주기, 손 안 쓰는 모드)·사진으로 설명한다 |
+| 3 | 정리·확인 | 요구사항 엔진이 근거 있는 값만 칸에 넣고, 틀린 값(자리수 틀린 전화·25시 등)은 저장하지 않고 다시 묻는다 |
+| 4 | 시안 | 분위기가 다른 3안 중 하나를 고른다 |
+| 5 | 공개 | 공개 사이트에서 손님이 문의·예약을 신청하면 채팅방과 사장님 카톡으로 알린다 |
 
 ## 3분 안에 써 보기
 
@@ -24,14 +50,14 @@
 1. 랜딩 입력 — 가게와 원하는 것을 한 문장으로 입력한다 (`frontend/src/Landing.tsx`).
 2. 질문 몇 개 — 요구사항 엔진이 빈 칸 하나씩 최대 8회까지 되묻는다. 선택지 4개 이하 + 자유 입력 (`app/services/prd_engine.py`).
 3. 요약 확인 — 요구사항 카드를 보고 확정한다. 공유방은 과반 투표 (`app/services/rooms.py`).
-4. 견적 — 견적 3안과 산정 근거를 확인한다 (베타 무료, 외주를 맡길 때의 참고값) (`app/services/quote.py`).
-5. 시안 — 분위기가 다른 시안 후보를 보고 하나를 고른다 (진행 중, 현재는 1종 정적 템플릿).
+4. 견적 — 규칙으로 계산한 참고 견적 한 줄과 산정 근거를 확인한다 (베타 무료, 외주를 맡길 때의 참고값) (`app/services/quote.py`).
+5. 시안 — 분위기가 다른 시안 3안을 보고 하나를 고른다 (`app/services/design_variants.py`).
 6. 코드생성 — 확정 요구사항으로 Hermes가 격리 샌드박스에서 사이트를 만든다 (`app/services/codegen.py`).
 7. 공개 사이트 — `/site/<id>/` 로 실제 접속 가능한 결과물을 받는다 (`app/api/public.py`).
 
-## 지금 상태 (2026-09-26 갱신)
+## 지금 상태 (2026-09-27 갱신)
 
-운영 배포 HEAD: `1818401` (2026-09-26).
+운영 배포 커밋은 [STATUS.md](STATUS.md) 맨 위에 적는다(배포 스크립트가 확인한 값).
 
 **운영에서 바로 확인할 수 있는 것**
 
@@ -147,26 +173,26 @@ flowchart LR
 | 3 | 공유방 | 다인원 방, 과반 투표, 4초 폴링 (`app/api/rooms.py`, `app/services/rooms.py`, `static/room.html`) |
 | 4 | 요구사항 엔진 | 추출(NIM) + 규칙(질문 고르기·지어내기 차단). 최대 8회, 선택지 4개 이하 (`app/services/prd_engine.py`) |
 | 5 | 승인 게이트 | 확정 또는 과반 투표 통과 시에만 다음 단계 (`app/services/rooms.py`) |
-| 6 | 견적 | AI 3안 JSON + 추천. 규칙 계산 전환 결정됨 (D25) (`app/services/quote.py`) |
-| 7 | 시안 | 정적 템플릿 1종 렌더링 + 스크린샷 (`app/services/design.py`) |
+| 6 | 견적 | 규칙 계산 한 줄 + 베타 무료 (D25) (`app/services/quote.py`) |
+| 7 | 시안 | 카드 → 시안 3안(기본형·사진 강조형·간결형) 부품+토큰 렌더 (`design_variants.py`, `site_render.py`, `design.py`) |
 | 8 | 시안 선택 | 현재 단일 시안 확인. 3안 비교·투표는 진행 중 |
 | 9 | Hermes 코드생성 | Docker 샌드박스(`--rm`, `/workspace`만) 격리 실행 (`app/services/codegen.py`) |
 | 10 | 배포 | 산출물을 `generated/<id>/`에 기록, 백엔드가 직접 서빙 (`app/services/deploy.py`) |
 | 11 | 공개 사이트 | `/site/<id>/`, CSP sandbox 격리 (`app/api/public.py`) |
 | 12 | 직접 편집 | 명세 값 수정 프로토타입, 목업 데이터 (`frontend/src/editor/`, `/editor`) |
-| 13 | NIM 대화·임베딩 | 모든 LLM 호출의 단일 진입점 (`app/llm.py`) |
-| 14 | 음성 입력 | 1단계 키보드 안내부터. Parakeet 연동은 진행 중 (`docs/product/VOICE_INPUT_PLAN.md`) |
+| 13 | NIM 대화·임베딩 | 모든 NIM 호출의 단일 진입점 + super→ultra→lightning 폴백 (`app/llm.py`) |
+| 14 | 음성 입력 | Parakeet STT(입력창 전달, 녹음 즉시 삭제) + Magpie TTS 듣기 + 무전기 모드 (`docs/product/VOICE_INPUT_PLAN.md`) |
 | 15 | 카카오 초대 링크 | 방 초대·시안·배포 링크 공유. 그룹채팅 내 봇 동작은 공식 API로 불가하여 링크 공유 방식 |
 
 ## 품질
 
-테스트 수 (파일을 직접 세어 확인, 2026-09-26 기준):
+테스트 수 (2026-09-27 기준, CI 합계 334개 + 프론트·평가):
 
 - 단위 테스트: 269개 (`tests/unit`, 실제 PostgreSQL 위에서, CI에서 매 커밋 실행).
-- 엔진 검증 테스트: 65개 (`tests/engine`, 경계 조건·T3 후속 회귀. 전부 통과).
-- 평가 도구 테스트: 29개 (`evals/tests`, 추출 평가·대화 시뮬레이션 실행기).
+- 엔진 검증 테스트: 65개 (`tests/engine`, 경계 조건·T3 후속 회귀·W1 저장 차단. 전부 통과).
+- 평가 도구 테스트: 29개 (`evals/tests`, 추출 평가·대화 시뮬레이션·wrong 6개).
 - E2E 테스트: 5개 (`tests/e2e/test_room_e2e.py`: 입장→요청→투표→견적→시안→코드생성→배포 URL 흐름).
-- 프론트 테스트: 18개 (`frontend/src/editor/EditorPage.test.tsx` 3, `specReducer.test.ts` 15, vitest + jsdom).
+- 프론트 테스트: 36개 (vitest + jsdom), 휴대폰 크기 자동 점검 `tests/e2e/mobile_flow.py` 11단계 통과(운영).
 
 CI (`.github/workflows/ci.yml`):
 
@@ -228,14 +254,10 @@ agt001/
 └── docs/                 # 문서 (아래 목록)
 ```
 
-## 문서 목록
+## 문서 목록 (최신순 전체는 [`docs/INDEX.md`](docs/INDEX.md))
 
-- 진행 상황: `STATUS.md`
-- 요구사항 정본·아키텍처: `docs/hackathon/REQUIREMENTS.md`, `docs/hackathon/ARCHITECTURE.md`
-- 제품 로드맵·결정: `docs/product/PRODUCT_ROADMAP.md`, `docs/product/DECISIONS.md`
-- 요구사항 엔진: `docs/product/REQUIREMENTS_ENGINE_PLAN.md`, `docs/product/research/REQUIREMENTS_ENGINE_RESEARCH.md`
-- 시안 파이프라인: `docs/product/DESIGN_PIPELINE_PLAN.md` (§13이 우선)
-- 음성 입력: `docs/product/VOICE_INPUT_PLAN.md` (부록에 Parakeet·Magpie 실측)
-- 검토 게이트 설계: `docs/hackathon/REVIEW_GATE_DESIGN.md`
-- 로컬 셋업·환경: `docs/hackathon/LOCAL_SETUP.md`, `docs/hackathon/ENVIRONMENT.md`
-- 배포·DB 운영: `docs/hackathon/deployment/RENDER_DEPLOY.md`, `docs/product/DB_OPERATIONS.md`
+- 외부 안내: `docs/external/FEATURES.md` (기능) · `SYSTEM_REQUIREMENTS.md` (SYS-1~28) · `SOFTWARE_REQUIREMENTS.md` (SW-1~21) · `TRACEABILITY.md` (추적표) · `GLOSSARY.md` (용어)
+- 설계: `docs/hackathon/ARCHITECTURE.md` (v0.2) · `docs/product/FLOWDOC.md` (실행 흐름) · `docs/product/COMPONENT_CATALOG.md` (레이어·인터페이스) · `docs/product/DESIGN_RATIONALE.md` (설계 관점)
+- 요구 정본: `docs/hackathon/REQUIREMENTS.md` (REQ) · `docs/reqpipe/02_REQUIREMENTS.md` (G01~G18)
+- 진행 상황: `STATUS.md` · `docs/product/BACKLOG.md` · 결정 `docs/product/DECISIONS.md`
+- 운영: `docs/product/DB_OPERATIONS.md` · `docs/product/COST_MONITORING.md` · 로컬 셋업 `docs/hackathon/LOCAL_SETUP.md`

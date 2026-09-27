@@ -20,7 +20,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 코드 | [`backend.py`](../../backend.py) — Flask, `/health` + `/chat`(NIM 직접 호출) |
+| 코드 | `backend.py` — Flask, `/health` + `/chat`(NIM 직접 호출) |
 | 의존성 | [`requirements.txt`](../../requirements.txt) — flask, python-dotenv, openai, requests |
 | 환경변수 | `.env` (from `.env.example`, `.gitignore`에 등록됨 — 커밋 안 됨) |
 | 실행 | `docker compose up --build` → `curl http://localhost:8643/health` |

@@ -74,7 +74,7 @@
 
 | # | STT | 한국어 특성 | 1분 기준 지연·비용 | 출처 |
 |---|---|---|---|---|
-| S4 | 네이버 CLOVA Speech | 한국어·전화망 특화 주장. 단문 REST 최대 60초(1분 발화에 적합), 15초 단위 올림, 장문 Free **월 20분 무료**. 예시 단가 약 0.5원/초(≒30원/분) — 최종 요금표 확인 필요 | 지연 공식 미공개(확인 필요). 비용 약 30원/분 가정 | DEV_DECISION_VOICE §1.1 S4, https://www.ncloud.com/api-cms/service-product/static/clovaSpeech |
+| S4 | 네이버 CLOVA Speech | 한국어·전화망 특화 주장. 단문 REST 최대 60초(1분 발화에 적합), 15초 단위 올림, 장문 Free **월 20분 무료**. 예시 단가 약 0.5원/초(≒30원/분) — 최종 요금표 확인 필요 | 지연 공식 미공개(확인 필요). 비용 약 30원/분 가정 | DEV_DECISION_VOICE §1.1 S4, https://www.ncloud.com/product/aiService/clovaSpeech |
 | S5 | 리턴제로 RTZR/VITO (`sommers_ko`) | 한국어 통화 특화, 8kHz 예제. Basic **시간당 1,000원**, 가입 시 10시간 무료 | 지연 공식 미공개(확인 필요). 비용 약 16.7원/분 | https://www.rtzr.ai/en/pricing |
 | S1 | OpenAI 전사 (`gpt-4o-transcribe` $0.006/분, mini $0.003/분, Whisper-1 $0.36/시간) | 다국어, 국외 전송 | 수 초(배치). mini 기준 1분 ≒ $0.003 | DEV_DECISION_VOICE §1.1 S1, https://developers.openai.com/api/docs/models/gpt-4o-transcribe (토큰 과금 표기) + 서드파티 분당 환산 https://costgoat.com/pricing/openai-transcription |
 | S7 | NVIDIA Riva/Speech NIM (Parakeet ko-KR 포함) | **우리 ARM 서버에서 불가 (GPU 필수)** — 제외 | — | DEV_DECISION_VOICE §1.2 |
@@ -232,7 +232,7 @@ flowchart TD
 - getUserMedia secure context(HTTPS 필수): https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia
 - 마이크 권한은 필요할 때만 요청: https://web.dev/articles/media-recording-audio?hl=ko
 - MediaRecorder Safari 형식(MP4/AAC, 18.4+ webm): https://webkit.org/blog/11353/mediarecorder-api · https://github.com/addpipe/Media-Recorder-API-Demo
-- CLOVA Speech: https://www.ncloud.com/api-cms/service-product/static/clovaSpeech · https://guide.ncloud-docs.com/docs/clovaspeech-spec.md
+- CLOVA Speech: https://www.ncloud.com/product/aiService/clovaSpeech · https://guide.ncloud-docs.com/docs/clovaspeech-spec.md
 - RTZR 요금(Basic 시간당 1,000원·10시간 무료): https://www.rtzr.ai/en/pricing · https://www.rtzr.ai/en/stt
 - OpenAI 전사 모델·요금: https://developers.openai.com/api/docs/models/gpt-4o-transcribe · https://developers.openai.com/api/docs/models/gpt-4o-mini-transcribe · https://developers.openai.com/api/docs/pricing · 분당 환산 https://costgoat.com/pricing/openai-transcription
 - faster-whisper: https://github.com/SYSTRAN/faster-whisper

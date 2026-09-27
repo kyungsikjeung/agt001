@@ -15,7 +15,7 @@
 - [5. 코드생성·배포 (REQ-CODEGEN / REQ-BUILD / REQ-DEPLOY)](#5-코드생성배포)
 - [6. 최종 검토 (REQ-REVIEW)](#6-최종-검토)
 - [7. 공통/운영 (REQ-ENV / REQ-DOC / REQ-FLOW)](#7-공통운영)
-- [8. 원래 해커톤 요구사항(1~11)과의 매핑](#8-원래-해커톤-요구사항1~11과의-매핑)
+- [8. 원래 해커톤 요구사항(1~11)과의 매핑](#8-원래-해커톤-요구사항111과의-매핑)
 
 ## 0. 이 문서를 읽는 법
 
@@ -125,7 +125,7 @@ sequenceDiagram
 | 1 | 챗봇이 RAG 검색기에 `{query, top_k}`로 검색을 요청한다 (BND-8) |
 | 2 | RAG가 SRS.md/SPEC.md 인덱스에서 임베딩 유사도 검색을 수행한다 |
 | 3 | 인덱스가 관련 청크와 점수를 돌려준다 |
-| 4 (기존) | 유사도가 임계값 이상이면 기존 프로젝트 발견으로 판정한다 → REQ-ASK-001에서 "확장 vs 신규 vs 마이그레이션" 질의로 이어짐(README [시나리오 2](../../README.md#시나리오-2--rag가-기존-프로젝트를-발견-재사용-경로)) |
+| 4 (기존) | 유사도가 임계값 이상이면 기존 프로젝트 발견으로 판정한다 → REQ-ASK-001에서 "확장 vs 신규 vs 마이그레이션" 질의로 이어짐(README [시나리오 2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스)) |
 | 4 (신규) | 유사도가 임계값 미만이면 신규 건으로 판정하고 곧바로 REQ-INTAKE-001로 진행한다 |
 
 ### REQ-INTAKE-001 — 요구사항 구조화 접수
@@ -182,7 +182,7 @@ sequenceDiagram
   - [ ] 모든 애매 항목에 대해 옵션이 정확히 3개(+추천 1개)로 생성된다
   - [ ] 고객이 옵션 밖의 자유 서술로 답하면 재질문한다(§9 에러 처리)
 
-**Description**: README [시나리오 3](../../README.md#시나리오-3--검증-실패--재질의--승인-반려-경로)의 1~4번 단계와 동일하므로 중복 게재하지 않는다.
+**Description**: README [시나리오 3](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스)의 1~4번 단계와 동일하므로 중복 게재하지 않는다.
 
 ## 3. 승인·견적
 
@@ -198,7 +198,7 @@ sequenceDiagram
   - [ ] BND-2와 BND-3가 항상 동일한 `requirement_id`로 함께 나간다
   - [ ] 반려 시 원래 애매했던 항목으로 정확히 되돌아간다(처음부터 다시 묻지 않음)
 
-**Description**: README [시나리오 3](../../README.md#시나리오-3--검증-실패--재질의--승인-반려-경로) 5~7번 단계 참고. 승인 직후 BND-2/BND-3 동시 발화는 [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 8~13번, 17번 단계에서 확인할 수 있다.
+**Description**: README [시나리오 3](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 5~7번 단계 참고. 승인 직후 BND-2/BND-3 동시 발화는 [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 8~13번, 17번 단계에서 확인할 수 있다.
 
 ### REQ-QUOTE-001 — 견적 산정 + 근거
 
@@ -210,7 +210,7 @@ sequenceDiagram
   - [ ] 모든 견적에 근거 문구가 함께 존재한다(근거 없는 견적 금지)
   - [ ] 같은 입력이면 같은 견적이 나온다(재현성)
 
-**Description**: [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 11~12번 단계, 상세는 [TEAM_A_SPEC.md §7](TEAM_A_SPEC.md#7-⑧-견적-산정--근거).
+**Description**: [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 11~12번 단계, 상세는 [TEAM_A_SPEC.md §7](TEAM_A_SPEC.md#7--견적-산정--근거).
 
 ## 4. 디자인·전달
 
@@ -224,7 +224,7 @@ sequenceDiagram
   - [ ] 시안이 최소 1종 이상 생성되며, 렌더링 실패 시에도 고정 템플릿으로 폴백해 "시안이 아예 안 옴"이 발생하지 않는다([TEAM_B_SPEC.md §6](TEAM_B_SPEC.md#6-에러-처리))
   - [ ] 견적 근거가 시안 페이지에 함께 노출된다
 
-**Description**: 상세는 [TEAM_B_SPEC.md §2](TEAM_B_SPEC.md#2-⑨-ui-시안-생성기).
+**Description**: 상세는 [TEAM_B_SPEC.md §2](TEAM_B_SPEC.md#2--ui-시안-생성기).
 
 ### REQ-DESIGN-002 — 시안 확인 및 선택
 
@@ -236,7 +236,7 @@ sequenceDiagram
   - [ ] 고객이 선택하지 않아도 다음 단계(코드생성)가 무한정 막히지 않는다(타임아웃 시 추천 시안으로 기본 진행 — 세부 정책은 D+4에 확정)
   - [ ] 선택 결과가 기록되어 나중에 조회 가능하다
 
-**Description**: README [시나리오 1](../../README.md#시나리오-1--정상-경로-한-번에-승인-신규-요구) 8~10번 단계 참고.
+**Description**: README [시나리오 1](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 8~10번 단계 참고.
 
 ### REQ-DELIVER-001 — 카카오링크 전송 (시안 + 최종, 순서 보장)
 
@@ -249,7 +249,7 @@ sequenceDiagram
   - [ ] 사람 검토가 반려(`rejected`)한 배포는 어떤 경로로도 전송되지 않는다
   - [ ] 카카오링크 API 실패 시 3회 재시도 후 사람에게 알림([TEAM_B_SPEC.md §6](TEAM_B_SPEC.md#6-에러-처리))
 
-**Description**: README [시나리오 5](../../README.md#시나리오-5--승인된-요구사항이-에이전트를-거쳐-카카오톡-링크로-도착하기까지-개발배포-상세) 11~15번 단계 참고 (사람 검토 통과 후 전송되는 alt 블록 포함).
+**Description**: README [시나리오 5](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 11~15번 단계 참고 (사람 검토 통과 후 전송되는 alt 블록 포함).
 
 ## 5. 코드생성·배포
 
@@ -263,7 +263,7 @@ sequenceDiagram
   - [ ] 스펙 문서에 REQ-GATE-001의 `acceptance_criteria`가 그대로 포함된다(요구사항 유실 없음)
   - [ ] 웹/안드로이드 작업이 서로 의존성 없이 병렬 처리 가능한 형태로 분해된다
 
-**Description**: [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 13~18번 단계, 상세는 [TEAM_C_SPEC.md §2~3](TEAM_C_SPEC.md#2-⑫-srs스펙-문서-생성-에이전트).
+**Description**: [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 13~18번 단계, 상세는 [TEAM_C_SPEC.md §2~3](TEAM_C_SPEC.md#2--srs스펙-문서-생성-에이전트).
 
 ### REQ-CODEGEN-002 — 웹/안드로이드 병렬 코드 생성
 
@@ -275,7 +275,7 @@ sequenceDiagram
   - [ ] 두 코드생성 작업이 서로를 기다리지 않고 병렬로 실행된다
   - [ ] 생성된 코드가 REQ-BUILD-001로 전달 가능한 형태(빌드 가능한 프로젝트 구조)다
 
-**Description**: README [시나리오 5](../../README.md#시나리오-5--승인된-요구사항이-에이전트를-거쳐-카카오톡-링크로-도착하기까지-개발배포-상세) 4~7번 단계 참고.
+**Description**: README [시나리오 5](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 4~7번 단계 참고.
 
 ### REQ-BUILD-001 — 빌드 (실패 시 재시도·전파)
 
@@ -288,7 +288,7 @@ sequenceDiagram
   - [ ] 빌드가 백그라운드 워커에서 처리되어 다른 웹 요청과 섞이지 않는다([ARCHITECTURE.md §6-2](ARCHITECTURE.md#6-2-상시-운영환경-제안-신규))
   - [ ] 재시도도 실패하면 정확히 `status: "failed"`가 전파되고, 고객에게 깨진 링크가 가지 않는다
 
-**Description**: README [시나리오 4](../../README.md#시나리오-4--배포-실패-처리-실패-경로) 전체(1~7번) 참고.
+**Description**: README [시나리오 4](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 전체(1~7번) 참고.
 
 ### REQ-DEPLOY-001 — 상시 배포
 
@@ -317,7 +317,7 @@ sequenceDiagram
   - [ ] 반려 사유가 기록되어 재작업하는 팀원 C가 참고할 수 있다
   - [ ] 순번표가 확정되어 "검토자가 없어서 멈추는" 상황이 없다
 
-**Description**: [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 20~22번 단계(alt 블록), README [시나리오 5](../../README.md#시나리오-5--승인된-요구사항이-에이전트를-거쳐-카카오톡-링크로-도착하기까지-개발배포-상세) 11~14번 단계 참고. 별도 다이어그램을 중복 게재하지 않는다.
+**Description**: [ARCHITECTURE.md §2](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 20~22번 단계(alt 블록), README [시나리오 5](ARCHITECTURE.md#2-요구사항-처리-파이프라인-상세-시퀀스) 11~14번 단계 참고. 별도 다이어그램을 중복 게재하지 않는다.
 
 ## 7. 공통/운영
 

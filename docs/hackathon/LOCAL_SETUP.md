@@ -56,7 +56,7 @@ curl -X POST http://localhost:8643/chat \
 
 | 파일 | 역할 |
 |---|---|
-| [`backend.py`](../../backend.py) | Flask 앱. `/health`(헬스체크), `/chat`(NIM OpenAI 호환 API 호출) |
+| `backend.py` | Flask 앱. `/health`(헬스체크), `/chat`(NIM OpenAI 호환 API 호출) |
 | [`requirements.txt`](../../requirements.txt) | `flask`, `python-dotenv`, `openai`(NIM 호출용 클라이언트), `requests` |
 | [`docker-compose.yml`](../../docker-compose.yml) | 로컬/배포 공통 컨테이너 정의 |
 
