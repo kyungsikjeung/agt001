@@ -147,6 +147,7 @@ export default function Landing() {
                 카카오로 계속하기
               </button>
               {/* 구글 로그인은 테스트 모드(초대된 계정만)라 숨긴다. 자체 도메인·브랜드 인증 뒤 다시 켠다(서버 경로는 그대로). */}
+              <p className="login-note">구글 로그인은 준비 중이에요. 카카오로 시작해 주세요.</p>
             </div>
           )}
         </div>

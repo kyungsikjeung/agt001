@@ -101,6 +101,47 @@
   .design-card.on .design-pick-btn { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
   .design-open { font-size: 0.8125rem; color: var(--accent-dark); }
   .design-pick-btn:focus-visible, .design-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* P0: 시안별 차이 1줄 (D43 역할고정 사용자 언어) */
+  .design-diff { font-size: 0.75rem; color: var(--text-muted); margin: 0 0 8px; }
+  /* P0: 질문 진행바 (얇은 바 + 한 줄 안내, 360px 1줄) */
+  #progressWrap { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); }
+  #progressWrap[hidden] { display: none; }
+  #progressTrack { flex: none; width: 72px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  #progressFill { height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .2s ease-out; }
+  #progressText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* P0: 출처 라벨 (AI 정리) · 견적 고지 (참고용) · 문의 보관 안내 */
+  .src-note, .quote-note, .inquiry-note { font-size: 0.75rem; border-radius: 6px; padding: 6px 8px; margin-top: 8px; }
+  .src-note { background: #eef2ff; color: var(--accent-dark); }
+  .quote-note { background: #fff7e6; border: 1px solid #f5c26b; color: #713f12; }
+  .inquiry-note { background: none; color: var(--text-muted); padding: 4px 0 0; }
+  /* P0: 시안 썸네일 로딩 (종횡비 고정 + 쉬머, 로드 후 페이드인) */
+  .design-thumb img { opacity: 0; transition: opacity .2s ease-out; }
+  .design-thumb img.loaded { opacity: 1; }
+  .design-thumb.loading { background: linear-gradient(100deg, #e5e7eb 40%, #f3f4f6 50%, #e5e7eb 60%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  /* P0+P1: 시안 크게 보기 바텀시트 (문맥 유지 1순위, 새 탭은 시트 안 2순위) */
+  #designSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 28; display: flex; align-items: flex-end; justify-content: center; }
+  #designSheetWrap[hidden] { display: none; }
+  #designSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 88dvh; }
+  #designSheet h2 { margin: 0; font-size: 1rem; }
+  #designSheetDiff { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
+  #designSheetImg { width: 100%; aspect-ratio: 390 / 780; object-fit: cover; border-radius: 8px; background: #e5e7eb; }
+  #designSheetRow { display: flex; gap: 8px; }
+  #designSheetPick { flex: 1; min-height: 44px; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; font-weight: 600; cursor: pointer; }
+  #designSheetOpen { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--accent-dark); font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.875rem; }
+  #designSheetClose { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-weight: 600; cursor: pointer; }
+  /* P1: 말풍선·선택 마이크로모션 (줄인 움직임 선호 존중) */
+  @media (prefers-reduced-motion: no-preference) {
+    .row { animation: rise .12s ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .design-card { transition: border-color .15s ease-out, box-shadow .15s ease-out; }
+    #choiceBar button:active { transform: scale(0.97); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .design-thumb.loading { animation: none; }
+    #progressFill { transition: none; }
+    .design-thumb img { transition: none; }
+  }
 
   #voteBar, #proceedBar {
     display: none; padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border);
@@ -235,6 +276,7 @@
     <button id="memberCount" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="memberPanelWrap" aria-label="참여자 목록 열기"></button>
   </header>
   <div id="statusBar"><span class="dot"></span><span id="statusText"></span></div>
+  <div id="progressWrap" hidden><div id="progressTrack" aria-hidden="true"><div id="progressFill"></div></div><span id="progressText" role="status"></span></div>
   <div id="log"></div>
   <div id="voteBar">
     <span>이 요구사항으로 견적을 진행할까요?</span>
@@ -268,6 +310,18 @@
       <div id="walkieSlot"></div>
       <button id="moreLeaveBtn" type="button">방에서 나가기</button>
       <button id="moreCloseBtn" type="button">닫기</button>
+    </div>
+  </div>
+  <div id="designSheetWrap" hidden>
+    <div id="designSheet" role="dialog" aria-modal="true" aria-labelledby="designSheetTitle">
+      <h2 id="designSheetTitle">시안 미리보기</h2>
+      <p id="designSheetDiff"></p>
+      <img id="designSheetImg" alt="시안 크게 보기">
+      <div id="designSheetRow">
+        <button id="designSheetPick" type="button">이걸로 할게요</button>
+        <a id="designSheetOpen" href="#" target="_blank" rel="noopener">새 탭으로 열기</a>
+      </div>
+      <button id="designSheetClose" type="button">닫기</button>
     </div>
   </div>
   <div id="inviteDialogWrap" hidden>
@@ -378,8 +432,8 @@ let notifyChecked = false;
 let claimTried = false;
 
 const STATUS_LABEL = {
-  IDLE: '', RAG_SEARCHING: '🔍 과거 프로젝트를 검색 중...', THINKING: '🤖 AI가 생각 중...',
-  QUOTING: '🧾 견적을 계산 중...', GENERATING: '⚙️ 코드 생성 중... (최대 90초)', DONE: '✅ 완료',
+  IDLE: '', RAG_SEARCHING: '과거 사례를 찾는 중...', THINKING: 'AI가 정리 중...',
+  QUOTING: '참고 견적을 계산 중...', GENERATING: '시안 3안을 만드는 중... (최대 90초, 나갔다 와도 돼요)', DONE: '완료',
 };
 
 function hueFromString(s) {
@@ -388,9 +442,11 @@ function hueFromString(s) {
   return h;
 }
 
-  // 시안 3안 이름
+  // 시안 3안 이름 + 차이 1줄 (P0: 고르는 기준을 말로. D43 역할고정)
   const DESIGN_NAMES = { 1: '기본형', 2: '사진 강조형', 3: '간결형' };
+  const DESIGN_DIFFS = { 1: '정석형 · 메뉴·가격 중심', 2: '사진형 · 첫화면 사진 큼', 3: '간결형 · 글자 크고 버튼 1개' };
   let pickedDesignNo = 0;
+  let designSheetOpener = null;
   // 시안 안내 글에서 /design/<id> 찾기
   function findDesignId(t) {
     const s = t || '';
@@ -419,6 +475,38 @@ function hueFromString(s) {
       if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }
+  // 시안 크게 보기 바텀시트 (P0: 문맥 유지 1순위. 새 탭 링크는 시트 안에 2순위로 둔다)
+  function openDesignSheet(n, id, opener) {
+    const wrap = document.getElementById('designSheetWrap');
+    const img = document.getElementById('designSheetImg');
+    const title = document.getElementById('designSheetTitle');
+    const diff = document.getElementById('designSheetDiff');
+    const pick = document.getElementById('designSheetPick');
+    const open = document.getElementById('designSheetOpen');
+    if (!wrap || !img) return;
+    designSheetOpener = opener || null;
+    title.textContent = n + '안 · ' + DESIGN_NAMES[n];
+    diff.textContent = DESIGN_DIFFS[n] || '';
+    img.alt = n + '안 ' + DESIGN_NAMES[n] + ' 크게 보기';
+    img.src = '/design/' + id + '/v' + n + '/';
+    open.href = '/design/' + id + '/v' + n + '/';
+    pick.onclick = () => {
+      sendRoomMessage(n + '안으로 할게요');
+      pickedDesignNo = n;
+      refreshDesignMarks();
+      closeDesignSheet();
+    };
+    wrap.hidden = false;
+    const closeBtn = document.getElementById('designSheetClose');
+    if (closeBtn) closeBtn.focus();
+  }
+  function closeDesignSheet() {
+    const wrap = document.getElementById('designSheetWrap');
+    if (!wrap || wrap.hidden) return;
+    wrap.hidden = true;
+    if (designSheetOpener && document.contains(designSheetOpener)) designSheetOpener.focus();
+    designSheetOpener = null;
+  }
   // 시안 카드 3개 묶음 만들기
   function buildDesignCards(bubble, id) {
     const wrap = document.createElement('div');
@@ -429,12 +517,14 @@ function hueFromString(s) {
       card.setAttribute('data-pick', String(n));
       if (n === pickedDesignNo) card.classList.add('on');
       const thumb = document.createElement('div');
-      thumb.className = 'design-thumb';
+      thumb.className = 'design-thumb loading';
       const img = document.createElement('img');
       img.loading = 'lazy';
       img.alt = n + '안 ' + DESIGN_NAMES[n] + ' 미리보기';
       img.src = '/design/' + id + '/v' + n + '.png';
+      img.onload = () => { img.classList.add('loaded'); thumb.classList.remove('loading'); };
       img.onerror = () => {
+        thumb.classList.remove('loading');
         thumb.textContent = '';
         const fb = document.createElement('div');
         fb.className = 'design-fallback';
@@ -442,6 +532,13 @@ function hueFromString(s) {
         thumb.appendChild(fb);
       };
       thumb.appendChild(img);
+      // 썸네일을 누르면 바텀시트로 크게 본다 (방을 떠나지 않음)
+      thumb.style.cursor = 'pointer';
+      thumb.setAttribute('role', 'button');
+      thumb.setAttribute('tabindex', '0');
+      thumb.setAttribute('aria-label', n + '안 ' + DESIGN_NAMES[n] + ' 크게 보기');
+      thumb.onclick = (e) => openDesignSheet(n, id, e.currentTarget);
+      thumb.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDesignSheet(n, id, e.currentTarget); } };
       card.appendChild(thumb);
       const title = document.createElement('div');
       title.className = 'design-title';
@@ -451,6 +548,10 @@ function hueFromString(s) {
       badge.textContent = '선택됨';
       title.appendChild(badge);
       card.appendChild(title);
+      const diff = document.createElement('p');
+      diff.className = 'design-diff';
+      diff.textContent = DESIGN_DIFFS[n] || '';
+      card.appendChild(diff);
       const row = document.createElement('div');
       row.className = 'design-row';
       const pick = document.createElement('button');
@@ -657,6 +758,27 @@ function addMessage(m, isNew) {
   text.className = 'text';
   text.textContent = m.text || '';
   bubble.appendChild(text);
+  // P0: 출처 라벨 — AI가 정리한 요구사항 되짚기에는 근거 표시를 붙인다
+  if (m.kind === 'ai_reply' && /이렇게 이해했어요|다시 읽어 보니|빠진 게 있어/.test(m.text || '')) {
+    const src = document.createElement('div');
+    src.className = 'src-note';
+    src.textContent = '사장님 말씀 기반 AI 정리 · 틀리면 고쳐주세요';
+    bubble.appendChild(src);
+  }
+  // P0: 견적 고지 — 참고용임을 카드 안에서 분명히 한다 (확정 금액 오해 방지)
+  if (/참고 견적:/.test(m.text || '')) {
+    const qn = document.createElement('div');
+    qn.className = 'quote-note';
+    qn.textContent = '참고용 · 확정 금액이 아니에요 · 베타 기간 무료';
+    bubble.appendChild(qn);
+  }
+  // P1: 문의 보관 안내 — 저장 기간을 알림 안에서 밝힌다
+  if (m.kind === 'inquiry') {
+    const iq = document.createElement('div');
+    iq.className = 'inquiry-note';
+    iq.textContent = '문의 내용은 30일간 보관돼요';
+    bubble.appendChild(iq);
+  }
   // 사진 메시지는 썸네일로 보여주고 누르면 생성물 주소로 연다.
   if (m.kind === 'photo' && m.photo && m.photo.url) {
     const link = document.createElement('a');
@@ -704,12 +826,30 @@ function addMessage(m, isNew) {
 
 function updateStatus(aiStatus) {
   const label = STATUS_LABEL[aiStatus] || '';
-  if (label && aiStatus !== 'DONE' && aiStatus !== 'IDLE') {
+  const busy = !!label && aiStatus !== 'DONE' && aiStatus !== 'IDLE';
+  if (busy) {
     statusText.textContent = label;
     statusBar.classList.add('show');
+    statusBar.setAttribute('role', 'progressbar');
+    statusBar.setAttribute('aria-busy', 'true');
   } else {
     statusBar.classList.remove('show');
+    statusBar.removeAttribute('role');
+    statusBar.removeAttribute('aria-busy');
   }
+}
+
+// P0: 질문 진행바 (서버 asked/budget 없이 로컬 집계. 총합을 단정하지 않고 N번째만 보인다)
+let questionCount = 0;
+function updateProgress() {
+  const wrap = document.getElementById('progressWrap');
+  const fill = document.getElementById('progressFill');
+  const text = document.getElementById('progressText');
+  if (!wrap || !fill || !text) return;
+  if (!questionCount) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  fill.style.width = Math.min(100, Math.round((questionCount / 8) * 100)) + '%';
+  text.textContent = '질문 ' + questionCount + ' · ‘시안 먼저’라고 하면 건너뜰 수 있어요';
 }
 
 // 요구사항 질문의 선택지를 버튼으로 그린다. 같은 질문이면 다시 그리지 않는다(누르던 선택이 사라지지 않게).
@@ -721,6 +861,11 @@ function renderChoices(q) {
   const key = q ? JSON.stringify(q) : '';
   if (key === choiceKey) return;
   choiceKey = key;
+  if (key) {
+    // 새 질문이 오면 진행바를 1 올린다 (같은 질문 다시 그리기는 위에서 걸러짐)
+    questionCount += 1;
+    updateProgress();
+  }
   choicesEl.innerHTML = '';
   const oldExtra = document.getElementById('choiceExtraWrap');
   if (oldExtra) oldExtra.remove();
@@ -1393,7 +1538,8 @@ async function checkNotify() {
     if (!res.ok) return;
     const data = await res.json();
     const on = !!(data && data.kakao && data.kakao.owner_linked);
-    talkBtn.textContent = on ? '카톡 알림 켜짐' : '문의를 카톡으로 받기';
+    // P1: 실제 수신 실측 전이라 '테스트 중'을 함께 밝힌다 (허위 신뢰 방지)
+    talkBtn.textContent = on ? '카톡 알림 켜짐' : '문의를 카톡으로 받기 (테스트 중)';
     talkBtn.disabled = on;
   } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
 }
@@ -1610,6 +1756,8 @@ document.addEventListener('keydown', (e) => {
   if (inviteWrap && !inviteWrap.hidden) { closeInviteDialog(); return; }
   const moreWrap = document.getElementById('moreSheetWrap');
   if (moreWrap && !moreWrap.hidden) { closeMoreSheet(); return; }
+  const designWrap = document.getElementById('designSheetWrap');
+  if (designWrap && !designWrap.hidden) { closeDesignSheet(); return; }
   const ownerWrap = document.getElementById('ownerDialogWrap');
   if (ownerWrap && !ownerWrap.hidden) { closeOwnerDialog(); return; }
   const memberWrap = document.getElementById('memberPanelWrap');
@@ -1638,6 +1786,15 @@ document.getElementById('moreSheetWrap').addEventListener('click', (e) => {
 });
 document.getElementById('moreSheetWrap').addEventListener('keydown', (e) => {
   const wrap = document.getElementById('moreSheetWrap');
+  trapTab(e, wrap);
+});
+// P0: 시안 바텀시트 닫기 연결 (기존 대화상자들과 같은 규칙: 바깥 누름·Esc·탭 가두기·포커스 복귀)
+document.getElementById('designSheetClose').addEventListener('click', closeDesignSheet);
+document.getElementById('designSheetWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'designSheetWrap') closeDesignSheet();
+});
+document.getElementById('designSheetWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('designSheetWrap');
   trapTab(e, wrap);
 });
 document.getElementById('moreLeaveBtn').addEventListener('click', () => { closeMoreSheet(); leaveRoom(); });
