@@ -282,3 +282,13 @@ def test_owner_required_nonfact_fills_directly(monkeypatch):
         card, [u("contact_method", "전화")], "전화", by="h-owner", is_owner=True)
     assert applied == ["contact_method"]
     assert card["slots"]["contact_method"]["status"] == S.FILLED
+
+
+def test_price_followup_uses_industry_example():
+    # z2 pension-group: 펜션·학원에 미용실 예시('컷트 2만원')가 나가던 문제.
+    for ind, want in (("pension", "객실 요금"), ("academy", "수강료"), ("salon", "컷트")):
+        card = E.new_card(ind)
+        E._maybe_followup(card, ["offerings"])
+        text = card["followup"]["text"]
+        assert want in text and "나중에 넣을게요" in text
+        assert ind == "salon" or "컷트" not in text

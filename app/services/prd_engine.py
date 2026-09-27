@@ -1185,10 +1185,19 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
 # 칸 종류별 후속 1~2개를 묻는다. 답 없으면 자리 표시로 닫고 넘어간다 (무한 질문 금지).
 # 형식: (방금 채워진 칸, 이어 물을 칸, 대상 업종(빈 튜플이면 전부), 방금 값에 있어야 할 말, 질문문)
 _FOLLOWUP_V0 = (
-    ("offerings", "price", ("cafe", "restaurant", "salon", "workshop", "pension", "academy"), (),
-     "각 메뉴·시술 가격은 어떻게 되나요? 예: 컷트 2만원, 염색 8만원. 모르면 '나중에 넣을게요'라고 해주세요."),
-    ("offerings", "staff", ("salon", "academy"), (),
-     "담당 디자이너·선생님은 누구신가요? 예: 원장 김미용(컷트 담당). 없으면 '없음'이라고 해주세요."),
+    # 질문문이 dict면 업종별 문장 (펜션·학원에 미용실 예시 '컷트 2만원'이 나가던 문제, T3 z2)
+    ("offerings", "price", ("cafe", "restaurant", "salon", "workshop", "pension", "academy"), (), {
+        "cafe": "메뉴 가격은 어떻게 되나요? 예: 아메리카노 4,500원, 케이크 6,000원.",
+        "restaurant": "메뉴 가격은 어떻게 되나요? 예: 김치찌개 9,000원, 제육볶음 1만원.",
+        "salon": "시술 가격은 어떻게 되나요? 예: 컷트 2만원, 염색 8만원.",
+        "workshop": "수업 가격은 어떻게 되나요? 예: 원데이 클래스 3만5천원.",
+        "pension": "객실 요금은 어떻게 되나요? 예: 비수기 12만원, 성수기 18만원.",
+        "academy": "수강료는 어떻게 되나요? 예: 주 2회 월 20만원.",
+    }),
+    ("offerings", "staff", ("salon", "academy"), (), {
+        "salon": "담당 디자이너는 누구신가요? 예: 원장 김미용(컷트 담당). 없으면 '없음'이라고 해주세요.",
+        "academy": "담당 선생님은 누구신가요? 예: 김선생님(초등 미술). 없으면 '없음'이라고 해주세요.",
+    }),
     ("contact_method", "phone", (), ("전화",),
      "전화로 받으시면 번호를 알려 주세요. 예: 010-0000-0000"),
     ("contact_method", "booking_url", (), ("네이버", "예약", "링크"),
@@ -1215,6 +1224,8 @@ def _maybe_followup(card: dict, applied: list[str]) -> None:
             if not any(w in trigger_text for w in need_words):
                 continue
         asked.append(ask_slot)
+        if isinstance(text, dict):
+            text = text[ind_key] + (" 모르면 '나중에 넣을게요'라고 해주세요." if ask_slot == "price" else "")
         item = {"slot": ask_slot, "text": text}
         if len(applied) == 1 and not card.get("followup"):
             card["followup"] = item
