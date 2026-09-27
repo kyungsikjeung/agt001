@@ -153,7 +153,9 @@ def check_hours(value: str) -> Optional[str]:
 
 
 # 가격 단위 모양 (원 계열)
-_PRICE_UNIT_RE = re.compile(r"원|달러|usd|krw|\$|￦|₩", re.IGNORECASE)
+_PRICE_UNIT_RE = re.compile(r"원|달러|usd|krw|\$|￦|₩|천|만", re.IGNORECASE)  # "5천"·"2만"은 원 단위로 흔히 말한다
+# 숫자 없이도 쓰는 가격 표현(시가·가격 문의 등): 막지 않는다
+_PRICE_WORDS_RE = re.compile(r"시가|싯가|문의|상담|변동|협의|별도|무료|현장|추후|메뉴판")
 # 음수 모양
 _NEG_RE = re.compile(r"-\s*\d|−|마이너스|마이나스")
 # 비정상으로 보는 하한 (1억 이상)
@@ -164,14 +166,15 @@ def check_price(value: str) -> Optional[str]:
     """가격 칸 값을 검사한다. 정상이면 None, 문제면 짧은 한국어 사유.
 
     - numbers_in으로 값을 읽는다 (말로 한 금액도 숫자로 맞춘다).
-    - 음수·0원·숫자 없음(예: '주차돼요')·단위 없는 숫자만(5천)·1억 이상 큰 값을 막는다.
+    - 음수·0원·숫자 없음(예: '주차돼요')·단위 없는 숫자만(5000)·1억 이상 큰 값을 막는다.
+    - '시가'·'가격 문의'처럼 숫자 없이 쓰는 표현과 '5천'·'2만'(원 단위 생략)은 허용한다(9/27 검토).
     """
     text = value or ""
     if _NEG_RE.search(text):
         return "음수 가격은 안 돼요"
     nums = numbers_in(text)  # 말로 한 금액 근거 확인용
     if not nums:
-        return "가격 숫자가 없어요"
+        return None if _PRICE_WORDS_RE.search(text) else "가격 숫자가 없어요"
     for num in nums:
         if num == 0:
             return "0원으로는 저장할 수 없어요"
