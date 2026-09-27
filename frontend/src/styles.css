@@ -147,11 +147,11 @@ h1 {
 }
 .mini-tag {
   position: absolute; top: 8px; right: 8px; z-index: 1; font-size: 10px; font-weight: 600;
-  padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); color: #333;
+  padding: 2px 7px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); color: #fff;
 }
-.mini-hero { flex: 1.25; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 12px; color: #fff; }
-.mini-shop { font-weight: 700; font-size: clamp(12px, 1.8vw, 15px); letter-spacing: -0.01em; }
-.mini-cta { align-self: flex-start; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; }
+.mini-hero { flex: 1.25; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; padding: 12px; color: #fff; text-shadow: 0 1px 8px rgba(0,0,0,.35); }
+.mini-shop { font-weight: 800; font-size: clamp(14px, 2vw, 17px); letter-spacing: -0.02em; }
+.mini-cta { align-self: flex-start; font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
 .mini-sections { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 8px; }
 .mini-sec { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .mini-thumb { flex: 1; border-radius: 6px; }
