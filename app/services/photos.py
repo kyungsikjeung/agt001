@@ -76,6 +76,8 @@ def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str
         url = url_for(room_id, photo_id)
         if session.get("prd") is not None:
             session["prd"].setdefault("photos", []).append({"id": photo_id, "url": url, "caption": caption})
+        from app.services import funnel as _funnel
+        _funnel.record("photo_uploaded", session_id=session.get("id"))  # D48·D45: 실제 업로드 기록
         if session.get("design_url") and session.get("prd"):
             # 시안이 이미 있으면 사진을 넣어 다시 만든다(스크린샷 때문에 몇 초 걸려 커밋 뒤 뒤에서).
             store.after_commit(lambda: _refresh_designs_async(room_id, session["requirement_id"]))
@@ -105,6 +107,12 @@ def remove(room_id_raw: str, member_id_raw: str, photo_id_raw: str) -> None:
             db.execute(AttachmentRow.__table__.delete().where(AttachmentRow.id == photo_id))
         if session.get("prd"):
             session["prd"]["photos"] = [p for p in session["prd"].get("photos") or [] if p["id"] != photo_id]
+            if session.get("design_url"):
+                # 지운 사진이 시안·공개본에 깨진 이미지로 남지 않게 다시 만든다(올릴 때와 같은 길).
+                store.after_commit(lambda: _refresh_designs_async(room_id, session["requirement_id"]))
+        if session.get("design_url") and session.get("prd"):
+            # 지운 사진이 시안·공개본에 남지 않게 다시 만든다 (올릴 때와 같은 경로).
+            store.after_commit(lambda: _refresh_designs_async(room_id, session["requirement_id"]))
 
 
 def _refresh_designs_async(room_id: str, requirement_id: str) -> None:

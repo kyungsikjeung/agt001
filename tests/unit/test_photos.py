@@ -130,7 +130,7 @@ def test_early_photo_ask_once_for_photo_first_industries():
     assert chat_flow._early_photo_ask(card, room={}) == ""  # 가게 이름 전에는 묻지 않는다
     E._put(card, "shop_name", "황남밥상", S.FILLED, 1)
     first = chat_flow._early_photo_ask(card, room={})
-    assert "📷" in first and "대표 메뉴" in first
+    assert "1) 지금 올릴게요" in first and "대표 메뉴" in first and "아래 '사진' 버튼" in first
     assert chat_flow._early_photo_ask(card, room={}) == ""  # 한 번만
     other = E.new_card()
     other["industry"] = "academy"
@@ -141,3 +141,59 @@ def test_early_photo_ask_once_for_photo_first_industries():
     E._put(with_photo, "shop_name", "모퉁이커피", S.FILLED, 1)
     with_photo["photos"] = [{"url": "/uploads/x/a.jpg"}]
     assert chat_flow._early_photo_ask(with_photo, room={}) == ""  # 이미 올렸으면 묻지 않는다
+
+
+def test_deleted_photo_leaves_published_site(client, monkeypatch):
+    """지운 사진은 공개 사이트에서도 빠져야 한다. 전에는 지워도 공개본을 다시 만들지 않아 깨진 이미지가 남았다."""
+    from app.services import photos
+    monkeypatch.setattr(photos, "_refresh_designs_async", photos.refresh_designs)  # 테스트는 뒤 작업 대신 바로
+    rid = _room(client)
+    session = store.read_session(store.read_room(rid)["session_id"])
+    design.render_design(session["requirement_id"], "web", [], 0, "", card=session["prd"])
+    with store.session_tx(session["id"] if "id" in session else store.read_room(rid)["session_id"]) as s2:
+        s2["design_url"] = f"/design/{s2['requirement_id']}"
+        s2["prd"]["published"] = "v1"
+    design.publish_choice(session["requirement_id"], store.read_session(store.read_room(rid)["session_id"])["prd"], "v1")
+    pid = client.post(f"/room/{rid}/photos", files={"file": ("a.jpg", _jpeg_with_gps((800, 600)), "image/jpeg")},
+                      headers={"X-Member-Id": "owner"}).json()["id"]
+    assert pid in client.get(f"/site/{session['requirement_id']}/").text
+    assert client.delete(f"/room/{rid}/photos/{pid}", headers={"X-Member-Id": "owner"}).status_code == 204
+    assert pid not in client.get(f"/site/{session['requirement_id']}/").text
+
+
+def test_photo_choice_answer_parsing():
+    """D48: 사진 말이 분명할 때만 가로챈다. 번호만('2')은 엔진 선택지와 겹치므로 받지 않는다."""
+    from app.services import chat_flow
+    assert chat_flow.photo_answer("지금 올릴게요") == "now"
+    assert chat_flow.photo_answer("바로 올릴게요") == "now"
+    assert chat_flow.photo_answer("나중에 올릴게요") == "later"
+    assert chat_flow.photo_answer("사진이 없어요") == "none"
+    assert chat_flow.photo_answer("예시 그림으로") == "none"
+    assert chat_flow.photo_answer("2") is None
+    assert chat_flow.photo_answer("전화는 010-1234-5678이에요") is None
+    assert chat_flow.photo_answer("x" * 21) is None
+
+
+def test_photo_choice_budget_untouched_and_once():
+    """D48: 사진 질문은 질문 예산을 쓰지 않고 한 번만. '없어요'면 다시 묻지 않는다."""
+    from app.services import chat_flow, prd_engine as E, prd_schema as S
+    card = E.new_card()
+    card["industry"] = "cafe"
+    E._put(card, "shop_name", "모퉁이커피", S.FILLED, 1)
+    asked_before = card["asked"]
+    assert "1) 지금 올릴게요" in chat_flow._early_photo_ask(card, room={})
+    assert card["asked"] == asked_before  # 예산 미소모
+    card["photo_choice"] = "none"
+    assert chat_flow._early_photo_ask(card, room={}) == ""
+    assert chat_flow._photo_later_reminder(card) == ""  # '없어요'는 조용히
+
+
+def test_photo_later_reminded_once():
+    """D48: '나중에'는 시안 때 한 번만 다시 알린다."""
+    from app.services import chat_flow
+    card = {"photos": [], "photo_choice": "later"}
+    first = chat_flow._photo_later_reminder(card)
+    assert "나중에 올릴게요" in first
+    assert chat_flow._photo_later_reminder(card) == ""
+    card2 = {"photos": [{"url": "/uploads/x/a.jpg"}], "photo_choice": "later"}
+    assert chat_flow._photo_later_reminder(card2) == ""  # 올렸으면 조용히
