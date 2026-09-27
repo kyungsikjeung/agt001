@@ -31,6 +31,7 @@ import argparse
 import datetime
 import glob
 import json
+import logging
 import os
 import re
 import sys
@@ -602,7 +603,40 @@ def live_owner_llm(prompt: str) -> str:
             time.sleep(5 * (attempt + 1))
 
 
-def run_all(scenarios, engine, owner_llm_fn) -> list:
+# ── NIM 한도 감시 (r6: 한도에 걸린 채 돌면 작은 대비 모델이 답해 점수가 오염된다) ──
+
+# 이만큼 대비 모델로 넘어가면 측정을 멈춘다. 정상 r4는 36개 전체에서 57번이었다.
+MAX_FALLBACKS = 40
+
+
+class LimitWatch(logging.Handler):
+    """app.llm이 남기는 "NIM 모델 … 실패 → 다음 모델" 경고를 센다. 앱 코드는 건드리지 않는다."""
+
+    def __init__(self):
+        super().__init__(logging.WARNING)
+        self.fallbacks = 0
+        self.rate_limits = 0
+
+    def emit(self, record):
+        msg = record.getMessage()
+        if "다음 모델" in msg:
+            self.fallbacks += 1
+            self.rate_limits += "RateLimit" in msg
+
+
+def quota_ok(watch: "LimitWatch", calls: int = 3) -> bool:
+    """짧은 호출 몇 번에 주 모델이 한 번도 안 넘어가야 한도가 회복된 것으로 본다."""
+    from app import llm
+    before = watch.fallbacks
+    for _ in range(calls):
+        try:
+            llm.chat_json("숫자 하나만 JSON으로 답하라.", '{"n": 1}을 그대로 돌려줘', timeout_sec=15.0, max_tokens=20)
+        except Exception:
+            return False
+    return watch.fallbacks == before
+
+
+def run_all(scenarios, engine, owner_llm_fn, watch: "LimitWatch | None" = None) -> list:
     import time
     results = []
     for i, sc in enumerate(scenarios, 1):
@@ -616,10 +650,21 @@ def run_all(scenarios, engine, owner_llm_fn) -> list:
             results.append({"scenario": sc, "result": None, "score": None, "error": type(e).__name__})
             continue
         score = score_dialogue(sc, res)
+        fb = f" 대비모델 누적 {watch.fallbacks}회" if watch else ""
         print(f"[{i}/{len(scenarios)}] {sc.get('id')} {'통과' if score['passed'] else '실패'} "
-              f"{time.monotonic() - t0:.0f}초", file=sys.stderr, flush=True)
+              f"{time.monotonic() - t0:.0f}초{fb}", file=sys.stderr, flush=True)
         results.append({"scenario": sc, "result": res, "score": score})
+        if watch and watch.fallbacks >= MAX_FALLBACKS:
+            print(f"한도 중단: 대비 모델 전환 {watch.fallbacks}회(한도 초과 {watch.rate_limits}회) — "
+                  f"{i}/{len(scenarios)}개에서 멈춤. 점수가 오염되므로 공식 성적으로 쓰지 않는다.", file=sys.stderr, flush=True)
+            raise LimitStop(results)
     return results
+
+
+class LimitStop(Exception):
+    def __init__(self, results):
+        super().__init__("NIM 한도")
+        self.results = results
 
 
 def default_out_path() -> str:
@@ -633,13 +678,20 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="", help="결과 md 경로")
     ap.add_argument("--smoke", action="store_true", help="오프라인 자가 점검(비공식)")
     ap.add_argument("--live", action="store_true", help="실제 NIM 호출(Claude 실행용)")
+    ap.add_argument("--no-precheck", action="store_true", help="--live 전 한도 점검 생략")
     args = ap.parse_args(argv)
 
     scenarios = load_scenarios(args.only)
     if not scenarios:
         print("시나리오가 없다.", file=sys.stderr)
         return 1
+    watch = None
     if args.live:
+        watch = LimitWatch()
+        logging.getLogger("app.llm").addHandler(watch)
+        if not args.no_precheck and not quota_ok(watch):
+            print("한도 미회복: 짧은 호출에서 주 모델이 대비 모델로 넘어갔다. 측정하지 않는다.", file=sys.stderr)
+            return 4
         engine, owner = PrdEngineAdapter(), live_owner_llm
     elif args.smoke:
         engine, owner = PrdEngineAdapter(), rule_fallback_owner_llm
@@ -648,13 +700,24 @@ def main(argv=None) -> int:
         print("주입된 LLM이 없다. --smoke(자가 점검) 또는 --live(실제 호출)를 붙이라.",
               file=sys.stderr)
         return 2
+    stopped = False
     try:
-        results = run_all(scenarios, engine, owner)
+        results = run_all(scenarios, engine, owner, watch)
+    except LimitStop as e:
+        results, stopped = e.results, True
     except ModuleNotFoundError as e:
         print(f"필요한 패키지가 없다({e}). 실제 엔진 실행은 openai가 있는 환경에서 하라.",
               file=sys.stderr)
         return 3
     path = write_markdown(results, args.out or default_out_path())
+    if stopped:
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(f"> **한도 중단(비공식)**: NIM 대비 모델 전환 {watch.fallbacks}회에서 멈춤. "
+                    f"{len(results)}/{len(scenarios)}개만 실행, 점수는 참고용.\n\n" + body)
+        print(f"한도 중단 → {path}")
+        return 4
     done = [r for r in results if r.get("score") is not None]
     n_pass = sum(1 for r in done if r["score"]["passed"])
     print(f"{len(done)}개 중 {n_pass}개 통과 (외부 장애로 건너뜀 {len(results) - len(done)}개) → {path}")
