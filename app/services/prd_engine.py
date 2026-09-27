@@ -13,6 +13,7 @@ from typing import Optional
 from app import llm
 from app.services import intake, numbers
 from app.services import prd_schema as S
+from app.services import validate as V
 from app.services.stt import normalize_digits as _stt_normalize_digits
 
 log = logging.getLogger(__name__)
@@ -457,6 +458,38 @@ def _in_history(value: str, history: str) -> bool:
     return grounded_phrase(s, history)
 
 
+# W1: 저장단계 잘못된 입력 차단 (validate 연결). 저장하면 must_not_store 위반이 되는
+# 틀린 값(자리수 틀린 전화·25시·역전 시간·음수/무단위/숫자없는 가격·주민번호 등)을
+# FILLED로 넣지 않고 버린다. 버려진 칸은 pending이 유지돼 다시 묻게 되고,
+# 3번 반복이면 STUCK이 PLACEHOLDER로 닫는다(전화 등 필수가 아닌 칸은 빈 채로 통과).
+_CONTRADICT_CUES = ("원래", "예전에는", "이전에는", "바뀌기전")
+
+
+def _w1_block_reason(key: str, value) -> Optional[str]:
+    """저장하면 안 되는 값이면 사유, 저장해도 되면 None."""
+    text = ", ".join(value) if isinstance(value, list) else str(value or "")
+    if not text.strip():
+        return None
+    kind = V.contains_sensitive(text)
+    if kind:
+        return f"{kind}는 저장할 수 없어요"
+    if key == "phone":
+        return V.check_phone(text)
+    if key == "hours":
+        compact = re.sub(r"\s+", "", text)
+        for cue in _CONTRADICT_CUES:
+            if cue in compact:
+                return "어느 쪽이 맞는지 확인이 필요해요"
+        return V.check_hours(text)
+    if key == "price":
+        for item in _split_items(text):
+            reason = V.check_price(item)
+            if reason:
+                return reason
+        return None
+    return None
+
+
 def _judge_features(card: dict) -> None:
 
     """새로 들어온 기능 요구를 사례집으로 판정한다 (§2 ⑧~⑬). 확인 질문은 줄에 세우고, 알림은 이번 턴 메모로 남긴다."""
@@ -549,6 +582,11 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             continue
         if spec.fact and not is_owner:
             # D24: 공유방에서 방장이 아닌 사람이 말한 사실은 방장이 확인해야 카드에 들어간다.
+            # W1: 틀린 값은 확인 대기(PENDING_OWNER)로도 올리지 않는다(FILLED 전환 시 검증 우회 방지).
+            reason = _w1_block_reason(key, value)
+            if reason:
+                log.info("잘못된 %s 저장 차단(공유방): %s", key, reason)
+                continue
             _put(card, key, _norm_text(value), S.PENDING_OWNER, turn, by)
             applied.append(key)
             continue
@@ -556,6 +594,11 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             value = _norm_text(value)  # B-5: 사실은 정규화된 값으로 저장한다
             if key == "phone":
                 value = _spoken_phone(value)
+        # W1: 저장단계 검증. 틀린 전화·시간·가격·민감정보는 FILLED로 저장하지 않고 다시 묻는다.
+        reason = _w1_block_reason(key, value)
+        if reason:
+            log.info("잘못된 %s 저장 차단: %s", key, reason)
+            continue
         if spec.multi:
             cur = _slot(card, key)
             items = list(cur["value"]) if cur["status"] == S.FILLED and cur.get("value") else []

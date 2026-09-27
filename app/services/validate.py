@@ -164,14 +164,14 @@ def check_price(value: str) -> Optional[str]:
     """가격 칸 값을 검사한다. 정상이면 None, 문제면 짧은 한국어 사유.
 
     - numbers_in으로 값을 읽는다 (말로 한 금액도 숫자로 맞춘다).
-    - 음수·0원·단위 없는 숫자만(5천)·1억 이상 큰 값을 막는다.
+    - 음수·0원·숫자 없음(예: '주차돼요')·단위 없는 숫자만(5천)·1억 이상 큰 값을 막는다.
     """
     text = value or ""
     if _NEG_RE.search(text):
         return "음수 가격은 안 돼요"
     nums = numbers_in(text)  # 말로 한 금액 근거 확인용
     if not nums:
-        return None
+        return "가격 숫자가 없어요"
     for num in nums:
         if num == 0:
             return "0원으로는 저장할 수 없어요"
