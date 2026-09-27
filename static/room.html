@@ -740,6 +740,7 @@ async function pollMessages() {
 async function sendRoomMessage(text) {
   // 보내거나 고르는 순간 읽던 소리를 바로 끊는다.
   try { if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech(); } catch (e) { /* 무시 */ }
+  try { if (typeof window.cancelHandsfreeListen === 'function') window.cancelHandsfreeListen(); } catch (e) { /* 무시 */ }
   try { if (typeof window.unlockSpeech === 'function') window.unlockSpeech(); } catch (e) { /* 무시 */ }
   // 첫 입장 메시지에만 주소창 invite 값을 함께 보낸다 (계약 §3).
   const body = { member_id: memberId, nickname, message: text };
@@ -1420,6 +1421,8 @@ function relocateWalkie() {
     if (sw && slot && sw.parentNode !== slot) slot.appendChild(sw);
     const ar = document.getElementById('autoreadSwitch');
     if (ar && slot && ar.parentNode !== slot) slot.appendChild(ar);
+    const hf = document.getElementById('handsfreeSwitch');
+    if (hf && slot && hf.parentNode !== slot) slot.appendChild(hf);
   } catch (e) { /* 스위치 이동 실패해도 입력은 유지 */ }
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocateWalkie);

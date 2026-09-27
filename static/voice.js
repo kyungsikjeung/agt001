@@ -29,7 +29,11 @@
     unavailable: '지금은 음성 인식을 쓸 수 없어요. 키보드 마이크로 말해 주세요',
     networkFail: '전송에 실패했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.',
     walkieTooShort: '길게 누르고 말해 주세요',
-    walkiePreview: '보내는 중… 취소하려면 취소를 눌러 주세요'
+    walkiePreview: '보내는 중… 취소하려면 취소를 눌러 주세요',
+    listening: '듣고 있어요… 말이 끝나면 자동으로 보내요',
+    noVoice: '말씀이 없어서 듣기를 멈췄어요. 🎤를 누르면 다시 들어요',
+    missHeard: '잘 못 들었어요. 다시 말씀해 주세요',
+    micBlocked: '마이크를 쓸 수 없어 손 안 쓰는 모드를 껐어요'
   };
 
   var micBtn = document.getElementById('micBtn');
@@ -155,6 +159,268 @@
   var walkieSwitch = null;
   var walkieCancelBtn = null;
 
+  // 손 안 쓰는 모드: 답장 읽기가 끝나면 스스로 듣기를 시작한다. 기본은 꺼짐.
+  var HANDSFREE_KEY = 'agt001_handsfree';
+  // 말소리 판단 기준값. 작게 하면 작은 소리에도 반응하고 크게 하면 큰 소리만 잡는다.
+  var SILENCE_RMS = 0.02;
+  // 말소리가 나온 뒤 이 시간만큼 조용하면 말 끝으로 본다.
+  var END_SILENCE_MS = 1200;
+  // 처음 이 시간 동안 말소리가 없으면 듣기를 그만둔다.
+  var NO_VOICE_MS = 8000;
+  // 읽기가 끝난 뒤 듣기를 시작하기까지 기다리는 시간.
+  var HANDSFREE_DELAY_MS = 300;
+  var handsfreeOn = loadHandsfree();
+  var handsfreeSwitch = null;
+  var handsfreeListening = false;
+  var handsfreeWaiting = null;
+  var handsfreeDiscard = false;
+  var handsfreePreview = false;
+  var handsfreeFail = 0;
+  // 말끝 감지용 소리 분석기 상태.
+  var vadCtx = null;
+  var vadAnalyser = null;
+  var vadData = null;
+  var vadTimer = null;
+  var vadHasVoice = false;
+  var vadQuietAt = 0;
+
+  function loadHandsfree() {
+    try {
+      if (typeof localStorage !== 'undefined') return localStorage.getItem(HANDSFREE_KEY) === '1';
+    } catch (e) { /* 저장소 사용 불가 */ }
+    return false;
+  }
+
+  function saveHandsfree(on) {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(HANDSFREE_KEY, on ? '1' : '0');
+    } catch (e) { /* 저장소 사용 불가 */ }
+  }
+
+  // 답할 질문이 있는지. 선택지 막대가 열려 있거나 답장 글에 물음표가 있으면 있다.
+  function hasQuestion(text) {
+    try {
+      var bar = document.getElementById('choiceBar');
+      if (bar && bar.classList && bar.classList.contains('show')) return true;
+    } catch (e) { /* 무시 */ }
+    return (text || '').indexOf('?') >= 0;
+  }
+
+  function setHandsfree(on) {
+    handsfreeOn = !!on;
+    saveHandsfree(handsfreeOn);
+    updateHandsfreeUI();
+    if (!handsfreeOn) {
+      handsfreeFail = 0;
+      cancelHandsfreeListen();
+    }
+  }
+
+  function updateHandsfreeUI() {
+    try {
+      if (!handsfreeSwitch) return;
+      handsfreeSwitch.setAttribute('aria-checked', handsfreeOn ? 'true' : 'false');
+      handsfreeSwitch.textContent = handsfreeOn ? '손 안 쓰는 모드: 켜짐' : '손 안 쓰는 모드: 꺼짐';
+      handsfreeSwitch.setAttribute('aria-label', handsfreeOn ? '손 안 쓰는 모드 켜짐' : '손 안 쓰는 모드 꺼짐');
+      handsfreeSwitch.style.background = handsfreeOn ? '#4338ca' : '#f7f7f8';
+      handsfreeSwitch.style.color = handsfreeOn ? '#fff' : '';
+      handsfreeSwitch.style.borderColor = handsfreeOn ? '#4338ca' : '';
+    } catch (e) { /* 무시 */ }
+  }
+
+  function buildHandsfreeUI() {
+    try {
+      handsfreeSwitch = document.createElement('button');
+      handsfreeSwitch.type = 'button';
+      handsfreeSwitch.id = 'handsfreeSwitch';
+      handsfreeSwitch.setAttribute('role', 'switch');
+      handsfreeSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;';
+      handsfreeSwitch.addEventListener('click', function () {
+        var next = !handsfreeOn;
+        if (next) {
+          // 읽어주기를 함께 켜고 소리 재생을 미리 푼다.
+          try { if (typeof window.setAutoreadMode === 'function') window.setAutoreadMode(true); } catch (e) { /* 무시 */ }
+          try { if (typeof window.unlockSpeech === 'function') window.unlockSpeech(); } catch (e) { /* 무시 */ }
+          setHandsfree(true);
+          try { micBtn.focus(); } catch (e) { /* 무시 */ }
+          // 켜는 누름 안에서 마이크 권한을 미리 받아 둔다. 바로 끊어서 녹음은 안 남긴다.
+          try {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+              navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
+                try {
+                  var ts = s.getTracks();
+                  for (var i = 0; i < ts.length; i++) ts[i].stop();
+                } catch (e2) { /* 무시 */ }
+              }).catch(function () {
+                setHandsfree(false);
+                showStatus(MSG.micBlocked);
+              });
+            }
+          } catch (e) { /* 무시 */ }
+        } else {
+          setHandsfree(false);
+          try { micBtn.focus(); } catch (e) { /* 무시 */ }
+        }
+      });
+      var slot = document.getElementById('walkieSlot');
+      if (slot) {
+        slot.appendChild(handsfreeSwitch);
+      } else {
+        var rowEl = document.getElementById('walkieRow');
+        if (rowEl) rowEl.appendChild(handsfreeSwitch);
+      }
+      updateHandsfreeUI();
+    } catch (e) { /* 화면 만들기가 실패해도 음성 입력은 유지 */ }
+  }
+
+  // 읽기 끝 알림을 받으면 질문이 있을 때만 잠시 뒤 듣기를 시작한다.
+  function onTtsFinished(ok, text) {
+    if (!ok) return;
+    if (!handsfreeOn) return;
+    if (recording || uploading) return;
+    if (!hasQuestion(text)) return;
+    handsfreeFail = 0;
+    if (handsfreeWaiting) { clearTimeout(handsfreeWaiting); handsfreeWaiting = null; }
+    handsfreeWaiting = setTimeout(function () {
+      handsfreeWaiting = null;
+      startHandsfreeListen();
+    }, HANDSFREE_DELAY_MS);
+  }
+
+  function startHandsfreeListen() {
+    if (!handsfreeOn || recording || uploading) return;
+    handsfreeListening = true;
+    handsfreeDiscard = false;
+    walkieDownAt = 0;
+    showStatus(MSG.listening);
+    showWalkieCancel();
+    startRecording(true);
+  }
+
+  // 진행 중인 자동 듣기를 그만둔다. 녹음 중이면 보내지 않고 끊는다.
+  function cancelHandsfreeListen() {
+    if (handsfreeWaiting) { clearTimeout(handsfreeWaiting); handsfreeWaiting = null; }
+    if (handsfreePreview) {
+      handsfreePreview = false;
+      cancelWalkiePreview();
+    }
+    if (handsfreeListening && recording) {
+      handsfreeDiscard = true;
+      stopVad();
+      stopRecording();
+      hideWalkieCancel();
+      clearStatus();
+      try { input.focus(); } catch (e) { /* 무시 */ }
+    } else if (handsfreeListening) {
+      handsfreeListening = false;
+      stopVad();
+      hideWalkieCancel();
+      clearStatus();
+    } else {
+      hideWalkieCancel();
+    }
+    handsfreeListening = false;
+  }
+
+  // 자동 재생이나 마이크가 막히면 모드를 끄고 한 줄로 알린다.
+  function stopHandsfreeBlocked() {
+    if (!handsfreeOn && !handsfreeListening && !handsfreeWaiting) return;
+    handsfreeOn = false;
+    saveHandsfree(false);
+    updateHandsfreeUI();
+    if (handsfreeWaiting) { clearTimeout(handsfreeWaiting); handsfreeWaiting = null; }
+    handsfreeListening = false;
+    stopVad();
+    hideWalkieCancel();
+    showStatus(MSG.micBlocked);
+  }
+
+  // 녹음 소리를 작게 나눠서 RMS(소리 크기)를 본다.
+  function startVad() {
+    stopVad();
+    try {
+      if (!stream) return;
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      vadCtx = new AC();
+      var src = vadCtx.createMediaStreamSource(stream);
+      vadAnalyser = vadCtx.createAnalyser();
+      vadAnalyser.fftSize = 2048;
+      src.connect(vadAnalyser);
+      var len = vadAnalyser.fftSize;
+      vadData = new Uint8Array(len);
+      vadHasVoice = false;
+      vadQuietAt = Date.now();
+      vadTimer = setInterval(checkVad, 120);
+    } catch (e) {
+      stopVad();
+    }
+  }
+
+  function stopVad() {
+    if (vadTimer) { clearInterval(vadTimer); vadTimer = null; }
+    if (vadCtx) {
+      try { vadCtx.close(); } catch (e) { /* 무시 */ }
+      vadCtx = null;
+    }
+    vadAnalyser = null;
+    vadData = null;
+  }
+
+  function checkVad() {
+    try {
+      if (!vadAnalyser || !vadData || !recording) return;
+      vadAnalyser.getByteTimeDomainData(vadData);
+      var sum = 0;
+      for (var i = 0; i < vadData.length; i++) {
+        var v = (vadData[i] - 128) / 128;
+        sum += v * v;
+      }
+      var rms = Math.sqrt(sum / vadData.length);
+      var now = Date.now();
+      if (rms >= SILENCE_RMS) {
+        vadHasVoice = true;
+        vadQuietAt = now;
+        return;
+      }
+      if (vadHasVoice && (now - vadQuietAt) >= END_SILENCE_MS) {
+        // 말이 끝난 뒤 조용하면 자동 전송을 위해 끊는다.
+        stopRecording();
+        return;
+      }
+      if (!vadHasVoice && (now - startTime) >= NO_VOICE_MS) {
+        // 처음부터 말소리가 없으면 보내지 않고 그만둔다.
+        handsfreeDiscard = true;
+        stopVad();
+        stopRecording();
+        hideWalkieCancel();
+        handsfreeListening = false;
+        showStatus(MSG.noVoice);
+      }
+    } catch (e) { /* 소리 분석 실패는 무시하고 최대 시간까지 둔다 */ }
+  }
+
+  // 자동 듣기 중에는 글자를 치거나 보내기·선택지를 누르면 듣기를 그만둔다.
+  function bindHandsfreeCancel() {
+    try {
+      input.addEventListener('input', function () {
+        if (handsfreeOn && handsfreeListening && recording) cancelHandsfreeListen();
+      });
+      var sendBtn = document.getElementById('sendBtn');
+      if (sendBtn) {
+        sendBtn.addEventListener('click', function () {
+          if (handsfreeOn && (handsfreeListening || handsfreeWaiting)) cancelHandsfreeListen();
+        }, true);
+      }
+      var bar = document.getElementById('choiceBar');
+      if (bar) {
+        bar.addEventListener('click', function () {
+          if (handsfreeOn && (handsfreeListening || handsfreeWaiting)) cancelHandsfreeListen();
+        }, true);
+      }
+    } catch (e) { /* 무시 */ }
+  }
+
   function loadWalkie() {
     try {
       if (typeof localStorage !== 'undefined') return localStorage.getItem(WALKIE_KEY) === '1';
@@ -244,7 +510,20 @@
   }
 
   function cancelWalkiePreview() {
+    // 자동 듣기 중 취소 버튼은 녹음을 보내지 않고 끊는다.
+    if (handsfreeListening && recording) {
+      handsfreeDiscard = true;
+      handsfreePreview = false;
+      stopVad();
+      stopRecording();
+      hideWalkieCancel();
+      handsfreeListening = false;
+      clearStatus();
+      try { input.focus(); } catch (e) { /* 무시 */ }
+      return;
+    }
     hideWalkieCancel();
+    handsfreePreview = false;
     walkieSend = false;
     clearStatus();
     try { input.focus(); } catch (e) { /* ignore */ }
@@ -310,6 +589,15 @@
   }
 
   function onGetUserMediaFail(err) {
+    // 자동 듣기 중 마이크가 막히면 모드를 끄고 한 줄로 알린다.
+    if (handsfreeOn || handsfreeListening || handsfreeWaiting) {
+      if (handsfreeWaiting) { clearTimeout(handsfreeWaiting); handsfreeWaiting = null; }
+      handsfreeListening = false;
+      stopVad();
+      hideWalkieCancel();
+      stopHandsfreeBlocked();
+      return;
+    }
     var name = (err && err.name) || '';
     if (name === 'NotAllowedError' || name === 'SecurityError') {
       showStatus(MSG.permissionDenied);
@@ -337,8 +625,9 @@
     if (recording || uploading) return;
     // 녹음이 시작되면 읽던 소리를 바로 끊는다.
     try { if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech(); } catch (e) { /* 무시 */ }
-    walkieSend = !!(isWalkie && walkieOn);
-    if (walkieSend) buzz();
+    // 손 안 쓰는 모드도 무전기와 같은 자동 전송 길을 쓴다.
+    walkieSend = !!isWalkie && (walkieOn || handsfreeOn);
+    if (walkieSend && !handsfreeListening) buzz();
     hideNumCheck();
     navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
       stream = s;
@@ -367,7 +656,8 @@
         return;
       }
       // Walkie: pointer was released before permission resolved.
-      if (walkieSend && !walkieHolding && walkieOn) {
+      // 손 안 쓰는 모드는 누름이 없어 이 경우에 걸리면 안 된다.
+      if (walkieSend && !walkieHolding && walkieOn && !handsfreeListening) {
         try { recorder.stop(); } catch (e) { onRecorderStop(); }
         return;
       }
@@ -378,6 +668,11 @@
       tickId = setInterval(tick, 500);
       autoStopId = setTimeout(function () { stopRecording(); }, MAX_SECONDS * 1000);
       clearStatus();
+      if (handsfreeListening) {
+        showStatus(MSG.listening);
+        showWalkieCancel();
+        startVad();
+      }
     }).catch(onGetUserMediaFail);
   }
 
@@ -395,9 +690,14 @@
 
   function onRecorderStop() {
     clearTimers();
+    stopVad();
     recording = false;
     setRecordingUI(false);
     var wasWalkie = walkieSend;
+    var wasHandsfree = handsfreeListening;
+    var discarded = handsfreeDiscard;
+    handsfreeListening = false;
+    handsfreeDiscard = false;
     walkieSend = false;
     var heldMs = walkieDownAt ? Date.now() - walkieDownAt : 9999;
     walkieDownAt = 0;
@@ -408,13 +708,25 @@
     } catch (e) { /* 무시 */ }
     recorder = null;
     cleanupStream(); // 녹음 스트림은 정지 후 즉시 해제
+    // 자동 듣기 취소·말소리 없음이면 보내지 않고 끝낸다. 안내는 부른 쪽이 이미 남겼다.
+    if (discarded || (wasHandsfree && handsfreeDiscard)) {
+      handsfreeDiscard = false;
+      chunks = [];
+      hideWalkieCancel();
+      return;
+    }
     var blob = new Blob(chunks, { type: type || 'audio/webm' });
     chunks = [];
-    if (wasWalkie && heldMs < WALKIE_MIN_MS) {
+    if (wasWalkie && heldMs < WALKIE_MIN_MS && !wasHandsfree) {
       showStatus(MSG.walkieTooShort);
       return;
     }
     if (!blob.size) {
+      // 손 안 쓰는 모드의 빈 녹음은 놓친 말로 다룬다.
+      if (wasHandsfree && handsfreeOn) {
+        onHandsfreeMiss();
+        return;
+      }
       showStatus(MSG.emptyRecord);
       return;
     }
@@ -422,10 +734,27 @@
       showStatus(MSG.tooBig); // 서버 413과 같은 안내
       return;
     }
-    upload(blob, wasWalkie);
+    upload(blob, wasWalkie, wasHandsfree);
   }
 
-  function upload(blob, isWalkie) {
+  // 받아쓰기가 비었거나 한 글자일 때. 한 번만 다시 듣고 두 번 연속이면 그만둔다.
+  function onHandsfreeMiss() {
+    handsfreeFail++;
+    if (handsfreeOn && handsfreeFail < 2) {
+      showStatus(MSG.missHeard);
+      if (handsfreeWaiting) { clearTimeout(handsfreeWaiting); handsfreeWaiting = null; }
+      handsfreeWaiting = setTimeout(function () {
+        handsfreeWaiting = null;
+        startHandsfreeListen();
+      }, HANDSFREE_DELAY_MS);
+      return;
+    }
+    handsfreeFail = 0;
+    hideWalkieCancel();
+    showStatus(MSG.noVoice);
+  }
+
+  function upload(blob, isWalkie, isHandsfree) {
     uploading = true;
     micBtn.disabled = true;
     showStatus(MSG.uploading);
@@ -452,11 +781,17 @@
       throw new Error(withInApp(MSG.networkFail));
     }).then(function (data) {
       var text = (data && typeof data.text === 'string') ? data.text.trim() : '';
+      // 손 안 쓰는 모드는 비었거나 한 글자면 보내지 않고 다시 듣는다.
+      if (isHandsfree && (!text || text.length < 2)) {
+        onHandsfreeMiss();
+        return;
+      }
       if (!text) {
         showStatus(MSG.emptyText);
         return;
       }
-      if (isWalkie && walkieOn) {
+      handsfreeFail = 0;
+      if (isWalkie && (walkieOn || isHandsfree)) {
         // Walkie: show briefly, allow cancel, then send immediately.
         var curW = input.value.trim();
         var combined = curW ? curW + ' ' + text : text;
@@ -465,10 +800,12 @@
         if (hasNumber(text)) showNumCheck(); else hideNumCheck();
         showStatus(MSG.walkiePreview);
         showWalkieCancel();
+        handsfreePreview = !!isHandsfree;
         walkieSend = true;
         if (walkiePreviewTimer) clearTimeout(walkiePreviewTimer);
         walkiePreviewTimer = setTimeout(function () {
           walkiePreviewTimer = null;
+          handsfreePreview = false;
           if (!walkieSend) return;
           walkieSend = false;
           hideWalkieCancel();
@@ -567,8 +904,16 @@
 
   buildWalkieUI();
   updateWalkieUI();
+  buildHandsfreeUI();
+  bindHandsfreeCancel();
   window.setWalkieMode = setWalkie;
   window.isWalkieOn = function () { return walkieOn; };
+  // 손 안 쓰는 모드 바깥 연결. 듣기 부분과 방 화면이 쓴다.
+  window.setHandsfreeMode = setHandsfree;
+  window.isHandsfreeOn = function () { return handsfreeOn; };
+  window.cancelHandsfreeListen = cancelHandsfreeListen;
+  window.__handsfreeTtsEnd = onTtsFinished;
+  window.__handsfreeBlocked = stopHandsfreeBlocked;
 })();
 
 /* static/voice.js 듣기 부분 — AI 답장 읽어주기 (POST /api/tts → WAV 재생)
@@ -612,6 +957,8 @@
   var prefetchIdx = -1;
   var loading = false;
   var activeIsAuto = false;
+  // 손 안 쓰는 모드가 끝난 뒤 들을지 판단하는 마지막 자동 읽기 글자.
+  var lastAutoText = '';
   // 끊기 세대 번호: 늦게 도착한 요청 결과는 버린다.
   var speechGen = 0;
   // 긴 답장 나누기 상수
@@ -663,6 +1010,7 @@
     activeChunks = null;
     activeIndex = 0;
     activeIsAuto = false;
+    lastAutoText = '';
     loading = false;
   }
 
@@ -829,7 +1177,9 @@
     });
   }
 
-  function finishReading() {
+  function finishReading(natural) {
+    var wasAuto = activeIsAuto;
+    var doneText = lastAutoText;
     cleanupActive();
     clearPrefetch();
     if (activeBtn) resetBtn(activeBtn);
@@ -838,11 +1188,17 @@
     activeIndex = 0;
     activeIsAuto = false;
     loading = false;
+    // 끝까지 스스로 다 읽었을 때만 손 안 쓰는 모드에 알린다. 끊기·오류·차단은 알리지 않는다.
+    if (natural && wasAuto) {
+      try {
+        if (typeof window.__handsfreeTtsEnd === 'function') window.__handsfreeTtsEnd(true, doneText);
+      } catch (e) { /* 무시 */ }
+    }
   }
 
   function failReading(btn, gen, isAuto, err) {
     if (gen !== speechGen) return;
-    finishReading();
+    finishReading(false);
     if (isAuto) return;
     if (err instanceof TypeError) {
       flashBtn(btn, '인터넷 연결을 확인해 주세요');
@@ -896,26 +1252,34 @@
     audio.onerror = function () {
       if (gen !== speechGen) return;
       if (isAuto) {
-        finishReading();
+        finishReading(false);
         return;
       }
-      finishReading();
+      finishReading(false);
       flashBtn(btn, '재생에 실패했어요');
     };
     var played = null;
     try {
       played = audio.play();
     } catch (e) {
-      if (isAuto) { finishReading(); return; }
-      finishReading();
+      if (isAuto) {
+        finishReading(false);
+        try { if (typeof window.__handsfreeBlocked === 'function') window.__handsfreeBlocked(); } catch (e2) { /* 무시 */ }
+        return;
+      }
+      finishReading(false);
       flashBtn(btn, '재생에 실패했어요');
       return;
     }
     if (played && typeof played.catch === 'function') {
       played.catch(function () {
         if (gen !== speechGen) return;
-        if (isAuto) { finishReading(); return; }
-        finishReading();
+        if (isAuto) {
+          finishReading(false);
+          try { if (typeof window.__handsfreeBlocked === 'function') window.__handsfreeBlocked(); } catch (e2) { /* 무시 */ }
+          return;
+        }
+        finishReading(false);
         flashBtn(btn, '재생에 실패했어요');
       });
     }
@@ -926,7 +1290,7 @@
     cleanupActive();
     activeIndex++;
     if (!activeChunks || activeIndex >= activeChunks.length) {
-      finishReading();
+      finishReading(true);
       return;
     }
     var btn = activeBtn;
@@ -988,6 +1352,7 @@
       if (!historyReady()) return;
       var clean = (text || '').replace(/^\s+|\s+$/g, '');
       if (!clean) return;
+      lastAutoText = clean;
       queueNewReading(clean, btn || null, true);
     } catch (e) { /* 무시 */ }
   };
