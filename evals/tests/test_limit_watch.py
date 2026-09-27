@@ -29,3 +29,8 @@ def test_quota_check_fails_when_primary_falls_back(monkeypatch):
     assert not R.quota_ok(w)
     monkeypatch.setattr(llm, "chat_json", lambda *a, **k: '{"n": 1}')
     assert R.quota_ok(w)
+
+
+def test_scorer_treats_katalk_alias_as_same():
+    assert R._value_matches("카카오톡 채널", "카톡 채널")
+    assert not R._value_matches("카카오톡 채널", "전화")

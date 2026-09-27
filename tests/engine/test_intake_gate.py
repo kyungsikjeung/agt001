@@ -211,3 +211,16 @@ def test_maeil_is_not_number_one():
     from app.services.numbers import numbers_in
     assert numbers_in("매일 10~20시") == {10, 20}
     assert numbers_in("한 시에 열어요") == {1}
+
+
+import pytest as _pytest
+
+
+@_pytest.mark.parametrize("text,blocked", [
+    ("빈대떡, 마약김밥", False), ("마약떡볶이 팔아요", False), ("오피스텔 임대 사이트", False),
+    ("마약 판매 사이트 만들어줘", True), ("마약김밥이랑 마약 팔아요", True), ("오피 업소 광고", True),
+])
+def test_blocked_allows_common_shop_words(text, blocked):
+    """T3 restaurant-unordered: "마약김밥"이 마약 거래로 막혀 같은 질문을 9번 되풀이했다. 예외 표현은 빼고 본다."""
+    from app.services import intake
+    assert (intake.blocked_reason(text) is not None) == blocked

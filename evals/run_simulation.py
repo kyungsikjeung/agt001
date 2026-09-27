@@ -11,6 +11,7 @@ IRE 정의: 사실표 hidden_facts에서 true인 항목 중 대화로 끌어낸(
 
 사용법:
   python -m evals.run_simulation [--only pension-terse] [--out docs/product/evals/simulation-<날짜>.md]
+  python -m evals.run_simulation --scenario-dir evals/scenarios_wrong [--only wrong_input]
   python -m evals.run_simulation --smoke            # 오프라인 자가 점검(규칙 기반 가짜 사장님, 비공식)
   python -m evals.run_simulation --live             # 실제 NIM 호출(Claude가 실행, .env는 읽지 않음)
 
@@ -69,8 +70,9 @@ def scenario_dir() -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), "scenarios")
 
 
-def load_scenarios(only: str = "") -> list:
-    paths = sorted(glob.glob(os.path.join(scenario_dir(), "*.json")))
+def load_scenarios(only: str = "", base_dir: str = "") -> list:
+    root = base_dir or scenario_dir()
+    paths = sorted(glob.glob(os.path.join(root, "*.json")))
     out = []
     for p in paths:
         with open(p, encoding="utf-8") as f:
@@ -285,7 +287,9 @@ def _value_matches(fact, got) -> bool:
 
 def _nm(x) -> str:
     """채점 비교용: 띄어쓰기·문장부호를 빼고 비교한다("예약·문의 늘리기" = "예약 문의 늘리기")."""
-    return re.sub(r"[^가-힣a-zA-Z0-9]", "", str(x)).lower()
+    # 카카오톡·카카오 → 카톡: 엔진 근거 판단(prd_engine._alias_norm)과 같은 별칭 규칙("카톡 채널" = "카카오톡 채널")
+    s = str(x).replace("카카오톡", "카톡").replace("카카오", "카톡")
+    return re.sub(r"[^가-힣a-zA-Z0-9]", "", s).lower()
 
 
 def _transcript_text(transcript) -> str:
@@ -294,6 +298,42 @@ def _transcript_text(transcript) -> str:
 
 def _owner_text(transcript) -> str:
     return "\n".join(m.get("text", "") for m in transcript if m.get("role") == "사장님")
+
+
+def _digits_only(s) -> str:
+    """숫자만 뽑는다(전화 하이픈·시간 단위 차이 흡수용)."""
+    return re.sub(r"\D", "", str(s))
+
+
+def find_stored_bad_values(card, bad_values) -> list:
+    """저장 금지 값이 최종 카드에 FILLED로 남았는지 찾는다.
+
+    글자 그대로 겹치거나 숫자만 뽑아 겹쳐도 저장으로 본다.
+    FILLED가 아닌 칸(자리 표시·가정·비어 있음)은 저장으로 세지 않는다.
+    """
+    hits = []
+    slots = (card or {}).get("slots", {})
+    for bad in bad_values or []:
+        b = str(bad)
+        if not b:
+            continue
+        bn = _nm(b)
+        bd = _digits_only(b)
+        for k, slot in slots.items():
+            if not isinstance(slot, dict) or slot.get("status") != S.FILLED:
+                continue
+            vals = slot["value"] if isinstance(slot["value"], list) else [slot["value"]]
+            for v in vals:
+                s = str(v)
+                if not s:
+                    continue
+                if b in s or (bn and bn in _nm(s)):
+                    hits.append({"slot": k, "bad": b, "got": v})
+                    break
+                if len(bd) >= 2 and bd in _digits_only(s):
+                    hits.append({"slot": k, "bad": b, "got": v})
+                    break
+    return hits
 
 
 def score_dialogue(scenario, result) -> dict:
@@ -420,6 +460,11 @@ def score_dialogue(scenario, result) -> dict:
             violations.append({"turn": q["turn"], "kind": "multi_ask"})
         if any(w in q.get("text", "") for w in STYLE_WORDS):
             violations.append({"turn": q["turn"], "kind": "style_question"})
+    # 저장 금지 값: 틀린 입력이 최종 카드에 FILLED로 남으면 위반으로 센다.
+    # must_not_store가 없는 기존 시나리오는 이 판정을 타지 않는다.
+    for hit in find_stored_bad_values(card, expect.get("must_not_store") or []):
+        violations.append({"turn": 0, "kind": "stored_bad_value",
+                           "slot": hit["slot"], "value": hit["bad"]})
     max_q = (expect.get("max_questions") or S.MAX_QUESTIONS)
 
     passed = (fill_rate >= 0.95 and accuracy >= 0.95 and not invented
@@ -684,13 +729,14 @@ def default_out_path() -> str:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="요구사항 엔진 대화 시뮬레이션 (T3)")
     ap.add_argument("--only", default="", help="시나리오 id 부분 일치 필터")
+    ap.add_argument("--scenario-dir", default="", help="시나리오 폴더(기본 evals/scenarios)")
     ap.add_argument("--out", default="", help="결과 md 경로")
     ap.add_argument("--smoke", action="store_true", help="오프라인 자가 점검(비공식)")
     ap.add_argument("--live", action="store_true", help="실제 NIM 호출(Claude 실행용)")
     ap.add_argument("--no-precheck", action="store_true", help="--live 전 한도 점검 생략")
     args = ap.parse_args(argv)
 
-    scenarios = load_scenarios(args.only)
+    scenarios = load_scenarios(args.only, args.scenario_dir)
     if not scenarios:
         print("시나리오가 없다.", file=sys.stderr)
         return 1

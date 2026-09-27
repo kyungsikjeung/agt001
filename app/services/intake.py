@@ -43,7 +43,11 @@ def blocked_reason(text: str) -> Optional[str]:
     """사칭·피싱·도박 등 금지 요청이면 거절 이유 한 줄, 아니면 None."""
     n = _norm(text)
     for rule in S.PROFILES.get("blocked", []):
-        if any(_norm(k) and _norm(k) in n for k in rule["keywords"]):
+        # 예외 표현("마약김밥", "오피스텔")은 빼고 본다. 흔한 가게 말이 금지 요청으로 막히던 문제(T3 restaurant-unordered)
+        body = n
+        for a in rule.get("allow", []):
+            body = body.replace(_norm(a), " ")
+        if any(_norm(k) and _norm(k) in body for k in rule["keywords"]):
             return rule["description"].split(".")[0]
     return None
 
