@@ -15,6 +15,7 @@ import datetime
 import json
 import re
 import tempfile
+import time
 from html.parser import HTMLParser
 from pathlib import Path
 
@@ -438,6 +439,132 @@ def contact_sheets(pages: list[dict], out_dir: Path) -> None:
             sheet.save(out_dir / f"sheet-{ind}-{level}.png")
 
 
+# ── 채팅방 UX 점검 (P2 UX 3행, 브라우저 없이 static/room.html 직접 읽기) ──
+# 공개본 36쪽과 별개로, 요구사항 채팅방의 대기·비교·신뢰 장치가 코드에 살아 있는지 본다.
+# 비용 0원·브라우저 불필요라 매일 회귀에 항상 포함한다.
+
+UX_CHECKS = (
+    # (행, 라벨, 있어야 할 문자열들)
+    ("wait", "대기 체감", ("progressWrap", "progressFill", "시안 먼저",
+                          "progressbar", "aria-busy", "나갔다 와도 돼요",
+                          "design-thumb.loading", "aspect-ratio",
+                          "prefers-reduced-motion")),
+    ("compare", "비교 용이", ("designSheetWrap", "DESIGN_DIFFS", "designSheetOpen",
+                             "designSheetPick", "크게 보기")),
+    ("trust", "신뢰 라벨", ("src-note", "AI 정리", "quote-note", "참고용",
+                           "inquiry-note", "30일")),
+)
+
+
+def evaluate_chat_ux(room_path=None) -> list[dict]:
+    """room.html에 UX 장치가 있는지. 반환: [{row, label, ok, missing}]."""
+    path = Path(room_path) if room_path else ROOT.parent / "static" / "room.html"
+    try:
+        html = path.read_text(encoding="utf-8")
+    except OSError:
+        return [{"row": r, "label": lb, "ok": False, "missing": ["room.html 없음"]}
+                for r, lb, _ in UX_CHECKS]
+    out = []
+    for row, label, needles in UX_CHECKS:
+        missing = [nd for nd in needles if nd not in html]
+        out.append({"row": row, "label": label, "ok": not missing, "missing": missing})
+    return out
+
+
+# ── Qwen vision 첫 화면 채점 (①, --vision 때만, 유료 몇 센트) ──
+
+ZEN_CHAT_URL = "https://opencode.ai/zen/v1/chat/completions"
+VISION_MODEL_DEFAULT = "qwen3.8-flash"
+VISION_ASPECTS = ("name", "action", "clarity", "trust")
+VISION_PROMPT = (
+    "너는 모바일 웹사이트 첫 화면 심사위원이다. 390×844 휴대폰 스크린샷을 본다. "
+    "JSON만 출력한다: {\"name\": 0~2 (가게 이름이 첫눈에 보이는지), "
+    "\"action\": 0~2 (문의·전화·예약 버튼이 분명한지), "
+    "\"clarity\": 0~2 (무엇을 하는 곳인지 한눈에 이해되는지), "
+    "\"trust\": 0~2 (주소·영업시간·연락처 등 믿을 근거가 보이는지), "
+    "\"note\": \"한 줄 근거 20자 안팎\"}"
+)
+
+
+def _vision_call(image_bytes: bytes, model: str, key: str, timeout: float = 90.0) -> tuple:
+    """(점수 dict 또는 None, 사용량 dict). 실패하면 (None, {}) — 호출한 쪽이 건너뛴다."""
+    import base64
+    import httpx
+
+    try:
+        from PIL import Image
+    except ImportError:
+        Image = None
+    data = image_bytes
+    if Image is not None:
+        try:
+            import io as _io
+            im = Image.open(_io.BytesIO(image_bytes)).convert("RGB")
+            im.thumbnail((390, 844))
+            buf = _io.BytesIO()
+            im.save(buf, format="JPEG", quality=70)
+            data = buf.getvalue()
+        except Exception:
+            data = image_bytes
+    b64 = base64.b64encode(data).decode()
+    body = {"model": model, "max_tokens": 400,
+            "messages": [{"role": "user", "content": [
+                {"type": "text", "text": VISION_PROMPT},
+                {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64," + b64}}]}]}
+    for attempt in range(3):
+        try:
+            r = httpx.post(ZEN_CHAT_URL, timeout=timeout,
+                           headers={"Authorization": f"Bearer {key}"},
+                           json=body)
+            if r.status_code != 200:
+                time.sleep(2 * (attempt + 1))
+                continue
+            d = r.json()
+            text = (d.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            m = re.search(r"\{.*\}", text or "", re.S)
+            if not m:
+                return None, {}
+            got = json.loads(m.group(0))
+            scores = {k: got.get(k) for k in VISION_ASPECTS}
+            if any(not isinstance(v, int) or not 0 <= v <= 2 for v in scores.values()):
+                return None, {}
+            if not isinstance(got.get("note"), str):
+                return None, {}
+            usage = d.get("usage") or {}
+            return {**scores, "note": got["note"][:60]}, {
+                "prompt": usage.get("prompt_tokens", 0),
+                "completion": usage.get("completion_tokens", 0)}
+        except Exception:
+            time.sleep(2 * (attempt + 1))
+    return None, {}
+
+
+def score_vision(pages: list[dict], out_dir: Path, model: str = VISION_MODEL_DEFAULT) -> dict:
+    """fold 스크린샷 36쪽을 vision으로 채점. 키가 없으면 건너뜀 표시만 돌려준다."""
+    key = (settings.zen_api_key or "").strip()
+    if not key:
+        return {"skipped": "ZEN_API_KEY 없음", "model": model, "rows": [], "missing": [],
+                "prompt_tokens": 0, "completion_tokens": 0}
+    rows, missing = [], []
+    prompt_tokens = completion_tokens = 0
+    for pg in pages:
+        name = f"{pg['industry']}-{pg['level']}-{pg['variant']}"
+        shot = out_dir / (pg["html"].stem + "-fold.png")
+        if not shot.exists():
+            missing.append(name)
+            continue
+        scores, usage = _vision_call(shot.read_bytes(), model, key)
+        prompt_tokens += usage.get("prompt", 0)
+        completion_tokens += usage.get("completion", 0)
+        if scores is None:
+            missing.append(name)
+        else:
+            rows.append({"page": name, **scores})
+        time.sleep(1.5)
+    return {"skipped": "", "model": model, "rows": rows, "missing": missing,
+            "prompt_tokens": prompt_tokens, "completion_tokens": completion_tokens}
+
+
 def _six(m: dict) -> dict:
     """D37 6요소 통과 여부. hero_visual은 참고값이라 판정 없음."""
     return {
@@ -449,7 +576,8 @@ def _six(m: dict) -> dict:
     }
 
 
-def report(pages: list[dict], dist: dict) -> str:
+def report(pages: list[dict], dist: dict, ux: list | None = None,
+           vision: dict | None = None) -> str:
     rows, issues = [], {"overflow": 0, "small": 0, "contrast": 0, "targets": 0, "broken": 0, "ph": 0, "facts": 0,
                         "fold_name": 0, "fold_cta": 0, "h1": 0}
     six_rows, six_pass = [], {"title": 0, "spacing": 0, "color": 0, "cta": 0, "actions": 0}
@@ -550,18 +678,54 @@ def report(pages: list[dict], dist: dict) -> str:
             + "\n".join(six_rows) +
             "\n\n## 쪽별\n\n| 쪽 | 넘침 | 작은 글자 | 대비 | 작은 칸 | 깨진 그림 | 빈칸 | 없는 사실 | 첫화면 이름 | 첫화면 버튼 | h1 | 높이 | 죽은 버튼 | 틀린 번호 | 모르는 링크 | 누를 것 |\n"
             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|\n")
-    return head + "\n".join(rows) + "\n\n## 세부\n\n" + "\n".join(detail) + "\n"
+    text = head + "\n".join(rows) + "\n\n## 세부\n\n" + "\n".join(detail) + "\n"
+    if ux is not None:
+        text += ("\n## 채팅방 UX 3행 (P2, room.html 직접 읽기, 비용 0원)\n\n"
+                 "| 행 | 장치 | 판정 |\n|---|---|---|\n"
+                 + "\n".join(f"| {u['label']} | "
+                             f"{'있음' if u['ok'] else '없음: ' + ', '.join(u['missing'])} | "
+                             f"{'O' if u['ok'] else 'X'} |" for u in ux) + "\n")
+    if vision is not None:
+        text += "\n## Qwen vision 첫 화면 채점 (①, 0~2점)\n\n"
+        if vision.get("skipped"):
+            text += f"> 건너뜀: {vision['skipped']}\n"
+        else:
+            rows_v = vision.get("rows") or []
+            n_v = len(rows_v)
+            text += (f"모델: {vision.get('model')}, 채점 {n_v}/36쪽"
+                     + (f" (미측정 {len(vision.get('missing') or [])}쪽: "
+                        + ", ".join(vision.get("missing") or []) + ")" if vision.get("missing") else "")
+                     + f", 토큰 입력 {vision.get('prompt_tokens', 0)}/출력 "
+                     f"{vision.get('completion_tokens', 0)}\n\n"
+                     "| 항목 | 평균 |\n|---|---|\n")
+            for k, lb in (("name", "이름 명확"), ("action", "행동 명확"),
+                          ("clarity", "한눈 이해"), ("trust", "신뢰 근거")):
+                avg = round(sum(r[k] for r in rows_v) / n_v, 2) if n_v else 0
+                text += f"| {lb} | {avg} |\n"
+            if n_v:
+                total = round(sum(sum(r[k] for k in VISION_ASPECTS) for r in rows_v) / n_v, 2)
+                text += f"| 합계(/8) | {total} |\n"
+            text += ("\n### 쪽별\n\n| 쪽 | 이름 | 행동 | 이해 | 신뢰 | 근거 |\n"
+                     "|---|---|---|---|---|---|\n"
+                     + "\n".join(f"| {r['page']} | {r['name']} | {r['action']} | "
+                                 f"{r['clarity']} | {r['trust']} | {r['note']} |" for r in rows_v) + "\n")
+    return text
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default=None, help="HTML·스크린샷 저장 폴더 (기본: 임시 폴더)")
     ap.add_argument("--report", default=None, help="성적표 저장 경로 (기본: 화면에만)")
+    ap.add_argument("--vision", action="store_true",
+                    help="Qwen vision으로 36쪽 첫 화면 채점 (유료 몇 센트, ZEN_API_KEY 필요)")
+    ap.add_argument("--vision-model", default=VISION_MODEL_DEFAULT,
+                    help=f"vision 채점 모델 (기본: {VISION_MODEL_DEFAULT})")
     a = ap.parse_args()
     out_dir = Path(a.out or tempfile.mkdtemp(prefix="siteq-out-"))
     out_dir.mkdir(parents=True, exist_ok=True)
     pages = build_pages(out_dir)
     evaluate_actions(pages)  # 브라우저 없이 HTML 직접 읽기라 항상 됨
+    ux = evaluate_chat_ux()  # 비용 0원이라 항상 포함
     try:
         measure(pages, out_dir)
         dist = distinctness(pages, out_dir)
@@ -569,7 +733,8 @@ def main() -> None:
     except Exception as e:  # 브라우저 도구가 없으면 누를 것 점검만 보고한다
         print(f"브라우저 측정 건너뜀(도구 없음): {e}")
         dist = {}
-    text = report(pages, dist)
+    vision = score_vision(pages, out_dir, a.vision_model) if a.vision else None
+    text = report(pages, dist, ux=ux, vision=vision)
     (out_dir / "measure.json").write_text(json.dumps([{**{k: v for k, v in p.items() if k not in ('html', 'shot')}}
                                                        for p in pages], ensure_ascii=False, indent=1), encoding="utf-8")
     if a.report:
