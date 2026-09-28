@@ -1,0 +1,37 @@
+{
+  "archetype": "F",
+  "mode": "",
+  "primary": {"label": "견적 문의", "target": "inquiry"},
+  "secondary": {"label": "작업 보기", "target": "works"},
+  "actionbar_secondary": "phone",
+  "tokens": {"font_pair": "serif-warm", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "strategies": [
+    {"id": "v1", "name": "작업·견적형", "journey": "작업 보고 → 견적 문의", "tone": "calm",
+     "hero": "photo-overlay",
+     "sections": [
+       {"id": "works", "type": "gallery", "variant": "grid", "bind": "style_photos", "label": "작업", "nav": "작업"},
+       {"id": "price", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "작업 안내", "nav": "작업 안내"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"},
+       {"id": "owner", "type": "intro", "variant": "owner", "bind": "none", "label": "소개"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길", "optional": true}
+     ]},
+    {"id": "v2", "name": "사람·이야기형", "journey": "사람 알고 → 작업 보고 → 문의", "tone": "rich",
+     "hero": "photo-side",
+     "sections": [
+       {"id": "owner", "type": "intro", "variant": "owner", "bind": "none", "label": "소개", "nav": "소개"},
+       {"id": "works", "type": "gallery", "variant": "marquee", "bind": "style_photos", "label": "작업", "nav": "작업", "tone": "inverse"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"},
+       {"id": "price", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "작업 안내", "nav": "작업 안내"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길", "optional": true}
+     ]},
+    {"id": "v3", "name": "가격 우선형", "journey": "가격 보고 → 작업 확인 → 문의", "tone": "rich",
+     "hero": "arch",
+     "sections": [
+       {"id": "price", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "가격", "nav": "가격"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"},
+       {"id": "works", "type": "gallery", "variant": "grid", "bind": "style_photos", "label": "작업", "nav": "작업", "tone": "inverse"},
+       {"id": "owner", "type": "intro", "variant": "owner", "bind": "none", "label": "소개"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길", "optional": true}
+     ]}
+  ]
+}

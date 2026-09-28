@@ -1,0 +1,40 @@
+{
+  "archetype": "E",
+  "mode": "",
+  "primary": {"label": "수업 신청", "target": "booking"},
+  "secondary": {"label": "수업 보기", "target": "classes"},
+  "actionbar_secondary": "phone",
+  "tokens": {"font_pair": "sans-clean", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "strategies": [
+    {"id": "v1", "name": "수업 선택형", "journey": "수업 보고 → 신청", "tone": "calm",
+     "hero": "photo-overlay",
+     "sections": [
+       {"id": "classes", "type": "classes", "variant": "cards", "bind": "classes", "label": "수업 안내", "nav": "수업 안내"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "수업 신청", "nav": "수업 신청"},
+       {"id": "works", "type": "gallery", "variant": "swipe", "bind": "space_photos", "label": "작품"},
+       {"id": "teacher", "type": "staff", "variant": "solo", "bind": "staff", "label": "선생님", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v2", "name": "작품·공간형", "journey": "작품 보고 → 수업", "tone": "rich",
+     "hero": "photo-side",
+     "sections": [
+       {"id": "works", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "작품", "nav": "작품", "tone": "inverse"},
+       {"id": "classes", "type": "classes", "variant": "cards", "bind": "classes", "label": "수업 안내", "nav": "수업 안내"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "수업 신청", "nav": "수업 신청"},
+       {"id": "teacher", "type": "staff", "variant": "solo", "bind": "staff", "label": "선생님", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v3", "name": "신청 우선형", "journey": "날짜 잡고 → 수업", "tone": "rich",
+     "hero": "arch",
+     "sections": [
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "수업 신청", "nav": "수업 신청"},
+       {"id": "classes", "type": "classes", "variant": "cards", "bind": "classes", "label": "수업 안내", "nav": "수업 안내"},
+       {"id": "space", "type": "gallery", "variant": "grid", "bind": "space_photos", "label": "공방", "tone": "inverse"},
+       {"id": "teacher", "type": "staff", "variant": "solo", "bind": "staff", "label": "선생님", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]}
+  ]
+}

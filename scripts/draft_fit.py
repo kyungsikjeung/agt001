@@ -92,8 +92,8 @@ def score_case(case: dict) -> dict:
         else:
             res["map_present"].append(True)
         res["generic_heading"].append(not re.search(r"<h2\b[^>]*>\s*사진첩\s*</h2>", doc))
-        if case["industry"] == "academy" and data["classes"]:
-            # 학원: 반 카드 수 = 반 수
+        if case["industry"] in ("academy", "workshop") and data["classes"]:
+            # 학원·공방: 반 카드 수 = 반 수
             res["class_count"].append(doc.count('<li class="s-class">') == len(data["classes"]))
         else:
             res["class_count"].append(True)

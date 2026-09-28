@@ -914,7 +914,7 @@ section[class^="s-"] h2::after,
   min-height: 0;
 }
 .s-hero--photo-side .s-hero__body { width: 100%; max-width: 720px; margin-inline: auto; padding: 28px 20px 8px; }
-.s-hero--photo-side .s-media img { height: 58vh; height: 58svh; border-radius: 0; }
+.s-hero--photo-side .s-media img { height: 44vh; height: 44svh; border-radius: 0; }
 .s-hero--photo-side .s-media .s-illu { border-radius: 0; background: var(--ground-soft); }
 .s-hero--photo-side .s-media .s-illu svg { height: 320px; }
 .s-hero--photo-side .s-illu-badge { top: 14px; left: 16px; }

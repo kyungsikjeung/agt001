@@ -7,7 +7,7 @@ from app.services import prd_schema as S
 def _card():
     card = E.new_card()
     E._put(card, "business_type", "첼로 레슨", S.FILLED, 1)
-    card["industry"] = "individual"
+    card["industry"] = "group"  # 청사진 없는 예전 경로를 검사한다 (individual은 F 청사진)
     E._put(card, "shop_name", "하늘첼로", S.FILLED, 1)
     E._put(card, "offerings", ["성인 취미반", "입시반"], S.FILLED, 1)
     E._put(card, "phone", None, S.PLACEHOLDER)

@@ -618,7 +618,7 @@ def variants(card: dict) -> list[dict]:
         arch, _ = AT.of(card)
     except Exception:
         blueprint, arch = None, ""
-    if blueprint is not None and arch in ("A", "B", "C", "D"):
+    if blueprint is not None:
         try:
             return _agent_apply(card, _blueprint_variants(card, blueprint, arch))
         except Exception:

@@ -50,7 +50,7 @@ def test_blueprint_found_and_missing():
     """<원형>-<모드>가 있으면 읽고, 없으면 None."""
     assert archetype.blueprint(_card("cafe", "dinein"))["mode"] == "dinein"
     assert archetype.blueprint(_card("salon", "team"))["mode"] == "team"
-    assert archetype.blueprint(_card("workshop", "")) is None
+    assert archetype.blueprint(_card("group", "")) is None
 
 
 def test_load_accepts_name_with_or_without_suffix():

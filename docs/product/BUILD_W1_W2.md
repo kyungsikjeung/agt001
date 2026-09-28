@@ -274,6 +274,37 @@ CSS는 `templates/css/40-w2-parts.css`(새 폴더). `site_render._bundle`이 `si
 **LLM 원형 판정(13:05)**: 낱말표에 없는 업종 30개 별도 목록 `evals/archetype_cases_llm.json`(원형마다 3~4개)로 `archetype_eval.py --llm evals/archetype_cases_llm.json` 2회 모두 30/30. 24건이 LLM 경로(24/24), 6건은 업종표가 먼저 맞힘. NIM 모델 시간 초과가 실행마다 1~4번 나 다음 모델로 넘어감 → 8초 한도 안에서 모든 모델이 실패하면 A로 떨어지므로 지연은 계속 본다.
 **남은 것**: 3주차: 보고 고치기 1회, FAQ·공지 부품, 공방(E)·개인(F) 최소 청사진, 10/15 동결.
 
+## 6. 3주차 (10/12~10/15, UI_AGENT_PLAN §7)
+
+완료 기준: 적합성 코퍼스 24건(원형마다 3건) `draft_fit` PASS, 원형 판정 90%(✅ 4물결), 보고 고치기 1회 전후 점수.
+
+| 항목 | 판단 |
+|---|---|
+| 색 채점(DESIGN_FIT_PLAN C5) | **이미 있음**: 탁함·강조색 색상각·역할 대비는 `palette.check` → `draft_score.palette_rules_fail`, 쪽 대비는 `check_contrast`, 사진-팔레트는 J2b 테스트. 새 작업 없음 |
+| FAQ·공지 부품 | **미룸**: D42 "3주 안에 부품 확장 안 함". J9 연결표의 '가능' 표시는 10/17 뒤 부품과 함께 |
+| 보고 고치기 1회(P3-7) | Claude가 직접: 엔진 시안 캡처 → 그림을 보고 지적 → 명세 수정 → 전후 점수 |
+| 10/15 동결 | 대표·Claude |
+
+### 5물결 (OpenCode, 동시에)
+
+| 작업 | 내용 | 소유 파일 | 완료 확인 |
+|---|---|---|---|
+| **K1** 공방(E) 청사진 | 기존 부품만. primary `{"label": "수업 신청", "target": "booking"}`. 수업은 D와 같은 `classes`(card_data가 E에도 반 파싱) → `classes--cards` + `booking--slots`. 3안 두 번째 섹션이 서로 다름 | `templates/blueprints/E.json`, `templates/examples/E.json`, `app/services/card_data.py`(classes를 D·E에서 만드는 한 줄), `tests/engine/test_blueprint_e.py`(새) | 자기 테스트 + `draft_fit` 기존 12건 PASS 유지 |
+| **K2** 개인 전문가(F) 청사진 | 기존 부품만. primary `{"label": "견적 문의", "target": "inquiry"}`(`contact--form`). 작업 사진 `gallery`(제목 "작업"), 가격 `offerings--cards`, 소개 `intro--owner` | `templates/blueprints/F.json`, `templates/examples/F.json`, `tests/engine/test_blueprint_f.py`(새) | 자기 테스트 + 기존 12건 PASS 유지 |
+| **K3** 코퍼스 24건 | FIT_CASES에 E·F·G·H 각 3건(데이터 많음·적음·이상한 업종) 추가 → 24건. `draft_fit`의 반 카드 수 검사를 공방에도 | `scripts/draft_corpus.py`, `scripts/draft_fit.py` | A~D 12건 PASS 유지. E·F는 K1·K2 합친 뒤 Claude가 확인, G·H 실패는 고치지 말고 보고(10/17 뒤 부품) |
+
+### 5물결 결과 (2026-09-28)
+
+| 작업 | 결과 | Claude 검토 |
+|---|---|---|
+| K1 공방(E) | `E.json`(수업 안내·작품·신청 우선 3안), 예시 E, card_data가 E에도 반 파싱 | **빠진 연결**: `design_variants.variants()`가 A~D만 청사진을 썼다 → 청사진이 있으면 쓰게 바꿈. 예시 사진 4장은 Claude가 Gemini로 생성 |
+| K2 개인(F) | `F.json`(작업·사람·가격 우선 3안), 예시 F | **수정**: `offerings--cards`+catalog는 가격 짝이 안 그려져 `categories`로, 2안 작업 사진은 `marquee`(v2 흐르는 띠 규칙). 예시 사진 4장 Gemini 생성 |
+| K3 코퍼스 24건 | E·F·G·H 각 3건 | **수정**: F 3건 중 2건이 과외(1:1 수업은 F가 아님) → 출장 사진·인테리어로 교체. `test_archetype`의 '청사진 없음' 예를 workshop → group, `test_design_variants` 예전 경로 카드를 individual → group |
+| 보고 고치기 1회(P3-7) | E·F 캡처를 보고 지적: 휴대폰에서 `photo-side` 첫 화면 사진이 58svh라 주 버튼이 첫 화면 밖 | **수정**: 사진 44svh. 390×844 첫 화면 주 버튼: 전 **19/72 밖 → 0/72**(24건 × 3안). 원인이 CSS 한 곳이라 청사진은 그대로 |
+
+**검증**: 전체 775개 통과, `draft_fit` 24건 중 A~F 18건 × 12항목 PASS, `draft_score` 통과, `check_contrast --palettes` 실패 0.
+**남은 것**: G·H 6건 FAIL(청사진 없음, 예전 경로) → 코퍼스 24건 PASS는 G·H 최소 청사진(기존 부품)이 있어야 채워진다. 엔진 버그 후보: `_split_items`가 '과외'·'결과'의 '과'를 조사로 잘라 가격 짝이 비는 문제(K3 발견).
+
 ## 변경 이력
 
 | 날짜 | 내용 |
@@ -282,3 +313,5 @@ CSS는 `templates/css/40-w2-parts.css`(새 폴더). `site_render._bundle`이 `si
 | 2026-09-28 | 1물결 완료·검토 기록(§5), 2물결(J5·J1b·G1) 시작 |
 | 2026-09-28 | 2~4물결 검토 기록(J1b·G1·F1·J7·J9·J5·J5b·J11·F2) |
 | 2026-09-28 | 4물결 마무리(J2b·G2) 기록 |
+| 2026-09-28 | §6 3주차: 색 채점은 이미 있음, FAQ·공지 미룸, 5물결(K1 E·K2 F·K3 코퍼스 24건) |
+| 2026-09-28 | 5물결 결과·보고 고치기 1회 기록 |

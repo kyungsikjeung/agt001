@@ -317,7 +317,7 @@ def build(card: dict) -> dict:
     archetype = ARCHETYPE.get(industry_key, "A")
     staff = _staff(card)
     mode = _mode(card, archetype, staff)
-    classes = _classes(card) if archetype == "D" else []
+    classes = _classes(card) if archetype in ("D", "E") else []
     rooms = _rooms(card) if archetype == "C" else []
     return {
         "version": 1,

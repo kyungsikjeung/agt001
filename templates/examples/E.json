@@ -1,0 +1,93 @@
+{
+  "catalog": [],
+  "classes": [
+    {
+      "capacity": "6명",
+      "days": "토",
+      "name": "원데이 도예 클래스",
+      "target": "성인",
+      "time": "14:00",
+      "fee": "5만원"
+    },
+    {
+      "capacity": "8명",
+      "days": "화·목",
+      "name": "4주 정규반",
+      "target": "성인",
+      "time": "19:00",
+      "fee": "20만원"
+    }
+  ],
+  "concerns": {
+    "heading": "이런 고민 있으세요?",
+    "items": [
+      "처음 만져 보는데, 따라갈 수 있을까요?",
+      "준비물은 따로 챙겨야 할까요?",
+      "만든 작품은 언제 가져갈 수 있나요?"
+    ],
+    "note": "수업 때 이런 이야기를 나눠요."
+  },
+  "photos": {
+    "hero": "/art/ex/workshop-hero.webp",
+    "space:1": "/art/ex/workshop-space.webp",
+    "space:2": "/art/ex/workshop-works.webp",
+    "staff:1": "/art/ex/workshop-teacher.webp"
+  },
+  "prices": {
+    "원데이": "5만원",
+    "정규반": "20만원",
+    "도예": "5만원"
+  },
+  "staff": [
+    {
+      "name": "김도예",
+      "role": "원장",
+      "specialties": [
+        "물레"
+      ]
+    }
+  ],
+  "timetable": {
+    "days": [
+      "화",
+      "목",
+      "토"
+    ],
+    "rows": [
+      {
+        "cells": [
+          {
+            "day": "화",
+            "text": ""
+          },
+          {
+            "day": "목",
+            "text": ""
+          },
+          {
+            "day": "토",
+            "text": "원데이 도예 클래스"
+          }
+        ],
+        "time": "14:00"
+      },
+      {
+        "cells": [
+          {
+            "day": "화",
+            "text": "4주 정규반"
+          },
+          {
+            "day": "목",
+            "text": "4주 정규반"
+          },
+          {
+            "day": "토",
+            "text": ""
+          }
+        ],
+        "time": "19:00"
+      }
+    ]
+  }
+}
