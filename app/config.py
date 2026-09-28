@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     # 타임아웃이 없으면(openai 기본값은 수 분) NIM이 멈출 때 요청 스레드가 같이 묶인다.
     nim_timeout_sec: float = 25.0
 
+    # 사장님 가게 확인(L2)·사업자 확인(L3)·카카오 채널 연결을 받는 고객센터 번호 (AI_BOOKING_AGENT_PLAN §5.2)
+    support_phone: str = ""
+
     project_root: Path = PROJECT_ROOT
     generated_dir: Path = PROJECT_ROOT / "generated"
     static_dir: Path = PROJECT_ROOT / "static"

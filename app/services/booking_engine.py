@@ -263,6 +263,9 @@ def book_now(site_key: str, day: datetime.date, time: str, *, service: Optional[
     shop_id, spec = _require_spec(site_key)
     now = now or _now()
     status = "confirmed" if actor == "owner" else _status_after(spec)
+    if actor == "owner":
+        # 사장님이 넣는 전화·방문 예약은 "몇 시간 전까지" 규칙을 받지 않는다(지금 온 손님도 넣을 수 있게)
+        spec = {**spec, "policy": {**S.policy(spec), "lead_min": 0}}
     with get_sessionmaker()() as db, db.begin():
         cid = customers.touch(db, site_key, phone, name) if phone else None
         row = _place(db, shop_id, site_key, spec, day, time, service=service, staff=staff, party=party, now=now,
