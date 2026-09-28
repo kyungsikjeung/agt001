@@ -5,7 +5,7 @@
 import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -351,3 +351,36 @@ class ShopSettingsRow(Base):
     key_last4: Mapped[Optional[str]] = mapped_column(Text)  # 화면 표시용 키 뒤 4자리
     updated_by: Mapped[Optional[str]] = mapped_column(Text)  # users.id
     updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class ShopRow(Base):
+    """가게 (BOOKING_BOT_IMPL_PLAN OWN-1). site_key = sessions.requirement_id."""
+
+    __tablename__ = "shops"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    name: Mapped[Optional[str]] = mapped_column(Text)
+    category: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
+    closed_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    phone_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    biz_no: Mapped[Optional[str]] = mapped_column(Text)
+    biz_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    verified_by: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class ShopMemberRow(Base):
+    """가게 권한. 가게당 owner 한 명(부분 유니크 인덱스)."""
+
+    __tablename__ = "shop_members"
+    __table_args__ = (
+        CheckConstraint("role IN ('owner', 'staff')", name="ck_shop_members_role"),
+        Index("ix_shop_members_user", "user_id"),
+        Index("uq_shop_members_owner", "shop_id", unique=True, postgresql_where=text("role = 'owner'")),
+    )
+
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()

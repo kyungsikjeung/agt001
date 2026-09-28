@@ -6,13 +6,8 @@ import datetime
 import logging
 from typing import Optional
 
-from sqlalchemy import select
-
-from app import store
-from app.config import settings
-from app.db.models import ShopSettingsRow, UserRoomRow
+from app.db.models import ShopSettingsRow
 from app.db.session import get_sessionmaker
-from app.services import rooms as rooms_svc
 
 log = logging.getLogger(__name__)
 
@@ -27,38 +22,11 @@ def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
-def _shop_name_of(session: Optional[dict]) -> str:
-    card = (session or {}).get("prd") or {}
-    slot = (card.get("slots") or {}).get("shop_name") or {}
-    raw = slot.get("value") or ""
-    return raw.strip() if isinstance(raw, str) else ""
-
-
 def owned_sites(user_id: str) -> list[dict]:
-    """계정에 붙은 방 중 방장인 방의 {site_key, room_id, shop_name, published}."""
-    if not user_id:
-        return []
-    with get_sessionmaker()() as db:
-        claims = db.execute(
-            select(UserRoomRow.room_id, UserRoomRow.member_id).where(UserRoomRow.user_id == user_id)
-        ).all()
-    out = []
-    for room_id, member_id in claims:
-        room = store.read_room(room_id)
-        if room is None:
-            continue
-        try:
-            if rooms_svc.owner_id(room) != member_id:
-                continue
-        except Exception:
-            continue
-        session = store.read_session(room["session_id"])
-        if session is None or not session.get("requirement_id"):
-            continue
-        card = session.get("prd") or {}
-        out.append({"site_key": session["requirement_id"], "room_id": room_id,
-                    "shop_name": _shop_name_of(session), "published": bool(card.get("published"))})
-    return out
+    """주인(owner)인 가게의 {site_key, room_id, shop_name, published}. 권한은 shops.member_sites가 정한다."""
+    from app.services import shops
+    return [{k: s[k] for k in ("site_key", "room_id", "shop_name", "published")}
+            for s in shops.member_sites(user_id) if s["role"] == "owner"]
 
 
 def can_edit(user_id: str, site_key: str) -> bool:
