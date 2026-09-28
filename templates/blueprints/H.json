@@ -1,0 +1,160 @@
+{
+  "actionbar_secondary": "phone",
+  "archetype": "H",
+  "mode": "",
+  "primary": {
+    "label": "도입 문의",
+    "target": "inquiry"
+  },
+  "secondary": {
+    "label": "기능 보기",
+    "target": "features"
+  },
+  "strategies": [
+    {
+      "hero": "photo-overlay",
+      "id": "v1",
+      "journey": "기능·요금 보고 → 문의",
+      "name": "기능·요금형",
+      "sections": [
+        {
+          "bind": "catalog",
+          "id": "features",
+          "label": "기능·요금",
+          "nav": "기능·요금",
+          "type": "offerings",
+          "variant": "categories"
+        },
+        {
+          "bind": "none",
+          "id": "inquiry",
+          "type": "contact",
+          "variant": "form"
+        },
+        {
+          "bind": "style_photos",
+          "id": "screens",
+          "label": "화면",
+          "nav": "화면",
+          "type": "gallery",
+          "variant": "grid"
+        },
+        {
+          "bind": "none",
+          "id": "owner",
+          "label": "소개",
+          "type": "intro",
+          "variant": "owner"
+        },
+        {
+          "bind": "location",
+          "id": "around",
+          "nav": "오시는 길",
+          "optional": true,
+          "type": "around",
+          "variant": "map"
+        }
+      ],
+      "tone": "calm"
+    },
+    {
+      "hero": "photo-side",
+      "id": "v2",
+      "journey": "고민 나누고 → 도입 문의",
+      "name": "공감·이야기형",
+      "sections": [
+        {
+          "bind": "concerns",
+          "id": "concerns",
+          "tone": "inverse",
+          "type": "concerns",
+          "variant": "bubbles"
+        },
+        {
+          "bind": "catalog",
+          "id": "features",
+          "label": "기능·요금",
+          "nav": "기능·요금",
+          "type": "offerings",
+          "variant": "categories"
+        },
+        {
+          "bind": "style_photos",
+          "id": "screens",
+          "label": "화면",
+          "nav": "화면",
+          "type": "gallery",
+          "variant": "marquee"
+        },
+        {
+          "bind": "none",
+          "id": "inquiry",
+          "type": "contact",
+          "variant": "form"
+        },
+        {
+          "bind": "location",
+          "id": "around",
+          "nav": "오시는 길",
+          "optional": true,
+          "type": "around",
+          "variant": "map"
+        }
+      ],
+      "tone": "rich"
+    },
+    {
+      "hero": "arch",
+      "id": "v3",
+      "journey": "요금 보고 → 도입 문의",
+      "name": "요금 우선형",
+      "sections": [
+        {
+          "bind": "catalog",
+          "id": "features",
+          "label": "요금",
+          "nav": "요금",
+          "type": "offerings",
+          "variant": "list-price"
+        },
+        {
+          "bind": "none",
+          "id": "inquiry",
+          "type": "contact",
+          "variant": "form"
+        },
+        {
+          "bind": "style_photos",
+          "id": "screens",
+          "label": "화면",
+          "nav": "화면",
+          "tone": "inverse",
+          "type": "gallery",
+          "variant": "swipe"
+        },
+        {
+          "bind": "none",
+          "id": "owner",
+          "label": "소개",
+          "type": "intro",
+          "variant": "owner"
+        },
+        {
+          "bind": "location",
+          "id": "around",
+          "nav": "오시는 길",
+          "optional": true,
+          "type": "around",
+          "variant": "map"
+        }
+      ],
+      "tone": "rich"
+    }
+  ],
+  "tokens": {
+    "density": "comfortable",
+    "font_pair": "sans-clean",
+    "image_style": "card",
+    "radius": "soft"
+  }
+}

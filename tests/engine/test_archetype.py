@@ -46,11 +46,18 @@ def test_mode_comes_from_card_data():
     assert archetype.of(_card("salon", "solo")) == ("B", "solo")
 
 
-def test_blueprint_found_and_missing():
-    """<원형>-<모드>가 있으면 읽고, 없으면 None."""
+def test_blueprint_found_and_missing(tmp_path, monkeypatch):
+    """<원형>-<모드>가 있으면 읽고, 없으면 None. A~H 모두 청사진이 있어 빈 폴더로 '없음'을 본다."""
     assert archetype.blueprint(_card("cafe", "dinein"))["mode"] == "dinein"
     assert archetype.blueprint(_card("salon", "team"))["mode"] == "team"
-    assert archetype.blueprint(_card("group", "")) is None
+    for key in ("workshop", "individual", "group", "webservice"):
+        assert archetype.blueprint(_card(key, "")) is not None
+    archetype.load.cache_clear()
+    monkeypatch.setattr(archetype, "_blueprint_dir", lambda: tmp_path)
+    try:
+        assert archetype.blueprint(_card("group", "")) is None
+    finally:
+        archetype.load.cache_clear()
 
 
 def test_load_accepts_name_with_or_without_suffix():

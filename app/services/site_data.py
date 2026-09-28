@@ -31,6 +31,9 @@ _BOOKING_NOTE = "가게에서 확인한 뒤 연락드려요. 신청만으로 예
 _EXAMPLES: dict = {}
 
 
+# 원형 → 예약 칸 항목 이름 (card_data.ITEM_LABEL과 같은 말)
+_ARCH_ITEM_LABEL = {"B": "시술", "C": "객실", "D": "수업", "E": "수업", "F": "작업", "G": "모임", "H": "요금제"}
+
 def _examples(archetype: str) -> dict:
     """원형 예시 파일. 없으면 빈 값 (다른 원형은 J5b 이후)."""
     if archetype in _EXAMPLES:
@@ -362,7 +365,7 @@ def _fill_booking(sec: dict, data: dict, archetype: str, hours: str) -> None:
                 name = str((item or {}).get("name") or "").strip() if isinstance(item, dict) else ""
                 if name and name not in services:
                     services.append(name)
-        service_label = "시술" if archetype == "B" else "메뉴"
+        service_label = _ARCH_ITEM_LABEL.get(archetype, "메뉴")
     sec["content"] = {"label": sec.get("label") or "예약", "note": _BOOKING_NOTE,
                       "staff": staff, "services": services,
                       "service_label": service_label,

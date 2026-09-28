@@ -7,7 +7,7 @@ from app.services import prd_schema as S
 def _card():
     card = E.new_card()
     E._put(card, "business_type", "첼로 레슨", S.FILLED, 1)
-    card["industry"] = "group"  # 청사진 없는 예전 경로를 검사한다 (individual은 F 청사진)
+    card["industry"] = "individual"
     E._put(card, "shop_name", "하늘첼로", S.FILLED, 1)
     E._put(card, "offerings", ["성인 취미반", "입시반"], S.FILLED, 1)
     E._put(card, "phone", None, S.PLACEHOLDER)
@@ -20,7 +20,7 @@ def _card():
 
 
 def test_three_distinct_variants():
-    vs = DV.variants(_card())
+    vs = DV._legacy_variants(_card())
     assert [v["id"] for v in vs] == ["v1", "v2", "v3"]
     palettes = {v["spec"]["tokens"]["palette"] for v in vs}
     assert len(palettes) == 3
@@ -77,7 +77,7 @@ def test_hidden_items_become_icon_features():
 
 def test_three_variants_differ_in_structure():
     """방안 7: 2안은 사진첩이 첫 화면 바로 뒤, 3안은 상품이 먼저이고 사진이 없으면 사진첩이 없다."""
-    vs = DV.variants(_card())
+    vs = DV._legacy_variants(_card())
     order = [[s["type"] for s in v["spec"]["sections"]] for v in vs]
     assert order[1][:2] == ["hero", "gallery"]
     assert order[2][1] == "offerings" and "gallery" not in order[2]

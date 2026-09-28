@@ -1,0 +1,40 @@
+{
+  "archetype": "G",
+  "mode": "",
+  "primary": {"label": "참여 신청", "target": "booking"},
+  "secondary": {"label": "모임 보기", "target": "meetings"},
+  "actionbar_secondary": "phone",
+  "tokens": {"font_pair": "serif-warm", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "strategies": [
+    {"id": "v1", "name": "모임 안내형", "journey": "모임 보고 → 참여 신청", "tone": "calm",
+     "hero": "photo-overlay",
+     "sections": [
+       {"id": "meetings", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "모임 안내", "nav": "모임 안내"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "참여 신청", "nav": "참여 신청"},
+       {"id": "photos", "type": "gallery", "variant": "swipe", "bind": "space_photos", "label": "모임 모습"},
+       {"id": "hosts", "type": "staff", "variant": "solo", "bind": "staff", "label": "운영진", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v2", "name": "분위기형", "journey": "모임 분위기 보고 → 참여 신청", "tone": "rich",
+     "hero": "photo-side",
+     "sections": [
+       {"id": "photos", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "모임 모습", "nav": "모임 모습", "tone": "inverse"},
+       {"id": "meetings", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "모임 안내", "nav": "모임 안내"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "참여 신청", "nav": "참여 신청"},
+       {"id": "hosts", "type": "staff", "variant": "solo", "bind": "staff", "label": "운영진", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v3", "name": "참여 우선형", "journey": "참여 신청하고 → 모임 보기", "tone": "rich",
+     "hero": "arch",
+     "sections": [
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "참여 신청", "nav": "참여 신청"},
+       {"id": "meetings", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "모임 안내", "nav": "모임 안내"},
+       {"id": "photos", "type": "gallery", "variant": "grid", "bind": "space_photos", "label": "모임 모습", "tone": "inverse"},
+       {"id": "hosts", "type": "staff", "variant": "solo", "bind": "staff", "label": "운영진", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]}
+  ]
+}

@@ -318,11 +318,40 @@ def grounded(slot: str, value: str, text: str) -> bool:
     return bool(words) and any(w in norm_text for w in words)
 
 
+def _has_batchim(ch: str) -> bool:
+    """한글 음절에 받침이 있는지. 한글 음절이 아니면 받침 없음으로 본다."""
+    o = ord(ch)
+    return 0xAC00 <= o <= 0xD7A3 and (o - 0xAC00) % 28 != 0
+
+
+# 조사 후보: 낱말 셋째 글자부터, 뒤에 공백이 올 때만 (결과·사랑·와플·과외는 살린다).
+_JOIN_PARTICLE = re.compile(r"(?<=\S\S)(이랑|와|과|랑)(?=\s)")
+# '이'로 끝나는 흔한 명사: "떡볶이랑"은 떡볶이+랑이지 떡볶+이랑이 아니다 (받침만으로 못 가림).
+_YI_NOUNS = frozenset(("떡볶이", "고양이", "어린이", "호랑이", "오이"))
+
+
+def _split_particles(part: str) -> list[str]:
+    """와·랑은 받침 없는 글자 뒤, 과·이랑은 받침 있는 글자 뒤에서만 뗀다."""
+    out, start = [], 0
+    for m in _JOIN_PARTICLE.finditer(part):
+        cut, particle = m.start(), m.group(1)
+        if particle == "이랑":
+            host = (part[start:cut] + "이").split()[-1]
+            if not _has_batchim(part[cut - 1]) or host in _YI_NOUNS:
+                cut, particle = cut + 1, "랑"  # 오이랑·떡볶이랑: '이'는 명사 끝
+        if _has_batchim(part[cut - 1]) != (particle in ("과", "이랑")):
+            continue
+        out.append(part[start:cut])
+        start = m.end()
+    return out + [part[start:]]
+
+
 def _split_items(value) -> list[str]:
     if isinstance(value, list):
         return [v for v in value if v]
     # 천 단위 쉼표("4,500원")는 나누지 않는다. 숫자 사이 쉼표는 가격 표기로 본다.
-    return [p.strip() for p in re.split(r"(?<!\d),|,(?!\d)|[·/]|그리고|랑|와|과", value or "") if p.strip()]
+    parts = re.split(r"(?<!\d),|,(?!\d)|[·/]|그리고", value or "")
+    return [p.strip() for part in parts for p in _split_particles(part) if p.strip()]
 
 
 _EXCLUDE_SUFFIX = re.compile(

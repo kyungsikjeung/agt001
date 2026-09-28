@@ -18,6 +18,10 @@ PRIMARY_ACTION = {
     "E": "apply", "F": "inquire", "G": "inquire", "H": "inquire",
 }
 
+# 업종 → 상품 묶음 이름 (카페·식당 밖, 분류를 모를 때). 모르는 업종은 메뉴
+ITEM_LABEL = {"salon": "시술", "pension": "객실", "academy": "수업", "workshop": "수업",
+              "individual": "작업", "group": "모임", "webservice": "요금제"}
+
 # 직함 낱말 (staff 파싱용)
 TITLES = ("원장", "실장", "부원장", "디자이너", "선생님", "강사", "대표", "팀장")
 
@@ -98,7 +102,7 @@ def _classify(industry_key: str, name: str) -> str:
         if any(w in name for w in _COFFEE):
             return "커피"
         return "메뉴"
-    return "시술" if industry_key == "salon" else "메뉴"
+    return ITEM_LABEL.get(industry_key, "메뉴")
 
 
 def _catalog(card: dict, industry_key: str) -> list:
