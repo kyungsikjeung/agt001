@@ -394,12 +394,35 @@ def _restyle(session: dict, text: str) -> str:
             + ("\n공개 사이트에도 바로 반영했어요." if card.get("published") else ""))
 
 
+def _publish_room_id(session: dict) -> Optional[str]:
+    """이 세션이 붙은 방 ID. 방이 없으면(1:1) None."""
+    from sqlalchemy import select
+
+    from app.db.models import RoomRow, SessionRow
+    from app.db.session import get_sessionmaker
+    req = session.get("requirement_id")
+    if not req:
+        return None
+    with get_sessionmaker()() as db:
+        return db.scalar(select(RoomRow.id).join(SessionRow, RoomRow.session_id == SessionRow.id)
+                         .where(SessionRow.requirement_id == req))
+
+
 def _publish(session: dict, base_url: str, force: bool) -> str:
     """고른 시안을 공개한다. [입력 필요] 자리가 남았으면 먼저 알리고 한 번 더 확인받는다(⑱ 사람 최종 확인)."""
     card = session["prd"]
     choice = card.get("design_choice")
     if not choice:
         return "먼저 1안·2안·3안 중 하나를 골라 주세요. 예: '2안으로 할게요'"
+    if settings.publish_login_required and not card.get("published"):
+        # 처음 공개만 막는다(OWNER_SETTINGS_PLAN §1.1). 방이 없으면(1:1) 검사를 건너뛴다.
+        from app.services import rooms
+        room_id = _publish_room_id(session)
+        if room_id is not None and not rooms.owner_claimed(room_id):
+            base = (base_url or "").rstrip("/")
+            return ("공개하려면 먼저 로그인해 주세요. 카카오나 구글로 1분이면 돼요: "
+                    f"{base}/auth/kakao/start?next=/room/{room_id}\n"
+                    f"{base}/auth/google/start?next=/room/{room_id}")
     ind = prd_engine.industry_of(card)
     missing = [prd_engine.S.label_for(ind, k) for k, v in card["slots"].items() if v.get("status") == prd_engine.S.PLACEHOLDER]
     if missing and not force:

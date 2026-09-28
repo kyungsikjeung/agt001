@@ -95,7 +95,7 @@ def _issue(site_key: str, phone: str, payload: dict, old_token: Optional[str] = 
         raise VerifyError("오늘은 인증번호를 더 받을 수 없어요. 가게에 전화로 예약해 주세요.")
     code = f"{secrets.randbelow(1000000):06d}"
     token = secrets.token_urlsafe(24)
-    if not sms_svc.send(phone, _sms_text(code, payload.get("_shop"))):
+    if not sms_svc.send(phone, _sms_text(code, payload.get("_shop")), site_key=site_key):
         raise VerifyError("인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.")
     with get_sessionmaker()() as db, db.begin():
         db.execute(delete(PhoneVerificationRow).where(PhoneVerificationRow.expires_at < now - PURGE_AFTER))

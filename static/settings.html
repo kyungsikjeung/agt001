@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>가게 설정</title>
+<style>
+  :root {
+    --accent: #6366f1;
+    --accent-dark: #4338ca;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2328;
+    --text-muted: #52525b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0; background: var(--bg); color: var(--text); line-height: 1.6;
+  }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+  }
+  header h1 { font-size: 1.25rem; margin: 0; font-weight: 700; }
+  main { max-width: 480px; margin: 0 auto; padding: 16px 12px 48px; display: flex; flex-direction: column; gap: 12px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .card h2 { margin: 0; font-size: 1.0625rem; }
+  .sub { margin: 0; font-size: 0.875rem; color: var(--text-muted); }
+  .badge {
+    display: inline-block; font-size: 0.75rem; font-weight: 700;
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 10px;
+    color: var(--text-muted); background: var(--bg);
+  }
+  .badge.on { color: var(--accent-dark); border-color: var(--accent); background: #eef2ff; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .row.between { justify-content: space-between; }
+  a { color: var(--accent-dark); }
+  a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button {
+    min-height: 44px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--bg); font-size: 0.9375rem; font-weight: 600; cursor: pointer;
+    padding: 0 14px; color: var(--text);
+  }
+  button.primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .login-btns { display: flex; flex-direction: column; gap: 8px; }
+  .login-btns a {
+    display: flex; align-items: center; justify-content: center; min-height: 44px;
+    border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 0.9375rem;
+  }
+  .login-kakao { background: #fee500; color: #191919; }
+  .login-google { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 0.875rem; font-weight: 600; }
+  input[type="text"], input[type="password"], input[type="tel"] {
+    width: 100%; padding: 10px 12px; font-size: 1rem; font-weight: 400;
+    border: 1px solid var(--border); border-radius: 8px;
+  }
+  fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 0; }
+  legend { font-size: 0.875rem; font-weight: 600; padding: 0 6px; }
+  fieldset label { display: flex; gap: 8px; align-items: center; font-size: 0.9375rem; min-height: 44px; }
+  .switch-row { display: flex; gap: 8px; align-items: center; font-size: 0.9375rem; font-weight: 600; min-height: 44px; }
+  .switch-row input { width: 22px; height: 22px; accent-color: var(--accent-dark); }
+  .saved { font-size: 0.875rem; background: #eef2ff; color: var(--accent-dark); border-radius: 8px; padding: 8px 12px; margin: 0; }
+  .error { font-size: 0.875rem; color: #b91c1c; margin: 0; }
+  .ok { font-size: 0.875rem; color: #14532d; margin: 0; }
+  .guide { margin: 0; padding-left: 20px; font-size: 0.875rem; color: var(--text-muted); }
+  .guide li { margin-bottom: 4px; }
+  [hidden] { display: none !important; }
+  @media (max-width: 480px) {
+    header, main { padding-left: 12px; padding-right: 12px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>가게 설정</h1>
+</header>
+<main>
+  <section class="card" id="loginCard" hidden>
+    <h2>로그인이 필요해요</h2>
+    <p class="sub">내 가게의 예약 문자 설정을 바꾸려면 먼저 로그인해 주세요.</p>
+    <div class="login-btns">
+      <a class="login-kakao" href="/auth/kakao/start?next=/settings">카카오로 로그인</a>
+      <a class="login-google" href="/auth/google/start?next=/settings">구글로 로그인</a>
+    </div>
+  </section>
+  <div id="shops"></div>
+</main>
+<script>
+(function () {
+  var shopsEl = document.getElementById('shops');
+  var loginCard = document.getElementById('loginCard');
+
+  function showError(box, message) {
+    box.textContent = message;
+    box.hidden = false;
+  }
+
+  function api(path, method, body) {
+    var opts = { method: method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } };
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    return fetch(path, opts);
+  }
+
+  function savedLine(s) {
+    return '저장된 키 ····' + (s.key_last4 || '') + ' · 발신번호 ' + (s.sms_sender || '');
+  }
+
+  function buildShop(shop) {
+    var siteKey = shop.site_key;
+    var s = shop.settings || { phone_verify: false, own_key: false, key_last4: '', sms_sender: '' };
+    var card = document.createElement('section');
+    card.className = 'card';
+
+    var titleRow = document.createElement('div');
+    titleRow.className = 'row between';
+    var h = document.createElement('h2');
+    h.textContent = shop.shop_name || '이름 없는 가게';
+    titleRow.appendChild(h);
+    var badge = document.createElement('span');
+    badge.className = 'badge' + (shop.published ? ' on' : '');
+    badge.textContent = shop.published ? '공개됨' : '준비 중';
+    titleRow.appendChild(badge);
+    card.appendChild(titleRow);
+
+    var roomLink = document.createElement('a');
+    roomLink.href = '/room.html?room=' + encodeURIComponent(shop.room_id);
+    roomLink.textContent = '채팅방으로 가기';
+    card.appendChild(roomLink);
+
+    var errBox = document.createElement('p');
+    errBox.className = 'error';
+    errBox.setAttribute('role', 'alert');
+    errBox.hidden = true;
+    card.appendChild(errBox);
+
+    var okBox = document.createElement('p');
+    okBox.className = 'ok';
+    okBox.setAttribute('role', 'status');
+    okBox.hidden = true;
+    card.appendChild(okBox);
+
+    var switchLabel = document.createElement('label');
+    switchLabel.className = 'switch-row';
+    var toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = !!s.phone_verify;
+    toggle.setAttribute('aria-label', '예약 문자 인증');
+    switchLabel.appendChild(toggle);
+    switchLabel.appendChild(document.createTextNode('예약 문자 인증'));
+    card.appendChild(switchLabel);
+    toggle.addEventListener('change', function () {
+      errBox.hidden = true;
+      okBox.hidden = true;
+      api('/api/me/shops/' + encodeURIComponent(siteKey) + '/settings', 'PUT', { phone_verify: toggle.checked })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (b) { throw new Error(b.detail || '저장하지 못했어요.'); });
+          return res.json();
+        })
+        .then(function (data) {
+          s = data.settings;
+          okBox.textContent = toggle.checked ? '예약 문자 인증을 켰어요.' : '예약 문자 인증을 껐어요.';
+          okBox.hidden = false;
+        })
+        .catch(function (e) {
+          toggle.checked = !toggle.checked;
+          showError(errBox, e.message);
+        });
+    });
+
+    var fieldset = document.createElement('fieldset');
+    var legend = document.createElement('legend');
+    legend.textContent = '문자를 보낼 번호';
+    fieldset.appendChild(legend);
+
+    var platformLabel = document.createElement('label');
+    var platformRadio = document.createElement('input');
+    platformRadio.type = 'radio';
+    platformRadio.name = 'sender-' + siteKey;
+    platformRadio.value = 'platform';
+    platformRadio.checked = !s.own_key;
+    platformLabel.appendChild(platformRadio);
+    platformLabel.appendChild(document.createTextNode('플랫폼 번호로 보내기(기본)'));
+    fieldset.appendChild(platformLabel);
+
+    var ownLabel = document.createElement('label');
+    var ownRadio = document.createElement('input');
+    ownRadio.type = 'radio';
+    ownRadio.name = 'sender-' + siteKey;
+    ownRadio.value = 'own';
+    ownRadio.checked = !!s.own_key;
+    ownLabel.appendChild(ownRadio);
+    ownLabel.appendChild(document.createTextNode('내 솔라피 키로 보내기'));
+    fieldset.appendChild(ownLabel);
+    card.appendChild(fieldset);
+
+    var ownBox = document.createElement('div');
+    ownBox.hidden = !s.own_key;
+    ownBox.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+
+    var guide = document.createElement('ol');
+    guide.className = 'guide';
+    var g1 = document.createElement('li');
+    g1.textContent = '솔라피에 가입하고 본인인증을 해요.';
+    var g2 = document.createElement('li');
+    g2.textContent = '발신번호를 등록해요(개인은 본인 010 + 본인인증, 서류 없음).';
+    var g3 = document.createElement('li');
+    g3.textContent = 'API 키를 발급받아 아래에 입력해요.';
+    guide.appendChild(g1);
+    guide.appendChild(g2);
+    guide.appendChild(g3);
+    ownBox.appendChild(guide);
+
+    var savedP = document.createElement('p');
+    savedP.className = 'saved';
+    savedP.hidden = !s.own_key;
+    if (s.own_key) savedP.textContent = savedLine(s);
+    ownBox.appendChild(savedP);
+
+    var keyId = 'key-' + siteKey;
+    var secretId = 'secret-' + siteKey;
+    var senderId = 'sender-' + siteKey;
+    var keyLabel = document.createElement('label');
+    keyLabel.className = 'field';
+    keyLabel.setAttribute('for', keyId);
+    keyLabel.textContent = 'API 키';
+    var keyInput = document.createElement('input');
+    keyInput.type = 'text';
+    keyInput.id = keyId;
+    keyInput.autocomplete = 'off';
+    keyLabel.appendChild(keyInput);
+    ownBox.appendChild(keyLabel);
+
+    var secretLabel = document.createElement('label');
+    secretLabel.className = 'field';
+    secretLabel.setAttribute('for', secretId);
+    secretLabel.textContent = 'API 시크릿';
+    var secretInput = document.createElement('input');
+    secretInput.type = 'password';
+    secretInput.id = secretId;
+    secretInput.autocomplete = 'off';
+    secretLabel.appendChild(secretInput);
+    ownBox.appendChild(secretLabel);
+
+    var senderLabel = document.createElement('label');
+    senderLabel.className = 'field';
+    senderLabel.setAttribute('for', senderId);
+    senderLabel.textContent = '발신번호';
+    var senderInput = document.createElement('input');
+    senderInput.type = 'tel';
+    senderInput.id = senderId;
+    senderInput.placeholder = '01012345678';
+    senderInput.autocomplete = 'tel';
+    senderLabel.appendChild(senderInput);
+    ownBox.appendChild(senderLabel);
+
+    var btnRow = document.createElement('div');
+    btnRow.className = 'row';
+    var testBtn = document.createElement('button');
+    testBtn.type = 'button';
+    testBtn.textContent = '연결 테스트';
+    var saveBtn = document.createElement('button');
+    saveBtn.type = 'button';
+    saveBtn.className = 'primary';
+    saveBtn.textContent = '저장';
+    btnRow.appendChild(testBtn);
+    btnRow.appendChild(saveBtn);
+    ownBox.appendChild(btnRow);
+
+    var clearBtn = document.createElement('button');
+    clearBtn.type = 'button';
+    clearBtn.textContent = '키 지우기';
+    clearBtn.hidden = !s.own_key;
+    ownBox.appendChild(clearBtn);
+    card.appendChild(ownBox);
+
+    function showOwn(show) {
+      ownBox.hidden = !show;
+      if (!show) return;
+      ownBox.style.cssText = 'display: flex; flex-direction: column; gap: 12px;';
+    }
+    if (s.own_key) showOwn(true);
+    platformRadio.addEventListener('change', function () { if (platformRadio.checked) showOwn(false); });
+    ownRadio.addEventListener('change', function () { if (ownRadio.checked) showOwn(true); });
+
+    testBtn.addEventListener('click', function () {
+      errBox.hidden = true;
+      okBox.hidden = true;
+      testBtn.disabled = true;
+      api('/api/me/shops/' + encodeURIComponent(siteKey) + '/sms-test', 'POST',
+        { solapi_key: keyInput.value, solapi_secret: secretInput.value })
+        .then(function (res) {
+          if (!res.ok) throw new Error('연결 테스트를 하지 못했어요.');
+          return res.json();
+        })
+        .then(function (data) {
+          if (data.ok) {
+            okBox.textContent = '연결됐어요. 저장 버튼을 눌러 주세요.';
+            okBox.hidden = false;
+          } else {
+            showError(errBox, '연결되지 않았어요. 키와 시크릿을 다시 확인해 주세요.');
+          }
+        })
+        .catch(function (e) { showError(errBox, e.message); })
+        .finally(function () { testBtn.disabled = false; });
+    });
+
+    saveBtn.addEventListener('click', function () {
+      errBox.hidden = true;
+      okBox.hidden = true;
+      saveBtn.disabled = true;
+      api('/api/me/shops/' + encodeURIComponent(siteKey) + '/settings', 'PUT',
+        { solapi_key: keyInput.value, solapi_secret: secretInput.value, sms_sender: senderInput.value })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (b) { throw new Error(b.detail || '저장하지 못했어요.'); });
+          return res.json();
+        })
+        .then(function (data) {
+          s = data.settings;
+          keyInput.value = '';
+          secretInput.value = '';
+          senderInput.value = '';
+          savedP.textContent = savedLine(s);
+          savedP.hidden = !s.own_key;
+          clearBtn.hidden = !s.own_key;
+          okBox.textContent = '저장했어요.';
+          okBox.hidden = false;
+        })
+        .catch(function (e) { showError(errBox, e.message); })
+        .finally(function () { saveBtn.disabled = false; });
+    });
+
+    clearBtn.addEventListener('click', function () {
+      errBox.hidden = true;
+      okBox.hidden = true;
+      clearBtn.disabled = true;
+      api('/api/me/shops/' + encodeURIComponent(siteKey) + '/settings', 'PUT', { clear_key: true })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (b) { throw new Error(b.detail || '지우지 못했어요.'); });
+          return res.json();
+        })
+        .then(function (data) {
+          s = data.settings;
+          savedP.hidden = true;
+          clearBtn.hidden = true;
+          platformRadio.checked = true;
+          ownRadio.checked = false;
+          showOwn(false);
+          okBox.textContent = '키를 지웠어요. 이제 플랫폼 번호로 보내요.';
+          okBox.hidden = false;
+        })
+        .catch(function (e) { showError(errBox, e.message); })
+        .finally(function () { clearBtn.disabled = false; });
+    });
+
+    return card;
+  }
+
+  fetch('/api/me', { credentials: 'same-origin' })
+    .then(function (res) {
+      if (!res.ok) {
+        loginCard.hidden = false;
+        return null;
+      }
+      return fetch('/api/me/shops', { credentials: 'same-origin' });
+    })
+    .then(function (res) {
+      if (!res) return null;
+      if (!res.ok) throw new Error('가게 목록을 불러오지 못했어요.');
+      return res.json();
+    })
+    .then(function (data) {
+      if (!data) return;
+      var list = data.shops || [];
+      if (!list.length) {
+        var empty = document.createElement('section');
+        empty.className = 'card';
+        var p = document.createElement('p');
+        p.className = 'sub';
+        p.textContent = '아직 내 가게가 없어요. 채팅방에서 사이트를 만들고 공개하면 여기에 나와요.';
+        empty.appendChild(p);
+        shopsEl.appendChild(empty);
+        return;
+      }
+      list.forEach(function (shop) { shopsEl.appendChild(buildShop(shop)); });
+    })
+    .catch(function () {
+      loginCard.hidden = false;
+    });
+})();
+</script>
+</body>
+</html>

@@ -13,10 +13,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from app.api.inquiries import _PAGE_HEADERS, _allow, _page
-from app.config import settings
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
-from app.services import availability, bookings, customers, phone_verify, rooms
+from app.services import availability, bookings, customers, phone_verify, rooms, shop_settings
 
 router = APIRouter()
 
@@ -90,7 +89,7 @@ def submit_booking(site_key: str, request: Request, date: Optional[str] = Form(d
     form = _merge_form(date, time, service, party, name, phone, memo, agree, website, slot, staff, nights)
     key = sanitize_token(site_key or "")
     # 인증 꺼짐·스팸 숨김 칸·이 기기 기억 쿠키가 맞으면 지금처럼 바로 저장한다.
-    if (not settings.booking_phone_verify or form.get("website")
+    if (not shop_settings.phone_verify_on(key) or form.get("website")
             or phone_verify.device_ok(request.cookies.get(f"pv_{key}"), key, form.get("phone"))):
         try:
             bookings.submit(site_key, **form)

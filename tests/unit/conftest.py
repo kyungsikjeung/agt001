@@ -12,6 +12,7 @@ os.environ["PRECOMPUTE_EMBEDDINGS"] = "false"
 os.environ["RUN_MIGRATIONS_ON_STARTUP"] = "false"
 # 초대 링크 기능 전의 테스트는 여러 명이 방 주소로 들어온다. 초대 테스트는 켜서 따로 본다.
 os.environ["ROOM_INVITE_REQUIRED"] = "false"
+os.environ["PUBLISH_LOGIN_REQUIRED"] = "false"
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://agt001:agt001@localhost:55432/agt001_test"
 )

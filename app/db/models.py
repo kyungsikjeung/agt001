@@ -336,3 +336,18 @@ class AdminAuditRow(Base):
     action: Mapped[str] = mapped_column(Text, nullable=False)
     target: Mapped[Optional[str]] = mapped_column(Text)
     detail: Mapped[Optional[dict]] = mapped_column(JSONB)
+
+
+class ShopSettingsRow(Base):
+    """가게별 설정 (OWNER_SETTINGS_PLAN §1.2). 솔라피 키는 암호화해서 둔다."""
+
+    __tablename__ = "shop_settings"
+
+    site_key: Mapped[str] = mapped_column(Text, primary_key=True)  # sessions.requirement_id
+    phone_verify: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    solapi_key_enc: Mapped[Optional[str]] = mapped_column(Text)
+    solapi_secret_enc: Mapped[Optional[str]] = mapped_column(Text)
+    sms_sender: Mapped[Optional[str]] = mapped_column(Text)  # 숫자만
+    key_last4: Mapped[Optional[str]] = mapped_column(Text)  # 화면 표시용 키 뒤 4자리
+    updated_by: Mapped[Optional[str]] = mapped_column(Text)  # users.id
+    updated_at: Mapped[datetime.datetime] = _now_col()

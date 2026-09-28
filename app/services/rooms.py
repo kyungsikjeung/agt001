@@ -8,8 +8,12 @@ import html
 import uuid
 from typing import Optional
 
+from sqlalchemy import select
+
 from app import store
 from app.config import settings
+from app.db.models import UserRoomRow
+from app.db.session import get_sessionmaker
 from app.security import sanitize_token
 from app.services import chat_flow
 
@@ -151,6 +155,23 @@ def _notify_owner_later(room: dict, text: str) -> None:
 def owner_id(room: dict) -> Optional[str]:
     """방장 = 참여자 목록 맨 앞(ROOM_POLICY §2). 넘기기·나가기는 순서를 바꾼다."""
     return room["members"][0]["member_id"] if room["members"] else None
+
+
+def owner_claimed(room_id: str) -> bool:
+    """방장이 로그인해서 방을 계정에 붙였는지 (OWNER_SETTINGS_PLAN §1.1).
+
+    user_rooms에 (room_id, member_id = 방장) 행이 있으면 True. 모르는 방·빈 방은 False.
+    """
+    safe = sanitize_token(room_id or "")
+    if not safe:
+        return False
+    room = store.read_room(safe)
+    oid = owner_id(room) if room else None
+    if not oid:
+        return False
+    with get_sessionmaker()() as db:
+        return db.scalar(select(UserRoomRow.user_id).where(
+            UserRoomRow.room_id == safe, UserRoomRow.member_id == oid)) is not None
 
 
 def member_handle(room_id: str, member_id: str) -> str:

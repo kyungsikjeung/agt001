@@ -111,8 +111,11 @@ class Settings(BaseSettings):
     # 설정하면 앱 주소의 /site·/design은 이 주소로 보내고, 이 주소에서는 생성물·문의 접수만 연다.
     preview_host: Optional[str] = None
 
-    # 문자 인증 (CUSTOMER_PLAN §4.2 V1). 기본 끔. 솔라피 세 값이 없으면 개발 모드(로그만 남기고 보낸 걸로 친다).
-    booking_phone_verify: bool = False
+    # 문자 인증은 가게별 설정(shop_settings.phone_verify)으로 켠다 (OWNER_SETTINGS_PLAN §1.4).
+    # 처음 공개는 방장이 로그인해 방을 계정에 붙였을 때만 (OWNER_SETTINGS_PLAN §1.1). 테스트에서만 끈다.
+    publish_login_required: bool = True
+    # 문자 키가 하나도 없어도 문자 인증을 켤 수 있게(개발 모드: 문자는 로그에만). 운영에서는 끈다.
+    sms_dev_mode: bool = False
     solapi_api_key: Optional[str] = None
     solapi_api_secret: Optional[str] = None
     sms_sender: Optional[str] = None  # 발신번호

@@ -33,7 +33,7 @@ def _site():
 def _capture(monkeypatch):
     sent = {"texts": []}
 
-    def fake_send(to, text):
+    def fake_send(to, text, site_key=None):
         sent["texts"].append((to, text))
         return True
 
@@ -87,7 +87,7 @@ def test_start_bad_phone_and_unknown_token(monkeypatch):
 
 
 def test_start_send_failure(monkeypatch):
-    monkeypatch.setattr(sms, "send", lambda to, text: False)
+    monkeypatch.setattr(sms, "send", lambda to, text, site_key=None: False)
     with pytest.raises(VerifyError, match="인증번호를 보내지 못했어요"):
         phone_verify.start(_site(), "010-1234-5678", {}, None)
 
