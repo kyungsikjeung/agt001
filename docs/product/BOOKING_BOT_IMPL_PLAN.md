@@ -64,7 +64,7 @@
 
 | ID | 요구사항 |
 |---|---|
-| BM-1 | 질문 은행 `app/data/botmaker_questions.json`: 모드별 `{id, when(조건), ask, path(채울 칸), suggest(추천 답 버튼), kind}` |
+| BM-1 | 질문 은행: 모드별 `{id, path(채울 칸), ask, kind, suggest(추천 답 버튼), default, required}`. 시술·선생님마다 질문이 생기므로 JSON 파일이 아니라 `botmaker._questions(spec)`가 만든다(구현 때 변경) |
 | BM-2 | 추출: `llm.chat_json`으로 `{"set": [{"path", "value"}]}`만 받는다. 숫자는 `numbers.grounded_numbers`로 사장님 말에 근거가 있을 때만 filled |
 | BM-3 | 다음 질문 = ① 모순 ② 빈 필수 칸 ③ 조건이 켜진 파고들기 질문, 한 번에 하나. 버튼 답은 LLM 없이 바로 적용 |
 | BM-4 | 출구: [추천대로]→default, [나중에]→건너뛰고 끝에 다시, [알아서]→assumed. 필수 칸이 assumed여도 켤 수 있지만 규칙 카드에 표시 |
@@ -100,7 +100,7 @@
 | W1 가게·권한 | `alembic/versions/0014_shops.py`, `app/services/shops.py`, `tests/unit/test_shops.py` | `app/db/models.py`, `app/store.py`(reset), `app/services/shop_settings.py`(`owned_sites`→`shops`), `app/services/auth.py`(`claim_rooms` 뒤 멤버십) |
 | W2 명세·계산 | `contracts/botmaker_to_bot.schema.json`, `app/services/booking_spec.py`, `app/services/slots.py`, `tests/unit/test_slots.py`, `tests/unit/test_booking_spec.py` | — |
 | W3 저장 엔진 | `alembic/versions/0015_booking_engine.py`, `app/services/booking_engine.py`, `tests/unit/test_booking_engine.py` | `app/db/models.py`, `app/store.py`, `app/services/bookings.py`(active 명세면 엔진으로) |
-| W4 봇메이커 | `app/data/botmaker_questions.json`, `app/services/botmaker.py`, `tests/unit/test_botmaker.py` | — |
+| W4 봇메이커 | `app/services/botmaker.py`, `tests/unit/test_botmaker.py` | — |
 | W5 API | `app/api/owner.py`, `app/api/chat_agent.py`, `app/services/chat_agent.py`, `tests/unit/test_owner_api.py`, `tests/unit/test_chat_agent.py` | `app/main.py`(라우터 두 줄), `app/config.py`(`support_phone`) |
 | W6 화면 | `static/owner.html`, `static/chat.html` | `app/api/public.py`(`/owner`, `/chat/{k}`), `templates/sections/booking--slots.mustache`(채팅 링크) |
 
