@@ -158,10 +158,16 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
 ]}
 
 
+# 공방 별칭 "꽃"에 걸리지만 파는 가게인 말 (꽃집은 클래스가 아니라 방문·주문형이다)
+_FLOWER_RETAIL = ("꽃집", "꽃가게", "화원", "꽃다발")
+
+
 def industry_for(business_type: str | None) -> Industry:
     """업종 표현을 업종 키로 바꾼다. 모르면 '기타'."""
     text = (business_type or "").replace(" ", "")
     for ind in INDUSTRIES.values():
+        if ind.key == "workshop" and any(w in text for w in _FLOWER_RETAIL) and "클래스" not in text:
+            continue
         if any(a in text for a in ind.aliases):
             return ind
     return INDUSTRIES["other"]

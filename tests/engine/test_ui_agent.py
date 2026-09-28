@@ -24,7 +24,7 @@ def _cafe_card():
 
 def _other_card():
     card = E.new_card()
-    E._put(card, "business_type", "필라테스", S.FILLED, 1)
+    E._put(card, "business_type", "동네 가게", S.FILLED, 1)  # 낱말표에 없는 업종이라 LLM 판정을 탄다
     E._put(card, "shop_name", "바른 몸", S.FILLED, 1)
     E._put(card, "offerings", ["개인 레슨"], S.FILLED, 1)
     return card
@@ -184,3 +184,10 @@ def test_judge_none_on_failure(monkeypatch):
     assert "archetype_override" not in card
     _fake_chat_json(monkeypatch, [json.dumps({"archetype": "Z"})])
     assert archetype.judge(card) is None
+
+
+def test_judge_skips_llm_when_keyword_knows(monkeypatch):
+    card = _other_card()
+    E._put(card, "business_type", "필라테스", S.FILLED, 2)
+    calls = _fake_chat_json(monkeypatch, [json.dumps({"archetype": "D", "reason": "x"})])
+    assert archetype.judge(card) == "B" and calls == [] and "archetype_override" not in card

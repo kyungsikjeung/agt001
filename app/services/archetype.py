@@ -13,7 +13,7 @@ from app.config import settings
 
 log = logging.getLogger(__name__)
 
-# 업종 키 → 원형 글자 (other는 1주차 임시로 A, 2주차 J11이 LLM 판정).
+# 업종 키 → 원형 글자 (other는 of()가 override → 낱말표 → A 순서로 푼다).
 INDUSTRY_ARCHETYPE = {
     "cafe": "A",
     "restaurant": "A",
@@ -26,6 +26,50 @@ INDUSTRY_ARCHETYPE = {
     "webservice": "H",
     "other": "A",
 }
+
+
+# 업종 말 낱말 → 원형 (other일 때만 쓴다. 겹치는 말은 앞 순서가 이긴다).
+# 순서 이유: 음식 판매(케이크 배달 서비스 → A)가 서비스(H)보다 먼저,
+# 법률 상담 솔루션 같은 상품형(H)이 전문가 의뢰(F)보다 먼저 판정된다.
+_KEYWORD_ARCHETYPE = (
+    ("B", ("필라테스", "요가", "퍼스널", "피티", "네일", "속눈썹", "왁싱",
+           "반려견", "애견", "미용", "바버", "타투")),
+    ("D", ("수영", "태권도", "피아노", "과외", "교습", "어린이집",
+           "유치원", "입시", "학원")),
+    ("C", ("캠핑", "글램핑", "파티룸", "공유오피스", "대관")),
+    ("E", ("원데이", "공방", "클래스", "체험", "쿠킹", "도예")),
+    ("A", ("꽃집", "생화", "반찬", "케이크", "베이커리", "떡", "정육")),
+    ("H", ("플랫폼", "솔루션", "서비스", "saas", "앱")),
+    ("F", ("사진", "웨딩", "인테리어", "디자인", "세무", "법률", "번역", "연주")),
+    ("G", ("동호회", "모임", "교회", "봉사", "동창")),
+)
+
+# 로마자 낱말은 낱말 경계로 찾는다 ("pt"가 엉뚱한 영어에 걸리지 않게).
+_LATIN_KEYWORDS = {"pt", "saas"}
+
+
+def keyword_archetype(business_type: str) -> str | None:
+    """업종 말에서 원형을 결정론으로 고른다. 모르면 None."""
+    text = (business_type or "").lower()
+    if not text.strip():
+        return None
+    for letter, words in _KEYWORD_ARCHETYPE:
+        for word in words:
+            if word in _LATIN_KEYWORDS:
+                if re.search(r"(?<![a-z])" + word + r"(?![a-z])", text):
+                    return letter
+            elif word in text:
+                return letter
+    return None
+
+
+def _business_type_text(card: dict) -> str:
+    """카드의 업종 말 (business_type 칸 값)."""
+    slot = ((card or {}).get("slots") or {}).get("business_type") or {}
+    value = slot.get("value")
+    if isinstance(value, list):
+        return ", ".join(str(v) for v in value if v)
+    return str(value or "")
 
 
 def _industry_key(card: dict) -> str:
@@ -48,11 +92,17 @@ def _build_data(card: dict) -> dict:
 
 
 def of(card: dict) -> tuple:
-    """(원형 글자, 모드)를 돌린다. LLM 판정(archetype_override)이 있으면 먼저 쓴다."""
+    """(원형 글자, 모드)를 돌린다.
+
+    업종 키가 원형표에 있으면 그대로 쓰고, other일 때만
+    archetype_override(LLM) → 낱말표 → A 순서로 쓴다.
+    """
+    if _industry_key(card or {}) != "other":
+        return (INDUSTRY_ARCHETYPE[_industry_key(card)], _mode(card))
     override = (card or {}).get("archetype_override")
     if isinstance(override, str) and override in "ABCDEFGH" and len(override) == 1:
         return (override, _mode(card))
-    return (INDUSTRY_ARCHETYPE[_industry_key(card)], _mode(card))
+    return (keyword_archetype(_business_type_text(card)) or "A", _mode(card))
 
 
 def _blueprint_dir() -> Path:
@@ -118,6 +168,10 @@ def judge(card: dict) -> str | None:
             return None
     except Exception:
         return None
+    # 낱말표로 이미 정해지면 LLM(8초)을 부르지 않는다: 첫 시안이 빨라진다(of()가 낱말표를 쓴다)
+    known = keyword_archetype(_business_type_text(card))
+    if known:
+        return known
     try:
         from app import llm
         raw = llm.chat_json(_JUDGE_SYSTEM, _judge_summary(card), timeout_sec=8, max_tokens=300)

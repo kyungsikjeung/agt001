@@ -127,3 +127,64 @@ def test_chat_card_without_industry_uses_business_type():
     E._put(card, "business_type", "미용실", S.FILLED, 1)
     E._put(card, "staff", ["원장 김미용(컷)", "실장 박하나(염색)"], S.FILLED, 1)
     assert archetype.of(card) == ("B", "team")
+
+
+# 낱말표 판정 (G2). 원형마다 2개 이상, 직접 함수로 본다.
+KEYWORD_CASES = {
+    "A": ["반찬가게", "수제 케이크 주문"],
+    "B": ["필라테스 1:1", "반려견 미용"],
+    "C": ["파티룸 대관", "공유오피스"],
+    "D": ["어린이 수영 교실", "놀이 어린이집"],
+    "E": ["비누 만들기 체험", "원데이 베이킹"],
+    "F": ["세무사", "웨딩 사진"],
+    "G": ["청년 봉사단", "독서 모임"],
+    "H": ["법률 상담 솔루션", "동네 심부름 SaaS"],
+}
+
+
+def test_keyword_archetype_covers_all_archetypes():
+    for want, words in KEYWORD_CASES.items():
+        assert len(words) >= 2, want
+        for word in words:
+            assert archetype.keyword_archetype(word) == want, (word, want)
+
+
+def test_keyword_archetype_none_for_unknown():
+    assert archetype.keyword_archetype("동네 가게") is None
+    assert archetype.keyword_archetype("") is None
+    assert archetype.keyword_archetype(None) is None
+
+
+def _other_card(business_type):
+    from app.services import prd_engine as E, prd_schema as S
+    card = E.new_card()
+    E._put(card, "business_type", business_type, S.FILLED, 1)
+    return card
+
+
+def test_other_uses_keyword_when_no_override():
+    assert archetype.of(_other_card("반려견 미용"))[0] == "B"
+    assert archetype.of(_other_card("수제 케이크 주문"))[0] == "A"
+
+
+def test_override_beats_keyword():
+    card = _other_card("세무사")
+    card["archetype_override"] = "B"
+    assert archetype.of(card)[0] == "B"
+
+
+def test_archetype_cases_file_scores_80_percent():
+    """evals/archetype_cases.json 규칙 판정이 80% 이상."""
+    import json
+    from pathlib import Path
+    cases = json.loads((Path(__file__).resolve().parents[2]
+                        / "evals" / "archetype_cases.json").read_text(encoding="utf-8"))
+    assert len(cases) >= 30
+    hits = sum(1 for c in cases if archetype.of(_other_card(c["business_type"]))[0] == c["expect"])
+    assert hits / len(cases) >= 0.8, f"{hits}/{len(cases)}"
+
+
+def test_flower_shop_is_retail_not_workshop():
+    from app.services import prd_schema as S
+    assert S.industry_for("꽃집").key == "other" and S.industry_for("플라워 클래스").key == "workshop"
+    assert S.industry_for("꽃집 원데이 클래스").key == "workshop"
