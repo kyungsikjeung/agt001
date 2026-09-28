@@ -250,6 +250,25 @@ class CustomerRow(Base):
     phone_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
 
+class PhoneVerificationRow(Base):
+    """문자 인증 요청 보관 (CUSTOMER_PLAN §4.2). 인증에 성공하면 지운다."""
+
+    __tablename__ = "phone_verifications"
+    __table_args__ = (
+        Index("ix_phone_verifications_site_phone", "site_key", "phone"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    token: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)  # sessions.requirement_id
+    phone: Mapped[str] = mapped_column(Text, nullable=False)  # 정규화한 번호(숫자만)
+    code_hash: Mapped[str] = mapped_column(Text, nullable=False)  # sha256(token + code)
+    payload: Mapped[dict] = mapped_column(JSONB, nullable=False)  # 인증 뒤 저장할 폼 내용
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
 class RoomInviteRow(Base):
     """초대 링크(ROOM_POLICY §3). 토큰 원문은 저장하지 않는다."""
 

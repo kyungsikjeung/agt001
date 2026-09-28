@@ -52,8 +52,11 @@ def _today() -> datetime.date:
 
 def submit(site_key: str, date: Optional[str], time: Optional[str], service: Optional[str], party: Optional[str],
            name: Optional[str], phone: Optional[str], memo: Optional[str], agree: Optional[str],
-           website: Optional[str]) -> bool:
-    """저장했으면 True, 스팸으로 조용히 버렸으면 False. 입력이 틀리면 BookingError."""
+           website: Optional[str], check_only: bool = False) -> bool:
+    """저장했으면 True, 스팸으로 조용히 버렸으면 False. 입력이 틀리면 BookingError.
+
+    check_only면 검사(입력·마감)만 하고 저장하지 않는다 — 문자 인증 전에 불러 헛문자를 막는다.
+    """
     key = sanitize_token(site_key or "")
     if not key or not site_exists(key):
         raise BookingError("사이트를 찾을 수 없어요.")
@@ -84,6 +87,8 @@ def submit(site_key: str, date: Optional[str], time: Optional[str], service: Opt
     with get_sessionmaker()() as db, db.begin():
         if availability.slot_taken(db, key, visit, time_c, service_c):
             raise BookingError("이미 마감된 시간이에요. 다른 시간을 골라 주세요.")
+        if check_only:
+            return True
         cid = customers.touch(db, key, phone_c, name_c)
         hist = customers.history(db, cid) if cid else None
         row = BookingRow(site_key=key, visit_date=visit, visit_time=time_c, service=service_c or None, party=party_n,

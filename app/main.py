@@ -13,6 +13,7 @@ from app.services import funnel, rag
 from app.services import bookings as bookings_svc
 from app.services import customers as customers_svc
 from app.services import inquiries as inquiries_svc
+from app.services import phone_verify as phone_verify_svc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
@@ -27,6 +28,7 @@ async def lifespan(_app: FastAPI):
     inquiries_svc.purge_expired()
     bookings_svc.purge_expired()
     customers_svc.purge_orphans()
+    phone_verify_svc.purge()
     if settings.precompute_embeddings:
         rag.precompute()
     yield

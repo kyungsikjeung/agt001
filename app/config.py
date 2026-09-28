@@ -111,6 +111,12 @@ class Settings(BaseSettings):
     # 설정하면 앱 주소의 /site·/design은 이 주소로 보내고, 이 주소에서는 생성물·문의 접수만 연다.
     preview_host: Optional[str] = None
 
+    # 문자 인증 (CUSTOMER_PLAN §4.2 V1). 기본 끔. 솔라피 세 값이 없으면 개발 모드(로그만 남기고 보낸 걸로 친다).
+    booking_phone_verify: bool = False
+    solapi_api_key: Optional[str] = None
+    solapi_api_secret: Optional[str] = None
+    sms_sender: Optional[str] = None  # 발신번호
+
     # compose에서는 db 서비스를 가리킨다. 로컬 개발은 .env에서 덮어쓴다.
     database_url: str = "postgresql+psycopg://agt001:agt001@localhost:5432/agt001"
     # 기동 시 alembic upgrade head를 실행한다. 테스트는 픽스처가 직접 실행하므로 끈다.

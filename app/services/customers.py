@@ -8,7 +8,7 @@ import logging
 import re
 from typing import Optional
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.db.models import BookingRow, CustomerRow, InquiryRow
@@ -64,6 +64,16 @@ def visit_line(hist: dict) -> str:
     if m:
         parts.append(f"문의 {m}번")
     return "이 번호로 " + "·".join(parts) + " 있었어요."
+
+
+def mark_verified(db, site_key: str, phone_raw: Optional[str]) -> None:
+    """문자 인증을 통과한 손님에 통과 시각을 남긴다. 맞는 손님이 없으면 아무것도 안 한다."""
+    phone = normalize_phone(phone_raw)
+    if not phone or not site_key:
+        return None
+    db.execute(update(CustomerRow).where(CustomerRow.site_key == site_key, CustomerRow.phone == phone)
+               .values(phone_verified_at=func.now()))
+    return None
 
 
 def purge_orphans(now: Optional[datetime.datetime] = None) -> int:
