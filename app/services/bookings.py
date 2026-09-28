@@ -16,7 +16,7 @@ from app import store
 from app.db.models import BookingRow, RoomRow, SessionRow
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
-from app.services import availability, customers, rooms
+from app.services import availability, booking_engine, customers, rooms
 from app.services.inquiries import _PHONE, _clean, site_exists
 
 log = logging.getLogger(__name__)
@@ -84,6 +84,8 @@ def submit(site_key: str, date: Optional[str], time: Optional[str], service: Opt
     if agree != "yes":
         raise BookingError("개인정보 수집·이용에 동의해 주세요.")
     name_c, service_c, memo_c = _clean(name, MAX_NAME), _clean(service, MAX_SERVICE), _clean(memo, MAX_MEMO)
+    if booking_engine.active_spec(key) is not None:
+        return _submit_engine(key, visit, time_c, service_c, party_n, name_c, phone_c, memo_c, check_only)
     with get_sessionmaker()() as db, db.begin():
         if availability.slot_taken(db, key, visit, time_c, service_c):
             raise BookingError("이미 마감된 시간이에요. 다른 시간을 골라 주세요.")
@@ -109,6 +111,25 @@ def submit(site_key: str, date: Optional[str], time: Optional[str], service: Opt
                      + f"\n확정·거절을 눌러 주시고 손님께 연락해 주세요. (방문일 {RETENTION_DAYS}일 뒤 자동으로 지워져요)")
         from app.services import notify
         notify.owner_kakao(room_id, "사이트로 새 예약 신청이 왔어요.\n" + text + "\n채팅방에서 확정·거절해 주세요.")
+    return True
+
+
+def _submit_engine(key, visit, time_c, service_c, party_n, name_c, phone_c, memo_c, check_only) -> bool:
+    """예약 명세를 켠 가게: 사이트 폼도 예약 엔진으로 (BOOKING_BOT_IMPL_PLAN BOOK-7). 폼의 "시술 · 담당자"를 나눠 읽는다."""
+    svc, _, staff = (service_c or "").partition(" · ")
+    if not time_c:
+        raise BookingError("방문 시간을 골라 주세요.")
+    kw = {"service": svc or None, "staff": staff or None, "party": party_n}
+    try:
+        if check_only:
+            if not any(f["time"] == time_c for f in booking_engine.available(key, visit, **kw)):
+                raise BookingError("이미 마감된 시간이에요. 다른 시간을 골라 주세요.")
+            return True
+        booking_engine.book_now(key, visit, time_c, name=name_c, phone=phone_c, memo=memo_c, source="web", **kw)
+    except booking_engine.EngineError as e:
+        raise BookingError(str(e))
+    from app.services import design_log
+    design_log.inquiry(key)
     return True
 
 
