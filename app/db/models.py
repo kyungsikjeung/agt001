@@ -248,6 +248,7 @@ class CustomerRow(Base):
     first_seen: Mapped[datetime.datetime] = _now_col()
     last_seen: Mapped[datetime.datetime] = _now_col()
     phone_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))  # 로그인한 손님이면(SALES_DB_PLAN §2.2 R-3)
 
 
 class PhoneVerificationRow(Base):
@@ -350,4 +351,149 @@ class ShopSettingsRow(Base):
     sms_sender: Mapped[Optional[str]] = mapped_column(Text)  # 숫자만
     key_last4: Mapped[Optional[str]] = mapped_column(Text)  # 화면 표시용 키 뒤 4자리
     updated_by: Mapped[Optional[str]] = mapped_column(Text)  # users.id
+    updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class ShopRow(Base):
+    """가게 (OWNER_CONSOLE_PLAN §3.1). site_key = sessions.requirement_id를 그대로 PK로 쓴다."""
+
+    __tablename__ = "shops"
+
+    site_key: Mapped[str] = mapped_column(Text, primary_key=True)
+    name: Mapped[Optional[str]] = mapped_column(Text)
+    kind: Mapped[Optional[str]] = mapped_column(Text)  # slot·table·night·class
+    created_at: Mapped[datetime.datetime] = _now_col()
+    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+
+
+class ShopMemberRow(Base):
+    """가게 권한. 사장님·손님은 사람 종류가 아니라 관계다(SALES_DB_PLAN §2.2). owner는 가게당 1명."""
+
+    __tablename__ = "shop_members"
+
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    role: Mapped[str] = mapped_column(Text, nullable=False)  # owner·manager·staff
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class ShopPayoutRow(Base):
+    """손님 결제 정산 정보(포트원 파트너, PAYMENT_PLAN §5.1). 계좌는 암호화, 화면엔 뒤 4자리."""
+
+    __tablename__ = "shop_payout"
+
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), primary_key=True)
+    business_no: Mapped[Optional[str]] = mapped_column(Text)
+    owner_name: Mapped[Optional[str]] = mapped_column(Text)
+    bank: Mapped[Optional[str]] = mapped_column(Text)
+    account_enc: Mapped[Optional[str]] = mapped_column(Text)
+    account_last4: Mapped[Optional[str]] = mapped_column(Text)
+    holder: Mapped[Optional[str]] = mapped_column(Text)
+    portone_partner_id: Mapped[Optional[str]] = mapped_column(Text, unique=True)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="none")  # none·pending·active·rejected
+    updated_by: Mapped[Optional[str]] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class OrderRow(Base):
+    """매출 1건 (SALES_DB_PLAN §4.4). 예약은 방문 뒤 지워져도 주문은 남는다(booking_id SET NULL)."""
+
+    __tablename__ = "orders"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    customer_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("customers.id", ondelete="SET NULL"))
+    booking_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("bookings.id", ondelete="SET NULL"))
+    channel: Mapped[str] = mapped_column(Text, nullable=False)  # online·onsite·manual
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="open")  # open·paid·completed·canceled·no_show
+    subtotal: Mapped[int] = mapped_column(Integer, nullable=False)
+    discount: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    total: Mapped[int] = mapped_column(Integer, nullable=False)  # = subtotal - discount (DB 검사)
+    served_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    staff_name: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class OrderItemRow(Base):
+    """주문 안의 시술·메뉴. 이름·가격은 그때 값 스냅샷."""
+
+    __tablename__ = "order_items"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    order_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    service_id: Mapped[Optional[int]] = mapped_column(BigInteger)  # booking_services가 생기면 외래키
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    unit_price: Mapped[int] = mapped_column(Integer, nullable=False)
+    qty: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    staff_name: Mapped[Optional[str]] = mapped_column(Text)
+
+
+class PaymentRow(Base):
+    """결제 원장(PAYMENT_PLAN §3). 구독·제작비·손님 주문 공통. 고치지 않고, 환불은 RefundRow로."""
+
+    __tablename__ = "payments"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    order_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("orders.id"))
+    kind: Mapped[str] = mapped_column(Text, nullable=False)  # order·subscription·setup_fee
+    method: Mapped[Optional[str]] = mapped_column(Text)  # card·easy_pay·transfer·cash·onsite_card
+    provider: Mapped[str] = mapped_column(Text, nullable=False)  # portone·manual
+    provider_payment_id: Mapped[Optional[str]] = mapped_column(Text, unique=True)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="ready")  # ready·paid·failed·canceled
+    paid_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    raw: Mapped[Optional[dict]] = mapped_column(JSONB)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class RefundRow(Base):
+    __tablename__ = "refunds"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    payment_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("payments.id"), nullable=False)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    by_user_id: Mapped[Optional[str]] = mapped_column(Text)
+    provider_cancel_id: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class SettlementRow(Base):
+    """포트원 주문 정산 1건(PAYMENT_PLAN §2.2)."""
+
+    __tablename__ = "settlements"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    payment_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("payments.id"), nullable=False)
+    portone_transfer_id: Mapped[Optional[str]] = mapped_column(Text, unique=True)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="order")  # order·cancel
+    gross: Mapped[int] = mapped_column(Integer, nullable=False)
+    pg_fee: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    platform_fee: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    net: Mapped[int] = mapped_column(Integer, nullable=False)
+    settle_date: Mapped[Optional[datetime.date]] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="scheduled")
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class SubscriptionRow(Base):
+    """우리 요금제(가게 단위, PAYMENT_PLAN §4). 빌링키는 암호화."""
+
+    __tablename__ = "subscriptions"
+
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), primary_key=True)
+    payer_user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    plan: Mapped[str] = mapped_column(Text, nullable=False, server_default="free")
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="active")
+    billing_key_enc: Mapped[Optional[str]] = mapped_column(Text)
+    card_last4: Mapped[Optional[str]] = mapped_column(Text)
+    current_period_end: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    next_schedule_id: Mapped[Optional[str]] = mapped_column(Text)
+    fail_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     updated_at: Mapped[datetime.datetime] = _now_col()

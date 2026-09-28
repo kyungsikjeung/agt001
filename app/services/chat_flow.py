@@ -497,6 +497,11 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     reply = (f"사이트를 열었어요: {url}\n"
              f"{choice[1]}안({VARIANT_NAMES[choice]}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
     room_id = _publish_room_id(session)
+    try:
+        from app.services import shop_settings, shops
+        shops.ensure(session["requirement_id"], shop_settings._shop_name_of(session), room_id)
+    except Exception:
+        log.exception("가게 행 만들기 실패 site=%s", session["requirement_id"])
     if room_id is not None:
         base = (base_url or "").rstrip("/")
         reply += (f"\n사이트 고치기: {base}/editor?room={room_id}\n"
