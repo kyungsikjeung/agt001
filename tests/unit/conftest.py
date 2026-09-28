@@ -85,6 +85,12 @@ def _db_schema():
     db_migrate.upgrade_head()
 
 
+@pytest.fixture(autouse=True)
+def _quote_enabled_by_default(monkeypatch):
+    # 기존 흐름 테스트는 견적 단계를 거친다. 베타(견적 없음)는 test_beta_flow.py가 본다.
+    monkeypatch.setattr(settings, "quote_enabled", True)
+
+
 @pytest.fixture
 def client(tmp_path, monkeypatch):
     """테스트마다 격리된 generated_dir + 비어 있는 저장소 + 가짜 외부 의존."""

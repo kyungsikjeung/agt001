@@ -225,6 +225,13 @@ def make(card: dict) -> dict:
             if problems:
                 log.info("디자인 명세 검증: %s", "; ".join(problems))
             out = _valid(data, base, shop, frozenset(re.findall(r"\d+", said)))
+            # 한국어 아닌 말이 든 칸은 규칙 값으로 되돌린다 (컨셉 전체는 유지).
+            if llm.foreign_words(out.get("name") or "", ""):
+                out["name"] = base["name"]
+            if any(llm.foreign_words(str(m) or "", "") for m in (out.get("mood") or [])):
+                out["mood"] = list(base["mood"])
+            if llm.foreign_words(out.get("reason") or "", ""):
+                out["reason"] = base["reason"]
             out["source"] = "ai"
             return out
     except Exception:
@@ -282,9 +289,11 @@ def adjust(concept: dict, text: str) -> tuple[dict, str]:
         if isinstance(changes, dict) and changes:
             out = _valid({**{k: concept.get(k) for k in ("palette", "font_pair", "density", "radius", "lead")}, **changes,
                           "mood": (data or {}).get("mood")}, concept)
+            if any(llm.foreign_words(str(m) or "", "") for m in (out.get("mood") or [])):
+                out["mood"] = list(concept.get("mood") or [])
             if any(out.get(k) != concept.get(k) for k in ("palette", "font_pair", "density", "radius", "lead")):
                 reply = str((data or {}).get("reply") or "").strip()
-                if not (4 <= len(reply) <= 80) or re.search(r"\d", reply):
+                if not (4 <= len(reply) <= 80) or re.search(r"\d", reply) or llm.foreign_words(reply, ""):
                     reply = "말씀하신 느낌으로 바꿨어요."
                 return out, reply
     except Exception:

@@ -138,9 +138,17 @@ describe('CardEditor', () => {
     expect(screen.getByText(/공개 전에 채울 곳 \d+개/)).toBeInTheDocument();
   });
 
-  it('불러오기 실패하면 목업(예시 화면)으로 돌아간다', async () => {
+  it('불러오기 실패하면 로그인 안내를 보여준다', async () => {
     stubFetch(async () => ({ ok: false, status: 404, json: async () => ({}) }) as Response);
     render(<EditorPage roomId="nope" />);
-    expect(await screen.findByText(/예시 화면/)).toBeInTheDocument();
+    expect(await screen.findByText('이 기기에서는 사이트를 고칠 수 없어요')).toBeInTheDocument();
+    expect(screen.getByText('방을 만든 기기에서 열거나, 방을 만든 계정으로 로그인해 주세요.')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: '카카오로 로그인' }).getAttribute('href')).toContain(
+      '/auth/kakao/start?next=%2Feditor%3Froom%3Dnope',
+    );
+    expect(screen.getByRole('link', { name: '구글로 로그인' }).getAttribute('href')).toContain(
+      '/auth/google/start?next=%2Feditor%3Froom%3Dnope',
+    );
+    expect(screen.getByRole('link', { name: '채팅방으로 가기' }).getAttribute('href')).toBe('/room.html?room=nope');
   });
 });

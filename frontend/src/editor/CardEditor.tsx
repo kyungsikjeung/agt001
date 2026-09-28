@@ -3,7 +3,6 @@
 // D23 자리 표시는 "입력 필요" 배지, D24 사실 확인은 "확인 대기" 배지와 사실 표시로 보여준다.
 import { useEffect, useMemo, useState } from 'react';
 import { fetchCard, readMemberId, saveCard, statusLabel, type RoomCard } from './cardApi';
-import MockEditor from './MockEditor';
 
 interface CardEditorProps {
   roomId: string;
@@ -59,7 +58,22 @@ export default function CardEditor({ roomId }: CardEditorProps) {
   const dirtyKeys = Object.keys(dirty);
   const emptyKeys = dirtyKeys.filter((k) => (dirty[k] ?? '').trim() === '');
 
-  if (loadFailed) return <MockEditor />;
+  if (loadFailed) {
+    const next = encodeURIComponent(`/editor?room=${roomId}`);
+    return (
+      <div className="ed-page">
+        <main className="ed-main">
+          <h1>이 기기에서는 사이트를 고칠 수 없어요</h1>
+          <p>방을 만든 기기에서 열거나, 방을 만든 계정으로 로그인해 주세요.</p>
+          <div className="ed-ai-box">
+            <a href={`/auth/kakao/start?next=${next}`}>카카오로 로그인</a>
+            <a href={`/auth/google/start?next=${next}`}>구글로 로그인</a>
+            <a href={`/room.html?room=${encodeURIComponent(roomId)}`}>채팅방으로 가기</a>
+          </div>
+        </main>
+      </div>
+    );
+  }
   if (!card) {
     return (
       <div className="ed-page">

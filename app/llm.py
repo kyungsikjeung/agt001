@@ -1,5 +1,6 @@
 """NIM(OpenAI 호환) 호출의 단일 진입점. 모델 교체·병행은 이 모듈에서만 처리한다."""
 import logging
+import re
 import threading
 import time
 from functools import lru_cache
@@ -11,6 +12,10 @@ from openai import OpenAI
 from app.config import settings
 
 log = logging.getLogger(__name__)
+
+# 사람에게 보이는 글은 모두 한국어 (BETA_FLOW_PLAN §2.1).
+KO_RULE = ("사람에게 보이는 글(값·설명·이유·답·문구)은 모두 한국어로 쓴다. 영어로 번역하지 않는다. "
+           "사장님이 영어로 쓴 가게 이름·주소·링크·이메일은 그대로 둔다. JSON 키와 정해진 목록의 영문 값은 그대로 쓴다.")
 
 # 다음 모델로 넘어갈 오류: 과부하·요청 제한·서버 오류·시간 초과·연결 실패. 요청이 틀린 경우(400 등)는 넘기지 않는다.
 _RETRYABLE = (openai.APITimeoutError, openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError)
@@ -71,10 +76,38 @@ def _with_fallback(call: Callable[[str], str]) -> str:
     raise last_exc
 
 
+def foreign_words(value: str, source: str = "") -> list[str]:
+    """값 안의 한국어 아닌 말: source에 없는 영문 낱말·한자·가나를 순서대로 (중복 없이)."""
+    if not value:
+        return []
+    src = source or ""
+    src_low = src.lower()
+    hits: list[tuple[int, str]] = []
+    for m in re.finditer(r"[A-Za-z]{3,}", value):
+        w = m.group(0)
+        if w.lower() not in src_low:
+            hits.append((m.start(), w))
+    for m in re.finditer(r"[\u3040-\u30ff\u4e00-\u9fff]", value):
+        ch = m.group(0)
+        if ch not in src:
+            hits.append((m.start(), ch))
+    hits.sort(key=lambda h: h[0])
+    out, seen = [], set()
+    for _, w in hits:
+        if w not in seen:
+            seen.add(w)
+            out.append(w)
+    return out
+
+
 def chat(messages: list[dict]) -> str:
+    send = list(messages or [])
+    if not send or send[0].get("role") != "system":
+        send = [{"role": "system", "content": KO_RULE}, *send]
+
     def call(model: str) -> str:
         opts = _client().with_options(max_retries=0) if len(_models()) > 1 else _client()
-        return opts.chat.completions.create(model=model, messages=messages).choices[0].message.content
+        return opts.chat.completions.create(model=model, messages=send).choices[0].message.content
     return _with_fallback(call)
 
 
@@ -101,7 +134,7 @@ def chat_json(system: str, user: str, timeout_sec: float = 20.0, max_tokens: int
         client = _client().with_options(timeout=timeout_sec, max_retries=0 if len(_models()) > 1 else 1)
         completion = client.chat.completions.create(
             model=model,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            messages=[{"role": "system", "content": KO_RULE + "\n" + system}, {"role": "user", "content": user}],
             temperature=0,
             max_tokens=max_tokens,
             extra_body={"chat_template_kwargs": {"enable_thinking": False}},

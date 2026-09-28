@@ -92,12 +92,14 @@ COMMON_QUESTIONS: dict[str, Question] = {
 INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
     Industry(
         "pension", "펜션·숙박", ("펜션", "숙박", "민박", "게스트하우스", "풀빌라", "캠핑", "글램핑", "호텔", "모텔"),
-        required=("business_type", "shop_name", "offerings", "contact_method", "goal", "hours"),
+        required=("business_type", "shop_name", "offerings", "price", "contact_method", "goal", "hours"),
         labels={"offerings": "객실 구성", "hours": "체크인·아웃 시간"},
         default_sections=("객실 소개", "편의시설", "주변 안내", "오시는 길", "예약 문의"),
         hidden=(("parking", "주차"), ("pet", "반려동물 동반"), ("bbq", "바비큐·취사"), ("pickup", "픽업"), ("long_stay", "장기 숙박 할인")),
         questions={
             "offerings": Question("offerings", "객실은 몇 개이고 어떻게 구성돼 있나요?"),
+            "price": Question("price", "객실 요금을 알려 주세요. 성수기·비수기가 다르면 둘 다 알려 주세요. (예: 성수기 1박 25만원, 비수기 1박 15만원)",
+                              options=("나중에 넣을게요",)),
             "hours": Question("hours", "체크인·체크아웃 시간은 언제인가요?", options=("15시 / 11시", "나중에 넣을게요")),
             "goal": Question("goal", "사이트로 가장 이루고 싶은 것은 무엇인가요?", options=("예약 문의 늘리기", "펜션 알리기", "객실·요금 안내")),
         },

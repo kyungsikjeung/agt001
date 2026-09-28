@@ -87,7 +87,7 @@ def test_pension_rooms_parsed():
     assert rooms[0]["name"] == "101호 복층" and rooms[0]["capacity"] == "4인"
     assert rooms[0]["price"] == "18만원" and rooms[0]["source"] == "owner"
     assert rooms[1]["name"] == "102호" and rooms[1]["capacity"] == "(4인)"
-    assert rooms[2] == {"name": "바베큐장", "capacity": "", "price": "", "source": "owner"}
+    assert len(rooms) == 2  # 바베큐장 같은 부대시설은 객실 카드("이 객실 예약")가 아니다
 
 
 def test_other_archetypes_have_no_classes_or_rooms():

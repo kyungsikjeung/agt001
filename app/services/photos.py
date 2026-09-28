@@ -82,7 +82,8 @@ def _clean_ai_image(data: bytes) -> tuple[bytes, int, int]:
     return out.getvalue(), img.width, img.height
 
 
-def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str] = None) -> dict:
+def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str] = None,
+        tag: Optional[str] = None) -> dict:
     from app.services import rooms
 
     room_id = sanitize_token(room_id_raw or "")
@@ -90,10 +91,18 @@ def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str
     clean, width, height = _clean_image(data)
     photo_id = secrets.token_hex(8)
     caption = (caption or "").strip()[:80] or None
+    tag = (tag or "").strip()[:80] or None  # 항목 이름이 한글이라 sanitize_token을 쓰지 않는다
     with store.room_tx(room_id) as (room, session):
         if room is None or not any(m["member_id"] == member_id for m in room["members"]):
             raise rooms.RoomNotFound(room_id)
         card = session.get("prd") or {}
+        if tag and session.get("prd"):
+            # 항목 태그는 지금 카드 후보 안에 있을 때만 둔다. 아니면 버린다.
+            from app.services import photo_needs
+            if not photo_needs.valid_tag(session["prd"], tag):
+                tag = None
+        elif tag:
+            tag = None
         if len(card.get("photos") or []) >= MAX_PER_ROOM:
             raise PhotoError(f"사진은 한 방에 {MAX_PER_ROOM}장까지예요.")
         folder = _dir(room_id)
@@ -104,7 +113,10 @@ def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str
                                  width=width, height=height))
         url = url_for(room_id, photo_id)
         if session.get("prd") is not None:
-            session["prd"].setdefault("photos", []).append({"id": photo_id, "url": url, "caption": caption})
+            photo = {"id": photo_id, "url": url, "caption": caption}
+            if tag is not None:
+                photo["tag"] = tag
+            session["prd"].setdefault("photos", []).append(photo)
         from app.services import funnel as _funnel
         _funnel.record("photo_uploaded", session_id=session.get("id"))  # D48·D45: 실제 업로드 기록
         if session.get("design_url") and session.get("prd"):

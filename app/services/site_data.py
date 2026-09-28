@@ -98,6 +98,47 @@ def _ai_url(card: dict, slot: str) -> str:
     return url if isinstance(url, str) and url.startswith("/uploads/") else ""
 
 
+def _item_image(card: dict, name: str, pack: dict, example: dict) -> dict:
+    """항목 사진 고르는 순서 (BETA_FLOW §2.7): 사장님 사진 → AI 그림 → 예시 팩."""
+    try:
+        from app.services import card_data as card_data_module
+        hit = card_data_module.item_photo(card, name)
+    except Exception:
+        hit = None
+    if isinstance(hit, dict) and str(hit.get("url") or "").startswith("/uploads/"):
+        caption = str(hit.get("caption") or "").strip()
+        return {"image": hit["url"], "image_alt": caption or f"{name} 사진"}
+    ai = _ai_url(card, "item:" + name)
+    if ai:
+        return {"image": ai, "image_alt": f"{name} 사진 (AI 예시)", "image_ai": True}
+    return dict(example)
+
+
+def _pack_room_example(pack: dict, name: str, pos: int) -> dict:
+    """예시 팩 객실 사진 차례 (BETA_FLOW §2.5): room:k를 돌려 쓴다."""
+    photos = pack.get("photos") or {}
+    count = sum(1 for key in photos if str(key).startswith("room:"))
+    if not count:
+        return {}
+    photo = photos.get(f"room:{(pos - 1) % count + 1}")
+    if not photo:
+        return {}
+    return {"image": photo, "image_alt": f"{name} 사진 (예시)", "image_example": True}
+
+
+def _item_caption(photo: dict) -> str:
+    """사진첩 설명: 없으면 item: 태그의 이름을 쓴다 (§2.7)."""
+    if not isinstance(photo, dict):
+        return ""
+    caption = str(photo.get("caption") or "").strip()
+    if caption:
+        return caption
+    tag = str(photo.get("tag") or "")
+    if tag.startswith("item:") and tag[5:].strip():
+        return tag[5:].strip()
+    return ""
+
+
 def _anchor(sections: list, target: str) -> str:
     """청사진 target → #<type>-title-<id>. order-soon은 그대로."""
     if target == "order-soon":
@@ -443,8 +484,31 @@ def _fill_timetable(sec: dict, data: dict, pack: dict) -> None:
     sec["content"] = content
 
 
-def _fill_rooms(sec: dict, data: dict, pack: dict, booking_href: str) -> None:
-    """rooms bind → rooms--cards (예시 사진 + image_example, 모르는 요금 + price_example)."""
+def _season_rows(prices: list, today) -> tuple:
+    """season_prices → 요금표 행 + 지금 이름표 (BETA_FLOW §2.5)."""
+    from app.services import card_data as card_data_module
+    current = card_data_module.current_label(prices, today)
+    rows = []
+    for entry in prices:
+        if not isinstance(entry, dict):
+            continue
+        label = str(entry.get("label") or "")
+        period = str(entry.get("period") or "")
+        date_from, date_to = card_data_module.period_mmdd(period)
+        dow = ""
+        if not date_from:
+            dow = "5,6" if label == "주말" else ("0,1,2,3,4" if label == "주중" else "")
+        rows.append({"label": label, "period": period, "price": str(entry.get("price") or ""),
+                     "from": date_from, "to": date_to, "dow": dow,
+                     "is_current": bool(current) and label == current})
+    return rows, current
+
+
+def _fill_rooms(sec: dict, card: dict, data: dict, pack: dict, booking_href: str) -> None:
+    """rooms bind → rooms--cards (사장님 → AI → 예시 팩 사진, 요금표 + 지금 요금)."""
+    from app.services import card_data as card_data_module
+    today = datetime.datetime.now(KST).date()
+    season = None
     items = []
     rooms = [r for r in (data.get("rooms") or [])
              if isinstance(r, dict) and str(r.get("name") or "").strip()]
@@ -453,19 +517,33 @@ def _fill_rooms(sec: dict, data: dict, pack: dict, booking_href: str) -> None:
         item = {"name": name, "capacity": str(entry.get("capacity") or "")}
         if entry.get("size"):
             item["size"] = str(entry["size"])
+        item.update(_item_image(card, name, pack, _pack_room_example(pack, name, pos)))
         price = str(entry.get("price") or "")
+        prices = None
         if price:
             item["price"] = price
         else:
+            prices = entry.get("prices") or None
+            if not prices:
+                if season is None:
+                    try:
+                        season = card_data_module.season_prices(card)
+                    except Exception:
+                        season = []
+                prices = season or None
+        if prices:
+            rows, current = _season_rows(prices, today)
+            item["prices"] = rows
+            item["has_prices"] = True
+            current_price = next((r["price"] for r in rows
+                                  if r["label"] == current and r["price"]), "")
+            if current_price:
+                item["price"] = current_price
+        if not item.get("price"):
             guess = _example_price(name, pack["prices"])
             if guess:
                 item["price"] = guess
                 item["price_example"] = True
-        photo = pack["photos"].get(f"room:{pos}")
-        if photo:
-            item["image"] = photo
-            item["image_alt"] = f"{name} 사진 (예시)"
-            item["image_example"] = True
         feats = [f for f in (entry.get("features") or [])
                  if isinstance(f, str) and f.strip()][:6]
         if feats:
@@ -530,8 +608,11 @@ def _fill_concerns(sec: dict, pack: dict) -> None:
     sec["content"] = content
 
 
-def _fill_signature(sec: dict, data: dict, pack: dict) -> None:
-    """signature bind → offerings--cards (badge 품목, 없으면 분류마다 첫 품목, 최대 3개)."""
+def _fill_signature(sec: dict, card: dict, data: dict, pack: dict) -> None:
+    """signature bind → offerings--cards (badge 품목, 없으면 분류마다 첫 품목, 최대 3개).
+
+    사진은 사장님 → AI 그림 → 분류 예시 팩 순서 (§2.7).
+    """
     groups = [g for g in (data.get("catalog") or []) if isinstance(g, dict)]
     if not groups:
         groups = [g for g in pack["catalog"] if isinstance(g, dict)]
@@ -550,22 +631,21 @@ def _fill_signature(sec: dict, data: dict, pack: dict) -> None:
     cards = []
     for group, item in picked[:3]:
         name = str(item["name"])
-        card = {"name": name, "desc": str(item.get("desc") or "")}
+        card_item = {"name": name, "desc": str(item.get("desc") or "")}
         price = str(item.get("price") or "")
         if price:
-            card["price"] = price
+            card_item["price"] = price
         else:
             guess = _example_price(name, pack["prices"])
             if guess:
-                card["price"] = guess
-                card["price_example"] = True
+                card_item["price"] = guess
+                card_item["price_example"] = True
         photo = pack["photos"].get(f"category:{group.get('name')}")
-        if photo:
-            card["image"] = photo
-            card["image_alt"] = f"{name} 사진 (예시)"
+        example = {"image": photo, "image_alt": f"{name} 사진 (예시)"} if photo else {}
+        card_item.update(_item_image(card, name, pack, example))
         if item.get("example") is True:
-            card["example"] = True
-        cards.append(card)
+            card_item["example"] = True
+        cards.append(card_item)
     sec["content"] = {"label": sec.get("label") or "시그니처", "items": cards}
 
 
@@ -575,8 +655,8 @@ def _fill_gallery(sec: dict, card: dict, pack: dict, prefix: str) -> None:
     if photos:
         rest = photos[1:] or photos
         sec["content"] = {"label": sec.get("label") or "",
-                          "items": [{"src": p["url"], "alt": p.get("caption") or f"사진 {i + 1}",
-                                     "caption": p.get("caption") or ""}
+                          "items": [{"src": p["url"], "alt": _item_caption(p) or f"사진 {i + 1}",
+                                     "caption": _item_caption(p)}
                                     for i, p in enumerate(rest)]}
         return
     items = []
@@ -593,8 +673,8 @@ def _fill_menu_photos(sec: dict, card: dict, data: dict, pack: dict) -> None:
     if photos:
         rest = photos[1:] or photos
         sec["content"] = {"label": sec.get("label") or "",
-                          "items": [{"src": p["url"], "alt": p.get("caption") or f"메뉴 사진 {i + 1}",
-                                     "caption": p.get("caption") or ""}
+                          "items": [{"src": p["url"], "alt": _item_caption(p) or f"메뉴 사진 {i + 1}",
+                                     "caption": _item_caption(p)}
                                     for i, p in enumerate(rest)]}
         return
     groups = [g for g in (data.get("catalog") or []) if isinstance(g, dict)]
@@ -666,13 +746,13 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
         elif bind == "timetable":
             _fill_timetable(sec, data, pack)
         elif bind == "rooms":
-            _fill_rooms(sec, data, pack, booking_href)
+            _fill_rooms(sec, card, data, pack, booking_href)
         elif bind == "dates":
             _fill_dates(sec, data)
         elif bind == "concerns":
             _fill_concerns(sec, pack)
         elif bind == "signature":
-            _fill_signature(sec, data, pack)
+            _fill_signature(sec, card, data, pack)
         elif bind == "location":
             sec["content"] = {"address": address, "items": _location_items(phone, hours)}
         elif bind == "contact":

@@ -1,10 +1,11 @@
 <section class="s-offerings s-offerings--cards ed-cards" data-section-id="{{id}}" aria-labelledby="offerings-title-{{id}}">
   <h2 class="ed-cards__title" id="offerings-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}메뉴{{/label}}</h2>
   {{#has_items}}
-  <ul class="s-cards ed-cards__grid">
+  {{#scroll}}<p class="s-cards__hint">옆으로 넘겨 보세요 → ({{count}}개)</p>{{/scroll}}
+  <ul class="s-cards ed-cards__grid{{#scroll}} s-cards--scroll{{/scroll}}"{{#scroll}} tabindex="0" aria-label="{{#label}}{{label}} {{/label}}{{count}}개, 옆으로 넘겨 보세요"{{/scroll}}>
     {{#items}}
     <li class="s-card ed-cards__card">
-      {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{/image_src}}
+      {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{#image_ai}}<span class="s-illu-badge">AI 예시</span>{{/image_ai}}{{/image_src}}
       {{^image_src}}<div class="s-media__empty is-placeholder" aria-label="상품 사진: 아직 입력되지 않음">[사진 입력]</div>{{/image_src}}
       <strong class="s-card__name">{{#name}}{{name}}{{/name}}{{^name}}<span class="is-placeholder" aria-label="항목 이름: 아직 입력되지 않음">[이름 입력]</span>{{/name}}</strong>
       {{#desc}}<p class="s-card__desc">{{desc}}</p>{{/desc}}

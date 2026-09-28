@@ -970,6 +970,11 @@
   var activeIsAuto = false;
   // 손 안 쓰는 모드가 끝난 뒤 들을지 판단하는 마지막 자동 읽기 글자.
   var lastAutoText = '';
+  // 입장 읽기: 처음 들어와 지난 글을 다 받은 직후 한 번만 읽는다.
+  var enterDone = false;
+  var enterPending = false;
+  var enterText = '';
+  var pendingEnterText = '';
   // 끊기 세대 번호: 늦게 도착한 요청 결과는 버린다.
   var speechGen = 0;
   // 긴 답장 나누기 상수
@@ -1014,6 +1019,7 @@
   // 읽던 소리를 멈추고 대기 중인 읽기를 모두 비운다. 듣기 버튼 재생도 함께 멈춘다.
   function stopAllSpeech() {
     speechGen++;
+    enterPending = false;
     cleanupActive();
     clearPrefetch();
     if (activeBtn) resetBtn(activeBtn);
@@ -1040,9 +1046,9 @@
 
   function loadAutoread() {
     try {
-      if (typeof localStorage !== 'undefined') return localStorage.getItem(AUTOREAD_KEY) === '1';
+      if (typeof localStorage !== 'undefined') return localStorage.getItem(AUTOREAD_KEY) !== '0';
     } catch (e) { /* 저장소 사용 불가 */ }
-    return false;
+    return true;
   }
 
   function saveAutoread(on) {
@@ -1200,6 +1206,7 @@
     activeIndex = 0;
     activeIsAuto = false;
     loading = false;
+    if (natural) enterPending = false;
     // 끝까지 스스로 다 읽었을 때만 손 안 쓰는 모드에 알린다. 끊기·오류·차단은 알리지 않는다.
     if (natural && wasAuto) {
       try {
@@ -1275,6 +1282,13 @@
       played = audio.play();
     } catch (e) {
       if (isAuto) {
+        if (enterPending) {
+          finishReading(false);
+          enterPending = false;
+          pendingEnterText = enterText;
+          showEnterListenBtn();
+          return;
+        }
         finishReading(false);
         try { if (typeof window.__handsfreeBlocked === 'function') window.__handsfreeBlocked(); } catch (e2) { /* 무시 */ }
         return;
@@ -1287,6 +1301,13 @@
       played.catch(function () {
         if (gen !== speechGen) return;
         if (isAuto) {
+          if (enterPending) {
+            finishReading(false);
+            enterPending = false;
+            pendingEnterText = enterText;
+            showEnterListenBtn();
+            return;
+          }
           finishReading(false);
           try { if (typeof window.__handsfreeBlocked === 'function') window.__handsfreeBlocked(); } catch (e2) { /* 무시 */ }
           return;
@@ -1369,6 +1390,67 @@
     } catch (e) { /* 무시 */ }
   };
 
+  // 입장 안내가 막혔을 때 입력줄 위에 한 줄 버튼을 보인다. 자동읽기는 끄지 않는다.
+  function removeEnterListenBtn() {
+    try {
+      var b = document.getElementById('enterListenBtn');
+      if (b && b.parentNode) b.parentNode.removeChild(b);
+    } catch (e) { /* 무시 */ }
+  }
+
+  function showEnterListenBtn() {
+    try {
+      if (!pendingEnterText) return;
+      if (document.getElementById('enterListenBtn')) return;
+      var rowEl = document.getElementById('row');
+      if (!rowEl || !rowEl.parentNode) return;
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.id = 'enterListenBtn';
+      b.textContent = '🔊 눌러서 안내 듣기';
+      b.style.cssText = 'display:block;min-height:44px;margin:8px 16px 0;padding:0 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:0.875rem;';
+      b.addEventListener('click', function () {
+        try { unlockAudio(); } catch (e) { /* 무시 */ }
+        var t = pendingEnterText;
+        pendingEnterText = '';
+        removeEnterListenBtn();
+        if (t) queueNewReading(t, null, true);
+      });
+      rowEl.parentNode.insertBefore(b, rowEl);
+    } catch (e) { /* 화면 만들기가 실패해도 읽기는 유지 */ }
+  }
+
+  // 방에 처음 들어와 지난 글을 다 받은 직후 한 번, 마지막 AI 답을 읽는다.
+  window.speakOnEnter = function (text) {
+    if (enterDone) return;
+    enterDone = true;
+    try {
+      if (!shouldAutoRead()) return;
+      if (window.__agtOnCall) return;
+      var clean = (text || '').replace(/^\s+|\s+$/g, '');
+      if (!clean) return;
+      lastAutoText = clean;
+      queueNewReading(clean, null, true);
+      enterText = clean;
+      enterPending = true;
+    } catch (e) { /* 무시 */ }
+  };
+
+  // 첫 누름이 입력칸·보내기·마이크 밖이면 대기 중인 입장 글을 읽는다.
+  document.addEventListener('pointerdown', function (ev) {
+    try {
+      if (!pendingEnterText) return;
+      var t = ev && ev.target;
+      if (!t || typeof t.closest !== 'function') return;
+      if (t.closest('#input') || t.closest('#sendBtn') || t.closest('#micBtn')) return;
+      try { unlockAudio(); } catch (e2) { /* 무시 */ }
+      var txt = pendingEnterText;
+      pendingEnterText = '';
+      removeEnterListenBtn();
+      if (txt) queueNewReading(txt, null, true);
+    } catch (e) { /* 무시 */ }
+  }, true);
+
   window.speakAiText = function (text, btn) {
     if (!btn) return;
     // 읽던 말풍선의 버튼을 다시 누르면 멈춘다. 자동 읽기도 함께 멈춘다.
@@ -1403,6 +1485,10 @@
           var len = inp.value ? inp.value.length : 0;
           if (len > 0 && (prevLen === 0 || len === 1)) {
             if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech();
+            // 입장 대기는 글자를 치기 시작하면 버린다.
+            pendingEnterText = '';
+            enterText = '';
+            removeEnterListenBtn();
           }
           prevLen = len;
         } catch (e) { /* 무시 */ }

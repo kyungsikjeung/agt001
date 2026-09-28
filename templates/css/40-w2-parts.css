@@ -238,3 +238,74 @@
   .s-form__row .s-date { transition: none; }
   .s-pick__in:checked + .s-date { transform: none; }
 }
+
+/* ---- 객실·상품 카드 가로 스크롤 (BETA_FLOW §2.5·§2.7, CSS만) ---- */
+.s-rooms__hint,
+.s-cards__hint {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.s-rooms__list--scroll,
+.s-cards--scroll {
+  display: flex;
+  gap: var(--space-gap);
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding-bottom: 4px;
+}
+
+.s-rooms__list--scroll .s-room,
+.s-cards--scroll .s-card {
+  flex: 0 0 85%;
+  scroll-snap-align: start;
+}
+
+.s-offerings--cards .s-card { position: relative; }
+
+@media (min-width: 720px) {
+  .s-rooms__list--scroll .s-room,
+  .s-cards--scroll .s-card { flex-basis: 45%; }
+}
+
+/* ---- 객실 요금표 (BETA_FLOW §2.5) ---- */
+.s-room__prices {
+  width: 100%;
+  margin: 8px 0 0;
+  border-collapse: collapse;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.s-room__prices th,
+.s-room__prices td {
+  padding: 8px 6px;
+  white-space: nowrap; /* "성수기"·"7/15~8/20"이 두 줄로 쪼개지지 않게 */
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums;
+}
+
+.s-room__prices thead th {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.s-room__prices tr.is-current {
+  font-weight: 700;
+  background: var(--ground-soft);
+}
+
+.s-price-now {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--on-primary);
+  background: var(--c-primary);
+  border-radius: 999px;
+}

@@ -6,6 +6,7 @@ room을 넘기면 주요 전이마다 room["ai_status"]를 갱신해 다른 참�
 import logging
 import re
 import threading
+import time
 import uuid
 from typing import Optional
 
@@ -79,6 +80,7 @@ _TRANSITION_EVENTS = {
     ("GATHERING", "AWAIT_APPROVAL"): "request_submitted",
     ("GREETING", "AWAIT_APPROVAL"): "request_submitted",
     ("AWAIT_APPROVAL", "QUOTED"): "requirement_approved",
+    ("AWAIT_APPROVAL", "GENERATING"): ("requirement_approved", "generate_start"),
     ("QUOTED", "GENERATING"): "generate_start",
     ("GENERATING", "DONE"): "generate_done",
 }
@@ -86,11 +88,20 @@ _TRANSITION_EVENTS = {
 
 def _record_transition(session_id: str, before: str, after: str) -> None:
     event = _TRANSITION_EVENTS.get((before, after))
-    if event:
+    if isinstance(event, (tuple, list)):
+        for e in event:
+            funnel.record(e, session_id=session_id)
+    elif event:
         funnel.record(event, session_id=session_id)
 
 
 APPROVAL_ASK = "이 내용으로 참고 견적을 만들어 볼까요? (승인/거절로 답해주세요)"
+APPROVAL_ASK_DESIGN = "이 내용으로 시안을 만들어 볼까요? (승인/거절로 답해주세요)"
+
+
+def _approval_ask() -> str:
+    """견적 단계가 꺼져 있으면(베타) 시안 동의 문구로 묻는다."""
+    return APPROVAL_ASK if settings.quote_enabled else APPROVAL_ASK_DESIGN
 
 
 def _gate_or_summary(session: dict, card: dict, room, engine_trace, again: bool = False) -> str:
@@ -109,16 +120,39 @@ def _gate_or_summary(session: dict, card: dict, room, engine_trace, again: bool 
     spec = prd_engine.spec_text(card)
     session["last_request"] = spec
     session["state"] = "AWAIT_APPROVAL"
+    if room is not None:
+        # 요약 직전 항목 사진 판단을 한 번 둔다 (실패해도 대화는 계속).
+        try:
+            from app.services import photo_needs
+            photo_needs.judge(card)
+        except Exception:
+            log.exception("사진 필요 판단 실패(건너뜀)")
     if again:
-        return f"{prd_engine.summary_text(card)}\n\n{APPROVAL_ASK}"
+        return f"{prd_engine.summary_text(card)}\n\n{_approval_ask()}"
     # 사진 선택지는 요약 때 1회만. 일찍 물어봤으면 다시 붙이지 않는다(D48).
     photo_note = ""
     if room is not None and _photo_choice_available(card):
         card["photo_asked"] = True
         photo_note = photo_choice_text(card) + "\n\n"
+    pre_note = ""
+    if not photo_note and not card.get("photos") and card.get("photo_choice") != "none":
+        need = []
+        try:
+            from app.services import photo_needs
+            need = photo_needs.needed(card)
+        except Exception:
+            need = []
+        if need and not card.get("needs_announced"):
+            card["needs_announced"] = True
+            card["photo_prereminded"] = True
+            pre_note = (f"사진이 있으면 좋은 항목: {_short_need_names(need)}. "
+                        "시안 전에 아래 '사진' 버튼으로 올리고 어느 항목인지 골라 주세요.\n\n")
+        elif (card.get("photo_choice") == "later" and not card.get("photo_prereminded")):
+            card["photo_prereminded"] = True
+            pre_note = "시안 전에 사진을 올리시면 바로 넣어 드려요. 아래 '사진' 버튼을 눌러 주세요.\n\n"
     return (f"정리했어요.\n{prd_engine.summary_text(card)}\n\n" + (f"{note}\n\n" if note else "")
             + photo_note
-            + f"{_rag_note(spec)}\n\n{APPROVAL_ASK}")
+            + f"{_rag_note(spec)}\n\n{pre_note}{_approval_ask()}")
 
 
 def _rag_note(spec: str) -> str:
@@ -185,7 +219,18 @@ PHOTO_CHOICE_TEXT = ("가게 사진이 있으면 사이트가 확 달라져요. 
                      "휴대폰으로 지금 찍어도 돼요.\n"
                      "1) 지금 올릴게요  2) 나중에 올릴게요  3) 사진이 없어요(예시 그림으로)\n\n"
                      "(사진 질문이에요 · 답하지 않아도 넘어가요)")
-_PHOTO_WHAT = {"restaurant": "대표 메뉴", "cafe": "대표 메뉴", "pension": "객실"}
+_PHOTO_WHAT = {"restaurant": "대표 메뉴", "cafe": "대표 메뉴", "pension": "객실",
+               "salon": "시술(스타일)", "workshop": "작품", "academy": "교실·수업 모습",
+               "individual": "작업", "group": "모임 모습"}
+
+
+def _short_need_names(need: list) -> str:
+    """필요 항목 이름 줄이기 (최대 5개, 넘으면 '외 n개')."""
+    names = list(need)[:5]
+    text = ", ".join(names)
+    if len(need) > 5:
+        text += f" 외 {len(need) - 5}개"
+    return text
 
 
 def photo_choice_text(card: dict) -> str:
@@ -193,7 +238,16 @@ def photo_choice_text(card: dict) -> str:
     what = _PHOTO_WHAT.get(prd_engine.industry_of(card).key)
     head = f"가게 사진이 있으면 사이트가 확 달라져요. 아래 '사진' 버튼으로 가게 대표 사진 1장과 {what} 사진을 올려 주세요. " if what else None
     if head:
-        return (head + "휴대폰으로 지금 찍어도 돼요.\n"
+        extra = ""
+        try:
+            from app.services import photo_needs
+            need = photo_needs.needed(card)
+            if need:
+                extra = (f"사진이 있으면 좋은 항목: {_short_need_names(need)}. "
+                         "올릴 때 어느 항목 사진인지 골라 주세요. ")
+        except Exception:
+            extra = ""
+        return (head + extra + "휴대폰으로 지금 찍어도 돼요.\n"
                 "1) 지금 올릴게요  2) 나중에 올릴게요  3) 사진이 없어요(예시 그림으로)\n\n"
                 "(사진 질문이에요 · 답하지 않아도 넘어가요)")
     return PHOTO_CHOICE_TEXT
@@ -440,8 +494,15 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     session["deploy_url"] = url
     card["published"] = choice
     design_log.published(session["requirement_id"], card, choice)  # D45
-    return (f"사이트를 열었어요: {url}\n"
-            f"{choice[1]}안({VARIANT_NAMES[choice]}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
+    reply = (f"사이트를 열었어요: {url}\n"
+             f"{choice[1]}안({VARIANT_NAMES[choice]}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
+    room_id = _publish_room_id(session)
+    if room_id is not None:
+        base = (base_url or "").rstrip("/")
+        reply += (f"\n사이트 고치기: {base}/editor?room={room_id}\n"
+                  "고친 내용은 공개 사이트에 바로 반영돼요. 채팅으로 '전화번호는 010-…이에요'라고 말하거나 "
+                  "사진을 올려도 바로 바뀌어요.")
+    return reply
 
 
 _CHOICE = re.compile(r"(?<!\d)([1-3])\s*(?:안|번)")
@@ -484,6 +545,96 @@ def _is_force_publish(text: str) -> bool:
     """빈칸이 있어도 열라는 뜻인지."""
     n = prd_engine._norm(text or "")
     return "그대로공개" in n or "그대로열어" in n or "빈칸있어도" in n
+
+
+def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
+    """시안 만들기 전체(QUOTED '진행' 때 하던 일). 답 글을 돌려준다.
+
+    베타(견적 없음)는 AWAIT_APPROVAL 승인에서도 바로 부른다."""
+    _set_room_status(room, "GENERATING", persist=True)
+    started = time.monotonic()
+    timed_out = False
+
+    def _time_left() -> bool:
+        # LLM 준비 3단계는 스크린샷 60초를 남기고 자른다. 한 번만 알린다.
+        nonlocal timed_out
+        if time.monotonic() - started > settings.design_total_timeout_sec - 60:
+            if not timed_out:
+                timed_out = True
+                log.warning("시안 준비 시간 초과, 남은 LLM 단계 건너뜀 %s", session["requirement_id"])
+            return False
+        return True
+
+    # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
+    amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
+    card = session.get("prd")
+    if card and card.get("slots") and not card.get("copy") and _time_left():
+        # 방안 3: 빈 소개·첫 화면 문구를 AI 초안으로(사실은 지어내지 않음). 실패하면 초안 없이 만든다.
+        from app.services import copywriter
+        card["copy"] = copywriter.generate(card)
+    if card and card.get("slots") and not card.get("concept") and _time_left():
+        # 디자인 컨셉 잡기: NIM이 색·글꼴·구성을 정하고(목록 안에서만), 그 컨셉으로 3안을 그린다
+        card["concept"] = design_concept.make(card)
+        design_log.unmet(session["requirement_id"], card)  # D44: 부품으로 못 담은 요구를 센다
+    if (card and card.get("slots") and settings.ui_agent_enabled and not card.get("archetype_override")
+            and _time_left()):
+        # J11 ①: 시안을 만들기 직전, other 업종이면 원형을 한 번 판정한다. 실패해도 그대로 간다.
+        try:
+            from app.services import archetype as AT
+            AT.judge(card)
+        except Exception:
+            log.exception("원형 판정 실패(규칙 원형 유지)")
+    d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
+                             card=card)
+    session["design_url"] = d["design_url"]
+    session["design_preview_url"] = d["preview_url"]
+    session["design_url_unsent"] = True
+    if room is not None and card is not None:
+        # 필요한 항목 중 사진 없는 것이 있으면 Gemini 그림을 뒤에서 만든다 (한 번만).
+        try:
+            from app.services import ai_images
+            from app.services import keystore
+            from app.services import photo_needs
+            if (photo_needs.missing(card) and not card.get("item_images_requested")
+                    and (keystore.get("gemini_api_key") or "").strip()):
+                card["item_images_requested"] = True
+                rid = room["room_id"]
+                store.after_commit(lambda: ai_images._ensure_async(rid, "items"))
+        except Exception:
+            log.exception("항목 이미지 요청 실패(건너뜀)")
+
+    session["codegen"] = None
+    session["state"] = "GENERATING"
+    _set_room_status(room, "GENERATING")
+    if settings.legacy_codegen_enabled:
+        codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
+    else:
+        # U6: 자유 코드 생성 끔. 폴링이 GENERATING에 멈추지 않게 끝난 것과 같은 표시를 둔다.
+        session["codegen"] = {"status": "skipped", "note": "레거시 코드생성 끔(규칙 시안 흐름)"}
+    if settings.ui_agent_enabled and card is not None:
+        # J11 ③: 규칙 3안을 먼저 보여 주고, 뒤에서 다듬은 안으로 바꾼다.
+        _room_id = room["room_id"] if room else None
+        store.after_commit(lambda: _launch_polish(session_id, session["requirement_id"], _room_id))
+    concept_note = (f"디자인 컨셉을 잡았어요.\n{design_concept.summary_line(card['concept'])}\n\n"
+                    if card and card.get("concept") else "")
+    # 시안 안내: 실제 안 이름(variants의 name)으로 번호를 매긴다. 번호 고르기는 그대로.
+    _guides = [(w.get("id"), w.get("name")) for w in (d.get("design_variants") or [])]
+    if len(_guides) >= 3:
+        _guide = (" · ".join(f"{n}안 {nm}" for n, (_, nm) in zip(("1", "2", "3"), _guides))
+                  + " 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
+    else:
+        _guide = ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
+    return (
+        concept_note +
+        f"컨셉 보드와 시안 3안: {d['design_url']}\n"
+        + (_guide if len(d.get("design_variants", [])) >= 3 else "\n") +
+        ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
+        ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
+           if (card or {}).get("copy") else "") +
+        (_photo_later_reminder(card) +
+         "뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
+         "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요.")
+    )
 
 
 def process_turn(session_id: str, session: dict, user_text: str, base_url: str, room: Optional[dict] = None,
@@ -629,7 +780,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         elif state == "AWAIT_APPROVAL":
             reply = "승인 또는 거절로 답해주세요."
         elif state == "QUOTED":
-            reply = "이 견적으로 진행할까요? (진행/취소)"
+            reply = "이대로 시안을 만들까요? (진행/취소)"
         else:  # DONE: 빈 메시지로 재시작하지 않고 완료 상태를 유지한다
             reply = "이미 완료된 요청입니다. 새 프로젝트를 원하시면 다시 말씀해 주세요."
 
@@ -677,17 +828,21 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["state"] = "GATHERING"
             reply = "알겠습니다. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요."
         elif intent(user_text, "approve"):
-            _set_room_status(room, "QUOTING", persist=True)
-            # D25: 카드가 있으면 규칙 참고 견적 한 줄(AI가 금액을 만들지 않음). 예전 1:1 흐름만 AI 견적.
-            card = session.get("prd")
-            q = quote.rule_quote(card) if card and card.get("slots") else quote.build_quote(session.get("last_request", ""))
-            session["quote"] = q
-            session["state"] = "QUOTED"
-            if q.get("rule"):
-                reply = f"{quote.format_quote_text(q)}\n\n이대로 시안을 만들까요? (진행/취소)"
+            if not settings.quote_enabled:
+                # 베타: 견적 없이 바로 시안으로.
+                reply = _start_design(session_id, session, room)
             else:
-                reply = f"승인 감사합니다. 견적안입니다:\n\n{quote.format_quote_text(q)}\n\n이 견적으로 진행할까요? (진행/취소)"
-            _set_room_status(room, "IDLE")
+                _set_room_status(room, "QUOTING", persist=True)
+                # D25: 카드가 있으면 규칙 참고 견적 한 줄(AI가 금액을 만들지 않음). 예전 1:1 흐름만 AI 견적.
+                card = session.get("prd")
+                q = quote.rule_quote(card) if card and card.get("slots") else quote.build_quote(session.get("last_request", ""))
+                session["quote"] = q
+                session["state"] = "QUOTED"
+                if q.get("rule"):
+                    reply = f"{quote.format_quote_text(q)}\n\n이대로 시안을 만들까요? (진행/취소)"
+                else:
+                    reply = f"승인 감사합니다. 견적안입니다:\n\n{quote.format_quote_text(q)}\n\n이 견적으로 진행할까요? (진행/취소)"
+                _set_room_status(room, "IDLE")
         else:
             # T3 분석 G1·G5: 요약을 보고 "반 구성은 ○○예요, 고쳐 주세요"라고 하면 고쳐서 요약을 다시 보인다.
             fixed = _apply_correction(session, user_text, by, is_owner)
@@ -704,62 +859,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["state"] = "GATHERING"
             reply = "알겠어요. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요. (예: '전화번호는 010-…이에요')"
         elif intent(user_text, "proceed"):
-            # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
-            amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
-            card = session.get("prd")
-            if card and card.get("slots") and not card.get("copy"):
-                # 방안 3: 빈 소개·첫 화면 문구를 AI 초안으로(사실은 지어내지 않음). 실패하면 초안 없이 만든다.
-                from app.services import copywriter
-                card["copy"] = copywriter.generate(card)
-            if card and card.get("slots") and not card.get("concept"):
-                # 디자인 컨셉 잡기: NIM이 색·글꼴·구성을 정하고(목록 안에서만), 그 컨셉으로 3안을 그린다
-                card["concept"] = design_concept.make(card)
-                design_log.unmet(session["requirement_id"], card)  # D44: 부품으로 못 담은 요구를 센다
-            if card and card.get("slots") and settings.ui_agent_enabled and not card.get("archetype_override"):
-                # J11 ①: 시안을 만들기 직전, other 업종이면 원형을 한 번 판정한다. 실패해도 그대로 간다.
-                try:
-                    from app.services import archetype as AT
-                    AT.judge(card)
-                except Exception:
-                    log.exception("원형 판정 실패(규칙 원형 유지)")
-            d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
-                                     card=card)
-            session["design_url"] = d["design_url"]
-            session["design_preview_url"] = d["preview_url"]
-            session["design_url_unsent"] = True
-
-            session["codegen"] = None
-            session["state"] = "GENERATING"
-            _set_room_status(room, "GENERATING")
-            if settings.legacy_codegen_enabled:
-                codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
-            else:
-                # U6: 자유 코드 생성 끔. 폴링이 GENERATING에 멈추지 않게 끝난 것과 같은 표시를 둔다.
-                session["codegen"] = {"status": "skipped", "note": "레거시 코드생성 끔(규칙 시안 흐름)"}
-            if settings.ui_agent_enabled and card is not None:
-                # J11 ③: 규칙 3안을 먼저 보여 주고, 뒤에서 다듬은 안으로 바꾼다.
-                _room_id = room["room_id"] if room else None
-                store.after_commit(lambda: _launch_polish(session_id, session["requirement_id"], _room_id))
-            concept_note = (f"디자인 컨셉을 잡았어요.\n{design_concept.summary_line(card['concept'])}\n\n"
-                            if card and card.get("concept") else "")
-            # 시안 안내: 실제 안 이름(variants의 name)으로 번호를 매긴다. 번호 고르기는 그대로.
-            _guides = [(w.get("id"), w.get("name")) for w in (d.get("design_variants") or [])]
-            if len(_guides) >= 3:
-                _guide = (" · ".join(f"{n}안 {nm}" for n, (_, nm) in zip(("1", "2", "3"), _guides))
-                          + " 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
-            else:
-                _guide = ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
-            reply = (
-                concept_note +
-                f"컨셉 보드와 시안 3안: {d['design_url']}\n"
-                + (_guide if len(d.get("design_variants", [])) >= 3 else "\n") +
-                ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
-                ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
-                   if (card or {}).get("copy") else "") +
-                (_photo_later_reminder(card) +
-                 "뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
-                 "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요.")
-            )
+            reply = _start_design(session_id, session, room)
         else:
             # 진행이 아니면 고치는 말로 본다. 요구사항 수정이면 반영하고 견적을 다시 보여준다.
             fixed = _apply_correction(session, user_text, by, is_owner) if session.get("prd") else None

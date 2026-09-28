@@ -547,7 +547,8 @@ def _nights_max(content: dict) -> int:
 
 
 def _room_items(content: dict) -> list:
-    """객실 카드: [{name, image_*, capacity, size, price, price_example, features, example}] 최대 8개."""
+    """객실 카드: [{name, image_*, capacity, size, price, price_example, features,
+    prices([{label, period, price, from, to, dow, is_current}]), has_prices, example}] 최대 8개."""
     raw = content.get("rooms")
     rooms = []
     for entry in (raw if isinstance(raw, list) else [])[:8]:
@@ -557,13 +558,39 @@ def _room_items(content: dict) -> list:
         image = _clean_url(_text(entry, "image"))
         tags = entry.get("features")
         tags = [{"text": s} for s in (tags if isinstance(tags, list) else []) if isinstance(s, str) and s.strip()][:6]
+        prices = []
+        for found in (entry.get("prices") if isinstance(entry.get("prices"), list) else [])[:8]:
+            if not isinstance(found, dict):
+                continue
+            prices.append({"label": _text(found, "label"), "period": _text(found, "period"),
+                           "price": _text(found, "price"), "from": _text(found, "from"),
+                           "to": _text(found, "to"), "dow": _text(found, "dow"),
+                           "is_current": found.get("is_current") is True})
         rooms.append({"name": name, "capacity": _text(entry, "capacity"), "size": _text(entry, "size"),
                       "price": _text(entry, "price"), "price_example": entry.get("price_example") is True,
                       "image_src": image, "image_alt": _text(entry, "image_alt") or f"{name} 사진",
                       "image_example": bool(image and entry.get("image_example")),
+                      "image_ai": bool(image and entry.get("image_ai")),
+                      "prices": prices, "has_prices": bool(prices),
                       "features": tags, "has_features": bool(tags),
                       "example": entry.get("example") is True})
     return rooms
+
+
+# 공개본 객실 요금표 다시 계산 (BETA_FLOW §2.5: 방문자 Asia/Seoul 날짜 기준, 20줄 안).
+_SEASON_SCRIPT = """<script>
+(()=>{try{
+const n=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));
+const md=(n.getMonth()+1)*100+n.getDate(),dw=String(n.getDay());
+const P={"극성수기":0,"성수기":1,"준성수기":2,"비수기":3,"주중":4,"주말":5,"":6};
+const N=s=>{const m=/(\\d+)-(\\d+)/.exec(s||"");return m?+m[1]*100+ +m[2]:0};
+const IN=(f,t)=>!!f&&!!t&&(f<=t?md>=f&&md<=t:md>=f||md<=t);
+document.querySelectorAll("table.s-room__prices").forEach(t=>{
+const rs=Array.from(t.querySelectorAll("tbody tr"));
+const hit=rs.filter(r=>IN(N(r.dataset.from),N(r.dataset.to))).sort((a,b)=>(P[a.dataset.label]??9)-(P[b.dataset.label]??9))[0]||rs.find(r=>r.dataset.label==="비수기")||rs.find(r=>(r.dataset.dow||"").split(",").includes(dw));
+rs.forEach(r=>{const on=r===hit;r.classList.toggle("is-current",on);let b=r.querySelector(".s-price-now");if(on&&!b)r.cells[2].insertAdjacentHTML("beforeend",' <span class="s-price-now">지금 적용</span>');if(!on&&b)b.remove()})});
+}catch(e){}})();
+</script>"""
 
 
 def _timetable_rows(content: dict, days: list) -> list:
@@ -608,6 +635,7 @@ def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
             one["image_src"] = _clean_url(image_raw) if isinstance(image_raw, str) else ""
             alt_raw = entry.get("image_alt", "")
             one["image_alt"] = alt_raw if isinstance(alt_raw, str) and alt_raw else "상품 사진"
+            one["image_ai"] = entry.get("image_ai") is True
         if with_index:
             one["index"] = pos
         items.append(one)
@@ -901,6 +929,8 @@ def _section_context(
         items, has_items = _offering_items(content, with_image=True, with_index=False)
         ctx["items"] = items
         ctx["has_items"] = has_items
+        ctx["scroll"] = len(items) >= 2
+        ctx["count"] = len(items)
     elif section_type == "concerns" and variant == "bubbles":
         # 편집형 B 고민 말풍선 (새 type).
         ctx["heading"] = _text(content, "heading")
@@ -979,8 +1009,12 @@ def _section_context(
         ctx["label"] = _text(content, "label")
         href = _clean_url(_text(content, "booking_href"))
         ctx["booking_href"] = href if href.startswith("#") else ""
-        ctx["rooms"] = _room_items(content)
-        ctx["has_rooms"] = bool(ctx["rooms"])
+        rooms = _room_items(content)
+        ctx["rooms"] = rooms
+        ctx["has_rooms"] = bool(rooms)
+        ctx["scroll"] = len(rooms) >= 2
+        ctx["count"] = len(rooms)
+        ctx["has_prices"] = any(r.get("has_prices") for r in rooms)
     elif section_type == "booking" and variant == "dates":
         # 펜션 입실일 + 객실 + 박 수 (C1): 입실일은 date로, 객실은 service로, 박 수는 nights로 보낸다.
         ctx["site_key"] = site_key
@@ -1113,7 +1147,7 @@ def _apply_tone(part: str, section: dict) -> str:
 
 def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
                 title: str = "", kind: str = "other", public: bool = False) -> str:
-    """명세를 완전한 HTML 문서 한 장으로 렌더한다 (스크립트 없음).
+    """명세를 완전한 HTML 문서 한 장으로 렌더한다.
 
     kind는 업종 키 10종 중 하나 (모르면 other). 사진이 비었을 때
     대표(hero) 사진 칸과 사진 0장인 사진첩에 업종별 예시 그림을
@@ -1121,6 +1155,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
 
     public=True(공개 사이트): 방문자에게 [… 입력] 빈칸을 보이지 않는다. 빈 부품은 빼고,
     빈 줄은 CSS로 숨기며, 빈 가격은 "가격 문의"로 보인다. 시안(public=False)에서는 사장님이 채울 곳이 보인다.
+    공개본에만 객실 요금표 다시 계산용 인라인 스크립트 하나를 넣는다 (BETA_FLOW §2.5).
     """
     if not isinstance(spec, dict):
         raise SiteSpecError("명세는 dict 형태여야 함")
@@ -1141,6 +1176,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         raise SiteSpecError("sections가 목록 형태가 아님")
     kind = _normalize_kind(kind)
     rendered_parts = []
+    need_season_script = False
     nav = spec.get("navbar")
     for pos, section in enumerate(sections):
         if not isinstance(section, dict):
@@ -1169,6 +1205,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         )
         if ctx is None:
             continue
+        if public and section_type == "rooms" and variant == "cards" and ctx.get("has_prices"):
+            need_season_script = True
         if public and _empty_for_public(section_type, variant, ctx):
             continue
         if ctx.pop("is_example", False):
@@ -1218,6 +1256,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
     font_link = f'<link rel="stylesheet" href="{PRETENDARD_CSS}">'
     if isinstance(css2_url, str) and css2_url.startswith("https://"):
         font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
+    if public and need_season_script:
+        rendered_parts.append(_SEASON_SCRIPT)
     doc = "\n".join([
         "<!doctype html>",
         '<html lang="ko">',

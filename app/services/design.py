@@ -6,6 +6,7 @@ import datetime
 import html
 import json
 import logging
+import threading
 from typing import Optional
 
 from app.config import settings
@@ -191,6 +192,16 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
     except Exception:
         log.exception("시안 스크린샷 실패, 플레이스홀더로 폴백")
         previews = {v["id"]: f"https://placehold.co/390x780?text={v['id']}" for v in items}
+
+        def _retry_shots() -> None:
+            # 뒤에서 한 번만 다시 찍는다. 성공하면 1안 그림을 미리보기로 쓴다.
+            try:
+                screenshot_many(shots, width=390, height=780)
+                (design_dir / "preview.png").write_bytes((design_dir / "v1.png").read_bytes())
+            except Exception:
+                log.exception("시안 스크린샷 재시도 실패")
+
+        threading.Thread(target=_retry_shots, daemon=True).start()
 
     from app.services import design_log
     if log_shown:  # 에이전트가 다듬어 다시 그릴 때는 세지 않는다(보여 준 횟수가 부풀지 않게, D45)

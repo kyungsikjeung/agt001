@@ -74,4 +74,13 @@ def generate(card: dict) -> Optional[dict]:
         "items": {k: _clean(str(v), allowed, 50) for k, v in items.items() if k in offerings and v},
         "draft": True,
     }
+    # 한국어 아닌 말이 든 칸은 비운다.
+    src = said + " " + E.summary_text(card)
+    if llm.foreign_words(out["tagline"], src):
+        out["tagline"] = ""
+    if llm.foreign_words(out["intro"], src):
+        out["intro"] = ""
+    for k in list(out["items"]):
+        if llm.foreign_words(out["items"][k], src):
+            out["items"][k] = ""
     return out if (out["tagline"] or out["intro"]) else None

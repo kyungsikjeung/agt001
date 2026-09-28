@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     rag_sim_threshold: float = 0.76
     precompute_embeddings: bool = True
 
-    design_screenshot_timeout_ms: int = 15000
+    design_screenshot_timeout_ms: int = 60000
+    # 시안 만들기 전체 제한(초). 문구·컨셉·원형 판정은 이 값에서 60초를 뺀 만큼만 쓴다.
+    design_total_timeout_sec: float = 180.0
+    # 베타는 견적 단계 없이 바로 시안.
+    quote_enabled: bool = False
 
     # UI 에이전트(J11, UI_AGENT_PLAN §4). 명세 조각만 고치고 그리는 건 엔진이 한다.
     ui_agent_enabled: bool = True

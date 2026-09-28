@@ -219,7 +219,14 @@ def extract_detail(text: str, last_question: Optional[str]) -> tuple[list[dict],
             log.exception("요구사항 추출 호출 실패")
             return [], False, int((time.monotonic() - started) * 1000), attempt + 1
         if ups is not None:
-            return ups, True, int((time.monotonic() - started) * 1000), attempt + 1
+            src = text + " " + (last_question or "")
+            kept = []
+            for u in ups:
+                if llm.foreign_words(u.get("value") or "", src):
+                    log.warning("추출 값에 한국어가 아닌 말이 있어 버림: %s", u.get("slot"))
+                    continue
+                kept.append(u)
+            return kept, True, int((time.monotonic() - started) * 1000), attempt + 1
         log.warning("요구사항 추출 형식 오류 (시도 %d)", attempt + 1)
     return [], False, int((time.monotonic() - started) * 1000), 2
 
@@ -1609,7 +1616,19 @@ def _parse_review(raw: str, said_text: str) -> tuple[list[dict], list[dict]]:
                and m.get("slot") != "exclude" and str(m.get("value") or "").strip() and quoted(m)]
     conflicts = [c for c in data.get("conflicts") or [] if isinstance(c, dict) and c.get("slot") in S.SLOTS
                  and str(c.get("said") or "").strip() and quoted(c)]
-    return missing[:5], conflicts[:3]
+    kept_missing = []
+    for m in missing:
+        if llm.foreign_words(str(m.get("value") or ""), said_text):
+            log.warning("추출 값에 한국어가 아닌 말이 있어 버림: %s", m.get("slot"))
+            continue
+        kept_missing.append(m)
+    kept_conflicts = []
+    for c in conflicts:
+        if llm.foreign_words(str(c.get("said") or ""), said_text):
+            log.warning("추출 값에 한국어가 아닌 말이 있어 버림: %s", c.get("slot"))
+            continue
+        kept_conflicts.append(c)
+    return kept_missing[:5], kept_conflicts[:3]
 
 
 def review(card: dict, timeout_sec: float = 15.0) -> dict:

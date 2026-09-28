@@ -29,7 +29,7 @@ class RoomCreateIn(BaseModel):
 
 
 class AiImageIn(BaseModel):
-    slot: str = "all"  # hero·gallery-1·gallery-2·all
+    slot: str = "all"  # hero·gallery-1·gallery-2·items·all
 
 
 @router.post("/room")
@@ -108,10 +108,11 @@ def room_invite_revoke(room_id: str, invite_id: str, x_member_id: Optional[str] 
 
 @router.post("/room/{room_id}/photos", status_code=201)
 async def room_photo_upload(room_id: str, file: UploadFile = File(...), caption: Optional[str] = Form(default=None),
+                            tag: Optional[str] = Form(default=None),
                             x_member_id: Optional[str] = Header(default=None)):
     data = await file.read(photos.MAX_BYTES + 1)
     try:
-        return _guard(lambda: photos.add(room_id, x_member_id, data, caption))
+        return _guard(lambda: photos.add(room_id, x_member_id, data, caption, tag))
     except photos.PhotoError as e:
         raise HTTPException(status_code=400, detail=str(e))
 

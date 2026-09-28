@@ -32,33 +32,55 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
             "placeholder": slot.get("status") in (S.PLACEHOLDER, S.EMPTY, None),
         })
     from app.services import design_variants as DV
+    try:
+        from app.services import photo_needs
+        photo_tags = photo_needs.photo_tags(card)
+    except Exception:
+        photo_tags = []
     return {
         "title": DV.title_for(card) if card.get("slots") else "새 프로젝트", "industry": ind.name,
-        "fields": fields, "photos": card.get("photos") or [], "choice": card.get("design_choice"),
+        "fields": fields, "photos": card.get("photos") or [], "photo_tags": photo_tags,
+        "choice": card.get("design_choice"),
         "published": card.get("published"), "site_url": session.get("deploy_url") if card.get("published") else None,
         "can_edit": rooms.owner_id(room) == member_id,
     }
 
 
-def _member_room(room_id: str, x_member_id: Optional[str]):
+def _member_room(room_id: str, x_member_id: Optional[str], request: Optional[Request] = None):
+    from sqlalchemy import select
+
     safe = sanitize_token(room_id or "")
     member_id = sanitize_token(x_member_id or "")
     room = store.read_room(safe) if safe else None
-    if room is None or not any(m["member_id"] == member_id for m in room["members"]):
+    if room is None:
         raise HTTPException(status_code=404, detail="room not found")
-    return safe, member_id
+    if any(m["member_id"] == member_id for m in room["members"]):
+        return safe, member_id
+    # 다른 기기: 로그인한 방장은 계정에 붙은 본인 확인 값으로 본다.
+    if request is not None:
+        from app.db.models import UserRoomRow
+        from app.db.session import get_sessionmaker
+        from app.services import auth
+        user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
+        if user is not None:
+            with get_sessionmaker()() as db:
+                row_mid = db.scalar(select(UserRoomRow.member_id).where(
+                    UserRoomRow.room_id == safe, UserRoomRow.user_id == user["id"]))
+            if row_mid:
+                return safe, row_mid
+    raise HTTPException(status_code=404, detail="room not found")
 
 
 @router.get("/api/rooms/{room_id}/card")
-def get_card(room_id: str, x_member_id: Optional[str] = Header(default=None)):
-    safe, member_id = _member_room(room_id, x_member_id)
+def get_card(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    safe, member_id = _member_room(room_id, x_member_id, request)
     room = store.read_room(safe)
     return _view(room, store.read_session(room["session_id"]) or {}, member_id)
 
 
 @router.put("/api/rooms/{room_id}/card")
 def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional[str] = Header(default=None)):
-    safe, member_id = _member_room(room_id, x_member_id)
+    safe, member_id = _member_room(room_id, x_member_id, request)
     with store.room_tx(safe) as (room, session):
         if rooms.owner_id(room) != member_id:
             raise HTTPException(status_code=403, detail="owner only")

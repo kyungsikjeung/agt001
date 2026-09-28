@@ -2,6 +2,7 @@
 
 카드 칸·상황 답·가격 짝에서 결정론으로 계산한다. LLM을 부르지 않는다.
 """
+import datetime
 import re
 
 from app.services import prd_engine as E
@@ -33,6 +34,154 @@ _TARGETS = ("초등", "중등", "고등", "성인", "유아")
 
 # 객실 번호 모양 (뒤의 낱말은 시설로 본다)
 _ROOM_NO = re.compile(r"^\S*?\d+\s*호")
+# 객실이 아닌 부대시설. 객실 카드("이 객실 예약")에서 뺀다.
+_FACILITY = re.compile(r"바베큐|바비큐|BBQ|수영장|풀장|족구장|캠프파이어|불멍|주차|매점|카페|노래방|찜질|스파장|놀이터", re.I)
+
+# 객실 수 세기 (BETA_FLOW §2.5: "객실 4개"·"방 4개"·"4개 객실"·"객실 4" → 4, 아니면 0)
+_ROOM_COUNT = re.compile(
+    r"^(?:객실|방|룸)\s*(\d+)\s*개?$|^(\d+)\s*개\s*(?:객실|방|룸)$")
+
+
+def _room_count(text: str) -> int:
+    """객실 수 표현이면 그 수, 아니면 0 ("101호 복층 4인"·"바베큐장"은 0)."""
+    m = _ROOM_COUNT.match(str(text or "").strip())
+    if not m:
+        return 0
+    return int(m.group(1) or m.group(2))
+
+
+# 요금 이름표 (BETA_FLOW §2.5, 긴 것부터)
+_LABELS = ("극성수기", "준성수기", "성수기", "비수기", "주중", "평일", "주말")
+_LABEL_RE = re.compile("극성수기|준성수기|성수기|비수기|주중|평일|주말")
+_PERIOD_RE = re.compile(
+    r"\(\s*(\d{1,2})\s*(?:/|월)\s*(\d{1,2})\s*(?:일)?\s*"
+    r"[~〜～\-－]\s*(\d{1,2})\s*(?:/|월)\s*(\d{1,2})\s*(?:일)?\s*\)")
+_AMOUNT_RE = re.compile(
+    r"(?:1박\s*)?(?:\d[\d,]*\s*만\s*\d+\s*천\s*원|\d[\d,]*\s*만?\s*원)")
+
+# 사장님이 기간을 안 말했을 때 기본 기간 (준성수기는 없음)
+_DEFAULT_PERIOD = {"성수기": "7/15~8/20", "극성수기": "7/25~8/10"}
+
+# 지금 요금 우선순위 (낮을수록 먼저)
+_SEASON_ORDER = {"극성수기": 0, "성수기": 1, "준성수기": 2,
+                 "비수기": 3, "주중": 4, "주말": 5, "": 6}
+
+
+def season_prices(card: dict) -> list:
+    """price 칸 글 → [{"label", "price", "period"}] (BETA_FLOW §2.5).
+
+    이름표 뒤 첫 금액을 가져오고, 바로 뒤 괄호 안 기간이 있으면 period로 둔다.
+    이름표가 없고 금액 하나뿐이면 [{"label": "", "price": ...}].
+    """
+    text = " ".join(str(v) for v in _values(card, "price")).strip()
+    if not text:
+        return []
+    found = list(_LABEL_RE.finditer(text))
+    if found:
+        out = []
+        for pos, match in enumerate(found):
+            end = found[pos + 1].start() if pos + 1 < len(found) else len(text)
+            seg = text[match.end():end]
+            rest = seg.lstrip()
+            period = ""
+            period_match = _PERIOD_RE.match(rest)
+            if period_match:
+                groups = [int(g) for g in period_match.groups()]
+                period = f"{groups[0]}/{groups[1]}~{groups[2]}/{groups[3]}"
+                rest = rest[period_match.end():]
+            amount = _AMOUNT_RE.search(rest)
+            if not amount:
+                continue
+            label = match.group(0)
+            if label == "평일":
+                label = "주중"
+            price = re.sub(r"\s+", " ", amount.group(0)).strip()
+            out.append({"label": label, "price": price,
+                        "period": period or _DEFAULT_PERIOD.get(label, "")})
+        return out
+    amounts = _AMOUNT_RE.findall(text)
+    if len(amounts) == 1:
+        return [{"label": "", "price": re.sub(r"\s+", " ", amounts[0]).strip()}]
+    return []
+
+
+def _period_md(period: str):
+    """"7/15~8/20" → ((7, 15), (8, 20)). 못 읽으면 None."""
+    m = re.fullmatch(r"\s*(\d{1,2})/(\d{1,2})~(\d{1,2})/(\d{1,2})\s*", str(period or ""))
+    if not m:
+        return None
+    return (int(m.group(1)), int(m.group(2))), (int(m.group(3)), int(m.group(4)))
+
+
+def _in_period(period: str, today) -> bool:
+    """연도 무시 기간 안에 오늘이 있는지 (12/20~2/28처럼 해를 넘겨도 된다)."""
+    span = _period_md(period)
+    if span is None:
+        return False
+    (month1, day1), (month2, day2) = span
+    now = (today.month, today.day)
+    start, end = (month1, day1), (month2, day2)
+    if start <= end:
+        return start <= now <= end
+    return now >= start or now <= end
+
+
+def current_label(prices: list, today) -> str:
+    """지금 요금 이름표 (BETA_FLOW §2.5, 오늘은 KST 날짜).
+
+    기간 안이면 그 이름표(극성수기가 성수기보다 먼저), 아니면 비수기,
+    주중·주말은 금·토요일이면 주말 아니면 주중, 모르면 "".
+    """
+    if isinstance(today, datetime.datetime):
+        today = today.date()
+    entries = [p for p in (prices or []) if isinstance(p, dict)]
+    best = None
+    for entry in entries:
+        if entry.get("period") and _in_period(entry["period"], today):
+            label = str(entry.get("label") or "")
+            if best is None or _SEASON_ORDER.get(label, 9) < _SEASON_ORDER.get(best, 9):
+                best = label
+    if best is not None:
+        return best
+    labels = {str(p.get("label") or "") for p in entries}
+    if "비수기" in labels:
+        return "비수기"
+    want = "주말" if today.weekday() in (4, 5) else "주중"
+    if want in labels:
+        return want
+    return ""
+
+
+def period_mmdd(period: str) -> tuple:
+    """"7/15~8/20" → ("07-15", "08-20"). 못 읽으면 ("", "")."""
+    span = _period_md(period)
+    if span is None:
+        return "", ""
+    (month1, day1), (month2, day2) = span
+    return f"{month1:02d}-{day1:02d}", f"{month2:02d}-{day2:02d}"
+
+
+def item_photo(card: dict, name: str):
+    """항목 사진: 사장님 사진만 본다 (BETA_FLOW §2.7 순서 1).
+
+    tag == "item:"+이름 또는 설명에 이름이 들어 있는 것(공백 무시) 중 첫 장.
+    없으면 None.
+    """
+    want = str(name or "").strip()
+    if not want:
+        return None
+    flat = want.replace(" ", "")
+    for photo in card.get("photos") or []:
+        if not isinstance(photo, dict):
+            continue
+        if not str(photo.get("url") or "").startswith("/uploads/"):
+            continue
+        if photo.get("tag") == "item:" + want:
+            return photo
+        caption = str(photo.get("caption") or "")
+        if flat and flat in caption.replace(" ", ""):
+            return photo
+    return None
 
 # 카페 분류 낱말표
 _COFFEE = ("아메리카노", "라떼", "에스프레소", "콜드브루", "드립", "카푸치노")
@@ -273,11 +422,24 @@ def _classes(card: dict) -> list:
 
 
 def _rooms(card: dict) -> list:
-    """offerings 품목 → 객실 목록 (펜션 C). 이름·인원·요금을 결정론으로."""
+    """offerings 품목 → 객실 목록 (펜션 C). 이름·인원·요금을 결정론으로.
+
+    "객실 4개"처럼 수를 말하면 "객실 1"…"객실 N"(최대 8)으로 편다 (§2.5).
+    그 객실 요금이 price_pairs에 없으면 prices = season_prices(card).
+    """
     pairs = card.get("price_pairs") or {}
     out = []
     for item in _values(card, "offerings"):
         text = str(item)
+        if _FACILITY.search(text) and not _ROOM_NO.match(text.strip()):
+            continue  # 바베큐장·수영장 같은 부대시설은 객실이 아니다
+        count = _room_count(text)
+        if count:
+            for pos in range(1, min(count, 8) + 1):
+                name = f"객실 {pos}"
+                out.append({"name": name, "capacity": "", "price": pairs.get(name, ""),
+                            "source": "owner", "numbered": True})
+            continue
         features: list = []
         capacity = ""
         for paren in re.findall(r"\(([^)]*)\)", text):
@@ -306,6 +468,13 @@ def _rooms(card: dict) -> list:
         if features:
             entry["features"] = features
         out.append(entry)
+    prices = None
+    for entry in out:
+        if not entry.get("price"):
+            if prices is None:
+                prices = season_prices(card)
+            if prices:
+                entry["prices"] = prices
     return out
 
 

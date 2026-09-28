@@ -7,6 +7,7 @@
 - 파일은 generated/uploads/<방>/ai-<용도>.jpg, 주소는 /uploads/<방>/ai-<용도>.jpg (사진과 같은 서빙 경로).
 """
 import base64
+import hashlib
 import logging
 import time
 
@@ -20,6 +21,8 @@ log = logging.getLogger(__name__)
 
 # 사진 칸 용도: 대표 1장 + 사진첩 2장 (site_render._ILLU_NAMES와 같음).
 SLOTS = ("hero", "gallery-1", "gallery-2")
+# 한 가게의 항목 그림은 최대 4장 (비용 통제).
+ITEM_MAX = 4
 # 같은 칸 재생성 간격 (스팸·비용 방지).
 COOLDOWN_SEC = 10 * 60
 
@@ -47,6 +50,14 @@ _GALLERY_EXTRA = {
     "gallery-1": "close-up detail shot, square composition, 1:1",
     "gallery-2": "wide angle view from another corner, square composition, 1:1",
 }
+# 항목 kind별 구도 (이름은 프롬프트에 그대로 넣는다).
+_ITEM_FRAMING = {
+    "room": "interior of a guest room, natural light, tidy bedding",
+    "menu": "the dish or drink on a table, close-up, appetizing",
+    "style": "hairstyle result seen from behind or the side in a salon, face not visible",
+    "class": "hands-on class scene, tools and materials on a table, faces not visible",
+    "work": "the finished work or service result on a clean background",
+}
 # 저가 모델에서도 질감을 살리는 촬영 지시 (D26·D35: 사실·개인정보는 넣지 않는다).
 _STYLE_SUFFIX = ("shot on 35mm, f/2.8, soft window light, natural materials, "
                  "editorial composition, ultra-detailed")
@@ -64,9 +75,32 @@ def _normalize_kind(kind) -> str:
     return "other"
 
 
-def prompt_for(kind: str, slot: str) -> str:
+def _is_item_slot(slot: str) -> bool:
+    return isinstance(slot, str) and slot.startswith("item:")
+
+
+def _file_id(slot: str) -> str:
+    """저장 파일 이름(확장자 없음). 항목은 md5 앞 8자로 파일명에 콜론이 없게."""
+    if _is_item_slot(slot):
+        return "ai-item-" + hashlib.md5(slot[5:].encode("utf-8")).hexdigest()[:8]
+    return "ai-" + slot
+
+
+def prompt_for(kind: str, slot: str, item_kind: str = "work") -> str:
     """카드 사실을 넣지 않는 고정 프롬프트. (개인정보가 들어갈 자리가 없다.)"""
     safe_kind = _normalize_kind(kind)
+    if _is_item_slot(slot):
+        name = slot[5:].strip()
+        if not name:
+            raise ImageError("hero·gallery-1·gallery-2·items·all 중에서 골라 주세요.")
+        subject = _SUBJECT[safe_kind]
+        framing = _ITEM_FRAMING.get(item_kind, _ITEM_FRAMING["work"])
+        if item_kind in ("style", "class"):
+            suffix = "face not visible, no text, no letters, no logos, no watermarks"
+        else:
+            suffix = "no people, no faces, no text, no letters, no logos, no watermarks"
+        return (f"{subject}, featuring {name}, {framing}, {_STYLE_SUFFIX}, photorealistic, "
+                f"natural daylight tones, {suffix}")
     if slot not in SLOTS:
         raise ImageError("hero·gallery-1·gallery-2 중에서 골라 주세요.")
     subject = _SUBJECT[safe_kind]
@@ -82,7 +116,7 @@ def _model_for(slot: str) -> str:
         hero = (settings.gemini_image_model_hero or "").strip()
         if hero:
             return hero
-    return base
+    return base  # 항목 칸도 기본 모델 (갤러리 칸과 같다)
 
 
 def _generate_bytes(prompt: str, timeout_sec: float = 120.0, slot: str = "hero") -> bytes:
@@ -93,7 +127,8 @@ def _generate_bytes(prompt: str, timeout_sec: float = 120.0, slot: str = "hero")
         raise ImageError("AI 이미지 키가 아직 없어요. 관리자에게 문의해 주세요.")
     base = (settings.gemini_api_base or "https://generativelanguage.googleapis.com").rstrip("/")
     model = _model_for(slot)
-    image_config = _IMAGE_CONFIG.get(slot, _IMAGE_CONFIG["hero"])
+    # 항목 칸은 갤러리 칸과 같은 규격으로 만든다.
+    image_config = _IMAGE_CONFIG.get(slot, _IMAGE_CONFIG["gallery-1"])
     try:
         r = httpx.post(
             f"{base}/v1beta/models/{model}:generateContent",
@@ -132,8 +167,9 @@ def _save(room_id: str, slot: str, raw: bytes) -> str:
     clean, _, _ = photos._clean_ai_image(raw)
     folder = photos._dir(room_id)
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / f"ai-{slot}.jpg").write_bytes(clean)
-    return photos.url_for(room_id, f"ai-{slot}")
+    fid = _file_id(slot)
+    (folder / f"{fid}.jpg").write_bytes(clean)
+    return photos.url_for(room_id, fid)
 
 
 def _cooldown_left(card: dict, slot: str) -> int:
@@ -148,8 +184,33 @@ def _record(card: dict, slot: str, url: str) -> None:
     imgs[slot] = {"url": url, "at": time.time()}
 
 
-def _wants(slot: str) -> list[str]:
-    return list(SLOTS) if slot == "all" else [slot]
+def _wants(slot: str, card: dict) -> list[str]:
+    """만들 칸 목록. "items"는 사진 없는 항목만, "all"은 오늘 칸 + 항목."""
+    from app.services import photo_needs
+    if slot in ("items", "all"):
+        existing = sum(1 for k in (card.get("ai_images") or {}) if str(k).startswith("item:"))
+        room = max(0, ITEM_MAX - existing)
+        item_slots = ["item:" + n for n in photo_needs.missing(card)[:room]]
+        if slot == "items":
+            return item_slots
+        return list(SLOTS) + item_slots
+    return [slot]
+
+
+# 방 알림에 쓰는 칸 이름 (사장님께는 한국어로만 보인다).
+_SLOT_LABELS = {"hero": "대표 사진", "gallery-1": "사진첩 1", "gallery-2": "사진첩 2", "all": "전체"}
+
+
+def _label(slot: str) -> str:
+    return slot[5:] if _is_item_slot(slot) else _SLOT_LABELS.get(slot, slot)
+
+
+def _item_kind(card: dict, name: str) -> str:
+    from app.services import photo_needs
+    for item in photo_needs.items(card):
+        if item["name"] == name:
+            return item.get("kind") or "work"
+    return "work"
 
 
 def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
@@ -161,8 +222,8 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
     from app.services import design, rooms
     from app.services import prd_engine as E
 
-    if slot not in (*SLOTS, "all"):
-        raise ImageError("hero·gallery-1·gallery-2 중에서 골라 주세요.")
+    if slot not in (*SLOTS, "items", "all") and not _is_item_slot(slot):
+        raise ImageError("hero·gallery-1·gallery-2·items·all 중에서 골라 주세요.")
     if not by_owner:
         raise rooms.NotOwner(room_id)
     room = store.read_room(room_id)
@@ -170,12 +231,17 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
     card = (session or {}).get("prd")
     if room is None or card is None:
         raise rooms.RoomNotFound(room_id)
-    if card.get("photos"):
-        return {"made": [], "skipped": {"all": "사장님 사진이 있어서 AI 이미지가 필요 없어요."}}
 
     made, skipped = [], {}
     kind = E.industry_of(card).key
-    for s in _wants(slot):
+    wants = _wants(slot, card)
+    if card.get("photos"):
+        # 사장님 사진이 있으면 대표·사진첩 칸은 건너뛴다. 항목 그림은 계속 만든다.
+        for s in wants:
+            if s in SLOTS:
+                skipped[s] = "사장님 사진이 있어서 AI 이미지가 필요 없어요."
+        wants = [s for s in wants if s not in SLOTS]
+    for s in wants:
         if ((card.get("ai_images") or {}).get(s) or {}).get("url"):
             skipped[s] = "이미 있어요."
             continue
@@ -183,7 +249,11 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
         if left > 0:
             skipped[s] = f"{left // 60 + 1}분 뒤에 다시 시도해 주세요."
             continue
-        raw = _generate_bytes(prompt_for(kind, s), slot=s)
+        if _is_item_slot(s):
+            prompt = prompt_for(kind, s, _item_kind(card, s[5:]))
+        else:
+            prompt = prompt_for(kind, s)
+        raw = _generate_bytes(prompt, slot=s)
         url = _save(room_id, s, raw)
         with store.room_tx(room_id) as (_, session2):
             if session2 is None or session2.get("prd") is None:
@@ -198,9 +268,11 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
         photos.refresh_designs(room_id, session["requirement_id"])
 
     if made:
-        text = "AI 예시 이미지를 넣었어요(" + ", ".join(made) + "). 사장님 사진을 올리시면 그 사진으로 바뀌어요."
+        text = "AI 예시 이미지를 넣었어요(" + ", ".join(_label(s) for s in made) + "). 사장님 사진을 올리시면 그 사진으로 바뀌어요."
+    elif skipped:
+        text = "AI 이미지는 만들지 않았어요: " + "; ".join(f"{_label(k)} {v}" for k, v in skipped.items())
     else:
-        text = "AI 이미지는 만들지 않았어요: " + "; ".join(f"{k} {v}" for k, v in skipped.items())
+        text = "AI 이미지는 만들지 않았어요: 사진이 필요한 항목이 없어요."
     with store.room_tx(room_id) as (r, _s):
         if r is not None:
             rooms._append(r, "system", "시스템", text, kind="system")
