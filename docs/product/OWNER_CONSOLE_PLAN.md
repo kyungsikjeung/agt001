@@ -80,7 +80,7 @@ erDiagram
 
 | 표 | 칸 | 설명 |
 |---|---|---|
-| `shops` | `site_key` text PK(= `sessions.requirement_id`), `name`, `kind`(slot·table·night·class), `created_at`, `deleted_at` | 가게 자체. `site_key`를 그대로 PK로 써서 기존 `bookings`·`customers`·`inquiries`·`shop_settings`를 고치지 않고 외래키만 건다 |
+| `shops` | **구현(0014)은 SALES_DB_PLAN과 맞춰** `id` bigint PK + `site_key` UNIQUE, `name`, `category`, `closed_at`, 확인 칸. 모드는 명세(`bot_specs`)에 둔다 | 가게 자체. `site_key`를 그대로 PK로 써서 기존 `bookings`·`customers`·`inquiries`·`shop_settings`를 고치지 않고 외래키만 건다 |
 | `shop_members` | `site_key` FK, `user_id` FK users, `role`(owner·manager·staff), `created_at`. PK(site_key, user_id) | 권한. owner는 가게당 1명(부분 유니크 인덱스 `WHERE role='owner'`) |
 | `booking_resources` | `id`, `site_key` FK, `kind`(staff·table·room), `name`, `seats_min`, `seats_max`, `hours` JSONB null(비면 가게 시간), `active`, `sort` | BOOKING_RULES §2.1 그대로 |
 | `booking_services` | `id`, `site_key` FK, `name`, `duration_min`, `buffer_min`, `staff_minutes` JSONB, `resource_ids` int[] | BOOKING_RULES §2.2 그대로 |

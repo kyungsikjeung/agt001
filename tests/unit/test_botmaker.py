@@ -63,7 +63,7 @@ def test_parse_days_names_ranges():
 
 def test_salon_interview_by_talking_until_ready():
     spec, first = _start("slot")
-    assert "영업하는 요일" in first["reply"] and first["buttons"][-1]["action"] == "let_ai"
+    assert "영업하는 요일" in first["reply"] and first["buttons"][-1]["action"] == "later"
     spec, reply = _talk(
         spec,
         "화~일 10시~8시, 월요일 휴무",
@@ -221,3 +221,10 @@ def test_activate_through_engine(client):
     assert B.activate(shop_id, None)["version"] == 1
     active = booking_engine.get_spec(shop_id)["spec"]
     assert "_interview" not in active and active["services"][0]["name"] == "컷"
+
+
+def test_no_default_questions_only_allow_later():
+    spec, first = _start("slot")
+    assert [b["action"] for b in first["buttons"]] == ["later"]
+    spec, reply = B.turn(spec, action="let_ai")
+    assert "제가 정할 수 없어요" in reply["reply"] and "weekly_hours" not in spec["provenance"]

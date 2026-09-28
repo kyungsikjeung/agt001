@@ -1053,6 +1053,8 @@ section[class^="s-"] h2::after,
 }
 /* 안내 문구는 본문보다 작게 */
 .s-booking__note { font-size: 15px; margin: 0 0 var(--space-gap); }
+.s-booking__chat { margin: 0 0 var(--space-gap); font-size: 15px; }
+.s-booking__chat .s-btn { margin-right: 8px; }
 /* 기본 규칙(section p의 margin)보다 우선하도록 두 단계 선택자로 */
 section.s-hero .s-hero__cta { margin: 26px 0 0; }
 section.s-hero .s-lead { margin: 0 0 4px; }

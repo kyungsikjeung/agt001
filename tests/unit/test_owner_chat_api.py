@@ -219,3 +219,35 @@ def test_parsers():
     assert chat_agent.parse_party("4명이요") == 4 and chat_agent.parse_party("둘이서") == 2
     assert chat_agent.intent_of("예약 취소할게요") == "cancel" and chat_agent.intent_of("주차 돼요?") == "ask"
     assert chat_agent.intent_of("내일 3시 돼요?") == "book"
+
+
+def test_published_booking_section_links_to_chat(client, monkeypatch):
+    from app.config import settings
+    from app.services import availability, site_render
+    _, key, uid = _owned_site(client)
+    spec = {"sections": [{"type": "booking", "variant": "form", "content": {}}]}
+    assert "chat_url" not in availability.apply(spec, {}, key)["sections"][0]["content"]   # 봇 꺼짐
+    _login(client, uid)
+    _make_bot(client, key)
+    monkeypatch.setattr(settings, "public_base_url", "https://app.example.com")
+    content = availability.apply(spec, {}, key)["sections"][0]["content"]
+    assert content["chat_url"] == f"https://app.example.com/chat/{key}"
+    assert site_render._chat_url(content, key) == content["chat_url"]
+    assert site_render._chat_url({"chat_url": "https://evil.example/x"}, key) == ""
+    monkeypatch.setattr(settings, "public_base_url", None)
+    monkeypatch.setattr(settings, "preview_host", "preview.example.com")
+    assert "chat_url" not in availability.apply(spec, {}, key)["sections"][0]["content"]
+
+
+def test_pages_served(client):
+    assert "예약 관리" in client.get("/owner").text
+    assert "채팅 예약" in client.get("/chat/abc123").text
+
+
+def test_thread_purge(client):
+    from app.services import chat_agent as ca
+    _, key, uid = _owned_site(client)
+    _login(client, uid)
+    _make_bot(client, key)
+    _chat(client, key)
+    assert ca.purge(datetime.datetime.now(KST) + datetime.timedelta(days=8)) == 1

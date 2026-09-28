@@ -547,6 +547,9 @@ def _buttons(spec: dict, q: dict) -> list:
     if current:
         out.append({"label": "지금 알고 있는 대로", "action": "keep"})
     out += [{"label": label, "action": f"pick:{i}"} for i, (label, _) in enumerate(q["suggest"])]
+    if q["default"] is None and q["required"]:
+        # 영업시간·시술·선생님처럼 대신 정할 값이 없는 칸은 미루기만 된다
+        return out + [e for e in EXITS if e["action"] == "later"]
     return out + EXITS
 
 
@@ -614,6 +617,8 @@ def turn(spec: dict, *, text: Optional[str] = None, action: Optional[str] = None
         i = int(action[5:])
         if 0 <= i < len(q["suggest"]):
             _apply(spec, q, q["suggest"][i][1], "filled")
+    elif action in ("default", "let_ai") and q["default"] is None and q["required"]:
+        return spec, _reply_for(spec, "이건 사장님만 아시는 거라 제가 정할 수 없어요.")
     elif action == "default":
         _apply(spec, q, q["default"], "default")
     elif action == "let_ai":
