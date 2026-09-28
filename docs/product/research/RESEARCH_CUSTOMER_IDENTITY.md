@@ -44,9 +44,8 @@
 | 칸 | 형 | 설명 |
 |---|---|---|
 | id | bigint PK | |
-| site_key | text | 가게. (site_key, phone_hash) 유일 |
-| phone_hash | text | 정규화한 번호의 HMAC. 찾기·묶기용 |
-| phone_enc | text | 암호화한 번호. 사장님 화면에 보일 때만 푼다 |
+| site_key | text | 가게. (site_key, phone) 유일 |
+| phone | text | 정규화한 번호. 구현 때 `bookings.phone`처럼 평문으로 결정(같은 DB에 해시·암호화 사본을 두면 복잡하기만 하고 보호가 늘지 않음, CUSTOMER_PLAN §1.1) |
 | name | text null | 마지막으로 적은 이름 |
 | phone_verified_at | timestamptz null | 문자 인증번호를 통과한 때 |
 | first_seen / last_seen | timestamptz | |

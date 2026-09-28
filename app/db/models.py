@@ -204,6 +204,8 @@ class InquiryRow(Base):
     name: Mapped[Optional[str]] = mapped_column(Text)
     contact: Mapped[str] = mapped_column(Text, nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
+    customer_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("customers.id", ondelete="SET NULL"),
+                                                      index=True)
 
 
 class BookingRow(Base):
@@ -227,6 +229,25 @@ class BookingRow(Base):
     memo: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default="requested")  # requested·confirmed·declined
     decided_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    customer_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("customers.id", ondelete="SET NULL"),
+                                                      index=True)
+
+
+class CustomerRow(Base):
+    """가게별 손님 명단 (CUSTOMER_PLAN §1.1). 번호는 정규화한 숫자만 평문으로 둔다."""
+
+    __tablename__ = "customers"
+    __table_args__ = (
+        UniqueConstraint("site_key", "phone", name="uq_customers_site_phone"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)  # sessions.requirement_id (/site/<id>/)
+    phone: Mapped[str] = mapped_column(Text, nullable=False)  # 정규화한 번호(숫자만, +82 → 0)
+    name: Mapped[Optional[str]] = mapped_column(Text)  # 마지막으로 적은 이름
+    first_seen: Mapped[datetime.datetime] = _now_col()
+    last_seen: Mapped[datetime.datetime] = _now_col()
+    phone_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class RoomInviteRow(Base):

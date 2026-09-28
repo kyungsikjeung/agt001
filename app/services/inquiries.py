@@ -15,7 +15,7 @@ from app import store
 from app.db.models import InquiryRow, RoomRow, SessionRow
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
-from app.services import rooms
+from app.services import customers, rooms
 
 log = logging.getLogger(__name__)
 
@@ -61,22 +61,30 @@ def submit(site_key: str, name: Optional[str], contact: Optional[str], message: 
     if agree != "yes":
         raise InquiryError("개인정보 수집·이용에 동의해 주세요.")
     with get_sessionmaker()() as db, db.begin():
-        db.add(InquiryRow(site_key=key, name=name_c or None, contact=contact_c, message=message_c))
+        cid, hist = None, None
+        if customers.normalize_phone(contact_c) is not None:
+            cid = customers.touch(db, key, contact_c, name_c)
+            hist = customers.history(db, cid) if cid else None
+        db.add(InquiryRow(site_key=key, name=name_c or None, contact=contact_c, message=message_c,
+                          customer_id=cid))
         room_id = db.scalar(select(RoomRow.id).join(SessionRow, RoomRow.session_id == SessionRow.id)
                             .where(SessionRow.requirement_id == key))
+    line = customers.visit_line(hist) if hist is not None else None
     from app.services import design_log
     design_log.inquiry(key)  # D45: 공개 뒤 문의 수(내용·연락처는 남기지 않음)
     if room_id:
-        _notify_room(room_id, name_c, contact_c, message_c)
+        _notify_room(room_id, name_c, contact_c, message_c, line)
         # 사장님 카톡 알림(켜져 있으면). 연락처는 카톡에도 보인다(사장님 본인에게만 가는 메모).
         from app.services import notify
-        notify.owner_kakao(room_id, f"사이트로 새 문의가 왔어요.\n이름: {name_c or '(적지 않음)'}\n연락처: {contact_c}\n내용: {message_c[:120]}")
+        notify.owner_kakao(room_id, f"사이트로 새 문의가 왔어요.\n이름: {name_c or '(적지 않음)'}\n연락처: {contact_c}\n내용: {message_c[:120]}"
+                           + (f"\n{line}" if line else ""))
     return True
 
 
-def _notify_room(room_id: str, name: str, contact: str, message: str) -> None:
+def _notify_room(room_id: str, name: str, contact: str, message: str, line: Optional[str] = None) -> None:
     text = (f"사이트로 새 문의가 왔어요.\n이름: {name or '(적지 않음)'}\n연락처: {contact}\n내용: {message}\n"
-            f"({RETENTION_DAYS}일 뒤 자동으로 지워져요)")
+            + (f"{line}\n" if line else "")
+            + f"({RETENTION_DAYS}일 뒤 자동으로 지워져요)")
     try:
         with store.room_tx(room_id) as (room, _session):
             if room is not None:

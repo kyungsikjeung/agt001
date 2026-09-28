@@ -69,6 +69,8 @@ def _guard(fn):
         raise HTTPException(status_code=403, detail="owner only")
     except bookings.AlreadyDecided:
         raise HTTPException(status_code=409, detail="already decided")
+    except bookings.SlotFull:
+        raise HTTPException(status_code=409, detail="slot full")
     except rooms.InvalidRequest as e:
         raise HTTPException(status_code=400, detail=str(e))
 

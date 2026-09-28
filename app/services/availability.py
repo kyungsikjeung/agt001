@@ -311,3 +311,53 @@ def refresh_if_stale(site_key: str, *, today=None) -> bool:
     except Exception:
         log.exception("공개본 날짜 넘어감 다시 그리기 실패 site=%s", site_key)
         return False
+
+
+def slot_taken(db, site_key, visit_date, visit_time, service) -> bool:
+    """마감 검사 (CUSTOMER_PLAN §1.3). 확정(confirmed) 예약만 센다.
+
+    넘겨받은 db 세션으로 읽는다 (확정 때 잠금 안에서 부르기 위해).
+    """
+    card = _card_for_site(site_key)
+    if card is None:
+        capacity = 1
+        has_rooms = False
+    else:
+        capacity = schedule(card)["capacity"]
+        data = _structured(card)
+        has_rooms = any(isinstance(r, dict) and str(r.get("name") or "").strip()
+                        for r in (data.get("rooms") or []))
+    day = visit_date
+    if isinstance(day, str):
+        day = datetime.date.fromisoformat(day.strip())
+    elif isinstance(day, datetime.datetime):
+        day = day.date()
+    if has_rooms:
+        nights = _nights_of(service)
+        last = day + datetime.timedelta(days=nights - 1)
+        rows = db.execute(
+            select(BookingRow.visit_date, BookingRow.service)
+            .where(BookingRow.site_key == site_key,
+                   BookingRow.status == "confirmed",
+                   BookingRow.visit_date >= day - datetime.timedelta(days=13),
+                   BookingRow.visit_date <= last)).all()
+        for i in range(nights):
+            target = day + datetime.timedelta(days=i)
+            cover = 0
+            for r in rows:
+                span = _nights_of(r.service)
+                if r.visit_date <= target < r.visit_date + datetime.timedelta(days=span):
+                    cover += 1
+                    if cover >= capacity:
+                        return True
+        return False
+    time_c = visit_time.strip() if isinstance(visit_time, str) else (visit_time or "")
+    if not time_c:
+        return False  # 날짜만 받는 예약은 시간 칸이 없어 막지 않는다
+    rows = db.execute(
+        select(BookingRow.id)
+        .where(BookingRow.site_key == site_key,
+               BookingRow.visit_date == day,
+               BookingRow.visit_time == time_c,
+               BookingRow.status == "confirmed")).all()
+    return len(rows) >= capacity

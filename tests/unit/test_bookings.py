@@ -125,6 +125,51 @@ def test_rate_limit_shared_with_inquiries(client):
     assert codes[0] == 303 and codes[-1] == 429
 
 
+def test_submit_to_full_slot_rejected_and_nothing_stored(client):
+    room_id, key = _site(client)
+    _send(client, key)
+    bid = _booking_id(client, room_id)
+    client.post(f"/room/{room_id}/bookings/{bid}/decision", json={"decision": "confirm"},
+                headers={"X-Member-Id": "owner"})
+    with get_sessionmaker()() as db:
+        before = db.query(BookingRow).filter(BookingRow.site_key == key).count()
+    r = _send(client, key)
+    assert r.status_code == 400 and "이미 마감된 시간이에요. 다른 시간을 골라 주세요." in r.text
+    with get_sessionmaker()() as db:
+        assert db.query(BookingRow).filter(BookingRow.site_key == key).count() == before
+
+
+def test_same_phone_links_same_customer_and_shows_visit_line(client):
+    room_id, key = _site(client)
+    assert _send(client, key, phone="010-1234-5678").status_code == 303
+    assert _send(client, key, phone="01012345678").status_code == 303
+    with get_sessionmaker()() as db:
+        rows = db.query(BookingRow).filter(BookingRow.site_key == key).order_by(BookingRow.id).all()
+        assert len(rows) == 2 and rows[0].customer_id is not None
+        assert rows[0].customer_id == rows[1].customer_id
+    msgs = [m for m in store.read_messages(room_id, 0) if m["kind"] == "booking"]
+    assert "처음 오신 손님이에요." in msgs[0]["text"]
+    assert "이 번호로 예약 1번" in msgs[1]["text"]
+
+
+def test_confirm_full_slot_409_then_decline_works(client):
+    room_id, key = _site(client)
+    _send(client, key)
+    _send(client, key, name="이손님")
+    with get_sessionmaker()() as db:
+        bids = [r.id for r in db.query(BookingRow).filter(BookingRow.site_key == key).order_by(BookingRow.id).all()]
+    assert client.post(f"/room/{room_id}/bookings/{bids[0]}/decision", json={"decision": "confirm"},
+                       headers={"X-Member-Id": "owner"}).status_code == 200
+    r = client.post(f"/room/{room_id}/bookings/{bids[1]}/decision", json={"decision": "confirm"},
+                    headers={"X-Member-Id": "owner"})
+    assert r.status_code == 409 and r.json()["detail"] == "slot full"
+    with get_sessionmaker()() as db:
+        assert db.get(BookingRow, bids[1]).status == "requested"
+    r = client.post(f"/room/{room_id}/bookings/{bids[1]}/decision", json={"decision": "decline"},
+                    headers={"X-Member-Id": "owner"})
+    assert r.status_code == 200 and r.json() == {"id": bids[1], "status": "declined"}
+
+
 def test_purge_expired(client):
     _, key = _site(client)
     today = bookings._today()

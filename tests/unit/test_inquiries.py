@@ -67,6 +67,29 @@ def test_message_html_is_escaped_in_error_page(client):
     assert "<script>x" not in r.text
 
 
+def test_phone_inquiry_links_customer_and_shows_line(client):
+    from app.db.models import InquiryRow
+    from app.db.session import get_sessionmaker
+    room_id, key = _site(client)
+    assert _send(client, key, contact="010-5555-6666").status_code == 303
+    with get_sessionmaker()() as db:
+        row = db.query(InquiryRow).filter(InquiryRow.site_key == key).one()
+        assert row.customer_id is not None
+    assert "처음 오신 손님이에요." in store.read_messages(room_id, 0)[-1]["text"]
+
+
+def test_email_inquiry_has_no_customer_and_no_line(client):
+    from app.db.models import InquiryRow
+    from app.db.session import get_sessionmaker
+    room_id, key = _site(client)
+    assert _send(client, key, contact="sonnim@example.com").status_code == 303
+    with get_sessionmaker()() as db:
+        row = db.query(InquiryRow).filter(InquiryRow.site_key == key).one()
+        assert row.customer_id is None
+    last = store.read_messages(room_id, 0)[-1]["text"]
+    assert "처음 오신 손님이에요." not in last and "이 번호로" not in last
+
+
 def test_purge_expired(client):
     import datetime
     _, key = _site(client)

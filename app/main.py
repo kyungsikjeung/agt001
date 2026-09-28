@@ -11,6 +11,7 @@ from app.api import auth, bookings, callbot, card, chat, events, inquiries, proj
 from app.config import settings
 from app.services import funnel, rag
 from app.services import bookings as bookings_svc
+from app.services import customers as customers_svc
 from app.services import inquiries as inquiries_svc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -25,6 +26,7 @@ async def lifespan(_app: FastAPI):
     store.purge_chat_turns()
     inquiries_svc.purge_expired()
     bookings_svc.purge_expired()
+    customers_svc.purge_orphans()
     if settings.precompute_embeddings:
         rag.precompute()
     yield

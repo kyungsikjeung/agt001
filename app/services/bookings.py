@@ -10,13 +10,13 @@ import logging
 import re
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app import store
 from app.db.models import BookingRow, RoomRow, SessionRow
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
-from app.services import rooms
+from app.services import availability, customers, rooms
 from app.services.inquiries import _PHONE, _clean, site_exists
 
 log = logging.getLogger(__name__)
@@ -39,6 +39,10 @@ class NotFound(Exception):
 
 class AlreadyDecided(Exception):
     pass
+
+
+class SlotFull(Exception):
+    """확정하려는 시간이 이미 마감됨. 상태는 requested 그대로 둔다."""
 
 
 def _today() -> datetime.date:
@@ -78,17 +82,24 @@ def submit(site_key: str, date: Optional[str], time: Optional[str], service: Opt
         raise BookingError("개인정보 수집·이용에 동의해 주세요.")
     name_c, service_c, memo_c = _clean(name, MAX_NAME), _clean(service, MAX_SERVICE), _clean(memo, MAX_MEMO)
     with get_sessionmaker()() as db, db.begin():
+        if availability.slot_taken(db, key, visit, time_c, service_c):
+            raise BookingError("이미 마감된 시간이에요. 다른 시간을 골라 주세요.")
+        cid = customers.touch(db, key, phone_c, name_c)
+        hist = customers.history(db, cid) if cid else None
         row = BookingRow(site_key=key, visit_date=visit, visit_time=time_c, service=service_c or None, party=party_n,
-                         name=name_c or None, phone=phone_c, memo=memo_c or None)
+                         name=name_c or None, phone=phone_c, memo=memo_c or None, customer_id=cid)
         db.add(row)
         db.flush()
         booking_id = row.id
         room_id = db.scalar(select(RoomRow.id).join(SessionRow, RoomRow.session_id == SessionRow.id)
                             .where(SessionRow.requirement_id == key))
+    line = customers.visit_line(hist) if hist is not None else None
     from app.services import design_log
     design_log.inquiry(key)  # D45: 공개 뒤 받은 문의·예약 수(내용·연락처는 남기지 않음)
     if room_id:
         text = _summary(visit, time_c, service_c, party_n, name_c, phone_c, memo_c)
+        if line:
+            text = text + "\n" + line
         _notify_room(room_id, booking_id, "사이트로 새 예약 신청이 왔어요.\n" + text
                      + f"\n확정·거절을 눌러 주시고 손님께 연락해 주세요. (방문일 {RETENTION_DAYS}일 뒤 자동으로 지워져요)")
         from app.services import notify
@@ -157,6 +168,10 @@ def decide(room_id: str, member_id_raw, booking_id: int, decision: str) -> dict:
             raise NotFound()
         if row.status != "requested":
             raise AlreadyDecided()
+        if status == "confirmed":
+            db.execute(select(func.pg_advisory_xact_lock(func.hashtext(row.site_key + ":" + row.visit_date.isoformat()))))
+            if availability.slot_taken(db, row.site_key, row.visit_date, row.visit_time, row.service):
+                raise SlotFull()
         row.status = status
         row.decided_at = datetime.datetime.now(datetime.timezone.utc)
         when = f"{row.visit_date.month}월 {row.visit_date.day}일" + (f" {row.visit_time}" if row.visit_time else "")

@@ -690,8 +690,17 @@ async function decideBooking(id, decision, area, note, okBtn, noBtn) {
     if (noBtn) noBtn.disabled = false;
     if (res.status === 403) note.textContent = '방장만 결정할 수 있어요.';
     else if (res.status === 409) {
-      note.textContent = '이미 결정된 예약이에요.';
-      area.replaceChildren();
+      let detail = '';
+      try {
+        const errBody = await res.json();
+        if (errBody && errBody.detail) detail = errBody.detail;
+      } catch (e) { /* 본문이 없어도 기존 문구로 표시 */ }
+      if (detail === 'slot full') {
+        note.textContent = '이 시간은 이미 마감됐어요. 거절하거나 손님과 다른 시간을 잡아 주세요.';
+      } else {
+        note.textContent = '이미 결정된 예약이에요.';
+        area.replaceChildren();
+      }
     } else note.textContent = '지금은 처리할 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
   } catch (e) {
     if (okBtn) okBtn.disabled = false;
