@@ -55,6 +55,11 @@ def shown(site: str, card: dict, items: list[dict]) -> None:
     _safe("design_shown", props)
 
 
+def polished(site: str, card: dict, variants: list) -> None:
+    """UI 에이전트가 3안을 다듬어 바꿈(J11). 바뀐 안 번호만 남긴다."""
+    _safe("design_polished", {"site": site, "industry": _industry(card), "variants": ",".join(variants)})
+
+
 def chosen(site: str, card: dict, variant: str) -> None:
     _safe("design_chosen", {"site": site, "industry": _industry(card), "variant": variant})
 

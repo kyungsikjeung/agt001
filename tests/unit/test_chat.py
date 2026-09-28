@@ -3,6 +3,7 @@ from app import store
 from app.services import codegen as codegen_svc
 
 from fakes import fake_codegen_timeout, fake_codegen_unavailable
+from app.config import settings
 
 
 def _chat(client, message, session_id=None):
@@ -46,7 +47,8 @@ def test_empty_message_greeting(client):
     assert "어떤 프로젝트" in data["reply"]
 
 
-def test_full_flow_to_done(client):
+def test_full_flow_to_done(client, monkeypatch):
+    monkeypatch.setattr(settings, "legacy_codegen_enabled", True)  # 예전 코드 생성 흐름을 검사한다(U6로 기본 끔)
     s = _fresh_session(client)
     # 요청 → 질문 → 건너뛰기 → AWAIT_APPROVAL
     d1 = _to_approval(client, s)
@@ -106,6 +108,7 @@ def test_design_url_sent_exactly_once(client):
 
 
 def test_codegen_timeout_returns_to_quoted(client, monkeypatch):
+    monkeypatch.setattr(settings, "legacy_codegen_enabled", True)  # 예전 코드 생성 흐름을 검사한다(U6로 기본 끔)
     monkeypatch.setattr(codegen_svc, "start", fake_codegen_timeout)
     s = _fresh_session(client)
     _to_quoted(client, s)

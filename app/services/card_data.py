@@ -21,6 +21,15 @@ PRIMARY_ACTION = {
 # 직함 낱말 (staff 파싱용)
 TITLES = ("원장", "실장", "부원장", "디자이너", "선생님", "강사", "대표", "팀장")
 
+# 요일 글자 (정규 순서)
+_DAYS = ("월", "화", "수", "목", "금", "토", "일")
+
+# 반 대상 낱말 (이름에서 찾는다, 없으면 target 칸)
+_TARGETS = ("초등", "중등", "고등", "성인", "유아")
+
+# 객실 번호 모양 (뒤의 낱말은 시설로 본다)
+_ROOM_NO = re.compile(r"^\S*?\d+\s*호")
+
 # 카페 분류 낱말표
 _COFFEE = ("아메리카노", "라떼", "에스프레소", "콜드브루", "드립", "카푸치노")
 _FLAVORED_LATTE = ("딸기", "녹차", "초코", "고구마")
@@ -170,6 +179,132 @@ def _mode(card: dict, archetype: str, staff: list) -> str:
     return ""
 
 
+def _day_token(token: str) -> bool:
+    """낱말 하나가 요일 토막인지 ("월수"·"월·수"·"월요일" O, "토익반" X)."""
+    return bool(re.fullmatch(r"[월화수목금토일·,/.]+(요일)?", token))
+
+
+def _class_days(text: str) -> str:
+    """요일 읽기 ("월수"·"월·수"·"평일" → "월·수"). 없으면 빈 문자열."""
+    found = []
+    for token in re.split(r"\s+", text):
+        if token in ("평일",):
+            return "월·화·수·목·금"
+        if token in ("주말",):
+            return "토·일"
+        if token in ("매일",):
+            return "월·화·수·목·금·토·일"
+        if _day_token(token):
+            for day in token:
+                if day in _DAYS and day not in found:
+                    found.append(day)
+    return "·".join(d for d in _DAYS if d in found)
+
+
+def _class_time(text: str) -> str:
+    """시간 읽기 ("16:00"·"오후 4시"·"4시" → "16:00"). 없으면 빈 문자열."""
+    m = re.search(r"(\d{1,2}):(\d{2})", text)
+    if m:
+        return f"{int(m.group(1)):02d}:{m.group(2)}"
+    m = re.search(r"(오후|저녁|밤|오전|아침)\s*(\d{1,2})\s*시", text)
+    if m:
+        hour = int(m.group(2)) % 12
+        if m.group(1) in ("오후", "저녁", "밤"):
+            hour += 12
+        return f"{hour:02d}:00"
+    m = re.search(r"(\d{1,2})\s*시", text)
+    if m:
+        hour = int(m.group(1))
+        if 1 <= hour <= 7:  # 학원은 낮·저녁 수업이라 작은 숫자는 오후로 본다
+            hour += 12
+        return f"{hour:02d}:00"
+    return ""
+
+
+def _headcount(text: str) -> str:
+    """인원 읽기 ("정원 8명"·"8명" → "8명"). 없으면 빈 문자열."""
+    m = re.search(r"정원\s*(\d+)\s*명?", text)
+    if m:
+        return f"{m.group(1)}명"
+    m = re.search(r"(\d+)\s*인", text)
+    if m:
+        return f"{m.group(1)}인"
+    m = re.search(r"(\d+)\s*명", text)
+    if m:
+        return f"{m.group(1)}명"
+    return ""
+
+
+def _strip_class_tokens(text: str) -> str:
+    """반 이름에서 요일·시간·인원 토막을 뺀다."""
+    kept = [tok for tok in re.split(r"\s+", text)
+            if not _day_token(tok) and tok not in ("평일", "주말", "매일")]
+    out = " ".join(kept)
+    out = re.sub(r"\d{1,2}:\d{2}", " ", out)
+    out = re.sub(r"(오후|저녁|밤|오전|아침)?\s*\d{1,2}\s*시", " ", out)
+    out = re.sub(r"정원\s*\d+\s*명?", " ", out)
+    out = re.sub(r"\d+\s*명", " ", out)
+    return re.sub(r"\s+", " ", out).strip(" ·,/-")
+
+
+def _classes(card: dict) -> list:
+    """offerings 품목 → 반 목록 (학원 D). 이름·대상·요일·시간·정원·수강료를 결정론으로."""
+    pairs = card.get("price_pairs") or {}
+    fallback = _slot_value(card, "target").split(",")[0].strip()
+    out = []
+    for item in _values(card, "offerings"):
+        text = str(item)
+        name = _strip_class_tokens(text) or text
+        target = next((w for w in _TARGETS if w in name), fallback)
+        fee = pairs.get(name, "")
+        if not fee:
+            for key, value in pairs.items():
+                if key and key in name:
+                    fee = value
+                    break
+        out.append({"name": name, "target": target, "days": _class_days(text),
+                    "time": _class_time(text), "capacity": _headcount(text),
+                    "fee": fee, "source": "owner"})
+    return out
+
+
+def _rooms(card: dict) -> list:
+    """offerings 품목 → 객실 목록 (펜션 C). 이름·인원·요금을 결정론으로."""
+    pairs = card.get("price_pairs") or {}
+    out = []
+    for item in _values(card, "offerings"):
+        text = str(item)
+        features: list = []
+        capacity = ""
+        for paren in re.findall(r"\(([^)]*)\)", text):
+            head = _headcount(paren)
+            if head:
+                capacity = f"({head})" if "인" in paren else head
+            elif paren.strip():
+                features.append(paren.strip())
+        if not capacity:
+            head = _headcount(re.sub(r"\([^)]*\)", " ", text))
+            capacity = head
+        name = re.sub(r"\([^)]*\)", " ", text)
+        name = re.sub(r"\d+\s*인", " ", name)
+        name = re.sub(r"\s+", " ", name).strip(" ·,/-")
+        room_no = _ROOM_NO.match(name)
+        rest = name[room_no.end():].strip() if room_no else ""
+        if rest:
+            features = [rest] + features
+        price = pairs.get(name, "")
+        if not price:
+            for key, value in pairs.items():
+                if key and key in name:
+                    price = value
+                    break
+        entry = {"name": name, "capacity": capacity, "price": price, "source": "owner"}
+        if features:
+            entry["features"] = features
+        out.append(entry)
+    return out
+
+
 def _primary_action(archetype: str, mode: str) -> str:
     if archetype == "A":
         return PRIMARY_ACTION["A-pickup" if mode == "pickup" else "A-dinein"]
@@ -182,13 +317,15 @@ def build(card: dict) -> dict:
     archetype = ARCHETYPE.get(industry_key, "A")
     staff = _staff(card)
     mode = _mode(card, archetype, staff)
+    classes = _classes(card) if archetype == "D" else []
+    rooms = _rooms(card) if archetype == "C" else []
     return {
         "version": 1,
         "mode": mode,
         "primary_action": _primary_action(archetype, mode),
         "catalog": _catalog(card, industry_key),
         "staff": staff,
-        "classes": [],
-        "rooms": [],
+        "classes": classes,
+        "rooms": rooms,
         "schedule": None,
     }

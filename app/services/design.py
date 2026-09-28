@@ -149,7 +149,7 @@ def _verify_html(html: str) -> list:
     return problems
 
 
-def render_variants(requirement_id: str, card: dict) -> dict:
+def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) -> dict:
     """카드 → generated/<id>/design/{v1,v2,v3}/index.html + 고르기 페이지 + 미리보기 그림."""
     from app.services import design_variants as DV
     from app.services import site_render
@@ -193,7 +193,8 @@ def render_variants(requirement_id: str, card: dict) -> dict:
         previews = {v["id"]: f"https://placehold.co/390x780?text={v['id']}" for v in items}
 
     from app.services import design_log
-    design_log.shown(requirement_id, card, items)  # D45
+    if log_shown:  # 에이전트가 다듬어 다시 그릴 때는 세지 않는다(보여 준 횟수가 부풀지 않게, D45)
+        design_log.shown(requirement_id, card, items)  # D45
     return {
         "requirement_id": requirement_id,
         "design_variants": [{"id": v["id"], "name": v["name"], "summary": v["summary"], "preview_url": previews[v["id"]],

@@ -36,7 +36,8 @@ def _examples(archetype: str) -> dict:
     if archetype in _EXAMPLES:
         return _EXAMPLES[archetype]
     path = settings.templates_dir / "examples" / f"{archetype}.json"
-    data = {"photos": {}, "prices": {}, "catalog": [], "staff": []}
+    data = {"photos": {}, "prices": {}, "catalog": [], "staff": [],
+            "classes": [], "rooms": [], "timetable": {}, "concerns": {}}
     if path.is_file():
         loaded = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(loaded, dict):
@@ -136,6 +137,8 @@ def skeleton(blueprint: dict, strategy_index: int) -> dict:
                 section[key] = node[key]
         if node.get("order") is True:
             section["order"] = True
+        if node.get("optional") is True:
+            section["optional"] = True
         sections.append(section)
     spec = {"version": 3, "locked": [], "tokens": copy.deepcopy(blueprint.get("tokens") or {}),
             "sections": sections}
@@ -278,9 +281,11 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
 
 
 def _fill_staff(sec: dict, data: dict, pack: dict, booking_href: str) -> None:
-    """staff bind → members (+ solo works)."""
+    """staff bind → members (+ solo works). 선생님 수로 변형을 고른다(1명 solo, 2명 이상 team)."""
     members = []
     staff = [s for s in (data.get("staff") or []) if isinstance(s, dict) and str(s.get("name") or "").strip()]
+    if staff:
+        sec["variant"] = "solo" if len(staff) == 1 else "team"
     for pos, person in enumerate(staff, start=1):
         member = {"name": str(person["name"]), "role": str(person.get("role") or "")}
         tags = [t for t in (person.get("specialties") or []) if isinstance(t, str) and t.strip()][:4]
@@ -343,19 +348,222 @@ def _example_days(hours: str, today=None) -> list:
 
 
 def _fill_booking(sec: dict, data: dict, archetype: str, hours: str) -> None:
-    """booking bind → booking--slots (시안 예시 현황)."""
+    """booking bind → booking--slots (시안 예시 현황). 학원은 반 이름으로 고른다."""
     staff = [str(s.get("name")) for s in (data.get("staff") or [])
              if isinstance(s, dict) and str(s.get("name") or "").strip()]
-    services: list = []
-    for group in data.get("catalog") or []:
-        for item in (group.get("items") or []) if isinstance(group, dict) else []:
-            name = str((item or {}).get("name") or "").strip() if isinstance(item, dict) else ""
-            if name and name not in services:
-                services.append(name)
+    if archetype == "D":
+        services = [str(c.get("name")) for c in (data.get("classes") or [])
+                    if isinstance(c, dict) and str(c.get("name") or "").strip()]
+        service_label = "반"
+    else:
+        services = []
+        for group in data.get("catalog") or []:
+            for item in (group.get("items") or []) if isinstance(group, dict) else []:
+                name = str((item or {}).get("name") or "").strip() if isinstance(item, dict) else ""
+                if name and name not in services:
+                    services.append(name)
+        service_label = "시술" if archetype == "B" else "메뉴"
     sec["content"] = {"label": sec.get("label") or "예약", "note": _BOOKING_NOTE,
                       "staff": staff, "services": services,
-                      "service_label": "시술" if archetype == "B" else "메뉴",
+                      "service_label": service_label,
                       "days": _example_days(hours), "days_example": True}
+
+
+def _fill_classes(sec: dict, data: dict, pack: dict, booking_href: str) -> None:
+    """classes bind → classes--cards (모르는 수강료는 예시 파일 값 + fee_example)."""
+    items = []
+    for entry in (data.get("classes") or [])[:12]:
+        if not isinstance(entry, dict) or not str(entry.get("name") or "").strip():
+            continue
+        name = str(entry["name"])
+        item = {"name": name, "target": str(entry.get("target") or ""),
+                "days": str(entry.get("days") or ""), "time": str(entry.get("time") or ""),
+                "capacity": str(entry.get("capacity") or "")}
+        for key in ("level", "desc"):
+            if entry.get(key):
+                item[key] = str(entry[key])
+        fee = str(entry.get("fee") or "")
+        if fee:
+            item["fee"] = fee
+        else:
+            guess = _example_price(name, pack["prices"])
+            if guess:
+                item["fee"] = guess
+                item["fee_example"] = True
+        items.append(item)
+    if not items:
+        for entry in pack["classes"]:
+            if isinstance(entry, dict) and str(entry.get("name") or "").strip():
+                items.append({**entry, "example": True})
+    sec["content"] = {"label": sec.get("label") or "반 안내",
+                      "cta_href": booking_href, "classes": items}
+
+
+def _timetable_from_classes(classes: list) -> tuple:
+    """반 요일·시간 → (요일 목록, 시간표 행)."""
+    order = ("월", "화", "수", "목", "금", "토", "일")
+    days = [d for d in order
+            if any(d in str(c.get("days") or "").split("·")
+                   for c in classes if isinstance(c, dict))]
+    by_time: dict = {}
+    for entry in classes:
+        if not isinstance(entry, dict):
+            continue
+        found = [d for d in str(entry.get("days") or "").split("·") if d in order]
+        time = str(entry.get("time") or "").strip()
+        name = str(entry.get("name") or "").strip()
+        if not found or not time or not name:
+            continue
+        by_time.setdefault(time, []).append((name, found))
+    rows = []
+    for time in sorted(by_time):
+        cells = []
+        for day in days:
+            names = [name for name, found in by_time[time] if day in found]
+            cells.append({"day": day, "text": names[0] if names else ""})
+        rows.append({"time": time, "cells": cells})
+    return days, rows[:12]
+
+
+def _fill_timetable(sec: dict, data: dict, pack: dict) -> None:
+    """timetable bind → timetable--week (반으로 표를 만들고, 없으면 예시 표 + example)."""
+    days, rows = _timetable_from_classes(data.get("classes") or [])
+    example = False
+    if not rows:
+        table = pack["timetable"] if isinstance(pack.get("timetable"), dict) else {}
+        days = [d for d in (table.get("days") or []) if isinstance(d, str)][:7]
+        rows = [r for r in (table.get("rows") or []) if isinstance(r, dict)]
+        example = True
+    content = {"label": sec.get("label") or "시간표", "days": days, "rows": rows}
+    if example:
+        content["example"] = True
+    sec["content"] = content
+
+
+def _fill_rooms(sec: dict, data: dict, pack: dict, booking_href: str) -> None:
+    """rooms bind → rooms--cards (예시 사진 + image_example, 모르는 요금 + price_example)."""
+    items = []
+    rooms = [r for r in (data.get("rooms") or [])
+             if isinstance(r, dict) and str(r.get("name") or "").strip()]
+    for pos, entry in enumerate(rooms[:8], start=1):
+        name = str(entry["name"])
+        item = {"name": name, "capacity": str(entry.get("capacity") or "")}
+        if entry.get("size"):
+            item["size"] = str(entry["size"])
+        price = str(entry.get("price") or "")
+        if price:
+            item["price"] = price
+        else:
+            guess = _example_price(name, pack["prices"])
+            if guess:
+                item["price"] = guess
+                item["price_example"] = True
+        photo = pack["photos"].get(f"room:{pos}")
+        if photo:
+            item["image"] = photo
+            item["image_alt"] = f"{name} 사진 (예시)"
+            item["image_example"] = True
+        feats = [f for f in (entry.get("features") or [])
+                 if isinstance(f, str) and f.strip()][:6]
+        if feats:
+            item["features"] = feats
+        items.append(item)
+    if not items:
+        listed = pack["rooms"] if isinstance(pack.get("rooms"), list) else []
+        for pos, entry in enumerate(listed[:8], start=1):
+            if not isinstance(entry, dict) or not str(entry.get("name") or "").strip():
+                continue
+            item = {**entry, "example": True}
+            photo = pack["photos"].get(f"room:{pos}")
+            if photo and not item.get("image"):
+                item["image"] = photo
+                item["image_alt"] = f"{item['name']} 사진 (예시)"
+                item["image_example"] = True
+            items.append(item)
+    sec["content"] = {"label": sec.get("label") or "객실",
+                      "booking_href": booking_href, "rooms": items}
+
+
+def _stay_state(date: str) -> str:
+    """결정론 예시 입실 현황 (같은 날짜면 항상 같은 값)."""
+    digest = hashlib.md5(f"stay:{date}".encode("utf-8")).digest()[0] % 3
+    return ("open", "few", "full")[digest]
+
+
+def _example_stay_days(today=None) -> list:
+    """예시 입실 현황 14일 (오늘 KST 다음 날부터)."""
+    if today is None:
+        today = datetime.datetime.now(KST).date()
+    days = []
+    for plus in range(1, 15):
+        day = today + datetime.timedelta(days=plus)
+        date = day.isoformat()
+        days.append({"date": date, "label": f"{day.month}/{day.day}",
+                     "dow": _DOW[day.weekday()], "state": _stay_state(date)})
+    return days
+
+
+def _fill_dates(sec: dict, data: dict) -> None:
+    """dates bind → booking--dates (예시 14일 + days_example, 객실 이름, nights_max 3)."""
+    rooms = [str(r.get("name")) for r in (data.get("rooms") or [])
+             if isinstance(r, dict) and str(r.get("name") or "").strip()]
+    sec["content"] = {"label": sec.get("label") or "예약",
+                      "note": "빈 날짜를 골라 신청해 주세요. 가게에서 확인 후 연락드려요.",
+                      "rooms": rooms, "nights_max": 3,
+                      "days": _example_stay_days(), "days_example": True}
+
+
+def _fill_concerns(sec: dict, pack: dict) -> None:
+    """concerns bind → concerns--bubbles (예시 파일 고민, who는 예시)."""
+    node = pack.get("concerns") if isinstance(pack.get("concerns"), dict) else {}
+    quotes = node.get("items") if isinstance(node.get("items"), list) else []
+    items = [{"quote": str(found), "who": "예시"} for found in quotes[:6]
+             if isinstance(found, str) and found.strip()]
+    content = {"items": items}
+    if isinstance(node.get("heading"), str) and node["heading"].strip():
+        content["heading"] = node["heading"]
+    if isinstance(node.get("note"), str) and node["note"]:
+        content["note"] = node["note"]
+    sec["content"] = content
+
+
+def _fill_signature(sec: dict, data: dict, pack: dict) -> None:
+    """signature bind → offerings--cards (badge 품목, 없으면 분류마다 첫 품목, 최대 3개)."""
+    groups = [g for g in (data.get("catalog") or []) if isinstance(g, dict)]
+    if not groups:
+        groups = [g for g in pack["catalog"] if isinstance(g, dict)]
+    picked: list = []
+    for group in groups:
+        for item in (group.get("items") or []) if isinstance(group, dict) else []:
+            if isinstance(item, dict) and item.get("badge") and str(item.get("name") or "").strip():
+                picked.append((group, item))
+    for group in groups:
+        if len(picked) >= 3:
+            break
+        items = [i for i in (group.get("items") or [])
+                 if isinstance(i, dict) and str(i.get("name") or "").strip()]
+        if items and all(p[1].get("name") != items[0].get("name") for p in picked):
+            picked.append((group, items[0]))
+    cards = []
+    for group, item in picked[:3]:
+        name = str(item["name"])
+        card = {"name": name, "desc": str(item.get("desc") or "")}
+        price = str(item.get("price") or "")
+        if price:
+            card["price"] = price
+        else:
+            guess = _example_price(name, pack["prices"])
+            if guess:
+                card["price"] = guess
+                card["price_example"] = True
+        photo = pack["photos"].get(f"category:{group.get('name')}")
+        if photo:
+            card["image"] = photo
+            card["image_alt"] = f"{name} 사진 (예시)"
+        if item.get("example") is True:
+            card["example"] = True
+        cards.append(card)
+    sec["content"] = {"label": sec.get("label") or "시그니처", "items": cards}
 
 
 def _fill_gallery(sec: dict, card: dict, pack: dict, prefix: str) -> None:
@@ -422,6 +630,12 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     out["sections"] = sections
     data = _structured(card)
     pack = _examples(archetype)
+    # 선생님이 없으면 optional staff 섹션은 뺀다 (학원 D).
+    staff = [s for s in (data.get("staff") or [])
+             if isinstance(s, dict) and str(s.get("name") or "").strip()]
+    sections = [s for s in sections
+                if not (s.get("bind") == "staff" and s.get("optional") is True and not staff)]
+    out["sections"] = sections
     shop = _fact(card, "shop_name")
     phone, hours, address = _fact(card, "phone"), _fact(card, "hours"), _fact(card, "location")
     detail = _fact(card, "detail")
@@ -430,7 +644,7 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     primary = _target_action(sections, out.get("primary") or {})
     secondary = _target_action(sections, out.get("secondary") or {})
     booking_href = next((_anchor(sections, s["id"]) for s in sections
-                         if s.get("bind") == "booking"), "") or "#booking-title-booking"
+                         if s.get("bind") in ("booking", "dates")), "") or "#booking-title-booking"
     menu_href = next((_anchor(sections, s["id"]) for s in sections
                       if s.get("bind") == "catalog"), "") or "#"
     order = (out.get("primary") or {}).get("target") == "order-soon" if isinstance(out.get("primary"), dict) else False
@@ -444,6 +658,18 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_staff(sec, data, pack, booking_href)
         elif bind == "booking":
             _fill_booking(sec, data, archetype, hours)
+        elif bind == "classes":
+            _fill_classes(sec, data, pack, booking_href)
+        elif bind == "timetable":
+            _fill_timetable(sec, data, pack)
+        elif bind == "rooms":
+            _fill_rooms(sec, data, pack, booking_href)
+        elif bind == "dates":
+            _fill_dates(sec, data)
+        elif bind == "concerns":
+            _fill_concerns(sec, pack)
+        elif bind == "signature":
+            _fill_signature(sec, data, pack)
         elif bind == "location":
             sec["content"] = {"address": address, "items": _location_items(phone, hours)}
         elif bind == "contact":

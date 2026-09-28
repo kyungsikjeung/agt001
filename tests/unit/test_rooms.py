@@ -2,6 +2,7 @@
 import pytest
 
 from app import store
+from app.config import settings
 
 
 def _create_room(client):
@@ -140,7 +141,8 @@ def test_aside_chat_is_not_read_by_ai(client):
     assert len(aside) == 1 and aside[0]["text"] == "승인"
 
 
-def test_room_polling_generating_to_done_exactly_once(client):
+def test_room_polling_generating_to_done_exactly_once(client, monkeypatch):
+    monkeypatch.setattr(settings, "legacy_codegen_enabled", True)  # 예전 코드 생성 흐름을 검사한다(U6로 기본 끔)
     room_id = _create_room(client)
     _drive_to_quoted(client, room_id)
     _post(client, room_id, "m1", "철수", "진행")

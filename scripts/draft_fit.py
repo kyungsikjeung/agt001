@@ -13,11 +13,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.services import design_variants as DV  # noqa: E402
+from app.services import card_data as CD  # noqa: E402
 from app.services import site_render as SR  # noqa: E402
 from scripts import draft_corpus as C  # noqa: E402
 
 METRICS = ("fact_coverage", "price_pair", "category_fit", "staff_mode_fit", "action_consistency",
-           "action_reach", "contact_dupe", "map_present", "generic_heading", "strategy_distinct")
+           "action_reach", "contact_dupe", "map_present", "generic_heading", "strategy_distinct",
+           "class_count", "room_count")
 _CONTACTISH = ("contact", "cta", "booking")
 
 
@@ -34,7 +36,16 @@ def _blocks(doc: str, tag: str, cls: str = "") -> list[str]:
 def _facts(case: dict) -> list[str]:
     s, e = case["slots"], case["expect"]
     out = [s[k] for k in ("shop_name", "phone", "hours", "location") if s.get(k)]
-    out += list(s.get("offerings") or [])
+    if case["industry"] == "academy":
+        # 반 이름은 요일·시간·인원을 뺀 값으로 시안에 나온다
+        data = CD.build(C.build_card(case))
+        out += [c["name"] for c in data["classes"]]
+    elif case["industry"] == "pension":
+        # 객실 이름은 인원을 뺀 값으로 시안에 나온다
+        data = CD.build(C.build_card(case))
+        out += [r["name"] for r in data["rooms"]]
+    else:
+        out += list(s.get("offerings") or [])
     out += [p for _, p in e["pairs"]] + list(e["staff"])
     return out
 
@@ -50,6 +61,7 @@ def _cta_texts(doc: str) -> dict:
 
 def score_case(case: dict) -> dict:
     card = C.build_card(case)
+    data = CD.build(card)
     variants = DV.variants(card)
     e = case["expect"]
     res = {m: [] for m in METRICS}
@@ -80,7 +92,18 @@ def score_case(case: dict) -> dict:
         else:
             res["map_present"].append(True)
         res["generic_heading"].append(not re.search(r"<h2\b[^>]*>\s*사진첩\s*</h2>", doc))
-    seconds = {v["spec"]["sections"][1]["type"] for v in variants if len(v["spec"]["sections"]) > 1}
+        if case["industry"] == "academy" and data["classes"]:
+            # 학원: 반 카드 수 = 반 수
+            res["class_count"].append(doc.count('<li class="s-class">') == len(data["classes"]))
+        else:
+            res["class_count"].append(True)
+        if case["industry"] == "pension" and data["rooms"]:
+            # 펜션: 객실 카드 수 = 객실 수
+            res["room_count"].append(doc.count('<li class="s-room">') == len(data["rooms"]))
+        else:
+            res["room_count"].append(True)
+    seconds = {(v["spec"]["sections"][1]["type"], v["spec"]["sections"][1].get("variant"))
+               for v in variants if len(v["spec"]["sections"]) > 1}
     res["strategy_distinct"] = [len(seconds) == len(variants)]
     return {m: (sum(vals) / len(vals)) for m, vals in res.items()}
 

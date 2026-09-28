@@ -5,6 +5,7 @@ OKLCH 변환·WCAG 대비를 직접 구현한다(새 의존성 없음).
 import json
 import math
 from functools import lru_cache
+from pathlib import Path
 
 from app.config import settings
 
@@ -72,9 +73,9 @@ def _to_linear(value: int) -> float:
     return ((part + 0.055) / 1.055) ** 2.4
 
 
-def hex_to_oklch(code: str) -> tuple:
-    """16진 색 → (밝기, 채도, 색상각)."""
-    red, green, blue = (_to_linear(v) for v in _hex_to_rgb(code))
+def _rgb_to_oklch(red: int, green: int, blue: int) -> tuple:
+    """0~255 RGB → (밝기, 채도, 색상각)."""
+    red, green, blue = (_to_linear(v) for v in (red, green, blue))
     lone = 0.4122214708 * red + 0.5363325363 * green + 0.0514459929 * blue
     emm = 0.2119034982 * red + 0.6806995451 * green + 0.1073969566 * blue
     ess = 0.0883024619 * red + 0.2817188376 * green + 0.6299787005 * blue
@@ -85,6 +86,11 @@ def hex_to_oklch(code: str) -> tuple:
     chroma = math.hypot(axis_a, axis_b)
     hue = math.degrees(math.atan2(axis_b, axis_a)) % 360
     return (light, chroma, hue)
+
+
+def hex_to_oklch(code: str) -> tuple:
+    """16진 색 → (밝기, 채도, 색상각)."""
+    return _rgb_to_oklch(*_hex_to_rgb(code))
 
 
 def oklch_to_hex(light: float, chroma: float, hue: float) -> str:
@@ -154,7 +160,84 @@ def check(name: str) -> list[str]:
     return broken
 
 
-def pick(archetype: str, role: int, mood: str | None = None, used: tuple = ()) -> str:
+def _photo_color_uncached(path_str: str) -> dict | None:
+    """사진 주요 색. 64px로 줄여 6색 양자화 뒤 픽셀 수 × 채도가 가장 큰 색."""
+    from PIL import Image
+
+    try:
+        method = Image.Quantize.MEDIANCUT
+    except AttributeError:  # 낡은 Pillow 예비
+        method = 0
+    try:
+        with Image.open(path_str) as img:
+            img = img.convert("RGB")
+            img.thumbnail((64, 64))
+            small = img.quantize(colors=6, method=method, dither=Image.Dither.NONE)
+            counts = small.getcolors(maxcolors=small.width * small.height)
+            if not counts:
+                return None
+            table = small.getpalette() or []
+            best = None
+            for count, index in counts:
+                part = table[index * 3:index * 3 + 3]
+                if len(part) < 3:
+                    continue
+                light, chroma, hue = _rgb_to_oklch(*part)
+                if chroma < 0.03 or light < 0.15 or light > 0.95:
+                    continue  # 무채색·너무 어둡거나 밝은 색은 빼기
+                score = count * chroma
+                if best is None or score > best[0]:
+                    best = (score, light, chroma, hue)
+    except Exception:
+        return None
+    if best is None:
+        return None
+    return {"L": best[1], "C": best[2], "H": best[3]}
+
+
+@lru_cache(maxsize=256)
+def _photo_color_cached(path_str: str, mtime_ns: int) -> tuple | None:
+    """경로+수정 시각 기준 캐시. 못 읽으면 None을 그대로 기억한다."""
+    found = _photo_color_uncached(path_str)
+    if found is None:
+        return None
+    return (found["L"], found["C"], found["H"])
+
+
+def photo_color(path) -> dict | None:
+    """사진 파일 주요 색 {"L", "C", "H"}. 없거나 못 읽으면 None."""
+    try:
+        real = Path(path)
+        stamp = real.stat().st_mtime_ns
+    except (OSError, TypeError, ValueError):
+        return None
+    hit = _photo_color_cached(str(real), stamp)
+    if hit is None:
+        return None
+    return {"L": hit[0], "C": hit[1], "H": hit[2]}
+
+
+def _photo_hue(photo) -> float | None:
+    """photo_color 결과 → 색상각. 모양이 다르면 None."""
+    try:
+        if isinstance(photo, dict):
+            return float(photo["H"]) % 360
+        return float(photo) % 360
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _representative_hue(name: str) -> float:
+    """팔레트 대표 색 색상각. 주색이 짙으면(밝기 0.30 이하) 강조색으로."""
+    pal = get(name)
+    light, _, hue = hex_to_oklch(pal["primary"])
+    if light <= 0.30:
+        _, _, hue = hex_to_oklch(pal["accent"])
+    return hue
+
+
+def pick(archetype: str, role: int, mood: str | None = None, used: tuple = (),
+         photo: dict | None = None) -> str:
     """원형·역할로 팔레트 고르기. 모르는 원형은 A 표를 쓴다."""
     row = ARCHETYPE_PALETTES.get(archetype, ARCHETYPE_PALETTES["A"])
     if role == 3:
@@ -164,6 +247,11 @@ def pick(archetype: str, role: int, mood: str | None = None, used: tuple = ()) -
         # D43 ② 사장님 분위기: 사장님 말에서 나온 색은 업종 후보 밖이라도 규칙을 통과하면 쓴다
         if mood and mood not in used and (mood in cands or (mood in library() and not check(mood))):
             return mood
+        # J2b 사진에 맞춘 색: mood가 없을 때 사진 색상각과 가장 가까운 후보
+        hue = None if mood else _photo_hue(photo)
+        if hue is not None:
+            pool = [c for c in cands if c not in used] or list(cands)
+            return min(pool, key=lambda name: _hue_gap(_representative_hue(name), hue))
         for cand in cands:
             if cand not in used:
                 return cand

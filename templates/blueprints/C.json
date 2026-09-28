@@ -1,0 +1,36 @@
+{
+  "archetype": "C",
+  "mode": "",
+  "primary": {"label": "예약하기", "target": "booking"},
+  "secondary": {"label": "객실 보기", "target": "rooms"},
+  "actionbar_secondary": "phone",
+  "tokens": {"font_pair": "serif-warm", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "strategies": [
+    {"id": "v1", "name": "객실 선택형", "journey": "객실 보고 → 예약", "tone": "calm",
+     "hero": "photo-overlay",
+     "sections": [
+       {"id": "rooms", "type": "rooms", "variant": "cards", "bind": "rooms", "label": "객실", "nav": "객실"},
+       {"id": "booking", "type": "booking", "variant": "dates", "bind": "dates", "label": "예약", "nav": "예약"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v2", "name": "풍경·경험형", "journey": "풍경 보고 → 예약", "tone": "rich",
+     "hero": "photo-side",
+     "sections": [
+       {"id": "view", "type": "gallery", "variant": "swipe", "bind": "space_photos", "label": "주변", "nav": "주변", "tone": "inverse"},
+       {"id": "booking", "type": "booking", "variant": "dates", "bind": "dates", "label": "예약", "nav": "예약"},
+       {"id": "rooms", "type": "rooms", "variant": "cards", "bind": "rooms", "label": "객실", "nav": "객실"},
+       {"id": "tour", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "펜션 둘러보기"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v3", "name": "요금·날짜형", "journey": "날짜 고르고 → 예약", "tone": "calm",
+     "hero": "arch",
+     "sections": [
+       {"id": "booking", "type": "booking", "variant": "dates", "bind": "dates", "label": "예약", "nav": "예약"},
+       {"id": "rooms", "type": "rooms", "variant": "cards", "bind": "rooms", "label": "객실", "nav": "객실"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]}
+  ]
+}

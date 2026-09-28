@@ -1,0 +1,40 @@
+{
+  "archetype": "D",
+  "mode": "",
+  "primary": {"label": "상담 신청", "target": "booking"},
+  "secondary": {"label": "반 보기", "target": "classes"},
+  "actionbar_secondary": "phone",
+  "tokens": {"font_pair": "sans-clean", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "strategies": [
+    {"id": "v1", "name": "반·시간표형", "journey": "반 보고 → 시간표 → 상담", "tone": "calm",
+     "hero": "photo-overlay",
+     "sections": [
+       {"id": "classes", "type": "classes", "variant": "cards", "bind": "classes", "label": "반 안내", "nav": "반 안내"},
+       {"id": "timetable", "type": "timetable", "variant": "week", "bind": "timetable", "label": "시간표", "nav": "시간표"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "상담 예약", "nav": "상담 예약"},
+       {"id": "teachers", "type": "staff", "variant": "solo", "bind": "staff", "label": "선생님", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v2", "name": "선생님·신뢰형", "journey": "선생님 알고 → 상담", "tone": "rich",
+     "hero": "photo-side",
+     "sections": [
+       {"id": "teachers", "type": "staff", "variant": "solo", "bind": "staff", "label": "선생님", "nav": "선생님", "tone": "inverse", "optional": true},
+       {"id": "classes", "type": "classes", "variant": "cards", "bind": "classes", "label": "반 안내", "nav": "반 안내"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "상담 예약", "nav": "상담 예약"},
+       {"id": "room", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "교실"},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]},
+    {"id": "v3", "name": "상담 우선형", "journey": "고민 나누고 → 상담", "tone": "rich",
+     "hero": "arch",
+     "sections": [
+       {"id": "concerns", "type": "concerns", "variant": "bubbles", "bind": "concerns", "tone": "inverse"},
+       {"id": "booking", "type": "booking", "variant": "slots", "bind": "booking", "label": "상담 예약", "nav": "상담 예약"},
+       {"id": "classes", "type": "classes", "variant": "cards", "bind": "classes", "label": "반 안내", "nav": "반 안내"},
+       {"id": "teachers", "type": "staff", "variant": "solo", "bind": "staff", "label": "선생님", "optional": true},
+       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
+       {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
+     ]}
+  ]
+}

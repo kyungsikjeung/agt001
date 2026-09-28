@@ -15,7 +15,8 @@ FILES = {
 
 # §1.4 바인딩 목록.
 BINDS = {"hero", "catalog", "staff", "booking", "location", "contact",
-         "space_photos", "style_photos", "order_soon", "none"}
+         "space_photos", "style_photos", "menu_photos", "order_soon", "none",
+         "classes", "timetable", "rooms", "dates", "concerns", "signature"}
 
 # 첫 화면에 쓸 수 있는 변형 (짧은 이름).
 HEROS = {"photo-overlay", "photo-side", "cinematic", "arch"}
@@ -49,7 +50,7 @@ def test_blueprint_found_and_missing():
     """<원형>-<모드>가 있으면 읽고, 없으면 None."""
     assert archetype.blueprint(_card("cafe", "dinein"))["mode"] == "dinein"
     assert archetype.blueprint(_card("salon", "team"))["mode"] == "team"
-    assert archetype.blueprint(_card("academy", "solo")) is None
+    assert archetype.blueprint(_card("workshop", "")) is None
 
 
 def test_load_accepts_name_with_or_without_suffix():
@@ -96,8 +97,8 @@ def test_blueprints_follow_contract():
                 assert f"{s['type']}--{s['variant']}" in variants, (name, st["id"], s["id"])
                 # ③ bind가 §1.4 목록 안.
                 assert s["bind"] in BINDS, (name, st["id"], s["id"])
-        # ④ 두 번째 섹션(hero 다음) type이 3안 모두 다름.
-        seconds = [st["sections"][0]["type"] for st in strategies]
+        # ④ 두 번째 섹션(hero 다음)이 3안 모두 다름 (종류+변형으로 본다: A-dinein v1 메뉴판과 v3 시그니처 카드처럼 종류는 같아도 됨).
+        seconds = [(st["sections"][0]["type"], st["sections"][0]["variant"]) for st in strategies]
         assert len(set(seconds)) == 3, (name, seconds)
 
 

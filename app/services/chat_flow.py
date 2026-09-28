@@ -5,10 +5,12 @@ room을 넘기면 주요 전이마다 room["ai_status"]를 갱신해 다른 참�
 """
 import logging
 import re
+import threading
 import uuid
 from typing import Optional
 
 from app import store
+from app.config import settings
 from app.services import codegen, deploy, design, design_concept, design_log, funnel, prd_engine, prd_schema, quote, rag
 
 log = logging.getLogger(__name__)
@@ -287,6 +289,83 @@ def _lock_choice(card: dict, choice: str) -> None:
             design_concept.lock_tokens(card, picked["spec"]["tokens"])
     except Exception:
         pass
+
+
+# 테스트에서 백그라운드 스레드 대신 동기로 돌릴 때 주입한다.
+# 예: chat_flow.polish_runner = lambda sid, rid, room: chat_flow.polish_designs(sid, rid, room)
+polish_runner = None
+
+
+def _launch_polish(session_id: str, requirement_id: str, room_id: Optional[str]) -> None:
+    """시안 개선을 뒤에서 돌린다. 커밋 뒤에 부른다(codegen.start와 같은 길)."""
+    if polish_runner is not None:
+        polish_runner(session_id, requirement_id, room_id)
+        return
+    threading.Thread(target=polish_designs, args=(session_id, requirement_id, room_id), daemon=True).start()
+
+
+def polish_designs(session_id: str, requirement_id: str, room_id: Optional[str] = None) -> None:
+    """백그라운드 시안 다듬기: improve → 저장 → 다시 그리기 → 안내 한 줄.
+
+    고르거나 공개한 뒤에는 바꾸지 않는다. 실패하면 조용히 규칙 안을 유지한다.
+    """
+    try:
+        if not settings.ui_agent_enabled:
+            return
+        from app.services import design_variants as DV
+        from app.services import ui_agent
+        session = store.read_session(session_id)
+        card = (session or {}).get("prd")
+        if not card or session.get("requirement_id") != requirement_id:
+            return
+        patch = None
+        names = ""
+        rule = DV.variants(card)
+        patch = ui_agent.improve(card, rule, timeout_sec=settings.ui_agent_timeout_sec)
+        names = " · ".join(f"{i + 1}안 {v.get('name', '')}" for i, v in enumerate(rule[:3]))
+        changed = [v for v in ("v1", "v2", "v3") if (patch or {}).get(v)]
+        if not changed:
+            return  # 바꿀 것 없음: 규칙 안 그대로, 알림도 없다
+        with store.session_tx(session_id) as locked:
+            if locked is None:
+                return
+            current = (locked or {}).get("prd")
+            if not current or current.get("design_choice") or current.get("published"):
+                return
+            current["design_patch"] = patch
+            req = locked["requirement_id"]
+        fresh = (store.read_session(session_id) or {}).get("prd")
+        if not fresh:
+            return
+        design.render_variants(req, fresh, log_shown=False)
+        from app.services import design_log
+        design_log.polished(req, fresh, changed)
+        text = f"시안을 더 다듬었어요 ({names})"
+        if room_id:
+            from app.services import rooms
+            with store.room_tx(room_id) as (room, _session):
+                if room is not None:
+                    rooms._append(room, "ai", "AI 어시스턴트", text, kind="ai_reply")
+        else:
+            with store.session_tx(session_id) as locked:
+                if locked is None:
+                    return
+                current = (locked or {}).get("prd")
+                if not current or current.get("design_choice") or current.get("published"):
+                    return
+                current["design_polish_note"] = {"text": text, "announced": False}
+    except Exception:
+        log.exception("시안 다듬기 실패(규칙 안 유지) %s", session_id)
+
+
+def _take_polish_note(session: dict) -> str:
+    """1:1 흐름의 다듬기 안내. 다음 답에 한 줄로 붙이고 한 번만 낸다."""
+    card = session.get("prd")
+    note = (card or {}).get("design_polish_note")
+    if isinstance(note, dict) and note.get("text") and not note.get("announced"):
+        note["announced"] = True
+        return str(note["text"])
+    return ""
 # 공개 뜻으로 보는 말: 정확일치가 아니라 포함으로 본다 ("2안이 마음에 들어요, 공개할게요"도 잡는다).
 PUBLISH_WORDS = ("공개", "그대로공개", "사이트열어", "사이트오픈", "열어줘", "오픈해줘")
 PUBLISH_NEGATION = ("공개안", "공개하지", "공개말고")
@@ -450,6 +529,24 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         if cg is None:
             reply = (f"시안은 여기서 보고 고를 수 있어요: {session.get('design_url', '(준비 중)')}\n"
                      "사이트 파일도 뒤에서 만들고 있어요(1~2분). 끝나면 알려 드릴게요. 기다리지 않으셔도 돼요.")
+        elif cg.get("status") == "skipped":
+            # U6: 코드생성 없이 시안 흐름만 돈다. 끝났을 때와 같은 다음 상태(DONE)로 넘긴다.
+            deploy_url = deploy.site_url(session["requirement_id"], base_url)
+            session["state"] = "DONE"
+            session["deploy_url"] = deploy_url
+            published = (session.get("prd") or {}).get("published")
+            if published:
+                reply = f"열린 사이트({deploy_url})는 고르신 {published[1]}안 그대로예요."
+            elif session.get("prd"):
+                reply = ("시안에서 번호를 고르고 '공개'라고 보내 주시면 "
+                         "그 시안으로 사이트를 열어 드려요.")
+            else:
+                reply = f"시안 준비가 끝났어요: {deploy_url}"
+            # 완료를 알리는 턴에 사장님이 고칠 말을 보냈으면 그것도 반영한다(말이 묻히지 않게).
+            if user_text and session.get("prd"):
+                edit = _edit_after_design(session, user_text, by, is_owner)
+                if edit:
+                    reply += "\n\n" + edit
         elif cg["status"] == "done":
             deploy_url = deploy.site_url(session["requirement_id"], base_url)
             session["state"] = "DONE"
@@ -595,6 +692,13 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 # 디자인 컨셉 잡기: NIM이 색·글꼴·구성을 정하고(목록 안에서만), 그 컨셉으로 3안을 그린다
                 card["concept"] = design_concept.make(card)
                 design_log.unmet(session["requirement_id"], card)  # D44: 부품으로 못 담은 요구를 센다
+            if card and card.get("slots") and settings.ui_agent_enabled and not card.get("archetype_override"):
+                # J11 ①: 시안을 만들기 직전, other 업종이면 원형을 한 번 판정한다. 실패해도 그대로 간다.
+                try:
+                    from app.services import archetype as AT
+                    AT.judge(card)
+                except Exception:
+                    log.exception("원형 판정 실패(규칙 원형 유지)")
             d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
                                      card=card)
             session["design_url"] = d["design_url"]
@@ -604,7 +708,15 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             session["codegen"] = None
             session["state"] = "GENERATING"
             _set_room_status(room, "GENERATING")
-            codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
+            if settings.legacy_codegen_enabled:
+                codegen.start(session_id, session["requirement_id"], session.get("last_request", ""))
+            else:
+                # U6: 자유 코드 생성 끔. 폴링이 GENERATING에 멈추지 않게 끝난 것과 같은 표시를 둔다.
+                session["codegen"] = {"status": "skipped", "note": "레거시 코드생성 끔(규칙 시안 흐름)"}
+            if settings.ui_agent_enabled and card is not None:
+                # J11 ③: 규칙 3안을 먼저 보여 주고, 뒤에서 다듬은 안으로 바꾼다.
+                _room_id = room["room_id"] if room else None
+                store.after_commit(lambda: _launch_polish(session_id, session["requirement_id"], _room_id))
             concept_note = (f"디자인 컨셉을 잡았어요.\n{design_concept.summary_line(card['concept'])}\n\n"
                             if card and card.get("concept") else "")
             # 시안 안내: 실제 안 이름(variants의 name)으로 번호를 매긴다. 번호 고르기는 그대로.
@@ -644,6 +756,11 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             reply = _edit_after_design(session, user_text, by, is_owner) or (
                 "무엇을 바꿀까요? 예: '전화번호는 010-1234-5678이에요'. 새로 만들려면 '새 프로젝트'라고 보내 주세요.")
 
+    if room is None:
+        # J11 ③: 1:1에서는 다듬기 안내를 다음 답에 한 줄로 붙인다(방은 별도 메시지로 감).
+        polished = _take_polish_note(session)
+        if polished:
+            reply = f"{reply}\n\n{polished}"
     _record_transition(session_id, state, session["state"])
     # 대화 턴 기록 (AI 성능 평가용, 90일). 폴링처럼 사람이 말하지 않은 턴은 남기지 않는다.
     if user_text:

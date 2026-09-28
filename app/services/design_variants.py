@@ -6,6 +6,7 @@ AI가 화면을 새로 짜지 않는다: 업종 기본 조합(templates/samples)
 import copy
 import json
 from functools import lru_cache
+from pathlib import Path
 from typing import Optional
 
 from app.config import settings
@@ -489,6 +490,48 @@ def _apply_structure(spec: dict, change: dict) -> None:
             sec["variant"] = want
 
 
+def _spoken_palette(card: dict) -> str | None:
+    """사장님이 실제로 말한 색. 카드 컨셉 팔레트가 규칙 컨셉과 다를 때만 그 값."""
+    concept = card.get("concept")
+    if not isinstance(concept, dict):
+        return None
+    said = concept.get("palette")
+    if not isinstance(said, str) or not said:
+        return None
+    try:
+        rule = DC.rule_concept(card).get("palette")
+    except Exception:
+        return None
+    return said if said != rule else None
+
+
+def _photo_path_for_url(url: str) -> Path | None:
+    """업로드 주소(/uploads/로 시작) → 생성물 파일 경로. 밖이면 None."""
+    if not isinstance(url, str) or not url.startswith("/uploads/"):
+        return None
+    rest = [p for p in url[len("/uploads/"):].split("/") if p not in ("", ".", "..")]
+    if not rest:
+        return None
+    return settings.generated_dir / "uploads" / Path(*rest)
+
+
+def _representative_photo_path(card: dict) -> Path | None:
+    """대표 사진 파일 경로: 사장님 사진 첫 장 → AI 예시 hero → 없음.
+
+    예시 팩(/art/ex/)은 사장님 가게 사진이 아니라서 쓰지 않는다.
+    """
+    for photo in card.get("photos") or []:
+        if isinstance(photo, dict):
+            found = _photo_path_for_url(photo.get("url"))
+            if found is not None:
+                return found
+    ai = card.get("ai_images") or {}
+    hero = ai.get("hero") if isinstance(ai, dict) else None
+    if isinstance(hero, dict):
+        return _photo_path_for_url(hero.get("url"))
+    return None
+
+
 def _blueprint_variants(card: dict, blueprint: dict, archetype: str) -> list[dict]:
     """청사진 새 경로 (BUILD_W1_W2 J5): skeleton → tokens → resolve로 3안.
 
@@ -502,14 +545,23 @@ def _blueprint_variants(card: dict, blueprint: dict, archetype: str) -> list[dic
     data = CD.build(card)
     work = copy.deepcopy(card)
     work["data"] = data
-    concept = work.get("concept")
-    mood = concept.get("palette") if isinstance(concept, dict) else None
+    # ② 분위기 색 우선순위: (1) 사장님이 말한 색 → (2) 대표 사진 색 → (3) 원형 후보 첫 값.
+    # 예전에는 concept이 항상 채워져 있어 (2)가 쓰일 기회가 없었다.
+    mood = _spoken_palette(work)
+    photo = None
+    if mood is None:
+        at = _representative_photo_path(work)
+        if at is not None:
+            try:
+                photo = PAL.photo_color(at)
+            except Exception:
+                photo = None
     base_tokens = blueprint.get("tokens") or {}
     out = []
     used: list = []
     for pos, strategy in enumerate(blueprint.get("strategies") or []):
         spec = SD.skeleton(blueprint, pos)
-        pal = PAL.pick(archetype, pos + 1, mood=mood, used=tuple(used))
+        pal = PAL.pick(archetype, pos + 1, mood=mood, used=tuple(used), photo=photo)
         used.append(pal)
         tokens = dict(base_tokens)
         tokens["palette"] = pal
@@ -545,6 +597,19 @@ def _recolor_v3(items: list[dict], archetype: str) -> dict:
     return specs[2]
 
 
+def _agent_apply(card: dict, items: list) -> list:
+    """에이전트 수정 조각 (J11 ui_agent.apply가 있으면 쓴다, 없거나 실패하면 그대로)."""
+    try:
+        from app.services import ui_agent
+        apply = getattr(ui_agent, "apply", None)
+        if not callable(apply):
+            return items
+        result = apply(card, items)
+        return result if isinstance(result, list) and result else items
+    except Exception:
+        return items
+
+
 def variants(card: dict) -> list[dict]:
     """[{id, name, summary, spec}] 3개. 역할 고정 (P3-8, D43): ① 정석 ② 분위기 ③ 대비."""
     try:
@@ -553,12 +618,12 @@ def variants(card: dict) -> list[dict]:
         arch, _ = AT.of(card)
     except Exception:
         blueprint, arch = None, ""
-    if blueprint is not None and arch in ("A", "B"):
+    if blueprint is not None and arch in ("A", "B", "C", "D"):
         try:
-            return _blueprint_variants(card, blueprint, arch)
+            return _agent_apply(card, _blueprint_variants(card, blueprint, arch))
         except Exception:
             pass
-    return _legacy_variants(card)
+    return _agent_apply(card, _legacy_variants(card))
 
 
 def _legacy_variants(card: dict) -> list[dict]:

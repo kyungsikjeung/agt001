@@ -59,6 +59,43 @@ def test_cafe_contact_mode():
     assert card_data.build(plain)["primary_action"] == "visit"
 
 
+def test_academy_classes_parsed():
+    """J5b: 학원 offerings → 반 (이름·대상·요일·시간·정원·수강료)."""
+    card = _card("academy", offerings=["초등 파닉스반 월수 16시 8명", "중등 내신반 화목 오후 6시 정원 10명"],
+                target="초등·중학생")
+    card["price_pairs"] = {"초등 파닉스반": "월 18만원", "중등 내신반": "월 24만원"}
+    classes = card_data.build(card)["classes"]
+    assert classes[0] == {"name": "초등 파닉스반", "target": "초등", "days": "월·수",
+                          "time": "16:00", "capacity": "8명", "fee": "월 18만원", "source": "owner"}
+    assert classes[1]["days"] == "화·목" and classes[1]["time"] == "18:00"
+    assert classes[1]["capacity"] == "10명" and classes[1]["fee"] == "월 24만원"
+
+
+def test_academy_class_without_detail_keeps_name():
+    """J5b: 토막이 없으면 이름 그대로, 빈 값은 비워 둔다."""
+    card = _card("academy", offerings=["토익반"], target="성인")
+    classes = card_data.build(card)["classes"]
+    assert classes == [{"name": "토익반", "target": "성인", "days": "", "time": "",
+                        "capacity": "", "fee": "", "source": "owner"}]
+
+
+def test_pension_rooms_parsed():
+    """J5b: 펜션 offerings → 객실 (이름·인원·요금)."""
+    card = _card("pension", offerings=["101호 복층 4인", "102호(온돌)(4인)", "바베큐장"])
+    card["price_pairs"] = {"101호 복층": "18만원", "102호": "12만원"}
+    rooms = card_data.build(card)["rooms"]
+    assert rooms[0]["name"] == "101호 복층" and rooms[0]["capacity"] == "4인"
+    assert rooms[0]["price"] == "18만원" and rooms[0]["source"] == "owner"
+    assert rooms[1]["name"] == "102호" and rooms[1]["capacity"] == "(4인)"
+    assert rooms[2] == {"name": "바베큐장", "capacity": "", "price": "", "source": "owner"}
+
+
+def test_other_archetypes_have_no_classes_or_rooms():
+    card = _card("cafe", offerings=["아메리카노"])
+    data = card_data.build(card)
+    assert data["classes"] == [] and data["rooms"] == []
+
+
 def test_one_syllable_menu_keeps_price_pair():
     # 미용실 "컷 2만원, 펌 8만원": 한 글자 품목도 가격 짝이 생겨야 한다(실제 대화 경로)
     from app.services import prd_engine as E

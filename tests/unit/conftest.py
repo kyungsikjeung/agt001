@@ -97,6 +97,8 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(design_svc, "screenshot_html", raise_screenshot)
     # 3안 스크린샷도 실제 브라우저를 띄우지 않는다(자리 그림 주소로 폴백). 켜 두면 테스트가 수십 초 느려진다.
     monkeypatch.setattr(design_svc, "screenshot_many", raise_screenshot)
+    # UI 에이전트의 뒤쪽 다듬기 스레드도 끈다(무작위로 끼어들지 않게). 에이전트 흐름 테스트만 켠다.
+    monkeypatch.setattr(settings, "ui_agent_enabled", False)
     # 사진을 올리면 뒤에서 시안을 다시 만드는데, 테스트 사이 DB 정리와 겹치지 않게 끈다(직접 부르는 테스트는 따로).
     from app.services import photos as photos_svc
     monkeypatch.setattr(photos_svc, "_refresh_designs_async", lambda room_id, requirement_id: None)

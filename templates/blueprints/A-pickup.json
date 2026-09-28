@@ -17,7 +17,7 @@
     {"id": "v2", "name": "시그니처형", "journey": "시그니처 보고 → 주문", "tone": "rich",
      "hero": "arch",
      "sections": [
-       {"id": "sign", "type": "intro", "variant": "short", "bind": "none", "label": "시그니처", "nav": "시그니처", "tone": "inverse"},
+        {"id": "sign", "type": "offerings", "variant": "cards", "bind": "signature", "label": "시그니처", "nav": "시그니처", "tone": "inverse"},
        {"id": "menu", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "메뉴", "nav": "메뉴", "order": true},
        {"id": "space", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "공간", "nav": "공간"},
        {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
@@ -27,7 +27,7 @@
     {"id": "v3", "name": "빠른 주문형", "journey": "메뉴 고르고 → 바로 주문", "tone": "calm",
      "hero": "photo-side",
      "sections": [
-       {"id": "today-menu", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "오늘의 메뉴", "nav": "오늘의 메뉴"},
+        {"id": "today-menu", "type": "gallery", "variant": "marquee", "bind": "menu_photos", "label": "오늘의 메뉴", "nav": "오늘의 메뉴"},
        {"id": "menu", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "메뉴", "nav": "메뉴", "order": true},
        {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
        {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"},

@@ -1865,6 +1865,12 @@ body:has(.s-actionbar) { padding-bottom: 84px; }
   --card: #fff;
   --card: color-mix(in oklch, var(--c-ground) 35%, #fff);
   --inverse: color-mix(in oklch, var(--c-primary) 70%, #000);
+  /* 주색 글자(--primary-ink)는 주색을 잉크 쪽으로 20% 섞은 값.
+   * 옅은 띠(--ground-soft) 위에서 주색 그대로는 4.5:1이 안 나오므로
+   * (evergreen 4.45) 글자색으로 쓰는 곳은 이것을 쓴다.
+   * 배경·테두리는 그대로 주색을 쓴다. 모르면 주색이 남는다. */
+  --primary-ink: var(--c-primary);
+  --primary-ink: color-mix(in oklch, var(--c-primary) 80%, var(--c-ink));
   /* 보조 글자(--muted)는 렌더러가 잉크 60%로 깔지만 옅은 띠(--ground-soft) 위에서
    * 4.5:1이 안 나오므로(예약 마감·메뉴 설명·예시 딱지) 여기서 75%로 덮어쓴다.
    * 렌더러보다 뒤에 오므로 지원 브라우저에서는 이 값이 이기고,
@@ -1924,10 +1930,61 @@ section[class^="s-"][data-tone="inverse"] .s-btn:visited {
   color: var(--inverse);
 }
 
-/* 분류 제목은 주색, 분류 칩 바탕은 틴트 면 */
-.s-menu__cat {
+/* 분류 제목은 주색 글자, 분류 칩 바탕은 틴트 면.
+ * 주색 글자로 쓰는 곳은 옅은 띠(--ground-soft) 위에서도 4.5:1을 넘기려고
+ * --primary-ink(주색 80% + 잉크)를 쓴다. 배경·테두리는 그대로 주색. */
+.s-menu__cat,
+.s-kicker,
+.s-btn--ghost,
+.s-btn--ghost:visited,
+a,
+.s-gallery__notice,
+.s-stats__item dd,
+.s-tabs__tab,
+.s-feature__icon,
+.s-price-list__price,
+.s-card__price,
+.ed-arch__eyebrow,
+.ed-arch__label,
+.ed-quick__btn:not(.ed-quick__btn--main),
+.s-chip:hover,
+.s-chip:focus-visible,
+.s-tags li,
+.s-menu__add,
+.s-staff__avatar--mono,
+.s-actionbar__sub {
   color: var(--c-primary);
+  color: var(--primary-ink);
 }
 .s-menu__chips .s-chip {
   background: var(--ground-soft);
+}
+
+/* 짙은 띠 안에서 글자색을 직접 지정한 요소 일괄 덮개 (F2 버그 1).
+ * 위 주색 글자 + 잉크 글자 + 고정 어두운 글자가 띠 안(--inverse)에서는
+ * 1:1처럼 안 보이므로 띠 안 흰 글자 계열(--muted)로 덮는다.
+ * 카드·입력칸 안 글자는 F1 방식 그대로라 뺀다(입력칸은 흰 바탕이라
+ * 어두운 글자가 맞고, 카드는 --card·--muted 재정의로 읽힌다).
+ * 입력 글자(.s-form__row input·textarea·select)·고정 흰 글자는 건드리지 않는다. */
+section[class^="s-"][data-tone="inverse"] .s-gallery__notice,
+section[class^="s-"][data-tone="inverse"] .s-price-list__price,
+section[class^="s-"][data-tone="inverse"] .s-stats__item dd,
+section[class^="s-"][data-tone="inverse"] .s-tabs__tab,
+section[class^="s-"][data-tone="inverse"] .s-feature__icon,
+section[class^="s-"][data-tone="inverse"] .s-chip,
+section[class^="s-"][data-tone="inverse"] .s-chip:hover,
+section[class^="s-"][data-tone="inverse"] .s-chip:focus-visible,
+section[class^="s-"][data-tone="inverse"] .ed-arch__eyebrow,
+section[class^="s-"][data-tone="inverse"] .ed-arch__label,
+section[class^="s-"][data-tone="inverse"] .ed-story__title mark,
+section[class^="s-"][data-tone="inverse"] .s-slots__date strong,
+section[class^="s-"][data-tone="inverse"] .ed-quick__btn:not(.ed-quick__btn--main),
+section[class^="s-"][data-tone="inverse"] .s-actionbar__sub {
+  color: #fff;
+  color: var(--muted);
+}
+/* 띠 안 강조색 글자(마감·품절 상태)는 F1처럼 흰색 쪽으로 섞는다. */
+section[class^="s-"][data-tone="inverse"] .s-slot--few .s-slot__state,
+section[class^="s-"][data-tone="inverse"] .s-date--few .s-date__state {
+  color: color-mix(in oklch, var(--c-accent) 45%, #fff);
 }

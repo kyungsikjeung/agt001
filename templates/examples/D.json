@@ -1,0 +1,112 @@
+{
+  "catalog": [],
+  "classes": [
+    {
+      "capacity": "8명",
+      "days": "월·수",
+      "name": "초등 파닉스반",
+      "target": "초등",
+      "time": "16:00",
+      "fee": "월 18만원"
+    },
+    {
+      "capacity": "10명",
+      "days": "화·목",
+      "name": "중등 내신반",
+      "target": "중등",
+      "time": "18:00",
+      "fee": "월 24만원"
+    }
+  ],
+  "concerns": {
+    "heading": "이런 고민 있으세요?",
+    "items": [
+      "아이가 영어를 싫어하는데, 따라갈 수 있을까요?",
+      "중등 내신 대비는 언제부터 시작해야 할까요?",
+      "수업이 끝나면 집에는 몇 시쯤 돌아오나요?"
+    ],
+    "note": "상담 때 이런 이야기를 나눠요."
+  },
+  "photos": {
+    "hero": "/art/ex/academy-hero.webp",
+    "space:1": "/art/ex/academy-class.webp",
+    "space:2": "/art/ex/academy-study.webp",
+    "staff:1": "/art/ex/academy-teacher.webp"
+  },
+  "prices": {
+    "내신": "월 24만원",
+    "리딩": "월 15만원",
+    "수능": "월 25만원",
+    "파닉스": "월 18만원"
+  },
+  "staff": [
+    {
+      "name": "김믿음",
+      "role": "원장",
+      "specialties": [
+        "초등 영어"
+      ]
+    }
+  ],
+  "timetable": {
+    "days": [
+      "월",
+      "화",
+      "수",
+      "목",
+      "금"
+    ],
+    "rows": [
+      {
+        "cells": [
+          {
+            "day": "월",
+            "text": "초등 파닉스반"
+          },
+          {
+            "day": "화",
+            "text": ""
+          },
+          {
+            "day": "수",
+            "text": "초등 파닉스반"
+          },
+          {
+            "day": "목",
+            "text": ""
+          },
+          {
+            "day": "금",
+            "text": ""
+          }
+        ],
+        "time": "16:00"
+      },
+      {
+        "cells": [
+          {
+            "day": "월",
+            "text": ""
+          },
+          {
+            "day": "화",
+            "text": "중등 내신반"
+          },
+          {
+            "day": "수",
+            "text": ""
+          },
+          {
+            "day": "목",
+            "text": "중등 내신반"
+          },
+          {
+            "day": "금",
+            "text": ""
+          }
+        ],
+        "time": "18:00"
+      }
+    ]
+  }
+}

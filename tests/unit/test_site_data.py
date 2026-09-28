@@ -251,3 +251,168 @@ def test_menu_photos_uses_owner_first_then_category_pack():
     assert items[0]["src"] == "/uploads/lab-x/p2.jpg"
     assert all("ai" not in i for i in items)
     SR.render_site(spec)
+
+
+ACADEMY_DATA = {
+    "version": 1, "mode": "", "primary_action": "consult",
+    "catalog": [],
+    "staff": [{"name": "김믿음", "role": "원장", "specialties": ["초등"], "source": "owner"}],
+    "classes": [
+        {"name": "초등 파닉스반", "target": "초등", "days": "월·수", "time": "16:00",
+         "capacity": "8명", "fee": "월 18만원", "source": "owner"},
+        {"name": "초등 리딩반", "target": "초등", "days": "금", "time": "16:00",
+         "capacity": "", "fee": "", "source": "owner"},
+    ],
+    "rooms": [], "schedule": None,
+}
+
+PENSION_DATA = {
+    "version": 1, "mode": "", "primary_action": "reserve",
+    "catalog": [], "staff": [],
+    "classes": [],
+    "rooms": [
+        {"name": "101호 복층", "capacity": "기준 4인", "price": "1박 18만원",
+         "source": "owner", "features": ["복층"]},
+        {"name": "201호", "capacity": "", "price": "", "source": "owner"},
+    ],
+    "schedule": None,
+}
+
+
+def _academy_card():
+    return {
+        "slots": {"shop_name": _slot("믿음영어"), "phone": _slot("02-777-8888"),
+                  "hours": _slot("평일 14~22시"), "location": _slot("서울 노원구 상계로 77")},
+        "copy": {},
+        "data": copy.deepcopy(ACADEMY_DATA),
+    }
+
+
+def _pension_card():
+    return {
+        "slots": {"shop_name": _slot("숲속의 쉼"), "phone": _slot("033-000-1111"),
+                  "hours": _slot("입실 15시·퇴실 11시"), "location": _slot("강원 평창군 봉평면")},
+        "copy": {},
+        "data": copy.deepcopy(PENSION_DATA),
+    }
+
+
+def _bind_bp(bind, section_type="classes", variant="cards", label="반 안내", **extra):
+    node = {"id": "x", "type": section_type, "variant": variant,
+            "bind": bind, "label": label, "nav": label}
+    node.update(extra)
+    return {
+        "archetype": "D",
+        "primary": {"label": "상담 신청", "target": "booking"},
+        "tokens": dict(CAFE_TOKENS),
+        "strategies": [{
+            "id": "v1", "name": "형", "journey": "보기 → 상담", "tone": "calm",
+            "hero": "photo-overlay",
+            "sections": [
+                node,
+                {"id": "booking", "type": "booking", "variant": "slots",
+                 "bind": "booking", "label": "상담 예약"},
+            ],
+        }],
+    }
+
+
+def test_classes_fee_owner_first_example_marked():
+    """J5b: 수강료는 사장님 값 우선, 모르면 예시 파일 값 + fee_example."""
+    spec = site_data.resolve(site_data.skeleton(_bind_bp("classes"), 0), _academy_card(), archetype="D")
+    got = {c["name"]: c for c in _section(spec, "classes")["content"]["classes"]}
+    assert got["초등 파닉스반"]["fee"] == "월 18만원" and "fee_example" not in got["초등 파닉스반"]
+    assert got["초등 리딩반"]["fee"] == "월 15만원" and got["초등 리딩반"]["fee_example"] is True
+    assert _section(spec, "classes")["content"]["cta_href"] == "#booking-title-booking"
+    SR.render_site(spec)
+
+
+def test_timetable_from_classes_and_example_fallback():
+    """J5b: 시간표는 반 요일·시간으로, 없으면 예시 표 + example."""
+    spec = site_data.resolve(
+        site_data.skeleton(_bind_bp("timetable", "timetable", "week", "시간표"), 0),
+        _academy_card(), archetype="D")
+    table = _section(spec, "timetable")["content"]
+    assert table["days"] == ["월", "수", "금"] and "example" not in table
+    assert table["rows"][0]["time"] == "16:00"
+    assert table["rows"][0]["cells"][0] == {"day": "월", "text": "초등 파닉스반"}
+    card = _academy_card()
+    card["data"]["classes"] = []
+    spec = site_data.resolve(
+        site_data.skeleton(_bind_bp("timetable", "timetable", "week", "시간표"), 0),
+        card, archetype="D")
+    table = _section(spec, "timetable")["content"]
+    assert table["example"] is True and table["rows"]
+    SR.render_site(spec)
+
+
+def test_rooms_image_and_price_example():
+    """J5b: 객실은 예시 사진 + image_example, 모르는 요금은 예시 값 + price_example."""
+    spec = site_data.resolve(
+        site_data.skeleton(_bind_bp("rooms", "rooms", "cards", "객실"), 0),
+        _pension_card(), archetype="C")
+    content = _section(spec, "rooms")["content"]
+    first, second = content["rooms"]
+    assert first["price"] == "1박 18만원" and "price_example" not in first
+    assert first["image"] == "/art/ex/pension-room1.webp" and first["image_example"] is True
+    assert second.get("price", "") == "" and "price_example" not in second
+    assert content["booking_href"] == "#booking-title-booking"
+    SR.render_site(spec)
+
+
+def test_dates_fourteen_example_days():
+    """J5b: 입실일은 예시 14일 + days_example, 객실 이름, nights_max 3."""
+    spec = site_data.resolve(
+        site_data.skeleton(_bind_bp("dates", "booking", "dates", "예약"), 0),
+        _pension_card(), archetype="C")
+    content = _section(spec, "dates")["content"]
+    assert len(content["days"]) == 14 and content["days_example"] is True
+    assert content["rooms"] == ["101호 복층", "201호"] and content["nights_max"] == 3
+    assert {d["state"] for d in content["days"]} <= {"open", "few", "full"}
+    SR.render_site(spec)
+
+
+def test_concerns_example_three():
+    """J5b: 고민은 예시 파일 3개, who는 예시."""
+    spec = site_data.resolve(
+        site_data.skeleton(_bind_bp("concerns", "concerns", "bubbles", "고민"), 0),
+        _academy_card(), archetype="D")
+    content = _section(spec, "concerns")["content"]
+    assert len(content["items"]) == 3
+    assert all(i["who"] == "예시" and i["quote"] for i in content["items"])
+    SR.render_site(spec)
+
+
+def test_staff_variant_follows_count_and_optional_drop():
+    """J5b: 선생님 1명 solo·2명 이상 team, 없으면 optional 섹션 없음."""
+    solo = site_data.resolve(
+        site_data.skeleton(_bind_bp("staff", "staff", "solo", "선생님", optional=True), 0),
+        _academy_card(), archetype="D")
+    assert _section(solo, "staff")["variant"] == "solo"
+    card = _academy_card()
+    card["data"]["staff"].append(
+        {"name": "이열심", "role": "강사", "specialties": ["중등"], "source": "owner"})
+    team = site_data.resolve(
+        site_data.skeleton(_bind_bp("staff", "staff", "solo", "선생님", optional=True), 0),
+        card, archetype="D")
+    assert _section(team, "staff")["variant"] == "team"
+    assert [m["name"] for m in _section(team, "staff")["content"]["members"]] == ["김믿음", "이열심"]
+    empty = _academy_card()
+    empty["data"]["staff"] = []
+    dropped = site_data.resolve(
+        site_data.skeleton(_bind_bp("staff", "staff", "solo", "선생님", optional=True), 0),
+        empty, archetype="D")
+    assert [s.get("bind") for s in dropped["sections"]] == ["hero", "booking"]
+    SR.render_site(dropped)
+
+
+def test_signature_picks_first_per_category_max_three():
+    """J5b: 시그니처는 분류마다 첫 품목, 최대 3개, 분류 사진·가격."""
+    spec = site_data.resolve(
+        site_data.skeleton(_bind_bp("signature", "offerings", "cards", "시그니처"), 0),
+        _cafe_card(), archetype="A")
+    content = _section(spec, "signature")["content"]
+    assert content["label"] == "시그니처"
+    assert [i["name"] for i in content["items"]] == ["아메리카노", "유자에이드", "바스크치즈케이크"]
+    assert all(i.get("image", "").startswith("/art/ex/") for i in content["items"])
+    SR.render_site(spec)

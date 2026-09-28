@@ -37,6 +37,12 @@ class Settings(BaseSettings):
 
     design_screenshot_timeout_ms: int = 15000
 
+    # UI 에이전트(J11, UI_AGENT_PLAN §4). 명세 조각만 고치고 그리는 건 엔진이 한다.
+    ui_agent_enabled: bool = True
+    ui_agent_timeout_sec: float = 20.0
+    # 자유 코드 생성(Hermes codegen.start, U6). 끄면 규칙 시안 흐름만 돌고 GENERATING에 멈추지 않게 넘긴다.
+    legacy_codegen_enabled: bool = False
+
     codegen_timeout_sec: int = 90
     hermes_sandbox_image: str = "reqpipe-hermes-sandbox:latest"
     nvidia_api_key: Optional[str] = None

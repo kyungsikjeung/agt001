@@ -114,7 +114,7 @@ def test_blueprint_path_cafe_names_sections_palette():
     assert [v["id"] for v in vs] == ["v1", "v2", "v3"]
     assert [v["name"] for v in vs] == ["메뉴판형", "공간·방문형", "시그니처형"]
     assert [v["summary"] for v in vs] == ["메뉴 보고 → 길찾기", "공간 보고 → 길찾기", "대표 메뉴 보고 → 길찾기"]
-    seconds = [v["spec"]["sections"][1]["type"] for v in vs]
+    seconds = [(v["spec"]["sections"][1]["type"], v["spec"]["sections"][1].get("variant")) for v in vs]
     assert len(set(seconds)) == 3
     assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "espresso"
     assert DV.min_distance([v["spec"] for v in vs]) >= DV.MIN_DISTANCE
@@ -148,3 +148,78 @@ def test_blueprint_path_staff_example_when_empty():
     vs = DV.variants(_salon_card())
     staff = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "staff")
     assert staff["content"]["members"] and all(m.get("example") is True for m in staff["content"]["members"])
+
+
+def _academy_card():
+    card = E.new_card("academy")
+    E._put(card, "business_type", "영어 학원", S.FILLED, 1)
+    E._put(card, "shop_name", "믿음영어", S.FILLED, 1)
+    E._put(card, "offerings", ["초등 파닉스반 월수 16시 8명", "중등 내신반"], S.FILLED, 1)
+    E._put(card, "staff", ["김믿음 원장(초등)"], S.FILLED, 1)
+    E._put(card, "phone", "02-777-8888", S.FILLED, 1)
+    E._put(card, "location", "서울 노원구 상계로 77", S.FILLED, 1)
+    card["price_pairs"] = {"초등 파닉스반": "월 18만원"}
+    card["turn"] = 1
+    return card
+
+
+def _pension_card():
+    card = E.new_card("pension")
+    E._put(card, "business_type", "펜션", S.FILLED, 1)
+    E._put(card, "shop_name", "숲속의 쉼", S.FILLED, 1)
+    E._put(card, "offerings", ["101호 복층 4인", "102호 온돌"], S.FILLED, 1)
+    E._put(card, "phone", "033-000-1111", S.FILLED, 1)
+    E._put(card, "hours", "입실 15시·퇴실 11시", S.FILLED, 1)
+    E._put(card, "location", "강원 평창군 봉평면", S.FILLED, 1)
+    card["price_pairs"] = {"101호 복층": "18만원"}
+    card["turn"] = 1
+    return card
+
+
+def test_blueprint_path_academy_names_sections_palette():
+    """J5b 새 경로(D): 안 이름이 청사진 전략 이름, ① 팔레트는 navy, 반·시간표·선생님이 든다."""
+    vs = DV.variants(_academy_card())
+    assert [v["id"] for v in vs] == ["v1", "v2", "v3"]
+    assert [v["name"] for v in vs] == ["반·시간표형", "선생님·신뢰형", "상담 우선형"]
+    seconds = [(v["spec"]["sections"][1]["type"], v["spec"]["sections"][1].get("variant")) for v in vs]
+    assert len(set(seconds)) == 3
+    assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "navy"
+    assert DV.min_distance([v["spec"] for v in vs]) >= DV.MIN_DISTANCE
+    classes = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "classes")
+    assert [c["name"] for c in classes["content"]["classes"]] == ["초등 파닉스반", "중등 내신반"]
+    staff = next(s for s in vs[1]["spec"]["sections"] if s.get("bind") == "staff")
+    assert staff["variant"] == "solo"
+    assert [m["name"] for m in staff["content"]["members"]] == ["김믿음"]
+
+
+def test_blueprint_path_pension_rooms_and_dates():
+    """J5b 새 경로(C): ① 팔레트는 forest, 객실 카드 수 = 객실 수, 입실일은 예시 14일."""
+    vs = DV.variants(_pension_card())
+    assert [v["name"] for v in vs] == ["객실 선택형", "풍경·경험형", "요금·날짜형"]
+    assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "forest"
+    assert DV.min_distance([v["spec"] for v in vs]) >= DV.MIN_DISTANCE
+    rooms = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "rooms")
+    assert [r["name"] for r in rooms["content"]["rooms"]] == ["101호 복층", "102호 온돌"]
+    dates = next(s for s in vs[2]["spec"]["sections"] if s.get("bind") == "dates")
+    assert len(dates["content"]["days"]) == 14 and dates["content"]["days_example"] is True
+
+
+def test_agent_hook_applies_and_falls_back(monkeypatch):
+    """J5b: ui_agent.apply가 있으면 쓰고, 없거나 깨지면 그대로 돌려준다."""
+    from app.services import ui_agent
+    card = _pension_card()
+    plain = DV.variants(card)
+    assert len(plain) == 3
+    monkeypatch.setattr(ui_agent, "apply",
+                        lambda c, items: [{"id": v["id"], "name": v["name"] + "+",
+                                           "summary": v["summary"], "spec": v["spec"]}
+                                          for v in items])
+    marked = DV.variants(card)
+    assert [v["name"] for v in marked] == [v["name"] + "+" for v in plain]
+
+    def broken(card, items):
+        raise RuntimeError("깨짐")
+    monkeypatch.setattr(ui_agent, "apply", broken)
+    assert DV.variants(card)[0]["name"] == plain[0]["name"]
+    monkeypatch.delattr(ui_agent, "apply")
+    assert DV.variants(card)[0]["name"] == plain[0]["name"]

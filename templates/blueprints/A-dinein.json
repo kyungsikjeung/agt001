@@ -25,7 +25,7 @@
     {"id": "v3", "name": "시그니처형", "journey": "대표 메뉴 보고 → 길찾기", "tone": "calm",
      "hero": "arch",
      "sections": [
-       {"id": "sign", "type": "intro", "variant": "short", "bind": "none", "label": "시그니처", "nav": "시그니처"},
+        {"id": "sign", "type": "offerings", "variant": "cards", "bind": "signature", "label": "시그니처", "nav": "시그니처"},
        {"id": "menu", "type": "offerings", "variant": "categories", "bind": "catalog", "label": "메뉴", "nav": "메뉴"},
         {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
         {"id": "inquiry", "type": "contact", "variant": "form", "bind": "none"}
