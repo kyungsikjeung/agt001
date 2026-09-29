@@ -121,10 +121,10 @@
   #progressWrap { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); }
   #progressWrap[hidden] { display: none; }
   #progressTrack { flex: none; width: 72px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
-  #progressFill { height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .2s ease-out; }
+  #progressFill { height: 100%; width: 100%; background: var(--accent); border-radius: 2px; transform: scaleX(0); transform-origin: left; transition: transform .2s ease-out; }
   #progressText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   /* P0: 출처 라벨 (AI 정리) · 견적 고지 (참고용) · 문의 보관 안내 */
-  .src-note, .quote-note, .inquiry-note { font-size: 0.75rem; border-radius: 6px; padding: 6px 8px; margin-top: 8px; }
+  .src-note, .quote-note, .inquiry-note { font-size: 0.75rem; border-radius: 6px; padding: 8px 12px; margin-top: 8px; }
   .src-note { background: #eef2ff; color: var(--accent-dark); }
   .quote-note { background: #fff7e6; border: 1px solid #f5c26b; color: #713f12; }
   .inquiry-note { background: none; color: var(--text-muted); padding: 4px 0 0; }
@@ -600,7 +600,7 @@ function hueFromString(s) {
           }
           return;
         }
-        if (waitFill) waitFill.style.width = Math.min(95, (t / 180) * 100) + '%';
+        if (waitFill) waitFill.style.transform = 'scaleX(' + Math.min(0.95, t / 180) + ')';
       };
       const showWaiting = () => {
         if (waitBox) return;
@@ -617,7 +617,7 @@ function hueFromString(s) {
         track.style.cssText = 'width:80%;height:6px;border-radius:3px;background:var(--border);overflow:hidden;';
         track.setAttribute('aria-hidden', 'true');
         waitFill = document.createElement('div');
-        waitFill.style.cssText = 'height:100%;width:0;background:var(--accent);border-radius:3px;';
+        waitFill.style.cssText = 'height:100%;width:100%;background:var(--accent);border-radius:3px;transform:scaleX(0);transform-origin:left;';
         track.appendChild(waitFill);
         waitBox.appendChild(track);
         thumb.appendChild(waitBox);
@@ -1035,7 +1035,7 @@ function updateProgress() {
   if (!wrap || !fill || !text) return;
   if (!questionCount) { wrap.hidden = true; return; }
   wrap.hidden = false;
-  fill.style.width = Math.min(100, Math.round((questionCount / 8) * 100)) + '%';
+  fill.style.transform = 'scaleX(' + Math.min(1, questionCount / 8) + ')';
   text.textContent = '질문 ' + questionCount + ' · ‘시안 먼저’라고 하면 건너뜰 수 있어요';
 }
 
