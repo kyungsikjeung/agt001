@@ -128,12 +128,15 @@ def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def honor(nickname: str) -> str:
+    """호칭에 '님'을 붙인다. 이미 '님'으로 끝나면 그대로 둔다."""
+    name = nickname or ""
+    return name if name.endswith("님") else f"{name}님"
+
+
 def joined_text(nickname: str) -> str:
     """입장 알림 글. '사장님'처럼 이미 '님'으로 끝나면 조사를 붙이지 않는다."""
-    name = nickname or ""
-    if name.endswith("님"):
-        return f"{name}이 입장했습니다."
-    return f"{name}님이 입장했습니다."
+    return f"{honor(nickname)}이 입장했습니다."
 
 
 def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "chat",
@@ -238,7 +241,7 @@ def transfer_owner(room_id: str, member_id_raw, to_handle: str) -> str:
             raise InvalidRequest("member not found")
         room["members"].remove(target)
         room["members"].insert(0, target)
-        _append(room, "system", "시스템", f"{target['nickname']}님이 방장이 됐어요.", kind="system")
+        _append(room, "system", "시스템", f"{honor(target['nickname'])}이 방장이 됐어요.", kind="system")
         return member_handle(safe_id, target["member_id"])
 
 
@@ -252,10 +255,10 @@ def leave(room_id: str, member_id_raw) -> None:
         me = _member(room, member_id)
         room["members"].remove(me)
         room["votes"].pop(member_id, None)
-        text = f"{me['nickname']}님이 나갔어요."
+        text = f"{honor(me['nickname'])}이 나갔어요."
         if was_owner and room["members"]:
             # 방장이 나가면 가장 먼저 들어온 참여자에게 넘어간다(ROOM_POLICY §2).
-            text += f" 이제 {room['members'][0]['nickname']}님이 방장이에요."
+            text += f" 이제 {honor(room['members'][0]['nickname'])}이 방장이에요."
         _append(room, "system", "시스템", text, kind="system")
 
 
@@ -355,14 +358,17 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
 
         # 승인 게이트는 전원 동의(D52). 모두 동의하면 다음 단계, 한 명이라도 거절하면 고칠 점을 다시 모은다.
         vote_reject = chat_flow.intent(user_text, "reject")
-        if session["state"] == "AWAIT_APPROVAL" and (vote_reject or chat_flow.intent(user_text, "approve")):
+        vote_approve = chat_flow.intent(user_text, "approve")
+        # 빈칸이 남았으면 동의표를 세지 않고 고치는 말로 넘긴다 (빠진 게 없을 때만 동의).
+        if session["state"] == "AWAIT_APPROVAL" and (vote_reject or vote_approve) and not (
+                chat_flow.fill_first(session) and not vote_reject):
             vote = "reject" if vote_reject else "approve"
             room["votes"][member_id] = vote
             total = len(room["members"])
             approve_n, reject_n = tally(room["votes"])
             _append(
                 room, "system", "시스템",
-                f"{nickname}님이 {'동의' if vote == 'approve' else '거절'}했습니다 (동의 {approve_n}/{total})"
+                f"{honor(nickname)}이 {'동의' if vote == 'approve' else '거절'}했습니다 (동의 {approve_n}/{total})"
                 + (" · 모두 동의하면 다음 단계로 넘어가요" if vote == "approve" and approve_n < total else ""),
                 kind="vote",
             )
@@ -427,6 +433,7 @@ def get_messages(room_id: str, since: int, base_url: str, member_id_raw=None) ->
         "invite_required": bool(room.get("invite_required")),
         "votes": {member_handle(safe_id, k): v for k, v in room["votes"].items()},
         "state": session.get("state"),
+        "fill_first": chat_flow.fill_first(session),
         "deploy_url": session.get("deploy_url"),
         "design_url": session.get("design_url"),
         "design_preview_url": session.get("design_preview_url"),

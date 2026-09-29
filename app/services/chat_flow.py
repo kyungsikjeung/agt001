@@ -105,11 +105,34 @@ def _approval_ask() -> str:
     return APPROVAL_ASK if settings.quote_enabled else APPROVAL_ASK_DESIGN
 
 
+def _missing_labels(card: dict) -> list[str]:
+    """비어 있는 사실 칸의 업종별 이름. 카드 slots 순서대로, PLACEHOLDER만 본다."""
+    ind = prd_engine.industry_of(card)
+    return [prd_engine.S.label_for(ind, k) for k, v in (card.get("slots") or {}).items()
+            if (v or {}).get("status") == prd_engine.S.PLACEHOLDER]
+
+
+def fill_first(session: dict) -> bool:
+    """빈칸을 먼저 채워야 하는지 (표시는 저장되는 카드 안에 둔다)."""
+    return bool((session.get("prd") or {}).get("fill_first"))
+
+
+def _fill_first_ask(labels: list[str]) -> str:
+    """비어 있는 곳을 먼저 묻는 말. 동의 질문 대신 쓴다."""
+    return (f"시안 전에 비어 있는 곳을 알려 주세요: {', '.join(labels)}\n"
+            "예: '전화번호는 010-1234-5678, 위치는 망원동이에요'\n"
+            "지금 모르면 '나중에'라고 보내 주세요. 비워 둔 채로 시안을 만들어요.")
+
+
 def _gate_or_summary(session: dict, card: dict, room, engine_trace, again: bool = False) -> str:
     """질문을 마친 카드를 승인으로 보내기 전의 게이트(D34 보완, 2026-09-26 대표 지적).
 
     검토(리뷰어)는 한 번만 돌고, 검토가 넣은 기능의 확인·방장 확인·어긋난 값이 남아 있으면 먼저 묻는다.
     모두 닫혀야 요약과 승인 질문(승인 버튼)이 나온다 — 승인 뒤에 "빠진 게 있다"가 나오지 않게."""
+    # "시안 먼저·알아서"로 끝냈으면 이미 건너뛰기를 고른 것이라 빈칸을 다시 묻지 않는다
+    # (확인 질문을 하나 거친 뒤 요약에 와도 같다).
+    if (engine_trace or {}).get("skip"):
+        card["fill_later"] = True
     gate = prd_engine.close_gate(card)
     rv = gate["review"]
     if engine_trace is not None and rv is not None:
@@ -128,6 +151,11 @@ def _gate_or_summary(session: dict, card: dict, room, engine_trace, again: bool 
             photo_needs.judge(card)
         except Exception:
             log.exception("사진 필요 판단 실패(건너뜀)")
+    # 비어 있는 사실 칸이 있으면 동의보다 먼저 채우도록 묻는다 (빠진 게 없을 때만 동의).
+    labels = _missing_labels(card)
+    card["fill_first"] = bool(labels) and not card.get("fill_later")
+    if again and card["fill_first"]:
+        return f"{prd_engine.summary_text(card)}\n\n{_fill_first_ask(labels)}"
     if again:
         return f"{prd_engine.summary_text(card)}\n\n{_approval_ask()}"
     # 사진 선택지는 요약 때 1회만. 일찍 물어봤으면 다시 붙이지 않는다(D48).
@@ -153,7 +181,8 @@ def _gate_or_summary(session: dict, card: dict, room, engine_trace, again: bool 
             pre_note = "시안 전에 사진을 올리시면 바로 넣어 드려요. 아래 '사진' 버튼을 눌러 주세요.\n\n"
     return (f"정리했어요.\n{prd_engine.summary_text(card)}\n\n" + (f"{note}\n\n" if note else "")
             + photo_note
-            + f"{_rag_note(spec)}\n\n{pre_note}{_approval_ask()}")
+            + f"{_rag_note(spec)}\n\n{pre_note}"
+            + (_fill_first_ask(labels) if card["fill_first"] else _approval_ask()))
 
 
 def _rag_note(spec: str) -> str:
@@ -658,9 +687,11 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
         ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
         ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
            if (card or {}).get("copy") else "") +
-        (_photo_later_reminder(card) +
-         "뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
-         "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요.")
+        _photo_later_reminder(card) +
+        # 예전 코드생성이 꺼져 있으면(운영 기본) 파일을 만들지 않으니 만든다고 말하지 않는다.
+        ("뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
+         "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."
+         if settings.legacy_codegen_enabled else "")
     )
 
 
@@ -805,7 +836,11 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
                 session["state"] = "GATHERING"
             _set_room_status(room, "IDLE")
         elif state == "AWAIT_APPROVAL":
-            reply = "승인 또는 거절로 답해주세요."
+            # 빈칸이 남았으면 동의 전에 채우도록 다시 묻는다 (빠진 게 없을 때만 동의).
+            if fill_first(session):
+                reply = _fill_first_ask(_missing_labels(session["prd"]))
+            else:
+                reply = "승인 또는 거절로 답해주세요."
         elif state == "QUOTED":
             reply = "이대로 시안을 만들까요? (진행/취소)"
         else:  # DONE: 빈 메시지로 재시작하지 않고 완료 상태를 유지한다
@@ -851,7 +886,25 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
             _set_room_status(room, "IDLE")
 
     elif state == "AWAIT_APPROVAL":
-        if intent(user_text, "reject"):
+        # 빈칸이 남았으면 동의를 먼저 받지 않고 채우도록 한다 (빠진 게 없을 때만 동의).
+        if fill_first(session):
+            card = session["prd"]
+            if "나중" in prd_engine._norm(user_text or ""):
+                card["fill_later"] = True
+                card["fill_first"] = False
+                reply = ("알겠어요. 비워 둔 곳은 시안에 [입력 필요]로 보여요. "
+                         "공개 전에 한 번 더 알려 드릴게요.\n\n" + _approval_ask())
+            elif intent(user_text, "reject"):
+                card["fill_first"] = False
+                session["state"] = "GATHERING"
+                reply = "알겠습니다. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요."
+            else:
+                fixed = _apply_correction(session, user_text, by, is_owner)
+                if fixed:
+                    reply = f"고쳤어요: {fixed}\n" + _gate_or_summary(session, session["prd"], room, None, again=True)
+                else:
+                    reply = "아직 비어 있는 곳이 있어요.\n" + _fill_first_ask(_missing_labels(card))
+        elif intent(user_text, "reject"):
             session["state"] = "GATHERING"
             reply = "알겠습니다. 무엇을 고칠까요? 바꿀 내용을 말씀해 주세요."
         elif intent(user_text, "approve"):

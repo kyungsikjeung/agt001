@@ -16,6 +16,11 @@ def test_joined_text_nim_ending():
     assert rooms.joined_text("민수") == "민수님이 입장했습니다."
 
 
+def test_honor_keeps_nim_ending():
+    assert rooms.honor("사장님") == "사장님"
+    assert rooms.honor("민수") == "민수님"
+
+
 def test_lead_text_pension_offerings():
     assert design_concept.lead_text({"lead": "offerings", "industry": "pension"}) == "객실 먼저"
     assert design_concept.lead_text({"lead": "offerings"}) == "메뉴·상품 먼저"
@@ -48,3 +53,28 @@ def test_pension_render_uses_checkin_label():
                           kind=DV.kind_for(card))
     assert "입실·퇴실" in html
     assert ">영업<" not in html
+
+
+def _gate(monkeypatch, skip):
+    monkeypatch.setattr(E, "close_gate", lambda card: {"question": None, "review": None})
+    monkeypatch.setattr(chat_flow, "_rag_note", lambda spec: "")
+    card = E.new_card("restaurant")
+    E._put(card, "shop_name", "내맘", S.FILLED, 1)
+    E._put(card, "phone", None, S.PLACEHOLDER, 1)
+    E._put(card, "location", None, S.PLACEHOLDER, 1)
+    session = {"state": "GATHERING", "prd": card}
+    reply = chat_flow._gate_or_summary(session, card, None, {"skip": skip})
+    return session, card, reply
+
+
+def test_gate_asks_missing_before_approval(monkeypatch):
+    session, card, reply = _gate(monkeypatch, skip=False)
+    assert session["state"] == "AWAIT_APPROVAL" and chat_flow.fill_first(session)
+    assert "시안 전에 비어 있는 곳을 알려 주세요: 전화번호, 위치" in reply
+    assert "시안을 만들어 볼까요" not in reply
+
+
+def test_gate_skip_goes_straight_to_approval(monkeypatch):
+    session, card, reply = _gate(monkeypatch, skip=True)
+    assert not chat_flow.fill_first(session) and card["fill_later"] is True
+    assert "시안을 만들어 볼까요" in reply

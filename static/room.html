@@ -703,7 +703,9 @@ function bookingStatusText(status, mine) {
 }
 // 본문을 그대로 두되 전화번호는 tel:, 우리 사이트 주소는 누를 수 있는 고리로 만든다. innerHTML은 쓰지 않는다.
 // 다른 사이트 주소는 글자로 둔다(누가 적은 주소가 봇 답에 섞여도 낚시 고리가 되지 않게).
-const LINK_LABELS = [[/^\/auth\/kakao\/start$/, '카카오로 로그인하기'], [/^\/auth\/google\/start$/, '구글로 로그인하기']];
+// 주소 글자 대신 보일 말 (시안 주소는 사장님이 알 필요가 없다). 공개 사이트 주소는 알리려고 그대로 보인다.
+const LINK_LABELS = [[/^\/auth\/kakao\/start$/, '카카오로 로그인하기'], [/^\/auth\/google\/start$/, '구글로 로그인하기'],
+  [/^\/design\/[^/]+\/?$/, '열어 보기'], [/^\/editor$/, '열기']];
 function ownLink(shown) {
   let url = null;
   try { url = new URL(shown, location.origin); } catch (e) { return null; }
@@ -712,7 +714,7 @@ function ownLink(shown) {
   link.href = url.href;
   const label = LINK_LABELS.find(([re]) => re.test(url.pathname));
   link.textContent = label ? label[1] : shown;
-  if (!label) { link.target = '_blank'; link.rel = 'noopener'; }  // 로그인은 이 창에서, 시안·사이트는 새 창
+  if (!url.pathname.startsWith('/auth/')) { link.target = '_blank'; link.rel = 'noopener'; }  // 로그인은 이 창에서, 시안·사이트는 새 창
   return link;
 }
 function appendPhoneLinkedText(box, raw) {
@@ -909,7 +911,9 @@ function addMessage(m, isNew) {
   }
   const text = document.createElement('div');
   text.className = 'text';
-  text.textContent = m.text || '';
+  // 봇 답 속 우리 사이트 주소·전화번호는 누를 수 있게 (F4)
+  if (m.kind === 'ai_reply') appendPhoneLinkedText(text, m.text || '');
+  else text.textContent = m.text || '';
   bubble.appendChild(text);
   // P0: 출처 라벨 — AI가 정리한 요구사항 되짚기에는 근거 표시를 붙인다
   if (m.kind === 'ai_reply' && /이렇게 이해했어요|다시 읽어 보니|빠진 게 있어/.test(m.text || '')) {
@@ -1176,14 +1180,15 @@ function renderChoices(q) {
   choiceBar.classList.add('show');
 }
 
-function updateActionBars(state, votes) {
+function updateActionBars(state, votes, fillFirst) {
   // 방 상태를 기억해 updateProgress가 요약 뒤 윗줄 바를 숨기게 한다
   lastRoomState = state || '';
   if (state && state !== 'GREETING' && state !== 'GATHERING') {
     const wrap = document.getElementById('progressWrap');
     if (wrap) wrap.hidden = true;
   }
-  voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL' && lastAiStatus !== 'GENERATING');
+  // 빈칸이 남았으면 동의 바를 숨긴다 (먼저 채우고 동의)
+  voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL' && !fillFirst && lastAiStatus !== 'GENERATING');
   // D52: 공유방은 전원 동의해야 다음 단계. 몇 명이 동의했는지 보여 준다.
   const total = roomMembers.length;
   const agreed = Object.values(votes || {}).filter(v => v === 'approve').length;
@@ -1235,7 +1240,7 @@ async function pollMessages() {
     renderChoices(data.question || null);
     if (Array.isArray(data.members)) roomMembers = data.members;
     if (data.me) roomMe = data.me;
-    updateActionBars(data.state, data.votes);
+    updateActionBars(data.state, data.votes, data.fill_first);
     document.getElementById('talkModeBar').hidden = roomMembers.length < 2;
     if (roomMembers.length < 2 && !sendToAi) setTalkMode(true);
     if (data.design_url) hasDesign = true;

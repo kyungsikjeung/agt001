@@ -331,6 +331,25 @@ def _has_batchim(ch: str) -> bool:
     return 0xAC00 <= o <= 0xD7A3 and (o - 0xAC00) % 28 != 0
 
 
+# 받침 있을 때·없을 때 조사, 한글이 아닌 끝(숫자·영문)이면 읽는 법을 몰라 둘 다 보인다
+_JOSA = {"은는": ("은", "는", "은(는)"), "을를": ("을", "를", "을(를)"),
+         "이라고": ("이라고", "라고", "(이)라고"), "으로": ("으로", "로", "(으)로")}
+
+
+def _josa(word: str, pair: str, quote: bool = False) -> str:
+    """낱말 뒤 조사를 받침에 맞춰 붙인다 ("메뉴는", "가게 이름은", "'서울'로"). quote면 따옴표로 감싼다."""
+    w = str(word or "")
+    with_b, without_b, unknown = _JOSA[pair]
+    last = w[-1:] or " "
+    shown = f"'{w}'" if quote else w
+    if not 0xAC00 <= ord(last) <= 0xD7A3:
+        return shown + unknown
+    batchim = (ord(last) - 0xAC00) % 28
+    if pair == "으로" and batchim == 8:  # ㄹ 받침은 "로" (서울로)
+        return shown + without_b
+    return shown + (with_b if batchim else without_b)
+
+
 # 조사 후보: 낱말 셋째 글자부터, 뒤에 공백이 올 때만 (결과·사랑·와플·과외는 살린다).
 _JOIN_PARTICLE = re.compile(r"(?<=\S\S)(이랑|와|과|랑)(?=\s)")
 # '이'로 끝나는 흔한 명사: "떡볶이랑"은 떡볶이+랑이지 떡볶+이랑이 아니다 (받침만으로 못 가림).
@@ -455,6 +474,9 @@ def _strip_label(ind, key: str, value: str) -> str:
     for label in sorted({S.label_for(ind, key), S.SLOTS[key].label}, key=len, reverse=True):
         for part in [label] + [x for x in re.split(r"[·/]", label) if len(x) >= 2]:
             if v.startswith(part) and len(v) > len(part):
+                # 라벨 뒤가 조사로 이어지면 값의 일부다 ("메뉴와 가격"의 "메뉴"는 떼지 않는다).
+                if v[len(part)] not in (" ", ":", "：", "-", "은", "는", "이", "가", "요"):
+                    continue
                 rest = v[len(part):].lstrip(" :：-은는이가요")
                 # "객실 3개"의 "객실"은 칸 이름이 아니라 값의 일부다(T3 r4: 사이트에 "3개"만 남던 문제).
                 if rest and not _COUNT_RE.match(rest):
@@ -698,7 +720,13 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             continue
         if key == "offerings":
             # 막연한 항목은 버리고 남은 것만 둔다 (T3 r5 restaurant-let_ai "많음").
-            kept = [i for i in _split_items(value) if _norm(i) not in VAGUE_OFFERINGS]
+            # 칸 이름 자체("메뉴", "가격" 등)는 실제 품목이 아니라 버린다.
+            _ind = industry_of(card)
+            _label_norms = {_norm(S.label_for(_ind, k)) for k in S.SLOTS}
+            _label_norms |= {_norm(S.SLOTS[k].label) for k in S.SLOTS}
+            _label_norms |= {_norm(w) for w in ("메뉴", "가격", "상품", "메뉴판")}
+            kept = [i for i in _split_items(value)
+                    if _norm(i) not in VAGUE_OFFERINGS and _norm(i) not in _label_norms]
             if not kept:
                 continue
             # F4: hidden 답이 offerings로 오염되는 것을 막는다 ("단체 수업").
@@ -1177,7 +1205,7 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
     for key, slot in card["slots"].items():
         if slot["status"] == S.PENDING_OWNER:
             return {"slot": key, "kind": "owner_confirm", "options": ["네", "아니요"],
-                    "text": f"{S.label_for(ind, key)}을(를) '{_show(slot['value'])}'(으)로 받았어요. 방장님, 맞나요?"}
+                    "text": f"{_josa(S.label_for(ind, key), '을를')} {_josa(_show(slot['value']), '으로', quote=True)} 받았어요. 방장님, 맞나요?"}
     if owner_only:
         return None
     # 저신뢰 재확인 (신규 LLM 에이전트 금지, D34 유지): STT 뭉개짐 후보가 카드에
@@ -1198,7 +1226,7 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
             continue
         label = S.label_for(ind, c["slot"])
         return {"slot": c["slot"], "kind": "conflict", "said": c["said"], "options": [c["said"], cur],
-                "text": f"다시 읽어 보니 {label}을(를) '{c['said']}'(이)라고 하신 것 같은데, 정리에는 '{cur}'(으)로 되어 있어요. 어느 쪽이 맞나요?"}
+                "text": f"다시 읽어 보니 {_josa(label, '을를')} {_josa(c['said'], '이라고', quote=True)} 하신 것 같은데, 정리에는 {_josa(cur, '으로', quote=True)} 되어 있어요. 어느 쪽이 맞나요?"}
     return None
 
 
@@ -1751,9 +1779,9 @@ def ack_text(card: dict, applied: list[str]) -> str:
             else:
                 assumed_labels.append(S.label_for(ind0, k))
         if empty_labels:
-            out += f"알겠어요, {', '.join(empty_labels)}은(는) 비워두고 갈게요. 나중에 말씀해 주시면 넣을게요.\n\n"
+            out += f"알겠어요, {_josa(', '.join(empty_labels), '은는')} 비워두고 갈게요. 나중에 말씀해 주시면 넣을게요.\n\n"
         if assumed_labels:
-            out += f"알겠어요, {', '.join(assumed_labels)}은(는) 기본값으로 넣어둘게요. 바꾸고 싶으면 말씀해 주세요.\n\n"
+            out += f"알겠어요, {_josa(', '.join(assumed_labels), '은는')} 기본값으로 넣어둘게요. 바꾸고 싶으면 말씀해 주세요.\n\n"
     if not applied:
         # 막힌 것·닫은 것만 있어도 빈 문자열이 아니라 안내를 돌려준다.
         return out
