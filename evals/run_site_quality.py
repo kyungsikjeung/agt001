@@ -385,9 +385,35 @@ def evaluate_actions(pages: list[dict]) -> None:
                          "ok": counts["dead"] == 0 and counts["wrong"] == 0}
 
 
+def _serve(out_dir: Path):
+    """out_dir와 /art(공용 예시 그림)를 운영처럼 같은 출처로 서빙. file://로 열면 /art/… 사진이 모두 깨진다."""
+    import functools
+    import http.server
+    import threading
+
+    art = settings.templates_dir / "art"
+
+    class H(http.server.SimpleHTTPRequestHandler):
+        extensions_map = {**http.server.SimpleHTTPRequestHandler.extensions_map, ".webp": "image/webp"}
+
+        def translate_path(self, path):
+            if path.startswith("/art/"):
+                return str(art / path[len("/art/"):].split("?")[0])
+            return super().translate_path(path)
+
+        def log_message(self, *a):
+            pass
+
+    srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(H, directory=str(out_dir)))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv
+
+
 def measure(pages: list[dict], out_dir: Path) -> None:
     from playwright.sync_api import sync_playwright
 
+    srv = _serve(out_dir)
+    base = f"http://127.0.0.1:{srv.server_address[1]}/"
     with sync_playwright() as p:
         browser = p.chromium.launch()
         try:
@@ -395,8 +421,8 @@ def measure(pages: list[dict], out_dir: Path) -> None:
             page = browser.new_page(viewport={"width": VIEW_W, "height": VIEW_H}, device_scale_factor=1,
                                     reduced_motion="reduce")
             for pg in pages:
-                page.goto(pg["html"].as_uri())
-                page.wait_for_load_state("load")
+                page.goto(base + pg["html"].relative_to(out_dir).as_posix())
+                page.wait_for_load_state("networkidle")
                 pg["m"] = page.evaluate(_PROBE, pg["expect"])
                 shot = out_dir / (pg["html"].stem + ".png")
                 # 전체 캡처에서는 화면 아래 고정 버튼이 부품 맨 위로 끌려 올라가 겹쳐 보인다(실제 휴대폰에서는 정상)
@@ -406,6 +432,7 @@ def measure(pages: list[dict], out_dir: Path) -> None:
                 pg["shot"] = shot
         finally:
             browser.close()
+            srv.shutdown()
 
 
 def distinctness(pages: list[dict], out_dir: Path) -> dict:

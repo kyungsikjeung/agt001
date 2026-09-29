@@ -253,19 +253,23 @@ def _tab_icon(label: str) -> str:
 
 
 def _app_tabs(nav: dict, bar: dict, body_ids: set) -> list:
-    """하단 탭: 홈 + 실제 있는 구역 링크(최대 3) + 주 행동(겹치지 않으면). 최대 5개."""
+    """하단 탭: 홈 + 구역 링크 + 주·보조 행동. 최대 5개, 행동이 먼저 자리를 잡고 링크가 남는 칸을 채운다.
+    보조(전화 등)도 넣는다: 카페·식당은 주 행동이 길찾기라 빼면 전화 버튼이 사라진다."""
     top = nav.get("top") if isinstance(nav.get("top"), str) and nav.get("top").startswith("#") else "#"
-    tabs = [{"label": "홈", "href": top, "icon": _tab_icon("홈")}]
-    for link in (nav.get("links") or [])[:3]:
-        if not isinstance(link, dict):
-            continue
-        label, href = link.get("label"), link.get("href")
+    links = []
+    for link in nav.get("links") or []:
+        label, href = (link.get("label"), link.get("href")) if isinstance(link, dict) else (None, None)
         if isinstance(label, str) and isinstance(href, str) and href[1:] in body_ids:
-            tabs.append({"label": label, "href": href, "icon": _tab_icon(label)})
-    label, href = _cta_pair(bar.get("primary"))
-    if label and href and all(t["href"] != href for t in tabs) and (not href.startswith("#") or href[1:] in body_ids):
-        tabs.append({"label": label, "href": href, "icon": _tab_icon(label)})
-    return tabs[:5] if len(tabs) >= 2 else []
+            links.append((label, href))
+    actions = []
+    for key in ("primary", "secondary"):
+        label, href = _cta_pair(bar.get(key))
+        if label and href and href != top and (not href.startswith("#") or href[1:] in body_ids):
+            actions.append((label, href))
+    act_hrefs = {h for _, h in actions}
+    links = [(l, h) for l, h in links if h not in act_hrefs][:4 - len(actions)]
+    tabs = [("홈", top), *links, *actions]
+    return [{"label": l, "href": h, "icon": _tab_icon(l)} for l, h in tabs] if len(tabs) >= 2 else []
 
 
 def _notice_popup(text: str) -> str:

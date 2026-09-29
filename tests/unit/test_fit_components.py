@@ -242,3 +242,12 @@ def test_app_layout_tabbar_replaces_actionbar():
     assert '<body class="is-app">' in doc and "마포입니다." in doc
     assert doc.count('class="s-tabbar__tab"') == 3 and "없는 곳" not in doc  # 홈·메뉴·전화
     assert '<nav class="s-actionbar"' not in doc
+
+
+def test_app_tabs_keep_phone_when_primary_is_directions():
+    """길찾기가 주 행동인 카페도 전화 탭을 잃지 않는다. 링크가 많으면 링크를 줄인다 (5칸)."""
+    from app.services.site_render import _app_tabs
+    nav = {"top": "#top", "links": [{"label": n, "href": f"#{n}"} for n in ("a", "b", "c", "around")]}
+    bar = {"primary": {"label": "길찾기", "href": "#around"}, "secondary": {"label": "전화", "href": "tel:0212345678"}}
+    tabs = _app_tabs(nav, bar, {"top", "a", "b", "c", "around"})
+    assert [t["label"] for t in tabs] == ["홈", "a", "b", "길찾기", "전화"]
