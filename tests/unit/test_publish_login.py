@@ -58,8 +58,8 @@ def test_first_publish_needs_owner_login(client, monkeypatch):
     _post(client, room_id, OWNER, "그대로 공개")
     reply = _last_reply(client, room_id)
     assert "로그인" in reply
-    assert f"/auth/kakao/start?next=/room/{room_id}" in reply
-    assert f"/auth/google/start?next=/room/{room_id}" in reply
+    assert f"/auth/kakao/start?next=%2Froom.html%3Froom%3D{room_id}" in reply
+    assert f"/auth/google/start?next=%2Froom.html%3Froom%3D{room_id}" in reply
     assert _published(room_id) is None
 
 

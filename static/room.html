@@ -692,21 +692,39 @@ function bookingStatusText(status, mine) {
   if (status === 'declined') return mine ? '거절했어요' : '거절됐어요';
   return mine ? '예약 신청이에요. 확정하거나 거절해 주세요.' : '사장님이 확인 중이에요';
 }
-// 본문을 그대로 두되 전화번호만 tel: 고리로 만든다. innerHTML은 쓰지 않는다.
+// 본문을 그대로 두되 전화번호는 tel:, 우리 사이트 주소는 누를 수 있는 고리로 만든다. innerHTML은 쓰지 않는다.
+// 다른 사이트 주소는 글자로 둔다(누가 적은 주소가 봇 답에 섞여도 낚시 고리가 되지 않게).
+const LINK_LABELS = [[/^\/auth\/kakao\/start$/, '카카오로 로그인하기'], [/^\/auth\/google\/start$/, '구글로 로그인하기']];
+function ownLink(shown) {
+  let url = null;
+  try { url = new URL(shown, location.origin); } catch (e) { return null; }
+  if (url.origin !== location.origin) return null;
+  const link = document.createElement('a');
+  link.href = url.href;
+  const label = LINK_LABELS.find(([re]) => re.test(url.pathname));
+  link.textContent = label ? label[1] : shown;
+  if (!label) { link.target = '_blank'; link.rel = 'noopener'; }  // 로그인은 이 창에서, 시안·사이트는 새 창
+  return link;
+}
 function appendPhoneLinkedText(box, raw) {
   const s = raw || '';
-  const re = /\d{2,4}-\d{3,4}-\d{4}|\d{10,11}/g;
+  const re = /https?:\/\/[^\s]+|(?<!\S)\/(?:design|editor|site)\/[^\s]+|\d{2,4}-\d{3,4}-\d{4}|\d{10,11}/g;
   let last = 0;
   let mm = null;
   let found = false;
   while ((mm = re.exec(s)) !== null) {
+    const shown = mm[0].replace(/[.,)'"]+$/, '');
+    let link = null;
+    if (/^\d/.test(shown)) {
+      link = document.createElement('a');
+      link.href = 'tel:' + shown.replace(/[^0-9]/g, '');
+      link.textContent = shown;
+    } else {
+      link = ownLink(shown);
+    }
+    if (!link) continue;
     found = true;
     if (mm.index > last) box.appendChild(document.createTextNode(s.slice(last, mm.index)));
-    const shown = mm[0];
-    const dial = shown.replace(/[^0-9]/g, '');
-    const link = document.createElement('a');
-    link.href = 'tel:' + dial;
-    link.textContent = shown;
     box.appendChild(link);
     last = mm.index + shown.length;
   }

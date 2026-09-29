@@ -9,6 +9,7 @@ import threading
 import time
 import uuid
 from typing import Optional
+from urllib.parse import quote as url_quote
 
 from app import store
 from app.config import settings
@@ -474,9 +475,10 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
         room_id = _publish_room_id(session)
         if room_id is not None and not rooms.owner_claimed(room_id):
             base = (base_url or "").rstrip("/")
-            return ("공개하려면 먼저 로그인해 주세요. 카카오나 구글로 1분이면 돼요: "
-                    f"{base}/auth/kakao/start?next=/room/{room_id}\n"
-                    f"{base}/auth/google/start?next=/room/{room_id}")
+            back = url_quote(f"/room.html?room={room_id}", safe="")  # 로그인 뒤 이 방으로(room.html이 링크로 보여 줌)
+            return ("공개하려면 먼저 로그인해 주세요. 카카오나 구글로 1분이면 돼요.\n"
+                    f"{base}/auth/kakao/start?next={back}\n"
+                    f"{base}/auth/google/start?next={back}")
     ind = prd_engine.industry_of(card)
     missing = [prd_engine.S.label_for(ind, k) for k, v in card["slots"].items() if v.get("status") == prd_engine.S.PLACEHOLDER]
     if missing and not force:
