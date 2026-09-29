@@ -225,6 +225,8 @@
   #refineBtn { background: var(--bg); color: var(--accent-dark); text-decoration: none; }
   #publishBtn { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
   #refineBtn[hidden], #publishBtn[hidden] { display: none; }
+  .site-share { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .site-share button { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--accent-dark); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
   /* 무전기 줄은 더보기 안으로 옮기므로 본문에서는 숨긴다 (voice.js가 만든다) */
   #walkieRow { display: none !important; }
   #walkieSlot { display: flex; flex-direction: column; gap: 8px; }
@@ -757,6 +759,32 @@ function appendPhoneLinkedText(box, raw) {
   }
   if (last < s.length) box.appendChild(document.createTextNode(s.slice(last)));
 }
+// 공개 답장 아래: 주소 복사·공유하기 (EDIT_PUBLISH_PLAN §3-2). 공유는 휴대폰 공유 창(카톡·문자 등)이 있을 때만.
+function buildSiteShare(bubble, url) {
+  const row = document.createElement('div');
+  row.className = 'site-share';
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.textContent = '주소 복사';
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      copy.textContent = '복사했어요';
+    } catch (e) {
+      window.prompt('주소를 길게 눌러 복사해 주세요', url);
+    }
+  };
+  row.appendChild(copy);
+  if (navigator.share) {
+    const share = document.createElement('button');
+    share.type = 'button';
+    share.textContent = '공유하기 (카톡·문자)';
+    share.onclick = () => { navigator.share({ title: '우리 가게 사이트', url }).catch(() => {}); };
+    row.appendChild(share);
+  }
+  bubble.appendChild(row);
+}
+
 // 예약 말풍선 아래쪽: 방장이면 버튼, 아니면 글자만
 function buildBookingArea(bubble, m) {
   const info = (m && m.booking) || {};
@@ -997,6 +1025,8 @@ function addMessage(m, isNew) {
   if (m.kind === 'ai_reply') {
     const did = findDesignId(m.text);
     if (did) buildDesignCards(bubble, did);
+    const opened = /사이트를 열었어요: (https?:\/\/\S+)/.exec(m.text || '');
+    if (opened) buildSiteShare(bubble, opened[1].replace(/[.,)'"]+$/, ''));
     if ((m.text || '').indexOf('사이트를 열었어요') >= 0 && !sitePublished) {
       sitePublished = true;
       updateOwnerTools();
