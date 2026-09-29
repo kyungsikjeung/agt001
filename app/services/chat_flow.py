@@ -335,6 +335,18 @@ def _apply_correction(session: dict, text: str, by, is_owner: bool) -> Optional[
 VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
 
 
+def _variant_name(card: dict, choice: str) -> str:
+    """안내 글과 같은 실제 안 이름(원형이면 '객실 선택형' 등). 못 구하면 고정 이름."""
+    try:
+        from app.services import design_variants as DV
+        picked = DV.pick(card, choice)
+        if picked and picked.get("name"):
+            return picked["name"]
+    except Exception:
+        pass
+    return VARIANT_NAMES[choice]
+
+
 def _lock_choice(card: dict, choice: str) -> None:
     """고른 안의 색·글꼴을 카드에 락한다(실패해도 고르기는 유지)."""
     try:
@@ -497,7 +509,7 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     card["published"] = choice
     design_log.published(session["requirement_id"], card, choice)  # D45
     reply = (f"사이트를 열었어요: {url}\n"
-             f"{choice[1]}안({VARIANT_NAMES[choice]}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
+             f"{choice[1]}안({_variant_name(card, choice)}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
     room_id = _publish_room_id(session)
     try:
         from app.services import shop_settings, shops
@@ -680,7 +692,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         session["prd"]["design_choice"] = choice
         _lock_choice(session["prd"], choice)
         design_log.chosen(session["requirement_id"], session["prd"], choice)  # D45
-        name = VARIANT_NAMES[choice]
+        name = _variant_name(session["prd"], choice)
         pub = _publish(session, base_url, force=_is_force_publish(user_text))
         if pub.startswith("사이트를 열었어요"):
             reply = f"{choice[1]}안({name})으로 정했어요.\n{pub}"
@@ -692,7 +704,7 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         session["prd"]["design_choice"] = choice
         _lock_choice(session["prd"], choice)
         design_log.chosen(session["requirement_id"], session["prd"], choice)  # D45
-        name = VARIANT_NAMES[choice]
+        name = _variant_name(session["prd"], choice)
         reply = (f"{choice[1]}안({name})으로 정했어요. {session['design_url']}/{choice}/ 에서 크게 볼 수 있어요.\n"
                  "이대로 사이트를 열려면 '공개'라고 보내 주세요. 바꾸고 싶으면 다른 번호를 보내 주세요.")
     elif publish_cmd:

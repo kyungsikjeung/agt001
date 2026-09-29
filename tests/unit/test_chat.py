@@ -1,4 +1,5 @@
 """1:1 /chat 전체 흐름. 원본 backend.py 상태머신과 동일해야 한다."""
+import re
 from app import store
 from app.services import codegen as codegen_svc
 
@@ -158,9 +159,10 @@ def test_design_choice_recorded(client):
     s = _fresh_session(client)
     _to_quoted(client, s)
     d = _chat(client, "진행", s)
-    assert "2안" in d["reply"]
+    guide = re.search(r"1안 (.+?) · 2안 (.+?) · 3안 (.+?) 중 마음에 드는 번호", d["reply"])
+    assert guide, d["reply"]  # room.html이 이 안내 글로 시안 카드를 그린다
     c = _chat(client, "2안으로 할게요", s)
-    assert "사진 강조형" in c["reply"]
+    assert f"2안({guide.group(2)})으로 정했어요" in c["reply"]  # 확정 답도 안내와 같은 이름
     assert store.read_session(s)["prd"]["design_choice"] == "v2"
 
 

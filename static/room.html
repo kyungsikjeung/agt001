@@ -490,16 +490,25 @@ function hueFromString(s) {
 }
 
   // 시안 3안 이름 + 차이 1줄 (P0: 고르는 기준을 말로. D43 역할고정)
+  // 이름은 안내 글에 적힌 실제 안 이름으로 바뀐다(원형이면 '객실 선택형' 등). 차이 1줄은 고정 이름일 때만.
   const DESIGN_NAMES = { 1: '기본형', 2: '사진 강조형', 3: '간결형' };
-  const DESIGN_DIFFS = { 1: '정석형 · 메뉴·가격 중심', 2: '사진형 · 첫화면 사진 큼', 3: '간결형 · 글자 크고 버튼 1개' };
+  const DESIGN_DIFFS_BY_NAME = { '기본형': '정석형 · 메뉴·가격 중심', '사진 강조형': '사진형 · 첫화면 사진 큼', '간결형': '간결형 · 글자 크고 버튼 1개' };
+  const DESIGN_DIFFS = {};
+  const GUIDE_RE = /1안 (.+?) · 2안 (.+?) · 3안 (.+?) 중 마음에 드는 번호/;
   let pickedDesignNo = 0;
   let designSheetOpener = null;
-  // 시안 안내 글에서 /design/<id> 찾기
+  // 시안 안내 글에서 /design/<id> 찾기 (안 이름도 여기서 읽는다)
   function findDesignId(t) {
     const s = t || '';
-    if (s.indexOf('1안 기본형 · 2안 사진 강조형 · 3안 간결형') < 0) return null;
+    const g = GUIDE_RE.exec(s);
+    if (!g) return null;
     const mm = /\/design\/([A-Za-z0-9-]+)(?![\/\w])/.exec(s);
-    return mm ? mm[1] : null;
+    if (!mm) return null;
+    for (let n = 1; n <= 3; n++) {
+      DESIGN_NAMES[n] = g[n];
+      DESIGN_DIFFS[n] = DESIGN_DIFFS_BY_NAME[g[n]] || '';
+    }
+    return mm[1];
   }
   // 사용자가 보낸 "N안으로 할게요" 찾기
   function findPickedNo(t) {
