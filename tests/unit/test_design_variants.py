@@ -112,8 +112,8 @@ def test_blueprint_path_cafe_names_sections_palette():
     ① 팔레트는 원형 기본(espresso), 예시 표시가 붙는다."""
     vs = DV.variants(_cafe_card())
     assert [v["id"] for v in vs] == ["v1", "v2", "v3"]
-    assert [v["name"] for v in vs] == ["메뉴판형", "공간·방문형", "시그니처형"]
-    assert [v["summary"] for v in vs] == ["메뉴 보고 → 길찾기", "공간 보고 → 길찾기", "대표 메뉴 보고 → 길찾기"]
+    assert [v["name"] for v in vs] == ["메뉴판형", "공간·방문형", "앱형"]  # D56: 3안은 앱형
+    assert [v["summary"] for v in vs] == ["메뉴 보고 → 길찾기", "공간 보고 → 길찾기", "앱처럼 아래 탭으로 오가요 · 대표 메뉴 보고 → 길찾기"]
     seconds = [(v["spec"]["sections"][1]["type"], v["spec"]["sections"][1].get("variant")) for v in vs]
     assert len(set(seconds)) == 3
     assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "espresso"
@@ -131,13 +131,13 @@ def test_blueprint_path_cafe_names_sections_palette():
 def test_blueprint_path_salon_solo_and_team():
     """J5 새 경로(B): 1인분은 solo, 2인분은 team 청사진을 쓴다."""
     solo = DV.variants(_salon_card("원장 김단정(컷·펌)"))
-    assert [v["name"] for v in solo] == ["원장 브랜드형", "스타일 포트폴리오형", "시술·가격형"]
+    assert [v["name"] for v in solo] == ["원장 브랜드형", "스타일 포트폴리오형", "앱형"]  # D56
     assert solo[0]["spec"]["tokens"]["palette"] == "charcoal-gold"
     staff = next(s for s in solo[0]["spec"]["sections"] if s.get("bind") == "staff")
     assert staff["variant"] == "solo"
     assert [m["name"] for m in staff["content"]["members"]] == ["김단정"]
     team = DV.variants(_salon_card("원장 김미용(컷)", "실장 박하나(염색)"))
-    assert [v["name"] for v in team] == ["디자이너 선택형", "스타일형", "시술·가격형"]
+    assert [v["name"] for v in team] == ["디자이너 선택형", "스타일형", "앱형"]  # D56
     staff = next(s for s in team[0]["spec"]["sections"] if s.get("bind") == "staff")
     assert staff["variant"] == "team"
     assert DV.min_distance([v["spec"] for v in team]) >= DV.MIN_DISTANCE
@@ -180,7 +180,7 @@ def test_blueprint_path_academy_names_sections_palette():
     """J5b 새 경로(D): 안 이름이 청사진 전략 이름, ① 팔레트는 navy, 반·시간표·선생님이 든다."""
     vs = DV.variants(_academy_card())
     assert [v["id"] for v in vs] == ["v1", "v2", "v3"]
-    assert [v["name"] for v in vs] == ["반·시간표형", "선생님·신뢰형", "상담 우선형"]
+    assert [v["name"] for v in vs] == ["반·시간표형", "선생님·신뢰형", "앱형"]  # D56
     seconds = [(v["spec"]["sections"][1]["type"], v["spec"]["sections"][1].get("variant")) for v in vs]
     assert len(set(seconds)) == 3
     assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "navy"
@@ -195,7 +195,7 @@ def test_blueprint_path_academy_names_sections_palette():
 def test_blueprint_path_pension_rooms_and_dates():
     """J5b 새 경로(C): ① 팔레트는 forest, 객실 카드 수 = 객실 수, 입실일은 예시 14일."""
     vs = DV.variants(_pension_card())
-    assert [v["name"] for v in vs] == ["객실 선택형", "풍경·경험형", "요금·날짜형"]
+    assert [v["name"] for v in vs] == ["객실 선택형", "풍경·경험형", "앱형"]  # D56
     assert [v["spec"]["tokens"]["palette"] for v in vs][0] == "forest"
     assert DV.min_distance([v["spec"] for v in vs]) >= DV.MIN_DISTANCE
     rooms = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "rooms")

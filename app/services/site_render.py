@@ -232,6 +232,55 @@ def _og_tags(sections: list, site_key: str, page_title: str) -> list:
     return tags
 
 
+# 하단 탭 아이콘 (선 그림, 24칸). 탭 이름의 낱말로 고른다.
+_TAB_ICONS = (
+    (("홈",), "M3 11l9-8 9 8M5 10v10h14V10"),
+    (("메뉴", "시술", "가격", "요금"), "M4 6h16M4 12h16M4 18h16"),
+    (("예약", "신청", "날짜", "상담"), "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4"),
+    (("오시는", "길", "위치", "지도"), "M12 21s-7-6.5-7-12a7 7 0 0 1 14 0c0 5.5-7 12-7 12zM12 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"),
+    (("전화",), "M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z"),
+    (("공간", "사진", "스타일", "작품", "객실"), "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4"),
+    (("수업", "반", "클래스", "시간표"), "M4 5h7v15H4zM13 5h7v15h-7z"),
+)
+_TAB_DEFAULT_ICON = "M4 5h16v11H9l-5 4z"  # 말풍선 (문의 등)
+
+
+def _tab_icon(label: str) -> str:
+    for words, path in _TAB_ICONS:
+        if any(w in label for w in words):
+            return path
+    return _TAB_DEFAULT_ICON
+
+
+def _app_tabs(nav: dict, bar: dict, body_ids: set) -> list:
+    """하단 탭: 홈 + 실제 있는 구역 링크(최대 3) + 주 행동(겹치지 않으면). 최대 5개."""
+    top = nav.get("top") if isinstance(nav.get("top"), str) and nav.get("top").startswith("#") else "#"
+    tabs = [{"label": "홈", "href": top, "icon": _tab_icon("홈")}]
+    for link in (nav.get("links") or [])[:3]:
+        if not isinstance(link, dict):
+            continue
+        label, href = link.get("label"), link.get("href")
+        if isinstance(label, str) and isinstance(href, str) and href[1:] in body_ids:
+            tabs.append({"label": label, "href": href, "icon": _tab_icon(label)})
+    label, href = _cta_pair(bar.get("primary"))
+    if label and href and all(t["href"] != href for t in tabs) and (not href.startswith("#") or href[1:] in body_ids):
+        tabs.append({"label": label, "href": href, "icon": _tab_icon(label)})
+    return tabs[:5] if len(tabs) >= 2 else []
+
+
+def _notice_popup(text: str) -> str:
+    """공지 팝업 (D56). 닫기만: 공개 사이트는 CSP sandbox(출처 없음)라 기기 저장소를 못 써
+    '오늘 하루 보지 않기'가 저장되지 않는다. 스크립트가 없으면 hidden 그대로라 띠만 보인다."""
+    return (
+        '<div class="s-popup" id="s-popup" role="dialog" aria-modal="true" aria-labelledby="s-popup-title" hidden>'
+        '<div class="s-popup__panel"><p class="s-popup__kicker" id="s-popup-title">공지</p>'
+        f'<p class="s-popup__text">{html.escape(text)}</p>'
+        '<div class="s-popup__row"><button type="button" data-popup="close">닫기</button></div></div></div>'
+        "<script>(function(){var p=document.getElementById('s-popup');if(!p)return;p.hidden=false;"
+        "p.addEventListener('click',function(e){if(e.target===p||e.target.hasAttribute('data-popup'))p.hidden=true;});})();</script>"
+    )
+
+
 def _favicon(page_title: str, palette: dict) -> str:
     """탭 아이콘: 가게 이름 첫 글자 (상단 로고와 같은 모양, 디자인 품질 7번)."""
     from urllib.parse import quote
@@ -1296,8 +1345,23 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
                 raise SiteSpecError("없는 type--variant 조합: navbar--main")
             rendered_parts.insert(0, chevron.render(ntemplate, _safe(nctx)))
 
+    notice = spec.get("notice") if isinstance(spec.get("notice"), dict) else {}
+    notice_text = notice.get("text") if isinstance(notice.get("text"), str) else ""
+    if notice_text.strip():
+        # 공지 띠는 맨 위(내비 다음). 팝업은 켰을 때만, 스크립트가 없으면 띠만 보인다.
+        at = 1 if rendered_parts and rendered_parts[0].lstrip().startswith('<nav class="s-navbar"') else 0
+        rendered_parts.insert(at, f'<p class="s-notice" role="note"><strong>공지</strong> {html.escape(notice_text.strip())}</p>')
+        if notice.get("popup") is True:
+            rendered_parts.append(_notice_popup(notice_text.strip()))
+    app_layout = spec.get("layout") == "app"
     bar = spec.get("actionbar")
-    if isinstance(bar, dict):
+    if app_layout:
+        # 앱형 (D56 ①): 아래 행동 바 대신 하단 탭. 탭 = 홈 + 내비 링크(최대 3) + 주 행동.
+        body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+        tabs = _app_tabs(nav if isinstance(nav, dict) else {}, bar if isinstance(bar, dict) else {}, body_ids)
+        if tabs:
+            rendered_parts.append(chevron.render(bundle["templates"]["tabbar--app"], _safe({"tabs": tabs})))
+    elif isinstance(bar, dict):
         # 하단 고정 행동 바 (휴대폰). 내비와 같이 섹션이 아니고, 빠진 섹션으로 가는 버튼은 그리지 않는다.
         body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
         label, href = _cta_pair(bar.get("primary"))
@@ -1333,7 +1397,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         "</style>",
         "</head>",
         # 공개 사이트에서는 시안용 "예시" 표시도 숨긴다
-        '<body class="is-public"><style>.is-public .s-kicker{display:none}</style>' if public else "<body>",
+        ('<body class="is-public{}"><style>.is-public .s-kicker{{display:none}}</style>' if public else '<body{}>').format(
+            (" is-app" if app_layout else "") if public else (' class="is-app"' if app_layout else "")),
         *([_DRAFT_NOTE] if not public and _has_example_art(rendered_parts) else []),
         *rendered_parts,
         "</body>",

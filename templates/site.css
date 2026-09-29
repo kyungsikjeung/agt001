@@ -2000,3 +2000,59 @@ section[class^="s-"][data-tone="inverse"] .s-date--few .s-date__state {
 /* 시안 위 예시 안내 한 줄 (공개본에는 없다) */
 .s-draft-note { margin: 0; padding: 8px 16px; font-size: 14px; line-height: 1.4; text-align: center;
   background: var(--ground-soft, #f4f4f5); color: var(--muted, #52525b); border-bottom: 1px solid var(--line, #e4e4e7); }
+
+/* ── 앱형 (D56 ①): 흰 바탕 위 둥근 카드 구역 + 큰 인사 첫 화면 + 하단 탭 ── */
+body.is-app { background: color-mix(in oklch, var(--c-ground) 55%, #fff); }
+.is-app section[class^="s-"]:not(.s-hero) {
+  background: #fff;
+  border-radius: 20px;
+  margin: 12px 12px 0;
+  padding: 24px 18px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05);
+}
+.is-app section[class^="s-"]:not(.s-hero):nth-of-type(even) { box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.05); clip-path: none; background: #fff; }
+.is-app section[class^="s-"] h2 { font-family: inherit; font-weight: 800; font-size: 22px; }
+.is-app section[class^="s-"] h2::after { display: none; }
+.s-hero--app { padding: 28px 16px 8px; }
+.s-app-hello__hi { margin: 0; font-size: 26px; font-weight: 700; line-height: 1.3; }
+.s-hero--app .s-title { margin: 0; font-size: clamp(28px, 7.4vw, 36px); font-weight: 800; line-height: 1.25; letter-spacing: -0.02em; font-family: inherit; }
+.s-hero--app .s-lead { margin: 10px 0 0; color: var(--muted); }
+.s-app-card { margin-top: 20px; background: #fff; border-radius: 20px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 6px 20px rgba(0,0,0,.06); }
+.s-app-card__media { position: relative; margin: 0; aspect-ratio: 16 / 10; }
+.s-app-card__media img { width: 100%; height: 100%; object-fit: cover; }
+.s-app-card__media .s-illu-badge { top: 12px; left: 12px; }
+.s-app-card__body { padding: 16px 18px 18px; }
+.s-app-card__body .s-hero__facts { margin: 0 0 14px; }
+.s-app-card__cta { display: flex; gap: 8px; margin: 0; }
+.s-app-card__cta .s-btn { flex: 1; min-height: 48px; }
+.s-tabbar {
+  position: fixed; right: 0; bottom: 0; left: 0; z-index: 60;
+  display: flex; justify-content: space-around;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  background: rgba(255,255,255,.96);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border-top: 1px solid var(--line);
+}
+.s-tabbar__tab {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  min-height: 52px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 600;
+}
+.s-tabbar__tab:first-child { color: var(--c-primary); }
+.s-tabbar__tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+body:has(.s-tabbar) { padding-bottom: 88px; }
+@media (max-width: 759px) { .is-app .s-navbar { display: none; } }
+@media (min-width: 760px) { .s-tabbar { display: none; } body:has(.s-tabbar) { padding-bottom: 0; } }
+
+/* 공지 띠·팝업 (D56) */
+.s-notice { margin: 0; padding: 10px 16px; font-size: 15px; line-height: 1.5; background: var(--c-primary); color: var(--on-primary, #fff); text-align: center; }
+.s-notice strong { margin-right: 6px; }
+.s-popup { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
+.s-popup[hidden] { display: none; }
+.s-popup__panel { width: 100%; max-width: 480px; background: #fff; color: var(--c-ink); border-radius: 20px 20px 0 0; padding: 22px 20px calc(12px + env(safe-area-inset-bottom)); }
+.s-popup__kicker { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--c-accent); }
+.s-popup__text { margin: 0 0 18px; font-size: 18px; font-weight: 700; line-height: 1.5; }
+.s-popup__row { display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.s-popup__row button { min-height: 48px; padding: 0 8px; border: 0; background: none; font: inherit; font-size: 15px; color: var(--muted); cursor: pointer; }
+@media (min-width: 760px) { .s-popup { align-items: center; } .s-popup__panel { border-radius: 20px; } }
+/* 앱형 첫 화면 두 번째 버튼: 렌더러가 빠진 구역 링크를 지우려면 s-hero__link 클래스여야 해서, 모양만 테두리 버튼으로 */
+.s-app-card__cta .s-hero__link { flex: 1; display: inline-flex; align-items: center; justify-content: center; min-height: 48px; border: 2px solid var(--c-primary); border-radius: var(--radius-btn); color: var(--c-primary); font-weight: 700; text-decoration: none; }

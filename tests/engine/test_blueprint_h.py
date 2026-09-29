@@ -118,7 +118,7 @@ def test_variants_come_from_blueprint():
     bp = archetype.load("H")
     items = DV.variants(card)
     assert len(items) == 3
-    assert [v["name"] for v in items] == [st["name"] for st in bp["strategies"]]
+    assert [v["name"] for v in items] == [st["name"] for st in bp["strategies"]][:2] + ["앱형"]  # D56: 3안은 앱형
 
 
 def test_every_variant_renders_inquiry_form_and_hero_cta():

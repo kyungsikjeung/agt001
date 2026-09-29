@@ -120,8 +120,8 @@ def test_design_variants_come_from_blueprint_not_legacy():
     bp = archetype.load("G")
     got = DV.variants(card)
     assert len(got) == 3
-    assert [v["name"] for v in got] == [s["name"] for s in bp["strategies"]]
-    assert [v["summary"] for v in got] == [s["journey"] for s in bp["strategies"]]
+    assert [v["name"] for v in got] == [s["name"] for s in bp["strategies"]][:2] + ["앱형"]  # D56: 3안은 앱형
+    assert [v["summary"] for v in got][:2] == [s["journey"] for s in bp["strategies"]][:2]
 
 
 def test_every_variant_renders_booking_and_hero_cta():

@@ -17,12 +17,19 @@ export interface CardPhoto {
   caption?: string | null;
 }
 
+/** 공지 띠·팝업 (D56). 빈 글이면 공지 없음. */
+export interface CardNotice {
+  text: string;
+  popup: boolean;
+}
+
 export interface RoomCard {
   title: string;
   industry: string | null;
   fields: CardField[];
   photos: CardPhoto[];
   choice: string | null;
+  notice?: CardNotice;
   published: string | null;
   site_url: string | null;
   can_edit: boolean;
@@ -82,12 +89,13 @@ export async function saveCard(
   roomId: string,
   memberId: string | null,
   fields: Record<string, string>,
+  notice?: CardNotice,
 ): Promise<RoomCard> {
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
-    body: JSON.stringify({ fields }),
+    body: JSON.stringify(notice ? { fields, notice } : { fields }),
   });
   if (!res.ok) throw new Error(`저장하지 못했습니다 (${res.status})`);
   const data = (await res.json()) as RoomCard;

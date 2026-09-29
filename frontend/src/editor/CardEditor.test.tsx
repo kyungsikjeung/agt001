@@ -154,3 +154,23 @@ describe('CardEditor', () => {
     expect(screen.getByRole('link', { name: '채팅방으로 가기' }).getAttribute('href')).toBe('/room.html?room=nope');
   });
 });
+
+describe('NoticeBox', () => {
+  it('공지 글과 팝업을 PUT notice로 보낸다 (D56)', async () => {
+    const sent: unknown[] = [];
+    stubFetch(async (_url, init) => {
+      if (init?.method === 'PUT') {
+        sent.push(JSON.parse(String(init.body)));
+        return okCard({ ...CARD, notice: { text: '10월 3일은 쉬어요', popup: true } });
+      }
+      return okCard(CARD);
+    });
+    render(<CardEditor roomId="r1" />);
+    const input = await screen.findByLabelText(/사이트 맨 위에 보일 한 줄/);
+    fireEvent.change(input, { target: { value: '10월 3일은 쉬어요' } });
+    fireEvent.click(screen.getByRole('checkbox', { name: /팝업으로도 띄우기/ }));
+    fireEvent.click(screen.getByRole('button', { name: '공지 저장' }));
+    expect(await screen.findByText('공지를 저장했어요.')).toBeInTheDocument();
+    expect(sent[0]).toEqual({ fields: {}, notice: { text: '10월 3일은 쉬어요', popup: true } });
+  });
+});

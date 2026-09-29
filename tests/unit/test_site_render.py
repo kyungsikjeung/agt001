@@ -163,7 +163,7 @@ def test_tabs_index와_has_불리언():
 
 def test_list_variants_26종():
     variants = list_variants()
-    assert len(variants) == 46  # 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN) + 편집형 7(2026-09-27 시범) + 내비·마퀴 2 + 적합성 7(DESIGN_FIT_PLAN: 분류 메뉴판·담당자 2·예시 지도·예약 현황·주문 준비 중·하단 바)
+    assert len(variants) == 48  # + 앱형 2(hero--app, tabbar--app, D56) + 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN) + 편집형 7(2026-09-27 시범) + 내비·마퀴 2 + 적합성 7(DESIGN_FIT_PLAN: 분류 메뉴판·담당자 2·예시 지도·예약 현황·주문 준비 중·하단 바)
     assert "hero--photo-overlay" in variants
     assert "contact--form" in variants
     assert "reviews--slot-only" in variants

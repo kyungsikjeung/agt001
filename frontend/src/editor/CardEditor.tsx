@@ -4,6 +4,35 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchCard, readMemberId, saveCard, statusLabel, type RoomCard } from './cardApi';
 
+/** 공지 띠·팝업 (D56): 사이트 맨 위 한 줄, 켜면 들어올 때 팝업(닫기)도. */
+function NoticeBox({ roomId, card, onSaved }: { roomId: string; card: RoomCard; onSaved: (c: RoomCard) => void }) {
+  const [text, setText] = useState(card.notice?.text ?? '');
+  const [popup, setPopup] = useState(card.notice?.popup ?? false);
+  const [msg, setMsg] = useState('');
+  async function save() {
+    setMsg('');
+    try {
+      const updated = await saveCard(roomId, readMemberId(), {}, { text, popup });
+      onSaved(updated);
+      setMsg(text.trim() ? '공지를 저장했어요.' : '공지를 껐어요.');
+    } catch {
+      setMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    }
+  }
+  return (
+    <section aria-label="공지">
+      <h2>공지</h2>
+      <label htmlFor="ed-notice">사이트 맨 위에 보일 한 줄 (비우면 공지 없음)</label>
+      <input id="ed-notice" className="ed-input" value={text} maxLength={200} placeholder="예: 10월 3일은 쉬어요" onChange={(e) => setText(e.target.value)} />
+      <label className="ed-check">
+        <input type="checkbox" checked={popup} onChange={(e) => setPopup(e.target.checked)} /> 들어올 때 팝업으로도 띄우기
+      </label>
+      <button type="button" className="ed-btn" onClick={() => void save()}>공지 저장</button>
+      {msg ? <p role="status">{msg}</p> : null}
+    </section>
+  );
+}
+
 interface CardEditorProps {
   roomId: string;
 }
@@ -177,6 +206,8 @@ export default function CardEditor({ roomId }: CardEditorProps) {
             </button>
           </div>
         )}
+
+        {card.can_edit ? <NoticeBox roomId={roomId} card={card} onSaved={setCard} /> : null}
 
         {card.photos.length > 0 ? (
           <section aria-label="사진 목록">

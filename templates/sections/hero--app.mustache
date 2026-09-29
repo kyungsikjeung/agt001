@@ -1,0 +1,16 @@
+<section class="s-hero s-hero--app" data-section-id="{{id}}" aria-labelledby="hero-title-{{id}}">
+  <div class="s-app-hello">
+    <p class="s-app-hello__hi">안녕하세요,</p>
+    <h1 class="s-title" id="hero-title-{{id}}">
+      {{#title}}{{title}}입니다.{{/title}}{{^title}}<span class="is-placeholder" aria-label="가게 이름: 아직 입력되지 않음">[가게 이름 입력]</span>{{/title}}
+    </h1>
+    {{#subtitle}}<p class="s-lead">{{subtitle}}</p>{{/subtitle}}
+  </div>
+  <div class="s-app-card">
+    {{#image_src}}<figure class="s-app-card__media"><img src="{{image_src}}" alt="{{image_alt}}">{{#image_ai_badge}}<span class="s-illu-badge">AI 예시 이미지</span>{{/image_ai_badge}}</figure>{{/image_src}}
+    <div class="s-app-card__body">
+      {{#has_facts}}<ul class="s-hero__facts">{{#facts}}<li><span class="s-hero__fact-label">{{label}}</span> {{value}}</li>{{/facts}}</ul>{{/has_facts}}
+      {{#cta_label}}<p class="s-app-card__cta"><a class="s-btn" href="{{cta_href}}">{{cta_label}}</a>{{#cta2_label}}<a class="s-hero__link" href="{{cta2_href}}">{{cta2_label}}</a>{{/cta2_label}}</p>{{/cta_label}}
+    </div>
+  </div>
+</section>

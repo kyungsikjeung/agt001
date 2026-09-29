@@ -220,3 +220,25 @@ def test_public_page_has_og_tags(monkeypatch):
 def test_webp_served_as_image(client):
     r = client.get("/art/ex/cafe-hero.webp")
     assert r.status_code == 200 and r.headers["content-type"] == "image/webp"
+
+
+def test_notice_banner_and_popup_escape():
+    """공지 띠는 늘, 팝업은 켰을 때만. 사장님 글은 이스케이프 (D56)."""
+    hero = {"id": "hero", "type": "hero", "variant": "photo-overlay", "content": {"title": "마포"}}
+    on = _page([hero], public=True, notice={"text": "쉬어요 <b>", "popup": True})
+    assert '<p class="s-notice" role="note"><strong>공지</strong> 쉬어요 &lt;b&gt;</p>' in on
+    assert 'id="s-popup"' in on and "오늘 하루" not in on
+    off = _page([hero], public=True, notice={"text": "쉬어요", "popup": False})
+    assert '<p class="s-notice"' in off and 'id="s-popup"' not in off
+
+
+def test_app_layout_tabbar_replaces_actionbar():
+    """앱형 (D56): 하단 탭이 행동 바를 대신한다. 탭은 실제 있는 구역만."""
+    hero = {"id": "hero", "type": "hero", "variant": "app", "content": {"title": "마포", "subtitle": "카페"}}
+    doc = _page([hero, _menu()], layout="app",
+                navbar={"title": "마포", "top": "#hero-title-hero", "links": [{"label": "메뉴", "href": "#offerings-title-menu"},
+                                                                         {"label": "없는 곳", "href": "#nope"}]},
+                actionbar={"primary": {"label": "전화", "href": "tel:0212345678"}})
+    assert '<body class="is-app">' in doc and "마포입니다." in doc
+    assert doc.count('class="s-tabbar__tab"') == 3 and "없는 곳" not in doc  # 홈·메뉴·전화
+    assert '<nav class="s-actionbar"' not in doc

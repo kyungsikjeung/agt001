@@ -612,20 +612,43 @@ def _agent_apply(card: dict, items: list) -> list:
         return items
 
 
+APP_NAME = "앱형"
+APP_SUMMARY = "앱처럼 아래 탭으로 오가요"
+
+
+def _to_app(item: dict) -> dict:
+    """3안(대비형)을 앱형으로 (D56 ①): 인사 첫 화면 + 하단 탭 + 고딕·둥근 카드. 구역 구성은 그대로."""
+    spec = copy.deepcopy(item["spec"])
+    spec["layout"] = "app"
+    tokens = dict(spec.get("tokens") or {})
+    tokens.update({"font_pair": "sans-clean", "radius": "round", "density": "comfortable"})
+    spec["tokens"] = tokens
+    for sec in spec.get("sections") or []:
+        if isinstance(sec, dict) and sec.get("type") == "hero":
+            sec["variant"] = "app"
+    journey = item.get("summary") or ""
+    return {**item, "name": APP_NAME, "summary": f"{APP_SUMMARY} · {journey}" if journey else APP_SUMMARY, "spec": spec}
+
+
 def variants(card: dict) -> list[dict]:
-    """[{id, name, summary, spec}] 3개. 역할 고정 (P3-8, D43): ① 정석 ② 분위기 ③ 대비."""
+    """[{id, name, summary, spec}] 3개. 역할 고정 (P3-8, D43): ① 정석 ② 분위기 ③ 앱형(D56, 전엔 대비형)."""
     try:
         from app.services import archetype as AT
         blueprint = AT.blueprint(card)
         arch, _ = AT.of(card)
     except Exception:
         blueprint, arch = None, ""
+    items = None
     if blueprint is not None:
         try:
-            return _agent_apply(card, _blueprint_variants(card, blueprint, arch))
+            items = _blueprint_variants(card, blueprint, arch)
         except Exception:
-            pass
-    return _agent_apply(card, _legacy_variants(card))
+            items = None
+    if items is None:
+        items = _legacy_variants(card)
+    if len(items) >= 3:
+        items = items[:2] + [_to_app(items[2])] + items[3:]
+    return _agent_apply(card, items)
 
 
 def _legacy_variants(card: dict) -> list[dict]:

@@ -396,7 +396,7 @@ def _apply_correction(session: dict, text: str, by, is_owner: bool) -> Optional[
     return ", ".join(dict.fromkeys(prd_engine.S.label_for(ind, k) for k in applied))
 
 
-VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "간결형"}
+VARIANT_NAMES = {"v1": "기본형", "v2": "사진 강조형", "v3": "앱형"}
 
 
 def _variant_name(card: dict, choice: str) -> str:
@@ -611,7 +611,7 @@ def _design_choice(text: str) -> Optional[str]:
         return "v1"
     if "사진강조" in n or "사진강조형" in n:
         return "v2"
-    if "간결형" in t:
+    if "간결형" in t or "앱형" in t:  # D56: 3안은 앱형 (예전 이름도 받는다)
         return "v3"
     return None
 
@@ -706,7 +706,7 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
         _guide = (" · ".join(f"{n}안 {nm}" for n, (_, nm) in zip(("1", "2", "3"), _guides))
                   + " 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
     else:
-        _guide = ("1안 기본형 · 2안 사진 강조형 · 3안 간결형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
+        _guide = ("1안 기본형 · 2안 사진 강조형 · 3안 앱형 중 마음에 드는 번호를 보내 주세요. 예: '2안으로 할게요'\n\n")
     return (
         concept_note +
         f"컨셉 보드와 시안 3안: {d['design_url']}\n"

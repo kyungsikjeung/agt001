@@ -803,4 +803,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             actionbar["secondary"] = _action("오시는 길", _anchor(sections, around["id"]))
     if actionbar:
         out["actionbar"] = actionbar
+    notice = card.get("notice") if isinstance(card.get("notice"), dict) else {}
+    text = str(notice.get("text") or "").strip()
+    if text:
+        # 공지 띠·팝업 (D56, 사례집 notice_banner): 사장님이 쓴 글만. 팝업은 켰을 때만.
+        out["notice"] = {"text": text[:200], "popup": notice.get("popup") is True}
     return out

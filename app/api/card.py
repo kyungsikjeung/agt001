@@ -15,8 +15,14 @@ S = prd_engine.S
 EDITABLE = ("shop_name", "phone", "hours", "location", "price", "offerings", "detail", "target", "contact_method")
 
 
+class NoticeIn(BaseModel):
+    text: str = ""
+    popup: bool = False
+
+
 class CardIn(BaseModel):
     fields: dict[str, str] = {}
+    notice: Optional[NoticeIn] = None  # 공지 띠·팝업 (D56). 빈 글이면 공지를 끈다
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -42,6 +48,7 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "title": DV.title_for(card) if card.get("slots") else "새 프로젝트", "industry": ind.name,
         "fields": fields, "photos": card.get("photos") or [], "photo_tags": photo_tags,
         "choice": card.get("design_choice"),
+        "notice": card.get("notice") or {"text": "", "popup": False},
         "published": card.get("published"), "site_url": session.get("deploy_url") if card.get("published") else None,
         "can_edit": rooms.owner_id(room) == member_id,
     }
@@ -106,6 +113,15 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                     value = prd_engine._spoken_phone(value)
                 prd_engine._put(card, key, value, S.FILLED, turn, "editor")
             changed.append(key)
+        if body.notice is not None:
+            text = body.notice.text.strip()[:200]
+            new = {"text": text, "popup": bool(body.notice.popup and text)} if text else None
+            if new != card.get("notice"):
+                if new:
+                    card["notice"] = new
+                else:
+                    card.pop("notice", None)
+                changed.append("notice")
         if changed and card.get("published"):
             from app.services.publish_check import PublishBlockedError
             try:
@@ -119,7 +135,7 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
             store.after_commit(lambda: photos._refresh_designs_async(rid, req, "고친 내용을 시안에 넣었어요."))
         if changed:
             ind = prd_engine.industry_of(card)
-            labels = ", ".join(S.label_for(ind, k) for k in changed)
+            labels = ", ".join("공지" if k == "notice" else S.label_for(ind, k) for k in changed)
             rooms._append(room, "system", "시스템", f"직접 편집으로 고쳤어요: {labels}", kind="system")
         return _view(room, session, member_id)
 

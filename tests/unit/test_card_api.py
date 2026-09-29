@@ -38,3 +38,13 @@ def test_edit_before_publish_rerenders_drafts(client, monkeypatch):
         s["design_url"] = "/design/x"
     client.put(f"/api/rooms/{rid}/card", json={"fields": {"phone": "010-1234-5678"}}, headers={"X-Member-Id": "owner"})
     assert calls == [(rid, "고친 내용을 시안에 넣었어요.")]
+
+
+def test_notice_set_and_clear(client):
+    """공지 띠·팝업 (D56): 방장이 켜고, 빈 글이면 끈다. 공개본 다시 그리기도 같은 길."""
+    rid = _room(client)
+    h = {"X-Member-Id": "owner"}
+    r = client.put(f"/api/rooms/{rid}/card", json={"notice": {"text": "10월 3일은 쉬어요", "popup": True}}, headers=h)
+    assert r.json()["notice"] == {"text": "10월 3일은 쉬어요", "popup": True}
+    r = client.put(f"/api/rooms/{rid}/card", json={"notice": {"text": "", "popup": True}}, headers=h)
+    assert r.json()["notice"] == {"text": "", "popup": False}
