@@ -203,3 +203,20 @@ def test_hero_second_action_dropped_when_target_missing_on_public():
     only_example = _staff("team", [{"name": "예시", "example": True}])
     assert "디자이너 보기" in _page([hero, only_example])
     assert "디자이너 보기" not in _page([hero, only_example], public=True)
+
+
+def test_public_page_has_og_tags(monkeypatch):
+    """카톡 미리보기 (디자인 품질 7번): 공개본에만 og 태그, 사진은 공개 호스트 절대 주소."""
+    from app.config import settings
+    monkeypatch.setattr(settings, "preview_host", "preview.example")
+    hero = {"id": "hero", "type": "hero", "variant": "photo-overlay",
+            "content": {"title": "마포 느린오후", "subtitle": "조용한 카페예요", "image": "/art/ex/cafe-hero.webp"}}
+    pub = _page([hero], public=True)
+    assert '<meta property="og:title" content="마포 느린오후">' in pub
+    assert '<meta property="og:image" content="https://preview.example/art/ex/cafe-hero.webp">' in pub
+    assert "og:title" not in _page([hero])
+
+
+def test_webp_served_as_image(client):
+    r = client.get("/art/ex/cafe-hero.webp")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/webp"

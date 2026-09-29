@@ -209,6 +209,40 @@ _DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 채팅�
                '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
 
 
+def _og_tags(sections: list, site_key: str, page_title: str) -> list:
+    """카톡·문자에 주소를 붙이면 뜨는 미리보기 (디자인 품질 7번, EDIT_PUBLISH_PLAN §5-1).
+    첫 화면 제목·한 줄 소개·사진을 쓴다. 사진 주소는 공개 사이트와 같은 호스트의 절대 주소여야 한다."""
+    hero = next((s.get("content") or {} for s in sections
+                 if isinstance(s, dict) and s.get("type") == "hero" and isinstance(s.get("content"), dict)), {})
+    ctx = _hero_context(hero)
+    title = ctx["title"] or page_title
+    desc = ctx["subtitle"] or page_title
+    tags = [f'<meta property="og:type" content="website">',
+            f'<meta property="og:title" content="{html.escape(title, quote=True)}">',
+            f'<meta property="og:description" content="{html.escape(desc, quote=True)}">',
+            f'<meta name="description" content="{html.escape(desc, quote=True)}">']
+    base = f"https://{settings.preview_host}" if settings.preview_host else (settings.public_base_url or "").rstrip("/")
+    img = ctx["image_src"]
+    if img.startswith("/") and base.startswith("https://"):
+        img = base + img
+    if img.startswith("https://"):
+        tags.append(f'<meta property="og:image" content="{html.escape(img, quote=True)}">')
+    if base.startswith("https://") and site_key:
+        tags.append(f'<meta property="og:url" content="{html.escape(f"{base}/site/{site_key}/", quote=True)}">')
+    return tags
+
+
+def _favicon(page_title: str, palette: dict) -> str:
+    """탭 아이콘: 가게 이름 첫 글자 (상단 로고와 같은 모양, 디자인 품질 7번)."""
+    from urllib.parse import quote
+    letter = html.escape((page_title or "·").strip()[:1] or "·")
+    color = palette.get("primary") if isinstance(palette.get("primary"), str) else "#222"
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" '
+           f'fill="{html.escape(color, quote=True)}"/><text x="32" y="44" font-size="36" text-anchor="middle" '
+           f'fill="#fff" font-family="sans-serif" font-weight="700">{letter}</text></svg>')
+    return f'<link rel="icon" href="data:image/svg+xml,{quote(svg)}">'
+
+
 def _has_example_art(parts: list) -> bool:
     return any("s-illu-badge" in p or "s-example--keep" in p for p in parts if isinstance(p, str))
 
@@ -1290,6 +1324,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
         f'<meta name="theme-color" content="{html.escape(palette["ground"], quote=True)}">',
         f"<title>{html.escape(page_title)}</title>",
+        *(_og_tags(sections, site_key, page_title) if public else []),
+        _favicon(page_title, palette),
         font_link,
         "<style>",
         _root_css(palette, font_pair, density, radius),
