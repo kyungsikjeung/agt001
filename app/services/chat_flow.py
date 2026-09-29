@@ -356,6 +356,9 @@ def _apply_correction(session: dict, text: str, by, is_owner: bool) -> Optional[
     card = session.get("prd")
     if not card or not text:
         return None
+    row = prd_engine.correct_item_row(card, text)  # 요약 품목 표 번호로 고치기 ("2번 가격 1만원")
+    if row:
+        return row
     ups = [u for u in prd_engine.extract(text, None) if u["slot"] != "exclude"]
     for u in ups:
         if not prd_engine.S.SLOTS[u["slot"]].multi:

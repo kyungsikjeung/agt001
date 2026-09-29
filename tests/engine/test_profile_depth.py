@@ -98,3 +98,23 @@ def test_item_notes_not_for_cafe():
     card["turn"] = 1
     E._record_item_notes(card, "아메리카노 4,500원")
     assert not card.get("item_notes")
+
+
+def test_summary_has_numbered_item_table():
+    text = E.summary_text(_salon_card())
+    assert "  1. 컷 — 2만원 · 30분" in text and "  2. 펌 — 8만원 · 2시간 30분" in text
+
+
+def test_correct_item_row_price_and_duration():
+    card = _salon_card()
+    assert E.correct_item_row(card, "2번째 줄 가격 9만원, 3시간 걸려요") == "2번 펌 가격·시간"
+    assert card["price_pairs"]["펌"] == "9만원" and card["duration_pairs"]["펌"] == 180
+    assert E.correct_item_row(card, "첫 번째 메뉴 2만5천원으로 고쳐 주세요") == "1번 컷 가격"
+    assert card_data.build(card)["catalog"][0]["items"][0]["price_won"] == 25000
+
+
+def test_correct_item_row_ignores_other_numbers():
+    card = _salon_card()
+    assert E.correct_item_row(card, "역 2번 출구에서 5분이에요") is None
+    assert E.correct_item_row(card, "9번 가격 1만원") is None  # 없는 줄
+    assert E.correct_item_row(card, "2번 출구 앞이에요") is None  # 값이 없다

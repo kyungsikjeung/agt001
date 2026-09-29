@@ -1891,7 +1891,68 @@ def summary_text(card: dict) -> str:
         lines.append(f"• 기능 '{v.get('name') or v['text']}': {how}" + (f" — {answer}" if answer else ""))
     if card.get("later"):
         lines.append(f"• 나중 할 일: {', '.join(card['later'])}")
+    rows = item_rows(card)
+    if rows:
+        lines.append("• 품목·가격 (번호로 고칠 수 있어요. 예: '2번 가격 1만원')")
+        lines += [f"  {n}. {_row_text(r)}" for n, r in enumerate(rows, 1)]
     return "\n".join(lines)
+
+
+def item_rows(card: dict) -> list:
+    """요약 품목 표의 줄들 (card_data 결과: 펜션은 객실, 학원·공방은 반, 나머지는 메뉴)."""
+    from app.services import card_data  # 순환 참조 방지용 늦은 불러오기
+    try:
+        data = card_data.build(card)
+    except Exception:
+        return []
+    return data["rooms"] or data["classes"] or [i for cat in data["catalog"] for i in cat["items"]]
+
+
+def _minutes_text(m: int) -> str:
+    h, rest = divmod(m, 60)
+    return " ".join(p for p in (f"{h}시간" if h else "", f"{rest}분" if rest else "") if p)
+
+
+def _row_text(row: dict) -> str:
+    """품목 한 줄: "펌 — 8만원 · 2시간 30분". 모르는 값은 '가격 미정'."""
+    extra = [row.get(k) for k in ("capacity", "days", "time") if row.get(k)]
+    if row.get("duration_min"):
+        extra.append(_minutes_text(row["duration_min"]))
+    price = row.get("price") or row.get("fee") or ""
+    if not price and row.get("prices"):
+        price = " / ".join(f"{p['label']} {p['price']}".strip() for p in row["prices"])
+    return " · ".join([f"{row['name']} — {price or '가격 미정'}", *extra])
+
+
+_ROW_NO_RE = re.compile(r"(\d+|첫|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(?:번째|번)\s*(?:줄|항목|메뉴|객실|반)?")
+_ORDINAL = {"첫": 1, "두": 2, "세": 3, "네": 4, "다섯": 5, "여섯": 6, "일곱": 7, "여덟": 8, "아홉": 9, "열": 10}
+
+
+def correct_item_row(card: dict, text: str) -> Optional[str]:
+    """요약 표 번호로 고치기: "3번째 줄 가격 1만원"·"2번 1시간 반" → 그 품목의 가격·시간을 바꾼다.
+    바꿨으면 "3번 펌 가격" 같은 이름표를, 번호나 값이 없으면 None (D26: 사장님 말의 값만)."""
+    text = (text or "").strip()
+    m = _ROW_NO_RE.match(text)  # 말 첫머리의 번호만 ("역 2번 출구"는 품목 번호가 아니다)
+    if not m:
+        return None
+    rows = item_rows(card)
+    n = int(m.group(1)) if m.group(1).isdigit() else _ORDINAL[m.group(1)]
+    if not 1 <= n <= len(rows):
+        return None
+    name = rows[n - 1]["name"]
+    rest = text[m.end():]
+    changed = []
+    price = _PRICE_RE.search(rest)
+    if price:
+        card.setdefault("price_pairs", {})[name] = price.group(0).strip()
+        changed.append("가격")
+    if industry_of(card).key == "salon" and re.search(r"분|시간", rest):
+        from app.services import botmaker as _botmaker  # 순환 참조 방지용 늦은 불러오기
+        minutes = _botmaker.parse_minutes(_PRICE_RE.sub(" ", rest))
+        if minutes and minutes <= 600:
+            card.setdefault("duration_pairs", {})[name] = minutes
+            changed.append("시간")
+    return f"{n}번 {name} {'·'.join(changed)}" if changed else None
 
 
 def spec_text(card: dict) -> str:
