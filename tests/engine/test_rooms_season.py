@@ -192,3 +192,44 @@ def test_pension_price_question():
     assert question.ask == ("객실 요금을 알려 주세요. 성수기·비수기가 다르면 둘 다 알려 주세요. "
                             "(예: 성수기 1박 25만원, 비수기 1박 15만원)")
     assert question.options == ("나중에 넣을게요",)
+
+
+def _messy_card(features="성수기 기간: 7월 15일 ~ 8월 20일"):
+    card = _price_card(offerings=["객실 4개", "성수기 1박", "비수기 1박"],
+                       price="25만원, 15만원",
+                       features=[features])
+    card["price_pairs"] = {"성수기 1박": "25만원", "비수기 1박": "15만원"}
+    return card
+
+
+def test_messy_llm_split_rooms():
+    rooms = card_data.build(_messy_card())["rooms"]
+    assert [r["name"] for r in rooms] == ["객실 1", "객실 2", "객실 3", "객실 4"]
+    for room in rooms:
+        assert [p["label"] for p in room["prices"]] == ["성수기", "비수기"]
+        assert [p["price"] for p in room["prices"]] == ["1박 25만원", "1박 15만원"]
+    assert rooms[0]["prices"][0]["period"] == "7/15~8/20"
+
+
+def test_season_period_from_features_overrides_default():
+    rooms = card_data.build(_messy_card("성수기 기간: 7월 1일 ~ 8월 31일"))["rooms"]
+    assert rooms[0]["prices"][0]["period"] == "7/1~8/31"
+
+
+def test_features_period_not_from_longer_label():
+    card = _price_card(price="성수기 1박 25만원",
+                       features=["극성수기 기간: 7월 25일 ~ 8월 10일"])
+    prices = card_data.season_prices(card)
+    assert prices[0]["period"] == "7/15~8/20"
+
+
+def test_room_number_with_season_word_kept():
+    rooms = card_data.build(_card("pension", offerings=["101호 주말특가"]))["rooms"]
+    assert len(rooms) == 1
+
+
+def test_messy_split_page_has_price_table():
+    html = _page(_messy_card())
+    assert "[요금 입력]" not in html
+    assert ">성수기 1박<" not in html
+    assert "25만원" in html
