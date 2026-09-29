@@ -69,3 +69,32 @@ def test_duration_pairs_only_for_salon():
     card["turn"] = 1
     E._record_duration_pairs(card, "역에서 10분 거리예요")
     assert not card.get("duration_pairs")
+
+
+def test_academy_notes_fill_classes():
+    card = E.new_card("academy")
+    card["turn"] = 1
+    E._put(card, "offerings", ["초등반", "중등 수학반"], S.FILLED, 1)
+    E.apply_updates(card, [], "초등반 화목 4시 월 20만원, 중등 수학반 월수금 저녁 7시 정원 8명 월 25만원")
+    got = {c["name"]: c for c in card_data.build(card)["classes"]}
+    assert got["초등반"]["days"] == "화·목" and got["초등반"]["time"] == "16:00"
+    assert got["초등반"]["price_won"] == 200000  # '월 20만원'의 '월'은 요일이 아니다
+    assert got["중등 수학반"]["days"] == "월·수·금" and got["중등 수학반"]["capacity"] == "8명"
+
+
+def test_pension_notes_fill_rooms():
+    card = E.new_card("pension")
+    card["turn"] = 1
+    E._put(card, "offerings", ["바다방", "101호 (오션뷰)"], S.FILLED, 1)
+    E.apply_updates(card, [], "바다방 2인 12만원, 101호 4인 18만원(성수기 25만원), 입실 15시 퇴실 11시")
+    got = {r["name"]: r for r in card_data.build(card)["rooms"]}
+    assert got["바다방"]["capacity"] == "2인" and got["바다방"]["price_won"] == 120000
+    assert got["101호"]["capacity"] == "4인" and got["101호"]["price_won"] is None  # 금액 둘이면 비움
+    assert not any("입실" in k for k in card["item_notes"])
+
+
+def test_item_notes_not_for_cafe():
+    card = E.new_card("cafe")
+    card["turn"] = 1
+    E._record_item_notes(card, "아메리카노 4,500원")
+    assert not card.get("item_notes")

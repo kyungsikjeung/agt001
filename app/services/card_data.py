@@ -490,6 +490,22 @@ def _strip_class_tokens(text: str) -> str:
     return re.sub(r"\s+", " ", out).strip(" ·,/-")
 
 
+def _note_for(card: dict, name: str) -> tuple:
+    """이름에 맞는 설명 토막 (prd_engine._record_item_notes) → (가격 뺀 글, 가격 글 하나 또는 "")."""
+    notes = card.get("item_notes") or {}
+    note = notes.get(name, "")
+    if not note:
+        for key, value in notes.items():
+            if key and (key in name or name in key):
+                note = value
+                break
+    if not note:
+        return "", ""
+    prices = [p.strip() for p in E._PRICE_RE.findall(note)]
+    fee = prices[0] if prices and price_won(" ".join(prices)) is not None else ""
+    return E._PRICE_RE.sub(" ", note), fee  # "월 20만원"의 '월'을 요일로 읽지 않게 가격을 먼저 뺀다
+
+
 def _classes(card: dict) -> list:
     """offerings 품목 → 반 목록 (학원 D). 이름·대상·요일·시간·정원·수강료를 결정론으로."""
     pairs = card.get("price_pairs") or {}
@@ -499,14 +515,18 @@ def _classes(card: dict) -> list:
         text = str(item)
         name = _strip_class_tokens(text) or text
         target = next((w for w in _TARGETS if w in name), fallback)
+        note, note_fee = _note_for(card, name)
         fee = pairs.get(name, "")
         if not fee:
             for key, value in pairs.items():
                 if key and key in name:
                     fee = value
                     break
-        out.append({"name": name, "target": target, "days": _class_days(text),
-                    "time": _class_time(text), "capacity": _headcount(text),
+        fee = fee or note_fee
+        out.append({"name": name, "target": target,
+                    "days": _class_days(text) or _class_days(note),
+                    "time": _class_time(text) or _class_time(note),
+                    "capacity": _headcount(text) or _headcount(note),
                     "fee": fee, "price_won": price_won(fee), "source": "owner"})
     return out
 
@@ -552,12 +572,16 @@ def _rooms(card: dict) -> list:
         rest = name[room_no.end():].strip() if room_no else ""
         if rest:
             features = [rest] + features
+        note, note_price = _note_for(card, name)
+        if not capacity:
+            capacity = _headcount(note)
         price = pairs.get(name, "")
         if not price:
             for key, value in pairs.items():
                 if key and key in name:
                     price = value
                     break
+        price = price or note_price
         entry = {"name": name, "capacity": capacity, "price": price,
                  "price_won": price_won(price), "source": "owner"}
         if features:

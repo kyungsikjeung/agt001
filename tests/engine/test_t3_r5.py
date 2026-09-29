@@ -271,7 +271,7 @@ def test_owner_required_nonfact_fills_directly(monkeypatch):
 
 def test_price_followup_uses_industry_example():
     # z2 pension-group: 펜션·학원에 미용실 예시('컷트 2만원')가 나가던 문제.
-    for ind, want in (("pension", "객실 요금"), ("academy", "수강료"), ("salon", "컷 2만원 30분")):
+    for ind, want in (("pension", "1박 요금"), ("academy", "수강료"), ("salon", "컷 2만원 30분")):
         card = E.new_card(ind)
         E._maybe_followup(card, ["offerings"])
         text = card["followup"]["text"]

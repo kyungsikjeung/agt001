@@ -583,6 +583,37 @@ def _record_duration_pairs(card: dict, text: str) -> None:
         pairs[name] = m
 
 
+# 반·객실 설명 토막 (A 나머지, D55): "초등반 월수금 4시 월 20만원" → item_notes["초등반"] = 그 토막.
+# 요일·시간·인원·요금은 card_data가 이 토막에서 읽는다 (추출 LLM이 품목 이름만 남겨도 잃지 않게).
+_NOTE_SPLIT_RE = re.compile(r"(?<!\d),|,(?!\d)|\n| 그리고 ")
+_NOTE_STOP = frozenset({"평일", "주말", "매일", "주", "오전", "오후", "저녁", "아침", "정원", "1박", "기준"})
+
+
+def _record_item_notes(card: dict, text: str) -> None:
+    """학원·공방·펜션만: 이름 + 숫자가 있는 토막을 이름별로 둔다 (D26: 사장님 말 그대로)."""
+    if industry_of(card).key not in ("academy", "workshop", "pension"):
+        return
+    from app.services import card_data as _card_data  # 순환 참조 방지용 늦은 불러오기
+    notes = card.setdefault("item_notes", {})
+    for seg in _NOTE_SPLIT_RE.split(text or ""):
+        s = (seg or "").strip()
+        if not re.search(r"\d", s) or re.search(r"시~|입실|퇴실|체크", s):
+            continue  # 숫자 없는 토막, 영업·입실 시간은 품목 설명이 아니다
+        head = []
+        for tok in s.split():
+            if not head and re.match(r"^\S*?\d+\s*호", tok):
+                head.append(tok)  # "101호"처럼 숫자로 된 객실 이름
+                break
+            if re.search(r"\d", tok) or _card_data._day_token(tok) or tok in _NOTE_STOP:
+                break
+            head.append(tok)
+        name = re.sub(r"\([^)]*\)", "", " ".join(head))
+        name = _DURATION_PARTICLE_RE.sub("", name.strip()).strip(" ·,/-:")
+        if not name or len(name) > 15 or len(name) == len(s):
+            continue
+        notes[name] = s
+
+
 def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
     """추출이 메뉴·가격을 뭉쳐 돌려주면 나누고, 같은 턴의 가격은 하나로 합친다.
 
@@ -740,6 +771,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
     applied = []
     _record_price_pairs(card, updates, text)
     _record_duration_pairs(card, text)
+    _record_item_notes(card, text)
     updates = _separate_menu_price(updates, text)  # N-2: 메뉴·가격 뭉침 분리
     # N-3: 근거 판단용 대화 기록 (turn()은 said에 현재 메시지를 먼저 넣어 둔다).
     history = "\n".join([*(card.get("said") or []), text])
@@ -1278,12 +1310,12 @@ def _confirm_question(card: dict, owner_only: bool = False) -> Optional[dict]:
 _FOLLOWUP_V0 = (
     # 질문문이 dict면 업종별 문장 (펜션·학원에 미용실 예시 '컷트 2만원'이 나가던 문제, T3 z2)
     ("offerings", "price", ("cafe", "restaurant", "salon", "workshop", "pension", "academy"), (), {
-        "cafe": "메뉴 가격은 어떻게 되나요? 예: 아메리카노 4,500원, 케이크 6,000원.",
-        "restaurant": "메뉴 가격은 어떻게 되나요? 예: 김치찌개 9,000원, 제육볶음 1만원.",
+        "cafe": "대표 메뉴 3개와 가격을 한 번에 알려 주세요. 예: 아메리카노 4,500원, 라떼 5,000원, 케이크 6,000원.",
+        "restaurant": "대표 메뉴 3개와 가격을 한 번에 알려 주세요. 예: 김치찌개 9,000원, 제육볶음 1만원, 계란말이 8,000원.",
         "salon": "시술 가격과 걸리는 시간을 알려 주세요. 예: 컷 2만원 30분, 펌 8만원 2시간 반.",
-        "workshop": "수업 가격은 어떻게 되나요? 예: 원데이 클래스 3만5천원.",
-        "pension": "객실 요금은 어떻게 되나요? 예: 비수기 12만원, 성수기 18만원.",
-        "academy": "수강료는 어떻게 되나요? 예: 주 2회 월 20만원.",
+        "workshop": "수업별 요일·시간과 가격을 알려 주세요. 예: 원데이 클래스 토 2시 3만5천원.",
+        "pension": "객실별 기준 인원과 1박 요금을 알려 주세요. 예: 바다방 2인 12만원, 숲속방 4인 18만원.",
+        "academy": "반별 요일·시간과 수강료를 알려 주세요. 예: 초등반 월수금 4시 월 20만원.",
     }),
     ("offerings", "staff", ("salon", "academy"), (), {
         "salon": "담당 디자이너는 누구신가요? 예: 원장 김미용(컷트 담당). 없으면 '없음'이라고 해주세요.",
