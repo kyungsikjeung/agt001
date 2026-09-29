@@ -121,3 +121,23 @@ def test_correct_item_row_ignores_other_numbers():
     assert E.correct_item_row(card, "역 2번 출구에서 5분이에요") is None
     assert E.correct_item_row(card, "9번 가격 1만원") is None  # 없는 줄
     assert E.correct_item_row(card, "2번 출구 앞이에요") is None  # 값이 없다
+
+
+def test_price_pairs_from_split_llm_updates():
+    # 실제 추출 LLM은 품목과 가격을 따로 돌려준다 (T3 9/29 가격 짝 10%의 원인)
+    card = E.new_card("cafe")
+    card["turn"] = 1
+    E.apply_updates(card, [{"slot": "offerings", "value": "아메리카노"}, {"slot": "price", "value": "4천원"},
+                           {"slot": "offerings", "value": "소금빵"}, {"slot": "price", "value": "3천5백원"}],
+                    "아메리카노 4천원 소금빵 3천5백원. 상호는 나중에 알려드릴게요.")
+    assert card["price_pairs"] == {"아메리카노": "4천원", "소금빵": "3천5백원"}
+
+
+def test_price_pairs_nested_names_and_change():
+    card = E.new_card("cafe")
+    card["turn"] = 1
+    E._put(card, "offerings", ["카페라떼", "라떼"], S.FILLED, 1)
+    E.apply_updates(card, [], "카페라떼 3천5백원이고 라떼는 4천원이에요")
+    assert card["price_pairs"] == {"카페라떼": "3천5백원", "라떼": "4천원"}
+    E.apply_updates(card, [], "라떼는 4천원에서 4천5백원으로 바꿔주세요")
+    assert card["price_pairs"]["라떼"] == "4천5백원"

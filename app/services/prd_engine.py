@@ -540,6 +540,20 @@ def _record_price_pairs(card: dict, updates: list[dict], text: str) -> None:
             menu, price = _cut_price(item)
             if price is not None and menu != item and price in norm_t and menu in norm_t:
                 pairs[menu] = price
+    # 추출 LLM은 "아메리카노"·"4천원"을 따로 돌려주는 일이 많다(T3 9/29 가격 짝 10%).
+    # 그래서 사장님 말에서 품목 이름 바로 뒤(다음 품목 전, 25자 안)의 금액을 짝으로 잡는다.
+    names = _split_items(_slot(card, "offerings").get("value"))
+    names += [i for u in updates or [] if isinstance(u, dict) and u.get("slot") == "offerings"
+              for i in _split_items(u.get("value"))]
+    spots = sorted({(m.start(), m.end(), n) for n in set(names) if n
+                    for m in re.finditer(r"(?<![가-힣])" + re.escape(n), norm_t)})
+    for pos, (start, end, name) in enumerate(spots):
+        stop = min([s for s, _, _ in spots[pos + 1:] if s >= end] + [end + 25, len(norm_t)])
+        found = list(_PRICE_RE.finditer(norm_t[end:stop]))
+        # "5천원에서 5천5백원으로"면 '으로' 붙은 새 금액, 아니면 첫 금액. 이번 말이 예전 짝보다 우선이다.
+        to = [m for m in found if re.match(r"\s*(?:으로|로)", norm_t[end + m.end():])]
+        if found:
+            pairs[name] = (to or found)[0].group(0).strip()
 
 
 # 소요 시간 쪼개기 (가격 쉼표 "4,500원"은 나누지 않는다)
