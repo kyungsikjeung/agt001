@@ -15,6 +15,9 @@ def test_price_won_table():
         "1박 25만원": 250000,
         "3만원": 30000,
         "만원": 10000,
+        "3천5백원": 3500,
+        "1만2천5백원": 12500,
+        "5백원": 500,
     }
     for text, want in cases.items():
         assert card_data.price_won(text) == want, text

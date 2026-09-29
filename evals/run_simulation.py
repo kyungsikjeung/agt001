@@ -36,6 +36,7 @@ import logging
 import os
 import re
 import sys
+from typing import Optional
 
 try:
     from evals import sim_owner
@@ -156,6 +157,8 @@ def run_dialogue(scenario, engine, owner_llm_fn, *, max_turns: int = MAX_TURNS) 
     transcript = []   # {"role", "name", "text"}
     questions = []    # {"turn", "slot", "kind", "text", "options"}
     current_facts = dict(scenario.get("facts") or {})
+    if (scenario.get("profile") or {}).get("say"):
+        current_facts["품목별 가격"] = scenario["profile"]["say"]  # 가상 사장님만 본다 (채점 칸 아님)
     changes = sorted(scenario.get("changes") or [], key=lambda c: c.get("after_question", 0))
     labels = hidden_labels_for(scenario)
 
@@ -484,13 +487,87 @@ def score_dialogue(scenario, result) -> dict:
             "ire": round(ire, 3), "tkqr": round(tkqr, 3),
             "violations": violations, "confirmed": result.get("confirmed", False),
             "agree_rate": agree_rate,
-            "turns": result.get("turns", 0), "passed": passed}
+            "turns": result.get("turns", 0), "passed": passed,
+            "profile": score_profile(scenario, card)}
+
+
+def _pname(s) -> str:
+    return re.sub(r"\s+", "", str(s or ""))
+
+
+def score_profile(scenario, card) -> Optional[dict]:
+    """프로필 정답(D55 §3.3)과 요약 품목 표를 비교한다. 정답이 없으면 None (통과 판정에는 안 넣는다).
+
+    이름은 공백을 뺀 뒤 한쪽이 다른 쪽에 들어 있으면 맞다("컷"·"컷트", "객실"·"객실 1").
+    가격은 price_won이 같아야 맞다. 정답에 가격이 없는데 표에 가격이 있으면 지어낸 가격."""
+    gold = (scenario.get("profile") or {}).get("items")
+    if not gold or not card.get("slots"):
+        return None
+    from app.services import card_data
+    from app.services.prd_engine import item_rows
+    rows = item_rows(card)
+
+    def won(row):
+        if row.get("price_won") is not None:
+            return row["price_won"]
+        prices = row.get("prices") or []
+        return card_data.price_won(prices[0].get("price")) if len(prices) == 1 else None
+
+    out = {"items": len(gold), "name_hit": 0, "priced": 0, "price_hit": 0,
+           "timed": 0, "time_hit": 0, "invented_price": [], "misses": []}
+    for g in gold:
+        gn = _pname(g["name"])
+        hits = [r for r in rows if gn and (gn in _pname(r["name"]) or _pname(r["name"]) in gn)]
+        if hits:
+            out["name_hit"] += 1
+        got = [won(r) for r in hits if won(r) is not None]
+        if g.get("price_won") is not None:
+            out["priced"] += 1
+            if g["price_won"] in got:
+                out["price_hit"] += 1
+            else:
+                out["misses"].append({"name": g["name"], "want": g["price_won"], "got": got or None})
+        elif got:
+            out["invented_price"].append({"name": g["name"], "got": got})
+        if g.get("duration_min") is not None:
+            out["timed"] += 1
+            if g["duration_min"] in [r.get("duration_min") for r in hits]:
+                out["time_hit"] += 1
+            else:
+                out["misses"].append({"name": g["name"], "want": f"{g['duration_min']}분",
+                                      "got": [r.get("duration_min") for r in hits] or None})
+    return out
 
 
 # ── 보고서 ────────────────────────────────────────────────────────────
 
 def _avg(rows, key) -> float:
     return round(sum(r[key] for r in rows) / len(rows), 3) if rows else 0.0
+
+
+def profile_section(scores: list) -> list:
+    """프로필 정확도 (D55 §3.3 목표: 품목 이름 90%, 가격 짝 90%, 지어낸 가격 0건)."""
+    ps = [(s["scenario_id"], s["profile"]) for s in scores if s.get("profile")]
+    if not ps:
+        return []
+    tot = {k: sum(p[k] for _, p in ps) for k in ("items", "name_hit", "priced", "price_hit", "timed", "time_hit")}
+    inv = sum(len(p["invented_price"]) for _, p in ps)
+
+    def pct(a, b):
+        return f"{a / b * 100:.1f}% ({a}/{b})" if b else "-"
+    L = ["", "## 프로필 정확도 (D55 §3.3, 통과 판정 밖)", "",
+         "| 지표 | 목표 | 이번 결과 |", "|---|---|---|",
+         f"| 품목 이름 | 90% | {pct(tot['name_hit'], tot['items'])} |",
+         f"| 가격 짝 | 90% | {pct(tot['price_hit'], tot['priced'])} |",
+         f"| 시술 시간 (미용실) | - | {pct(tot['time_hit'], tot['timed'])} |",
+         f"| 지어낸 가격 | 0건 | {inv}건 |",
+         "", "| 시나리오 | 이름 | 가격 | 시간 | 틀린 것 |", "|---|---|---|---|---|"]
+    for sid, p in ps:
+        wrong = [f"{m['name']} {m['want']}→{m['got']}" for m in p["misses"]]
+        wrong += [f"{i['name']} 지어냄 {i['got']}" for i in p["invented_price"]]
+        L.append(f"| {sid} | {p['name_hit']}/{p['items']} | {p['price_hit']}/{p['priced']} | "
+                 f"{p['time_hit']}/{p['timed']} | {'; '.join(wrong) or '-'} |")
+    return L
 
 
 def write_markdown(results: list, path: str) -> str:
@@ -565,6 +642,8 @@ def write_markdown(results: list, path: str) -> str:
     ]
     for name, line, got, ok in checks:
         L.append(f"| {name} | {line} | {got} | {'O' if ok else 'X'} |")
+
+    L += profile_section(scores)
 
     failed = [r for r in results if not r["score"]["passed"]][:3]
     L += ["", "## 틀린 칸 (정확도 미달·지어냄)", "", "| 시나리오 | 칸 | 기대 | 실제 | 상태 |", "|---|---|---|---|---|"]

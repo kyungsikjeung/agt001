@@ -40,11 +40,11 @@ _FACILITY = re.compile(r"바베큐|바비큐|BBQ|수영장|풀장|족구장|캠�
 
 # 가격 숫자 읽기 (D26: 사장님 말에 있는 금액만 숫자로 바꾼다)
 _WON_RE = re.compile(
-    r"만원|\d[\d,]*\s*만\s*\d+\s*천\s*원|\d[\d,]*\s*만\s*원|\d[\d,]*\s*천\s*원|\d[\d,]*\s*원")
+    r"만원|(?=\d)(?:\d[\d,]*\s*만\s*)?(?:\d+\s*천\s*)?(?:\d+\s*백\s*)?(?:\d[\d,]*\s*)?원")
 
 
 def _one_won(text: str) -> Optional[int]:
-    """금액 하나("8만5천원", "4500원", "만원") → 원 단위 숫자. 못 읽으면 None."""
+    """금액 하나("8만5천원", "3천5백원", "4500원", "만원") → 원 단위 숫자. 못 읽으면 None."""
     t = re.sub(r"\s+", "", str(text or "").replace(",", ""))
     if not t.endswith("원"):
         return None
@@ -53,14 +53,11 @@ def _one_won(text: str) -> Optional[int]:
         return 10000
     if t == "천":
         return 1000
-    m = re.fullmatch(r"(?:(\d+)만)?(?:(\d+)천)?(\d+)?", t)
+    m = re.fullmatch(r"(?:(\d+)만)?(?:(\d+)천)?(?:(\d+)백)?(\d+)?", t)
     if not m or not any(m.groups()):
-        return None
-    man, chun, rest = m.groups()
-    # "원"만 있거나 숫자가 하나도 없으면 금액이 아니다
-    if man is None and chun is None and rest is None:
-        return None
-    total = 0
+        return None  # "원"만 있거나 숫자가 하나도 없으면 금액이 아니다
+    man, chun, baek, rest = m.groups()
+    total = int(baek) * 100 if baek else 0
     if man is not None:
         total += int(man) * 10000
     if chun is not None:

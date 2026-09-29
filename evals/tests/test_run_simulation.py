@@ -4,6 +4,7 @@
 표준 라이브러리만 쓴다. 실제 NIM 호출 없음 — 결정적 가짜 LLM/가짜 엔진을 주입한다.
 """
 import json
+import re
 import os
 import sys
 import unittest
@@ -374,6 +375,45 @@ class TestRunSimulation(unittest.TestCase):
         self.assertIn(False, eng2.seen_is_owner)
         got = (res2["final_card"]["slots"].get("contact_method") or {}).get("value")
         self.assertEqual(got, "전화")  # 방장 결정이 이긴다
+
+
+    def test_profile_gold_matches_owner_words(self):
+        """프로필 정답의 가격·시간이 가상 사장님이 보는 말(say)과 맞는다 (D55 §3.3)."""
+        from app.services import card_data
+        from app.services import prd_engine as E
+        scs = [s for s in rs.load_scenarios() if s.get("profile")]
+        self.assertGreaterEqual(len(scs), 30)
+        for sc in scs:
+            say = sc["profile"].get("say", "")
+            for patch in (c.get("patch") or {} for c in sc.get("changes") or []):
+                say = patch.get("품목별 가격", say)  # 도중에 바뀐 가격이 정답
+            segs = [x.strip() for x in re.split(r"(?<!\d),|,(?!\d)", say) if x.strip()]
+            for item in sc["profile"]["items"]:
+                seg = next((x for x in segs if x.startswith(item["name"][:2])), "")
+                if item["price_won"] is None:
+                    self.assertFalse(seg, sc["id"])
+                    self.assertIn("price", sc["unknown"], sc["id"])
+                    continue
+                self.assertEqual(card_data.price_won(seg), item["price_won"], (sc["id"], seg))
+                if item.get("duration_min") is not None:
+                    got = __import__("app.services.botmaker", fromlist=["x"]).parse_minutes(
+                        E._PRICE_RE.sub(" ", seg).replace(item["name"], ""))
+                    self.assertEqual(got, item["duration_min"], (sc["id"], seg))
+
+    def test_score_profile(self):
+        from app.services import prd_engine as E
+        from app.services import prd_schema as S
+        sc = {"profile": {"items": [{"name": "컷트", "price_won": 20000, "duration_min": 30},
+                                    {"name": "펌", "price_won": 80000},
+                                    {"name": "염색", "price_won": None}]}}
+        card = E.new_card("salon")
+        E._put(card, "offerings", ["컷", "펌", "염색"], S.FILLED, 1)
+        card["price_pairs"] = {"컷": "2만원", "펌": "7만원", "염색": "5만원"}
+        card["duration_pairs"] = {"컷": 30}
+        p = rs.score_profile(sc, card)
+        self.assertEqual((p["name_hit"], p["price_hit"], p["priced"], p["time_hit"]), (3, 1, 2, 1))
+        self.assertEqual(p["invented_price"], [{"name": "염색", "got": [50000]}])
+        self.assertIn("가격 짝", "\n".join(rs.profile_section([{"scenario_id": "x", "profile": p}])))
 
 
 if __name__ == "__main__":
