@@ -7,10 +7,11 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import auth, bookings, callbot, card, chat, events, inquiries, projects, public, rooms, settings as owner_settings, stt, tts
+from app.api import auth, bookings, callbot, card, chat, chat_agent, events, inquiries, owner, projects, public, rooms, settings as owner_settings, stt, tts
 from app.config import settings
 from app.services import funnel, rag
 from app.services import bookings as bookings_svc
+from app.services import chat_agent as chat_agent_svc
 from app.services import customers as customers_svc
 from app.services import inquiries as inquiries_svc
 from app.services import phone_verify as phone_verify_svc
@@ -29,6 +30,7 @@ async def lifespan(_app: FastAPI):
     bookings_svc.purge_expired()
     customers_svc.purge_orphans()
     phone_verify_svc.purge()
+    chat_agent_svc.purge()
     if settings.precompute_embeddings:
         rag.precompute()
     yield
@@ -69,6 +71,8 @@ def create_app() -> FastAPI:
     app.include_router(inquiries.router)
     app.include_router(bookings.router)
     app.include_router(owner_settings.router)
+    app.include_router(owner.router)
+    app.include_router(chat_agent.router)
     app.include_router(tts.router)
     app.include_router(card.router)
     app.include_router(callbot.router)

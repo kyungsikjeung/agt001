@@ -208,6 +208,17 @@ def list_variants() -> list:
     return sorted(_bundle()["templates"].keys())
 
 
+def _chat_url(content: dict, site_key: str) -> str:
+    """예약 채팅 링크 (BOOKING_BOT_IMPL_PLAN CH-1). https 주소이거나 이 가게의 /chat/<key>만 받는다."""
+    raw = content.get("chat_url") if isinstance(content, dict) else None
+    if not isinstance(raw, str) or not site_key:
+        return ""
+    raw = raw.strip()
+    if raw == f"/chat/{site_key}" or (raw.startswith("https://") and raw.endswith(f"/chat/{site_key}")):
+        return raw
+    return ""
+
+
 def _clean_url(value) -> str:
     """허용 앞부분이 아니면 빈 값으로 돌린다 (자리 표시·예시 그림 분기용).
 
@@ -839,6 +850,7 @@ def _section_context(
         ctx["site_key"] = site_key
         ctx["retention_days"] = int(retention_days)
     elif section_type == "booking" and variant == "form":
+        ctx["chat_url"] = _chat_url(content, site_key)
         # 예약 신청 폼 (BOOKING_PLAN §2.3): 사장님 입력은 _text 경로로만 받는다.
         ctx["site_key"] = site_key
         ctx["retention_days"] = int(retention_days)
@@ -975,6 +987,7 @@ def _section_context(
         ctx["works"] = [w for w in works if w["src"]][:6]
         ctx["has_works"] = bool(ctx["works"])
     elif section_type == "booking" and variant == "slots":
+        ctx["chat_url"] = _chat_url(content, site_key)
         # 예약 현황 + 신청 (D53④): 시안은 예시 현황(days_example), 공개본은 확정 예약으로 계산한 days.
         ctx["site_key"] = site_key
         ctx["retention_days"] = int(retention_days)
@@ -1016,6 +1029,7 @@ def _section_context(
         ctx["count"] = len(rooms)
         ctx["has_prices"] = any(r.get("has_prices") for r in rooms)
     elif section_type == "booking" and variant == "dates":
+        ctx["chat_url"] = _chat_url(content, site_key)
         # 펜션 입실일 + 객실 + 박 수 (C1): 입실일은 date로, 객실은 service로, 박 수는 nights로 보낸다.
         ctx["site_key"] = site_key
         ctx["retention_days"] = int(retention_days)

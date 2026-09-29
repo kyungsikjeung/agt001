@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>예약 관리</title>
+<style>
+  :root {
+    --accent: #6366f1; --accent-dark: #4338ca; --accent-soft: #eef2ff; --bg: #f7f7f8; --surface: #fff;
+    --border: #e5e7eb; --text: #1f2328; --muted: #52525b; --warn: #b45309; --warn-soft: #fffbeb; --bad: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: var(--bg);
+    color: var(--text); line-height: 1.55; -webkit-tap-highlight-color: transparent;
+  }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top)); display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  header h1 { font-size: 1.125rem; margin: 0; flex: 1; }
+  select, input, textarea {
+    font-size: 16px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    max-width: 100%;
+  }
+  nav { display: flex; gap: 4px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  nav button { flex: none; }
+  nav button[aria-selected="true"] { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 12px 64px; display: flex; flex-direction: column; gap: 12px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .card h2 { margin: 0; font-size: 1rem; }
+  .sub { margin: 0; font-size: 0.875rem; color: var(--muted); }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button {
+    min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    font-size: 0.9375rem; font-weight: 600; cursor: pointer; padding: 0 14px; color: var(--text);
+    user-select: none; -webkit-user-select: none;
+  }
+  button.primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent-dark); }
+  .bk { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .bk:first-of-type { border-top: 0; padding-top: 0; }
+  .bk strong { font-size: 0.9375rem; }
+  .pill { display: inline-block; font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border); color: var(--muted); }
+  .pill.requested { color: var(--warn); border-color: #fcd34d; background: var(--warn-soft); }
+  .pill.confirmed { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
+  .day { font-size: 0.8125rem; font-weight: 700; color: var(--muted); margin: 6px 0 0; }
+  #botlog { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+  .msg { padding: 10px 12px; border-radius: 12px; white-space: pre-line; font-size: 0.9375rem; max-width: 92%; }
+  .msg.bot { background: var(--bg); border: 1px solid var(--border); align-self: flex-start; }
+  .msg.me { background: var(--accent-dark); color: #fff; align-self: flex-end; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chips button { border-radius: 999px; border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
+  .bar { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width 200ms ease-out; }
+  .warn { background: var(--warn-soft); color: var(--warn); border-radius: 8px; padding: 8px 12px; font-size: 0.875rem; margin: 0; white-space: pre-line; }
+  .err { color: var(--bad); font-size: 0.875rem; margin: 0; }
+  .login { display: flex; flex-direction: column; gap: 8px; }
+  .login a { display: flex; align-items: center; justify-content: center; min-height: 44px; border-radius: 8px; text-decoration: none; font-weight: 700; }
+  .kakao { background: #fee500; color: #191919; }
+  .google { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>예약 관리</h1>
+  <select id="shop" aria-label="가게 고르기" hidden></select>
+</header>
+<nav id="tabs" role="tablist" hidden>
+  <button role="tab" data-tab="bookings" aria-selected="true">예약</button>
+  <button role="tab" data-tab="bot" aria-selected="false">예약 봇</button>
+  <button role="tab" data-tab="closures" aria-selected="false">휴무·막기</button>
+  <button role="tab" data-tab="verify" aria-selected="false">가게 확인</button>
+</nav>
+<main>
+  <section id="login" class="card" hidden>
+    <h2>로그인해 주세요</h2>
+    <p class="sub">사이트를 만들 때 쓴 카카오·구글 계정으로 들어오면 내 가게가 보여요.</p>
+    <div class="login">
+      <a class="kakao" href="/auth/kakao/start?next=/owner">카카오로 계속하기</a>
+      <a class="google" href="/auth/google/start?next=/owner">구글로 계속하기</a>
+    </div>
+  </section>
+  <section id="empty" class="card" hidden>
+    <h2>아직 가게가 없어요</h2>
+    <p class="sub">채팅방에서 사이트를 만들고 공개하면 여기에 가게가 생겨요. <a href="/">사이트 만들기</a></p>
+  </section>
+
+  <div id="p-bookings" hidden>
+    <section class="card">
+      <div class="row"><h2 style="flex:1">다가오는 예약</h2><button id="reload">새로고침</button></div>
+      <div id="blist"><p class="sub">불러오는 중…</p></div>
+    </section>
+    <section class="card" id="phonebox" hidden>
+      <h2>전화·방문 예약 넣기</h2>
+      <p class="sub">바로 확정돼요. 겹치는 시간이면 막아 드려요.</p>
+      <div class="grid">
+        <label class="f">날짜<input type="date" id="pb-date"></label>
+        <label class="f">시각<input type="time" id="pb-time" step="600"></label>
+        <label class="f" id="pb-svc-l">시술<select id="pb-svc"></select></label>
+        <label class="f" id="pb-staff-l">선생님<select id="pb-staff"></select></label>
+        <label class="f" id="pb-party-l">인원<input type="number" id="pb-party" min="1" max="50" value="2"></label>
+        <label class="f">이름<input id="pb-name" maxlength="40"></label>
+        <label class="f">전화<input id="pb-phone" type="tel" maxlength="20"></label>
+      </div>
+      <button class="primary" id="pb-save">넣기</button>
+      <p class="err" id="pb-err" hidden></p>
+    </section>
+  </div>
+
+  <div id="p-bot" hidden>
+    <section class="card">
+      <h2>예약 봇 만들기</h2>
+      <p class="sub" id="botstatus"></p>
+      <div class="bar" aria-hidden="true"><div id="botbar"></div></div>
+      <div id="botstart" class="row" hidden>
+        <button class="primary" data-mode="slot">시술·상담 (1:1)</button>
+        <button class="primary" data-mode="table">식당·카페 (테이블)</button>
+      </div>
+      <div id="botlog" role="log" aria-live="polite"></div>
+      <form id="botform" class="row" hidden>
+        <input id="bottext" maxlength="500" style="flex:1;min-width:0" placeholder="말로 답해 주세요. 예: 펌은 두 시간 반">
+        <button class="primary" type="submit">보내기</button>
+      </form>
+    </section>
+  </div>
+
+  <div id="p-closures" hidden>
+    <section class="card">
+      <h2>쉬는 날·시간 막기</h2>
+      <div class="grid">
+        <label class="f">날짜<input type="date" id="cl-date"></label>
+        <label class="f">부터 (비우면 하루 종일)<input type="time" id="cl-from"></label>
+        <label class="f">까지<input type="time" id="cl-to"></label>
+        <label class="f">사유 (선택)<input id="cl-reason" maxlength="100"></label>
+      </div>
+      <button class="primary" id="cl-save">막기</button>
+      <p class="warn" id="cl-warn" hidden></p>
+    </section>
+    <section class="card">
+      <h2>막아 둔 시간</h2>
+      <div id="cl-list"><p class="sub">없어요.</p></div>
+    </section>
+  </div>
+
+  <div id="p-verify" hidden>
+    <section class="card">
+      <h2>가게 확인·사업자 확인</h2>
+      <p class="sub">손님 알림 문자, 카카오톡 채널 챗봇 연결, 알림톡·결제를 쓰려면 확인이 필요해요. 고객센터로 연락 주시면 사이트에 적힌 가게 번호로 확인해 드려요.</p>
+      <p id="support"></p>
+      <p class="sub"><a href="/settings">문자 인증·문자 키 설정</a></p>
+    </section>
+  </div>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let shops = [], cur = null, spec = null;
+
+  async function api(path, opts = {}) {
+    const r = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...opts });
+    if (r.status === 401) { show("login"); throw new Error("login"); }
+    let data = {};
+    try { data = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error((data && data.detail) || "잠시 뒤에 다시 해 주세요.");
+    return data;
+  }
+  const post = (path, body) => api(path, { method: "POST", body: JSON.stringify(body || {}) });
+  const base = () => "/api/owner/shops/" + encodeURIComponent(cur.site_key);
+
+  function show(id) { for (const s of ["login", "empty"]) $(s).hidden = s !== id; }
+  function el(tag, text, cls) { const e = document.createElement(tag); if (text != null) e.textContent = text; if (cls) e.className = cls; return e; }
+
+  // ── 탭 ──
+  function tab(name) {
+    for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+    for (const p of ["bookings", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
+    if (name === "bookings") loadBookings();
+    if (name === "bot") loadBot();
+    if (name === "closures") loadClosures();
+  }
+  $("tabs").addEventListener("click", e => { if (e.target.dataset.tab) tab(e.target.dataset.tab); });
+
+  // ── 예약 ──
+  const STATUS = { requested: "확인 필요", confirmed: "확정", declined: "거절", cancelled: "취소", no_show: "노쇼" };
+  const ACTIONS = { requested: [["confirm", "확정", "primary"], ["decline", "거절", "danger"]],
+                    confirmed: [["cancel", "취소", "danger"], ["no_show", "노쇼", ""]] };
+  async function loadBookings() {
+    const box = $("blist");
+    try {
+      const { bookings } = await api(base() + "/bookings");
+      box.replaceChildren();
+      if (!bookings.length) { box.append(el("p", "2주 안에 예약이 없어요.", "sub")); return; }
+      const ordered = [...bookings.filter(b => b.status === "requested"), ...bookings.filter(b => b.status !== "requested")];
+      let lastDay = "";
+      for (const b of ordered) {
+        const dayLabel = b.status === "requested" ? "확인이 필요한 예약" : b.date;
+        if (dayLabel !== lastDay) { box.append(el("p", dayLabel, "day")); lastDay = dayLabel; }
+        const row = el("div", null, "bk");
+        const head = el("div", null, "row");
+        head.append(el("strong", `${b.date.slice(5)} ${b.time} · ${b.service || (b.party + "명")}`), el("span", STATUS[b.status] || b.status, "pill " + b.status));
+        row.append(head, el("p", `${b.name || "이름 없음"} · ${b.phone}${b.memo ? " · " + b.memo : ""}${b.source === "phone" ? " · 전화 예약" : ""}`, "sub"));
+        const acts = el("div", null, "row");
+        for (const [a, label, cls] of ACTIONS[b.status] || []) {
+          const btn = el("button", label, cls);
+          btn.addEventListener("click", async () => {
+            btn.disabled = true;
+            try { await post(`${base()}/bookings/${b.id}/${a}`); loadBookings(); } catch (e) { alertLine(row, e.message); btn.disabled = false; }
+          });
+          acts.append(btn);
+        }
+        if (acts.childElementCount) row.append(acts);
+        box.append(row);
+      }
+    } catch (e) { if (e.message !== "login") box.replaceChildren(el("p", e.message, "err")); }
+  }
+  function alertLine(parent, msg) { const p = el("p", msg, "err"); parent.append(p); setTimeout(() => p.remove(), 4000); }
+  $("reload").addEventListener("click", loadBookings);
+
+  function fillPhoneBox() {
+    const s = spec;
+    $("phonebox").hidden = !s;
+    if (!s) return;
+    const slot = s.mode === "slot";
+    $("pb-svc-l").hidden = $("pb-staff-l").hidden = !slot;
+    $("pb-party-l").hidden = slot;
+    $("pb-svc").replaceChildren(...(s.services || []).map(x => new Option(x.name, x.name)));
+    $("pb-staff").replaceChildren(new Option("상관없음", ""), ...(s.resources || []).map(x => new Option(x.name, x.name)));
+    $("pb-date").value = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+  }
+  $("pb-save").addEventListener("click", async () => {
+    $("pb-err").hidden = true;
+    const slot = spec && spec.mode === "slot";
+    try {
+      await post(base() + "/bookings", {
+        date: $("pb-date").value, time: $("pb-time").value, name: $("pb-name").value || null, phone: $("pb-phone").value,
+        service: slot ? $("pb-svc").value : null, staff: slot ? ($("pb-staff").value || null) : null,
+        party: slot ? 1 : Number($("pb-party").value || 1),
+      });
+      $("pb-name").value = $("pb-phone").value = "";
+      loadBookings();
+    } catch (e) { $("pb-err").textContent = e.message; $("pb-err").hidden = false; }
+  });
+
+  // ── 예약 봇 ──
+  function botMsg(text, who) { const m = el("div", text, "msg " + who); $("botlog").append(m); $("botlog").scrollTop = $("botlog").scrollHeight; }
+  function botChips(buttons) {
+    $("botlog").querySelectorAll(".chips button").forEach(b => { b.disabled = true; });
+    if (!buttons || !buttons.length) return;
+    const box = el("div", null, "chips");
+    for (const b of buttons) {
+      const btn = el("button", b.label);
+      btn.type = "button";
+      btn.addEventListener("click", () => botSend({ action: b.action }, b.label));
+      box.append(btn);
+    }
+    $("botlog").append(box);
+    $("botlog").scrollTop = $("botlog").scrollHeight;
+  }
+  function botShow(out) {
+    botMsg(out.reply, "bot");
+    botChips(out.buttons);
+    if (out.progress) $("botbar").style.width = Math.round(100 * out.progress.done / Math.max(1, out.progress.total)) + "%";
+    if (out.activated) { refreshShops(); }
+  }
+  async function botSend(body, shown) {
+    if (shown) botMsg(shown, "me");
+    try { botShow(await post(base() + "/bot", body)); } catch (e) { botMsg(e.message, "bot"); }
+  }
+  async function loadBot() {
+    $("botlog").replaceChildren();
+    const st = await api(base() + "/bot");
+    spec = st.active ? st.active.spec : null;
+    $("botstatus").textContent = st.active ? `켜져 있어요 (설정 ${st.active.version}판). 다시 만들면 새 판으로 바뀌어요.` : "아직 꺼져 있어요. 질문에 답하면 예약 봇이 만들어져요.";
+    $("botstart").hidden = !!st.draft;
+    $("botform").hidden = !st.draft;
+    if (st.draft) botSend({});   // 이어서: 지금 질문을 다시 보여 준다
+  }
+  $("botstart").addEventListener("click", e => {
+    const mode = e.target.dataset.mode;
+    if (!mode) return;
+    $("botstart").hidden = true;
+    $("botform").hidden = false;
+    botSend({ mode });
+  });
+  $("botform").addEventListener("submit", e => {
+    e.preventDefault();
+    const t = $("bottext").value.trim();
+    if (!t) return;
+    $("bottext").value = "";
+    botSend({ text: t }, t);
+  });
+
+  // ── 휴무·막기 ──
+  async function loadClosures() {
+    const box = $("cl-list");
+    const { closures } = await api(base() + "/closures");
+    box.replaceChildren();
+    if (!closures.length) { box.append(el("p", "없어요.", "sub")); return; }
+    for (const c of closures) {
+      const row = el("div", null, "row");
+      const fmt = s => s.replace("T", " ").slice(5, 16);
+      row.append(el("span", `${fmt(c.start_at)} ~ ${fmt(c.end_at)}${c.reason ? " · " + c.reason : ""}`));
+      const del = el("button", "풀기", "danger");
+      del.addEventListener("click", async () => { await api(`${base()}/closures/${c.id}`, { method: "DELETE" }); loadClosures(); });
+      row.append(del);
+      box.append(row);
+    }
+  }
+  $("cl-save").addEventListener("click", async () => {
+    const d = $("cl-date").value;
+    $("cl-warn").hidden = true;
+    if (!d) return;
+    const from = $("cl-from").value || "00:00", to = $("cl-to").value || "23:59";
+    try {
+      const out = await post(base() + "/closures", { start_at: `${d}T${from}:00`, end_at: `${d}T${to}:00`, reason: $("cl-reason").value || null });
+      if (out.conflicts.length) {
+        $("cl-warn").textContent = "막았어요. 이 시간에 잡힌 예약이 있어요. 손님께 연락해 주세요:\n" +
+          out.conflicts.map(b => `${b.time} ${b.name || ""} ${b.phone}`).join("\n");
+        $("cl-warn").hidden = false;
+      }
+      loadClosures();
+    } catch (e) { $("cl-warn").textContent = e.message; $("cl-warn").hidden = false; }
+  });
+
+  // ── 가게 ──
+  async function refreshShops() {
+    const data = await api("/api/owner/shops");
+    shops = data.shops;
+    $("support").textContent = data.support_phone ? "고객센터: " + data.support_phone : "고객센터 번호는 준비 중이에요.";
+    if (!shops.length) { show("empty"); return false; }
+    show(null);
+    const keep = cur && cur.site_key;
+    $("shop").replaceChildren(...shops.map(s => new Option(s.shop_name || s.site_key, s.site_key)));
+    $("shop").hidden = shops.length < 2;
+    cur = shops.find(s => s.site_key === keep) || shops[0];
+    $("shop").value = cur.site_key;
+    $("tabs").hidden = false;
+    return true;
+  }
+  $("shop").addEventListener("change", () => { cur = shops.find(s => s.site_key === $("shop").value); tab("bookings"); });
+
+  (async () => {
+    try {
+      if (!(await refreshShops())) return;
+      const st = await api(base() + "/bot");
+      spec = st.active ? st.active.spec : null;
+      fillPhoneBox();
+      tab("bookings");
+    } catch (e) { if (e.message !== "login") document.querySelector("main").prepend(el("p", e.message, "err")); }
+  })();
+})();
+</script>
+</body>
+</html>

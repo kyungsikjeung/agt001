@@ -233,12 +233,15 @@ def nights(card: dict, site_key: str, *, today=None, count: int = 14) -> list:
 def apply(spec: dict, card: dict, site_key: str, *, today=None) -> dict:
     """명세 사본의 예약 부품 days를 실계산으로 바꾼다 (days_example 끔)."""
     out = copy.deepcopy(spec)
+    chat_url = _chat_url(site_key)
     for sec in out.get("sections") or []:
         if not isinstance(sec, dict) or sec.get("type") != "booking":
             continue
         content = sec.get("content")
         if not isinstance(content, dict):
             continue
+        if chat_url:
+            content["chat_url"] = chat_url
         if sec.get("variant") == "slots":
             content["days"] = days(card, site_key, today=today)
             content["days_example"] = False
@@ -246,6 +249,24 @@ def apply(spec: dict, card: dict, site_key: str, *, today=None) -> dict:
             content["days"] = nights(card, site_key, today=today)
             content["days_example"] = False
     return out
+
+
+def _chat_url(site_key: str) -> str:
+    """예약 봇을 켠 가게면 채팅 예약 주소(앱 주소). 생성 사이트는 미리보기 주소에서 열리므로 절대 주소로."""
+    try:
+        from app.services import booking_engine
+        if booking_engine.active_spec(site_key) is None:
+            return ""
+    except Exception:
+        return ""
+    base = (settings.public_base_url or "").rstrip("/")
+    if base.startswith("https://"):
+        return f"{base}/chat/{site_key}"
+    if settings.preview_host:
+        # 미리보기 주소는 /chat/을 열지 않는다. 앱 주소(PUBLIC_BASE_URL)를 모르면 링크를 빼서 404를 막는다.
+        log.warning("PUBLIC_BASE_URL이 없어 채팅 예약 링크를 넣지 않아요 site=%s", site_key)
+        return ""
+    return f"/chat/{site_key}"
 
 
 def _card_for_site(site_key: str):

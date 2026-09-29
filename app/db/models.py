@@ -5,7 +5,7 @@
 import datetime
 from typing import Optional
 
-from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, Date, DateTime, ForeignKey, Index, Integer, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -231,6 +231,14 @@ class BookingRow(Base):
     decided_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
     customer_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("customers.id", ondelete="SET NULL"),
                                                       index=True)
+    # 예약 엔진(0016). 명세를 켠 가게만 채운다. 겹침은 배제 제약 ex_bookings_resource_overlap이 막는다.
+    shop_id: Mapped[Optional[str]] = mapped_column(Text, ForeignKey("shops.site_key", ondelete="SET NULL"))  # = site_key
+    start_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    end_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    resource_key: Mapped[Optional[str]] = mapped_column(Text)
+    source: Mapped[Optional[str]] = mapped_column(Text)  # web·chat·phone·owner
+    hold_expires_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    chat_token_hash: Mapped[Optional[str]] = mapped_column(Text)
 
 
 class CustomerRow(Base):
@@ -364,6 +372,11 @@ class ShopRow(Base):
     kind: Mapped[Optional[str]] = mapped_column(Text)  # slot·table·night·class
     created_at: Mapped[datetime.datetime] = _now_col()
     deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    # 고객센터로 받은 가게 확인(L2)·사업자 확인(L3). 운영자가 처리한다(AI_BOOKING_AGENT_PLAN §5.2, 0016).
+    phone_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    biz_no: Mapped[Optional[str]] = mapped_column(Text)
+    biz_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    verified_by: Mapped[Optional[str]] = mapped_column(Text)
 
 
 class ShopMemberRow(Base):
@@ -496,4 +509,69 @@ class SubscriptionRow(Base):
     next_schedule_id: Mapped[Optional[str]] = mapped_column(Text)
     fail_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class BotSpecRow(Base):
+    """가게별 예약 명세 판 (SPEC-3). 가게당 active 하나·draft 하나."""
+
+    __tablename__ = "bot_specs"
+    __table_args__ = (
+        UniqueConstraint("shop_id", "version", name="uq_bot_specs_version"),
+        CheckConstraint("status IN ('draft', 'active', 'archived')", name="ck_bot_specs_status"),
+        Index("uq_bot_specs_active", "shop_id", unique=True, postgresql_where=text("status = 'active'")),
+        Index("uq_bot_specs_draft", "shop_id", unique=True, postgresql_where=text("status = 'draft'")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    shop_id: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), nullable=False)  # = site_key
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    spec: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class BookingClosureRow(Base):
+    """휴무·막기 (CAL-3). resource_key가 없으면 가게 전체."""
+
+    __tablename__ = "booking_closures"
+    __table_args__ = (
+        CheckConstraint("end_at > start_at", name="ck_booking_closures_range"),
+        Index("ix_booking_closures_shop", "shop_id", "start_at"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    shop_id: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), nullable=False)  # = site_key
+    resource_key: Mapped[Optional[str]] = mapped_column(Text)
+    start_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    end_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reason: Mapped[Optional[str]] = mapped_column(Text)
+    created_by: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class BookingEventRow(Base):
+    """예약 상태 변경 기록 (BOOK-8). 누가(customer·owner·ai·system) 무엇을."""
+
+    __tablename__ = "booking_events"
+    __table_args__ = (Index("ix_booking_events_booking", "booking_id", "id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    booking_id: Mapped[int] = mapped_column(ForeignKey("bookings.id", ondelete="CASCADE"), nullable=False)
+    shop_id: Mapped[str] = mapped_column(Text, nullable=False)  # = site_key
+    actor: Mapped[str] = mapped_column(Text, nullable=False)
+    action: Mapped[str] = mapped_column(Text, nullable=False)
+    detail: Mapped[Optional[dict]] = mapped_column(JSONB)
+    ts: Mapped[datetime.datetime] = _now_col()
+
+
+class AgentThreadRow(Base):
+    """손님 채팅 진행 상태 (CH-6). 쿠키 토큰의 해시로 찾는다. 7일 뒤 지운다."""
+
+    __tablename__ = "agent_threads"
+
+    token_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    shop_id: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), nullable=False)  # = site_key
+    draft: Mapped[Optional[dict]] = mapped_column(JSONB)
     updated_at: Mapped[datetime.datetime] = _now_col()

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "botmaker_to_bot: 가게별 예약 명세 (BOOKING_BOT_IMPL_PLAN SPEC-1)",
+  "description": "봇메이커가 인터뷰로 만들고, 예약 엔진·손님 채팅이 읽는다. 의미 검사는 app/services/booking_spec.validate.",
+  "type": "object",
+  "required": ["mode", "step_min", "weekly_hours"],
+  "$defs": {
+    "hhmm": {"type": "string", "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$|^24:00$"},
+    "spans": {"type": "array", "items": {"type": "array", "prefixItems": [{"$ref": "#/$defs/hhmm"}, {"$ref": "#/$defs/hhmm"}], "minItems": 2, "maxItems": 2}},
+    "weekly": {"type": "object", "propertyNames": {"enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]}, "additionalProperties": {"$ref": "#/$defs/spans"}}
+  },
+  "properties": {
+    "mode": {"enum": ["slot", "table"]},
+    "step_min": {"enum": [10, 15, 20, 30, 60]},
+    "weekly_hours": {"$ref": "#/$defs/weekly"},
+    "services": {"type": "array", "items": {"type": "object", "required": ["name", "duration_min"], "properties": {
+      "name": {"type": "string"}, "duration_min": {"type": "integer", "minimum": 1},
+      "buffer_min": {"type": "integer", "minimum": 0}, "price": {"type": ["integer", "null"]},
+      "staff_minutes": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
+      "staff": {"type": "array", "items": {"type": "string"}}}}},
+    "resources": {"type": "array", "items": {"type": "object", "required": ["key", "kind", "name"], "properties": {
+      "key": {"type": "string"}, "kind": {"enum": ["staff", "table", "room"]}, "name": {"type": "string"},
+      "seats": {"type": "integer"}, "hours": {"$ref": "#/$defs/weekly"},
+      "days_off": {"type": "array", "items": {"enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]}},
+      "active": {"type": "boolean"}}}},
+    "meal_minutes": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 1}},
+    "pace": {"type": "object", "properties": {"teams": {"type": "integer", "minimum": 1}, "people": {"type": "integer", "minimum": 1}}},
+    "policy": {"type": "object", "properties": {
+      "lead_min": {"type": "integer", "minimum": 0}, "max_days": {"type": "integer", "minimum": 1},
+      "change_deadline_hours": {"type": "integer", "minimum": 0}, "cancel_deadline_hours": {"type": "integer", "minimum": 0},
+      "auto_confirm": {"type": "boolean"}, "hold_hours": {"type": "integer", "minimum": 1},
+      "party_min": {"type": "integer", "minimum": 1}, "party_max": {"type": "integer", "minimum": 1},
+      "last_start": {"anyOf": [{"$ref": "#/$defs/hhmm"}, {"type": "null"}]}}},
+    "handoff": {"type": "object", "additionalProperties": {"enum": ["phone", "owner"]}},
+    "faq": {"type": "array", "items": {"type": "object", "required": ["q", "a"], "properties": {"q": {"type": "string"}, "a": {"type": "string"}, "source": {"type": "string"}}}},
+    "provenance": {"type": "object", "additionalProperties": {"enum": ["filled", "assumed", "default"]}}
+  }
+}
