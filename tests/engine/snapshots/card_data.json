@@ -5,20 +5,26 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "초등 파닉스반",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "중등 내신반",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "고등 수능반",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -32,6 +38,7 @@
     "days": "",
     "fee": "",
     "name": "초등 파닉스반",
+    "price_won": null,
     "source": "owner",
     "target": "초등",
     "time": ""
@@ -41,6 +48,7 @@
     "days": "",
     "fee": "",
     "name": "중등 내신반",
+    "price_won": null,
     "source": "owner",
     "target": "중등",
     "time": ""
@@ -50,6 +58,7 @@
     "days": "",
     "fee": "",
     "name": "고등 수능반",
+    "price_won": null,
     "source": "owner",
     "target": "고등",
     "time": ""
@@ -68,14 +77,18 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "아메리카노",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "카페라떼",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -97,14 +110,18 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "아메리카노",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "카페라떼",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -115,8 +132,10 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "바스크치즈케이크",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -138,14 +157,18 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "성인 취미반",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "입시반",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -167,14 +190,18 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "주말 원데이클래스",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "4주 정규반",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -206,20 +233,26 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "101호(복층)",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "102호(온돌)",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "바베큐장",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -238,6 +271,7 @@
     ],
     "name": "101호",
     "price": "",
+    "price_won": null,
     "source": "owner"
    },
    {
@@ -247,6 +281,7 @@
     ],
     "name": "102호",
     "price": "",
+    "price_won": null,
     "source": "owner"
    }
   ],
@@ -260,20 +295,26 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "김치찌개",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "제육볶음",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "계란말이",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -295,14 +336,18 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "김치찌개",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "된장찌개",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -324,8 +369,10 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "컷",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -336,8 +383,10 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "염색",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -348,8 +397,10 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "펌",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -371,8 +422,10 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "컷",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -383,8 +436,10 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "염색",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],
@@ -406,14 +461,18 @@
     "items": [
      {
       "desc": "",
+      "duration_min": null,
       "name": "문자 알림",
       "price": "",
+      "price_won": null,
       "source": "owner"
      },
      {
       "desc": "",
+      "duration_min": null,
       "name": "노쇼 관리",
       "price": "",
+      "price_won": null,
       "source": "owner"
      }
     ],

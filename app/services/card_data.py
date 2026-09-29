@@ -4,6 +4,7 @@
 """
 import datetime
 import re
+from typing import Optional
 
 from app.services import prd_engine as E
 from app.services import prd_schema as S
@@ -36,6 +37,59 @@ _TARGETS = ("초등", "중등", "고등", "성인", "유아")
 _ROOM_NO = re.compile(r"^\S*?\d+\s*호")
 # 객실이 아닌 부대시설. 객실 카드("이 객실 예약")에서 뺀다.
 _FACILITY = re.compile(r"바베큐|바비큐|BBQ|수영장|풀장|족구장|캠프파이어|불멍|주차|매점|카페|노래방|찜질|스파장|놀이터", re.I)
+
+# 가격 숫자 읽기 (D26: 사장님 말에 있는 금액만 숫자로 바꾼다)
+_WON_RE = re.compile(
+    r"만원|\d[\d,]*\s*만\s*\d+\s*천\s*원|\d[\d,]*\s*만\s*원|\d[\d,]*\s*천\s*원|\d[\d,]*\s*원")
+
+
+def _one_won(text: str) -> Optional[int]:
+    """금액 하나("8만5천원", "4500원", "만원") → 원 단위 숫자. 못 읽으면 None."""
+    t = re.sub(r"\s+", "", str(text or "").replace(",", ""))
+    if not t.endswith("원"):
+        return None
+    t = t[:-1]
+    if t == "만":
+        return 10000
+    if t == "천":
+        return 1000
+    m = re.fullmatch(r"(?:(\d+)만)?(?:(\d+)천)?(\d+)?", t)
+    if not m or not any(m.groups()):
+        return None
+    man, chun, rest = m.groups()
+    # "원"만 있거나 숫자가 하나도 없으면 금액이 아니다
+    if man is None and chun is None and rest is None:
+        return None
+    total = 0
+    if man is not None:
+        total += int(man) * 10000
+    if chun is not None:
+        total += int(chun) * 1000
+    if rest:
+        # "만"/"천" 뒤에 붙은 나머지는 일의 자리 (예: 8만5천원 → 만=8, 천=5)
+        # 단독 숫자("4500원")도 그대로 더한다
+        total += int(rest)
+    return total if total > 0 else None
+
+
+def price_won(text) -> Optional[int]:
+    """가격 글 → 원 단위 숫자. 금액이 없거나 서로 다른 금액이 둘 이상이면 None."""
+    if not text:
+        return None
+    found = _WON_RE.findall(str(text))
+    if not found:
+        return None
+    values = []
+    for part in found:
+        v = _one_won(part)
+        if v is not None:
+            values.append(v)
+    if not values:
+        return None
+    if len(set(values)) > 1:
+        return None
+    return values[0]
+
 
 # 객실 수 세기 (BETA_FLOW §2.5: "객실 4개"·"방 4개"·"4개 객실"·"객실 4" → 4, 아니면 0)
 _ROOM_COUNT = re.compile(
@@ -277,6 +331,16 @@ def _classify(industry_key: str, name: str) -> str:
     return ITEM_LABEL.get(industry_key, "메뉴")
 
 
+def _pair_for(pairs: dict, name: str):
+    """이름에 맞는 짝값 (정확히 일치 먼저, 없으면 짝 키가 이름에 들어간 것)."""
+    if name in pairs:
+        return pairs[name]
+    for key, value in pairs.items():
+        if key and key in name:
+            return value
+    return None
+
+
 def _catalog(card: dict, industry_key: str) -> list:
     """offerings → 분류 묶음. 가격은 price_pairs, 없으면 빈 문자열.
 
@@ -284,6 +348,7 @@ def _catalog(card: dict, industry_key: str) -> list:
     낱말표로 못 넣는 품목은 첫 분류에 넣는다.
     """
     pairs = card.get("price_pairs") or {}
+    durations = card.get("duration_pairs") or {}
     custom = _custom_categories(card)
     groups: dict = {}
     for item in _values(card, "offerings"):
@@ -291,8 +356,10 @@ def _catalog(card: dict, industry_key: str) -> list:
         cat = _classify(industry_key, name)
         if custom and cat not in custom:
             cat = custom[0]
+        price = pairs.get(name, "")
         groups.setdefault(cat, []).append(
-            {"name": name, "price": pairs.get(name, ""), "desc": "", "source": "owner"})
+            {"name": name, "price": price, "price_won": price_won(price),
+             "duration_min": _pair_for(durations, name), "desc": "", "source": "owner"})
     ordered = list(groups.items())
     if custom:
         ordered = [(c, groups[c]) for c in custom if c in groups] + \
@@ -440,7 +507,7 @@ def _classes(card: dict) -> list:
                     break
         out.append({"name": name, "target": target, "days": _class_days(text),
                     "time": _class_time(text), "capacity": _headcount(text),
-                    "fee": fee, "source": "owner"})
+                    "fee": fee, "price_won": price_won(fee), "source": "owner"})
     return out
 
 
@@ -462,7 +529,9 @@ def _rooms(card: dict) -> list:
         if count:
             for pos in range(1, min(count, 8) + 1):
                 name = f"객실 {pos}"
-                out.append({"name": name, "capacity": "", "price": pairs.get(name, ""),
+                price = pairs.get(name, "")
+                out.append({"name": name, "capacity": "", "price": price,
+                            "price_won": price_won(price),
                             "source": "owner", "numbered": True})
             continue
         features: list = []
@@ -489,7 +558,8 @@ def _rooms(card: dict) -> list:
                 if key and key in name:
                     price = value
                     break
-        entry = {"name": name, "capacity": capacity, "price": price, "source": "owner"}
+        entry = {"name": name, "capacity": capacity, "price": price,
+                 "price_won": price_won(price), "source": "owner"}
         if features:
             entry["features"] = features
         out.append(entry)

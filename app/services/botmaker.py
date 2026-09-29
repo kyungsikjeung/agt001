@@ -537,6 +537,13 @@ def seed(card: Optional[dict], mode: Optional[str] = None) -> dict:
         items = [i["name"] for cat in data.get("catalog") or [] for i in cat.get("items") or []]
         if items:
             set_path(spec, "services", items[:12])
+            for cat in data.get("catalog") or []:
+                for item in cat.get("items") or []:
+                    name = item.get("name")
+                    if item.get("duration_min") is not None:
+                        set_path(spec, f"services[{name}].duration_min", item["duration_min"])
+                    if item.get("price_won") is not None:
+                        set_path(spec, f"services[{name}].price", item["price_won"])
             prov["services"] = "card"
     return spec
 

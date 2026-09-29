@@ -67,9 +67,9 @@ def test_blueprint_e_loads_and_follows_contract():
 def test_workshop_classes_parsed_like_academy():
     classes = card_data.build(_card())["classes"]
     assert classes[0] == {"name": "원데이 도예", "target": "", "days": "토",
-                          "time": "14:00", "capacity": "6명", "fee": "5만원", "source": "owner"}
+                          "time": "14:00", "capacity": "6명", "fee": "5만원", "price_won": 50000, "source": "owner"}
     assert classes[1] == {"name": "4주 정규반", "target": "", "days": "화·목",
-                          "time": "19:00", "capacity": "8명", "fee": "20만원", "source": "owner"}
+                          "time": "19:00", "capacity": "8명", "fee": "20만원", "price_won": 200000, "source": "owner"}
 
 
 def test_design_variants_gives_three():

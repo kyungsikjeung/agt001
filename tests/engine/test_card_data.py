@@ -66,7 +66,7 @@ def test_academy_classes_parsed():
     card["price_pairs"] = {"초등 파닉스반": "월 18만원", "중등 내신반": "월 24만원"}
     classes = card_data.build(card)["classes"]
     assert classes[0] == {"name": "초등 파닉스반", "target": "초등", "days": "월·수",
-                          "time": "16:00", "capacity": "8명", "fee": "월 18만원", "source": "owner"}
+                          "time": "16:00", "capacity": "8명", "fee": "월 18만원", "price_won": 180000, "source": "owner"}
     assert classes[1]["days"] == "화·목" and classes[1]["time"] == "18:00"
     assert classes[1]["capacity"] == "10명" and classes[1]["fee"] == "월 24만원"
 
@@ -76,7 +76,7 @@ def test_academy_class_without_detail_keeps_name():
     card = _card("academy", offerings=["토익반"], target="성인")
     classes = card_data.build(card)["classes"]
     assert classes == [{"name": "토익반", "target": "성인", "days": "", "time": "",
-                        "capacity": "", "fee": "", "source": "owner"}]
+                        "capacity": "", "fee": "", "price_won": None, "source": "owner"}]
 
 
 def test_pension_rooms_parsed():

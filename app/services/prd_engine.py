@@ -542,6 +542,47 @@ def _record_price_pairs(card: dict, updates: list[dict], text: str) -> None:
                 pairs[menu] = price
 
 
+# 소요 시간 쪼개기 (가격 쉼표 "4,500원"은 나누지 않는다)
+_DURATION_SPLIT_RE = re.compile(r"(?<!\d),|,(?!\d)|[·/\n]| 그리고 ")
+# 한글 숫자로 시작하는 소요 시간 ("두 시간", "한 시간", "시간 반")
+_DURATION_WORD_RE = re.compile(r"[두세한]\s*시간|시간\s*반|반\s*시간")
+_DURATION_PARTICLE_RE = re.compile(r"(은|는|이|가|을|를|도)+$")
+
+
+def _record_duration_pairs(card: dict, text: str) -> None:
+    """소요 시간 짝 보존: "컷 2만원 30분" → duration_pairs["컷"] = 30 (D26: 사장님 말에만 근거)."""
+    if industry_of(card).key != "salon":
+        return  # 시술 시간은 미용실만 ("역에서 10분 거리"를 시간 짝으로 넣지 않게)
+    from app.services import botmaker as _botmaker  # 순환 참조 방지용 늦은 불러오기
+    pairs = card.setdefault("duration_pairs", {})
+    for seg in _DURATION_SPLIT_RE.split(text or ""):
+        s = (seg or "").strip()
+        if not s or "시~" in s or "영업" in s:
+            continue  # 영업시간("10시~19시 영업")은 소요 시간이 아니다
+        noprice = _PRICE_RE.sub(" ", s)
+        m = _botmaker.parse_minutes(noprice)
+        if m is None or m > 600:
+            continue  # 미용실 범위를 넘는 긴 시간은 소요 시간으로 보지 않는다
+        cut = len(s)
+        digit = re.search(r"\d", s)
+        if digit:
+            cut = min(cut, digit.start())
+        word = _DURATION_WORD_RE.search(s)
+        if word:
+            cut = min(cut, word.start())
+        else:
+            # "두/세/한/반" 단독으로 시작하는 소요 시간 ("펌 두 시간")
+            for single in re.finditer(r"[두세한반]", s):
+                tail = s[single.start():single.start() + 6]
+                if re.match(r"(두|세|한)\s*시간|반(\s*(시간|분))?\s*$|반\s", tail):
+                    cut = min(cut, single.start())
+                    break
+        name = _DURATION_PARTICLE_RE.sub("", s[:cut].strip()).strip()
+        if not name or len(name) > 12 or name not in text:
+            continue
+        pairs[name] = m
+
+
 def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
     """추출이 메뉴·가격을 뭉쳐 돌려주면 나누고, 같은 턴의 가격은 하나로 합친다.
 
@@ -698,6 +739,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
     turn = card["turn"]
     applied = []
     _record_price_pairs(card, updates, text)
+    _record_duration_pairs(card, text)
     updates = _separate_menu_price(updates, text)  # N-2: 메뉴·가격 뭉침 분리
     # N-3: 근거 판단용 대화 기록 (turn()은 said에 현재 메시지를 먼저 넣어 둔다).
     history = "\n".join([*(card.get("said") or []), text])
@@ -1238,7 +1280,7 @@ _FOLLOWUP_V0 = (
     ("offerings", "price", ("cafe", "restaurant", "salon", "workshop", "pension", "academy"), (), {
         "cafe": "메뉴 가격은 어떻게 되나요? 예: 아메리카노 4,500원, 케이크 6,000원.",
         "restaurant": "메뉴 가격은 어떻게 되나요? 예: 김치찌개 9,000원, 제육볶음 1만원.",
-        "salon": "시술 가격은 어떻게 되나요? 예: 컷트 2만원, 염색 8만원.",
+        "salon": "시술 가격과 걸리는 시간을 알려 주세요. 예: 컷 2만원 30분, 펌 8만원 2시간 반.",
         "workshop": "수업 가격은 어떻게 되나요? 예: 원데이 클래스 3만5천원.",
         "pension": "객실 요금은 어떻게 되나요? 예: 비수기 12만원, 성수기 18만원.",
         "academy": "수강료는 어떻게 되나요? 예: 주 2회 월 20만원.",
