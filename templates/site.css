@@ -1366,6 +1366,12 @@ section.s-hero .s-lead { margin: 0 0 4px; }
 /* 링크가 넘치면 오른쪽 끝을 흐리게: 옆으로 밀면 더 있다는 표시 */
 .s-navbar__links { -webkit-mask-image: linear-gradient(to right, #000 82%, transparent); mask-image: linear-gradient(to right, #000 82%, transparent); }
 @media (min-width: 760px) { .s-navbar__links { -webkit-mask-image: none; mask-image: none; } }
+/* 휴대폰 폭에서는 링크가 잘려 보여서(디자인 품질 3번) 가게 이름과 주 버튼만 둔다.
+   이동은 첫 화면 버튼과 아래 행동 바가 맡는다. */
+@media (max-width: 479px) {
+  .s-navbar__links { display: none; }
+  .s-navbar__name { max-width: 52vw; }
+}
 .s-navbar__links a {
   display: inline-flex;
   align-items: center;
@@ -1990,3 +1996,7 @@ section[class^="s-"][data-tone="inverse"] .s-slot--few .s-slot__state,
 section[class^="s-"][data-tone="inverse"] .s-date--few .s-date__state {
   color: color-mix(in oklch, var(--c-accent) 45%, #fff);
 }
+
+/* 시안 위 예시 안내 한 줄 (공개본에는 없다) */
+.s-draft-note { margin: 0; padding: 8px 16px; font-size: 14px; line-height: 1.4; text-align: center;
+  background: var(--ground-soft, #f4f4f5); color: var(--muted, #52525b); border-bottom: 1px solid var(--line, #e4e4e7); }

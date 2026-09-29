@@ -34,8 +34,12 @@ _EXAMPLES: dict = {}
 # 원형 → 예약 칸 항목 이름 (card_data.ITEM_LABEL과 같은 말)
 _ARCH_ITEM_LABEL = {"B": "시술", "C": "객실", "D": "수업", "E": "수업", "F": "작업", "G": "모임", "H": "요금제"}
 
-def _examples(archetype: str) -> dict:
-    """원형 예시 파일. 없으면 빈 값 (다른 원형은 J5b 이후)."""
+def _examples(archetype: str, industry: str = "") -> dict:
+    """원형 예시 파일. 업종 전용 파일(A-restaurant.json)이 있으면 먼저 쓴다. 없으면 빈 값.
+    (식당이 카페 예시 사진·가격을 쓰던 문제: 집밥 식당에 케이크 사진이 나왔다)"""
+    special = settings.templates_dir / "examples" / f"{archetype}-{industry}.json"
+    if industry and special.is_file():
+        archetype = f"{archetype}-{industry}"
     if archetype in _EXAMPLES:
         return _EXAMPLES[archetype]
     path = settings.templates_dir / "examples" / f"{archetype}.json"
@@ -725,7 +729,8 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     sections = [s for s in (out.get("sections") or []) if isinstance(s, dict)]
     out["sections"] = sections
     data = _structured(card)
-    pack = _examples(archetype)
+    from app.services import prd_engine  # 순환 참조 방지용 늦은 불러오기
+    pack = _examples(archetype, prd_engine.industry_of(card).key)
     # 선생님이 없으면 optional staff 섹션은 뺀다 (학원 D).
     staff = [s for s in (data.get("staff") or [])
              if isinstance(s, dict) and str(s.get("name") or "").strip()]

@@ -203,6 +203,16 @@ def _safe(value):
     return value
 
 
+# 시안에서는 사진마다 붙던 "예시 이미지" 배지를 숨기고 위에 한 줄로 모은다 (디자인 품질 2번:
+# 배지가 여기저기 붙어 견본처럼 보였다). 공개본은 D51대로 사진마다 표시를 남긴다.
+_DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 채팅방에서 가게 사진을 올리면 바로 바뀌어요.</p>'
+               '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
+
+
+def _has_example_art(parts: list) -> bool:
+    return any("s-illu-badge" in p or "s-example--keep" in p for p in parts if isinstance(p, str))
+
+
 def list_variants() -> list:
     """사용 가능한 type--variant 목록 (예: 'hero--photo-overlay')."""
     return sorted(_bundle()["templates"].keys())
@@ -1288,6 +1298,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         "</head>",
         # 공개 사이트에서는 시안용 "예시" 표시도 숨긴다
         '<body class="is-public"><style>.is-public .s-kicker{display:none}</style>' if public else "<body>",
+        *([_DRAFT_NOTE] if not public and _has_example_art(rendered_parts) else []),
         *rendered_parts,
         "</body>",
         "</html>",

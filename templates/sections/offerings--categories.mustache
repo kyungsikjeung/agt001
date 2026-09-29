@@ -12,7 +12,7 @@
       {{#image_src}}
       <figure class="s-menu__cover"><img src="{{image_src}}" alt="{{image_alt}}" loading="lazy">{{#image_example}}<span class="s-illu-badge">예시 이미지</span>{{/image_example}}</figure>
       {{/image_src}}
-      <h3 class="s-menu__cat">{{#name}}{{name}}{{/name}}{{^name}}<span class="is-placeholder" aria-label="분류 이름: 아직 입력되지 않음">[분류 입력]</span>{{/name}}<span class="s-menu__count">{{count}}</span></h3>
+      {{#has_chips}}<h3 class="s-menu__cat">{{#name}}{{name}}{{/name}}{{^name}}<span class="is-placeholder" aria-label="분류 이름: 아직 입력되지 않음">[분류 입력]</span>{{/name}}<span class="s-menu__count">{{count}}</span></h3>{{/has_chips}}
       <ul class="s-menu__list">
         {{#items}}
         <li class="s-menu__row">

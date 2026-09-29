@@ -262,6 +262,25 @@ _PHOTO_WHAT = {"restaurant": "대표 메뉴", "cafe": "대표 메뉴", "pension"
                "individual": "작업", "group": "모임 모습"}
 
 
+# 무엇을 어떻게 찍을지 (디자인 품질 1번: 진짜 사진이 시안 품질을 가장 크게 가른다)
+_SHOT_LIST = {
+    "cafe": "① 가게 앞(간판이 보이게) ② 대표 메뉴 2장(창가 밝은 곳, 위나 비스듬히) ③ 매장 안 넓게",
+    "restaurant": "① 가게 앞(간판이 보이게) ② 대표 메뉴 2장(밝은 곳, 위에서) ③ 홀 안 넓게",
+    "pension": "① 건물 전경 ② 객실마다 1장(창을 등지고 방 전체) ③ 바비큐장이나 바깥 풍경",
+    "salon": "① 매장 안 ② 시술한 스타일 2~3장(얼굴 없이 뒷모습·옆모습) ③ 가게 앞",
+    "workshop": "① 작업실 ② 작품 2~3장(깨끗한 배경) ③ 수업하는 손",
+    "academy": "① 교실 ② 수업 모습(학생 얼굴 없이) ③ 건물 입구",
+}
+SHOT_TIP = "휴대폰을 가로로, 밝은 곳에서 찍으면 좋아요. 3장이면 충분해요."
+
+
+def shot_list(card: Optional[dict]) -> str:
+    """업종별 추천 사진 목록 한 줄 (없으면 빈 글)."""
+    if not (card or {}).get("slots"):
+        return ""
+    return _SHOT_LIST.get(prd_engine.industry_of(card).key, "")
+
+
 def _short_need_names(need: list) -> str:
     """필요 항목 이름 줄이기 (최대 5개, 넘으면 '외 n개')."""
     names = list(need)[:5]
@@ -274,7 +293,10 @@ def _short_need_names(need: list) -> str:
 def photo_choice_text(card: dict) -> str:
     """D48 사진 선택지 본문. 식당·카페·펜션은 무엇을 찍을지 한 줄 덧붙인다."""
     what = _PHOTO_WHAT.get(prd_engine.industry_of(card).key)
-    head = f"가게 사진이 있으면 사이트가 확 달라져요. 아래 '사진' 버튼으로 가게 대표 사진 1장과 {what} 사진을 올려 주세요. " if what else None
+    shots = shot_list(card)
+    head = (f"가게 사진이 있으면 사이트가 확 달라져요. 아래 '사진' 버튼으로 올려 주세요.\n추천: {shots}\n{SHOT_TIP} "
+            if shots else f"가게 사진이 있으면 사이트가 확 달라져요. 아래 '사진' 버튼으로 가게 대표 사진 1장과 {what} 사진을 올려 주세요. "
+            if what else None)
     if head:
         extra = ""
         try:
@@ -340,12 +362,14 @@ def _photo_later_reminder(card: Optional[dict]) -> str:
     """D48: '나중에 올릴게요'면 시안 때 한 번만 다시 알린다. '없어요'면 조용히."""
     if not card or card.get("photos") or card.get("photo_reminded"):
         return ""
+    shots = shot_list(card)
+    tail = (f"추천: {shots}\n" if shots else "")
     if card.get("photo_choice") != "later":
         return ("지금은 사진 대신 예시 그림이 들어가 있어요. 아래 '사진' 버튼으로 가게 사진을 올리면 "
-                "시안에 바로 넣어 드려요.\n" if card.get("photo_choice") != "none" else "")
+                "시안에 바로 넣고, 올린 자리는 '예시' 표시가 사라져요.\n" + tail if card.get("photo_choice") != "none" else "")
     card["photo_reminded"] = True
     return ("사진을 '나중에 올릴게요'라고 하셨어요. 아래 '사진' 버튼으로 지금 올려 주시면 "
-            "시안에 바로 넣어 드려요.\n")
+            "시안에 바로 넣고, 올린 자리는 '예시' 표시가 사라져요.\n" + tail)
 
 
 PHOTO_ASK = PHOTO_CHOICE_TEXT + "\n\n"
