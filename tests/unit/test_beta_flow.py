@@ -89,3 +89,26 @@ def test_card_api_with_login_no_member_header(client, monkeypatch):
     r = client.get(f"/api/rooms/{room_id}/card")
     assert r.status_code == 200, r.text
     assert r.json()["can_edit"] is True
+
+
+def test_card_put_with_login_needs_our_origin(client, monkeypatch):
+    """F8: 로그인 쿠키로 고치는 요청은 우리 출처만 받는다 (보안 S-3)."""
+    _beta(monkeypatch)
+    room_id = client.post("/room").json()["room_id"]
+    _post(client, room_id, OWNER, "")
+    user_id = f"u-{uuid.uuid4().hex[:8]}"
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRow(id=user_id, nickname="사장님"))
+        db.flush()
+        db.add(UserRoomRow(user_id=user_id, room_id=room_id, member_id=OWNER))
+    client.cookies.set(auth.SESSION_COOKIE, auth.create_session(user_id))
+    body = {"fields": {"shop_name": "모퉁이커피"}}
+    ours = (settings.public_base_url or "http://testserver").rstrip("/")
+    assert client.put(f"/api/rooms/{room_id}/card", json=body).status_code == 403
+    assert client.put(f"/api/rooms/{room_id}/card", json=body,
+                      headers={"Origin": "https://evil.example"}).status_code == 403
+    r = client.put(f"/api/rooms/{room_id}/card", json=body, headers={"Origin": ours})
+    assert r.status_code == 200, r.text
+    # 방 멤버 머리글로 오는 요청(쿠키 아님)은 지금처럼 출처 검사 없이 통과
+    r = client.put(f"/api/rooms/{room_id}/card", json=body, headers={"X-Member-Id": OWNER})
+    assert r.status_code == 200, r.text

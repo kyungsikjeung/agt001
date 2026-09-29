@@ -39,6 +39,17 @@ DENSITIES = {"compact": "촘촘하게", "comfortable": "보통", "roomy": "넉�
 RADII = {"sharp": "각지게", "soft": "살짝 둥글게", "round": "둥글게"}
 LEADS = {"offerings": "메뉴·상품 먼저", "gallery": "사진 먼저", "intro": "소개 먼저"}
 
+# 구성 순서 글의 업종 말 (offerings는 업종마다 다르게 말한다)
+_LEAD_ITEMS = {"pension": "객실", "salon": "시술", "academy": "수업", "workshop": "수업"}
+
+
+def lead_text(c: dict) -> str:
+    """구성 순서 글. offerings는 업종 말로 (펜션 → 객실 먼저)."""
+    ind = (c or {}).get("industry")
+    if (c or {}).get("lead") == "offerings" and ind in _LEAD_ITEMS:
+        return f"{_LEAD_ITEMS[ind]} 먼저"
+    return LEADS[c["lead"]]
+
 # 업종별 규칙 컨셉 (AI가 실패해도 이 값으로 그린다)
 _RULE = {
     "restaurant": ("정직한 동네 밥상", ["따뜻한", "푸짐한", "정겨운"], "tomato", "gothic-strong", "comfortable", "soft", "offerings",
@@ -114,7 +125,7 @@ _KEYWORD_CHANGES = (
 def _from_rule(key: str) -> dict:
     name, mood, palette, font, density, radius, lead, reason = _RULE.get(key, _RULE_DEFAULT)
     return {"name": name, "mood": list(mood), "palette": palette, "font_pair": font, "density": density,
-            "radius": radius, "lead": lead, "reason": reason, "source": "rule"}
+            "radius": radius, "lead": lead, "reason": reason, "source": "rule", "industry": key}
 
 
 def rule_concept(card: dict) -> dict:
@@ -125,7 +136,7 @@ def _composed_reason(c: dict) -> str:
     """AI 이유를 못 쓸 때: 실제로 고른 값으로 이유 문장을 만든다(고른 값과 설명이 어긋나지 않게)."""
     color = PALETTES[c["palette"]].split(" — ")[1]
     font = FONT_PAIRS[c["font_pair"]].split(" — ")[0]
-    return f"{c['mood'][0]} 느낌을 살리려고 {color}에 {font} 글꼴을 쓰고, {LEADS[c['lead']]} 보이게 했어요."
+    return f"{c['mood'][0]} 느낌을 살리려고 {color}에 {font} 글꼴을 쓰고, {lead_text(c)} 보이게 했어요."
 
 
 def _valid(c: dict, base: dict, shop: str = "", allowed_digits: frozenset = frozenset()) -> dict:
@@ -233,6 +244,7 @@ def make(card: dict) -> dict:
             if llm.foreign_words(out.get("reason") or "", ""):
                 out["reason"] = base["reason"]
             out["source"] = "ai"
+            out["industry"] = E.industry_of(card).key
             return out
     except Exception:
         log.exception("디자인 컨셉 AI 실패, 규칙 컨셉으로")
@@ -305,4 +317,4 @@ def summary_line(c: dict) -> str:
     """채팅에 보일 컨셉 한 줄."""
     return (f"디자인 컨셉: 「{c['name']}」 — {' · '.join(c['mood'])}\n"
             f"{PALETTES[c['palette']].split(' — ')[0]} · {FONT_PAIRS[c['font_pair']].split(' — ')[0]} · "
-            f"{LEADS[c['lead']]}\n{c['reason']}")
+            f"{lead_text(c)}\n{c['reason']}")

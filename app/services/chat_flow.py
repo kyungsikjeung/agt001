@@ -168,9 +168,17 @@ def _rag_note(spec: str) -> str:
             for nm in names:
                 it = next((x for x in _intake._catalog() if x.get("name") == nm), None)
                 if it and it.get("how"):
-                    hows.append(f"{nm}({it['how'][:24]})")
+                    how = str(it["how"])
+                    # 베타에서 만들지 않는 것은 목록에서 뺀다 (내부 메모가 요약에 새지 않게)
+                    if "만들지 않는다" in how:
+                        continue
+                    # 첫 문장만 쓴다 (뒷문장이 잘려 어색해지지 않게)
+                    short = how.split(".")[0].strip()[:24]
+                    hows.append(f"{nm}({short})" if short else nm)
                 else:
                     hows.append(nm)
+            if not hows:
+                return "말씀하신 내용과 업종 기본 구성에 맞춰 설계할게요."
             return "비슷한 사례를 참고해 설계할게요: " + ", ".join(hows)
         except Exception:
             return "비슷한 사례를 참고해 설계할게요: " + ", ".join(names)

@@ -128,6 +128,14 @@ def _now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
+def joined_text(nickname: str) -> str:
+    """입장 알림 글. '사장님'처럼 이미 '님'으로 끝나면 조사를 붙이지 않는다."""
+    name = nickname or ""
+    if name.endswith("님"):
+        return f"{name}이 입장했습니다."
+    return f"{name}님이 입장했습니다."
+
+
 def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "chat",
             meta: Optional[dict] = None) -> None:
     room["new_messages"].append({
@@ -328,7 +336,7 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
             if len(room["members"]) >= settings.room_max_members:
                 raise RoomFull(room_id)  # D8
             room["members"].append({"member_id": member_id, "nickname": nickname, "joined_at": now, "last_seen": now})
-            _append(room, "system", "시스템", f"{nickname}님이 입장했습니다.", kind="system")
+            _append(room, "system", "시스템", joined_text(nickname), kind="system")
             if len(room["members"]) == 2:
                 _append(room, "system", "시스템", MSG_GROUP_GUIDE, kind="system")
         else:

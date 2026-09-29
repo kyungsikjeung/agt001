@@ -206,7 +206,9 @@ def _build_spec(card: dict, concept: dict) -> dict:
             # photo-first: 사장님 사진 → AI 예시 → 업종 기본 그림(/art/) 순.
             # 사진이 없어도 글자 중심 첫 화면(text-only)을 두지 않는다(Q-7).
             sec["variant"] = "photo-overlay"
-            c["facts"] = [{"label": lab, "value": val} for lab, val in (("영업", hours), ("위치", address)) if val]
+            # 펜션은 체크인·체크아웃 시간이라 '영업' 대신 '입실·퇴실'로 말한다
+            hours_label = "입실·퇴실" if ind.key == "pension" else "영업"
+            c["facts"] = [{"label": lab, "value": val} for lab, val in ((hours_label, hours), ("위치", address)) if val]
             if photos:
                 c["image"] = photos[0]["url"]
                 c["image_alt"] = photos[0].get("caption") or f"{shop or '가게'} 대표 사진"

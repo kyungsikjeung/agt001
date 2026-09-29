@@ -982,6 +982,8 @@ function addMessage(m, isNew) {
 }
 
 function updateStatus(aiStatus) {
+  // 생성 중에는 동의 바를 눌러도 소용없으니 상태를 기억해 updateActionBars에서 숨긴다
+  lastAiStatus = aiStatus || '';
   const label = STATUS_LABEL[aiStatus] || '';
   const busy = !!label && aiStatus !== 'DONE' && aiStatus !== 'IDLE';
   if (busy) {
@@ -1009,6 +1011,8 @@ function updateStatus(aiStatus) {
   }
 }
 
+// 마지막 AI 상태 (GENERATING 동안 동의 바를 숨기기 위해 updateStatus가 기억한다)
+let lastAiStatus = '';
 // 생성 진행 바 1초 눈금: 너비 min(95, t/180*100)%, 글 "시안을 생성 중입니다 · {t}초 / 최대 3분"
 let genStartedAt = 0;
 let genTimer = null;
@@ -1028,11 +1032,14 @@ function tickGenProgress() {
 
 // P0: 질문 진행바 (서버 asked/budget 없이 로컬 집계. 총합을 단정하지 않고 N번째만 보인다)
 let questionCount = 0;
+// 요약 뒤에는 윗줄 질문 바를 숨긴다 (updateActionBars가 매 폴링마다 갱신)
+let lastRoomState = '';
 function updateProgress() {
   const wrap = document.getElementById('progressWrap');
   const fill = document.getElementById('progressFill');
   const text = document.getElementById('progressText');
   if (!wrap || !fill || !text) return;
+  if (lastRoomState && lastRoomState !== 'GREETING' && lastRoomState !== 'GATHERING') { wrap.hidden = true; return; }
   if (!questionCount) { wrap.hidden = true; return; }
   wrap.hidden = false;
   fill.style.transform = 'scaleX(' + Math.min(1, questionCount / 8) + ')';
@@ -1170,7 +1177,13 @@ function renderChoices(q) {
 }
 
 function updateActionBars(state, votes) {
-  voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL');
+  // 방 상태를 기억해 updateProgress가 요약 뒤 윗줄 바를 숨기게 한다
+  lastRoomState = state || '';
+  if (state && state !== 'GREETING' && state !== 'GATHERING') {
+    const wrap = document.getElementById('progressWrap');
+    if (wrap) wrap.hidden = true;
+  }
+  voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL' && lastAiStatus !== 'GENERATING');
   // D52: 공유방은 전원 동의해야 다음 단계. 몇 명이 동의했는지 보여 준다.
   const total = roomMembers.length;
   const agreed = Object.values(votes || {}).filter(v => v === 'approve').length;

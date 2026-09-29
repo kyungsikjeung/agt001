@@ -217,13 +217,14 @@ def _hero_image(card: dict, shop: str, pack: dict) -> dict:
 
 def _fill_hero(sec: dict, card: dict, pack: dict, shop: str,
                detail: str, tagline: str, hours: str, address: str,
-               primary: dict, secondary: dict) -> None:
+               primary: dict, secondary: dict, archetype: str = "") -> None:
     """hero bind 채우기."""
     content = {"title": shop, "subtitle": tagline or detail or _kind_words(card)}
     content.update(_hero_image(card, shop, pack))
     facts = []
     if hours:
-        facts.append({"label": "영업", "value": hours})
+        # 펜션은 체크인·체크아웃 시간이라 '영업' 대신 '입실·퇴실'로 말한다
+        facts.append({"label": "입실·퇴실" if archetype == "C" else "영업", "value": hours})
     if address:
         facts.append({"label": "위치", "value": _short_addr(address)})
     if facts:
@@ -695,13 +696,14 @@ def _fill_menu_photos(sec: dict, card: dict, data: dict, pack: dict) -> None:
     sec["content"] = {"label": sec.get("label") or "", "items": items}
 
 
-def _location_items(phone: str, hours: str) -> list:
+def _location_items(phone: str, hours: str, archetype: str = "") -> list:
     """around--map에 붙는 전화·영업시간 (FILLED만, 없는 값은 뺀다)."""
     items = []
     if phone:
         items.append({"name": "전화", "note": phone})
     if hours:
-        items.append({"name": "영업시간", "note": hours})
+        # 펜션은 체크인·체크아웃 시간이라 '영업시간' 대신 '입실·퇴실 시간'으로 말한다
+        items.append({"name": "입실·퇴실 시간" if archetype == "C" else "영업시간", "note": hours})
     return items
 
 
@@ -734,7 +736,8 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     for sec in sections:
         bind = sec.get("bind") or "none"
         if bind == "hero":
-            _fill_hero(sec, card, pack, shop, detail, tagline, hours, address, primary, secondary)
+            _fill_hero(sec, card, pack, shop, detail, tagline, hours, address, primary, secondary,
+                       archetype=archetype)
         elif bind == "catalog":
             _fill_catalog(sec, data, pack, archetype, order)
         elif bind == "staff":
@@ -754,7 +757,7 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
         elif bind == "signature":
             _fill_signature(sec, card, data, pack)
         elif bind == "location":
-            sec["content"] = {"address": address, "items": _location_items(phone, hours)}
+            sec["content"] = {"address": address, "items": _location_items(phone, hours, archetype=archetype)}
         elif bind == "contact":
             sec["content"] = {"phone": phone, "hours": hours, "address": address}
         elif bind in ("space_photos", "style_photos"):

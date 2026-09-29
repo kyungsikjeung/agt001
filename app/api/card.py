@@ -5,6 +5,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from app import store
+from app.api.auth import _check_origin
 from app.security import sanitize_token
 from app.services import design, prd_engine, rooms
 
@@ -63,6 +64,8 @@ def _member_room(room_id: str, x_member_id: Optional[str], request: Optional[Req
         from app.services import auth
         user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
         if user is not None:
+            if request.method not in ("GET", "HEAD"):
+                _check_origin(request)  # 쿠키로 바꾸는 요청은 우리 출처만 (보안 S-3)
             with get_sessionmaker()() as db:
                 row_mid = db.scalar(select(UserRoomRow.member_id).where(
                     UserRoomRow.room_id == safe, UserRoomRow.user_id == user["id"]))
@@ -133,5 +136,6 @@ def notify_off(request: Request):
     me = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
     if me is None:
         raise HTTPException(status_code=401)
+    _check_origin(request)
     kakao_talk.forget(me["id"])
     return Response(status_code=204)

@@ -125,7 +125,7 @@ figcaption a{{color:var(--p);font-weight:700;min-height:44px;display:inline-flex
 <section class="step" style="--n:2"><div class="in"><h2><small>2</small>글꼴</h2><div class="type"><div class="big">{e(title)}</div>
 <p class="small">{e(DC.FONT_PAIRS[concept['font_pair']])}. 본문은 읽기 쉬운 프리텐다드로 맞췄어요.</p></div></div></section>
 <section class="step" style="--n:3"><div class="in"><h2><small>3</small>구성</h2><ul class="wire">{wire}</ul>
-<p>{e(DC.LEADS[concept['lead']])} · 여백 {e(DC.DENSITIES[concept['density']])} · 모서리 {e(DC.RADII[concept['radius']])}</p></div></section></div>
+<p>{e(DC.lead_text(concept))} · 여백 {e(DC.DENSITIES[concept['density']])} · 모서리 {e(DC.RADII[concept['radius']])}</p></div></section></div>
 <section class="step" style="--n:4"><div class="in"><h2><small>4</small>시안 3안</h2>{ph}<div class="phones">{phones}</div>
 <div class="how" style="margin-top:28px"><p>마음에 드는 번호를 채팅방에 보내 주세요. 예: <q>2안으로 할게요</q></p>
 <p>말로 고칠 수도 있어요. 예: <q>더 고급스럽게</q> <q>더 따뜻한 색으로</q> <q>사진 먼저 보여 줘</q></p></div>
