@@ -1,0 +1,432 @@
+{
+ "academy-talkative": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "초등 파닉스반",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "중등 내신반",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "고등 수능반",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "수업",
+    "source": "assumed"
+   }
+  ],
+  "classes": [
+   {
+    "capacity": "",
+    "days": "",
+    "fee": "",
+    "name": "초등 파닉스반",
+    "source": "owner",
+    "target": "초등",
+    "time": ""
+   },
+   {
+    "capacity": "",
+    "days": "",
+    "fee": "",
+    "name": "중등 내신반",
+    "source": "owner",
+    "target": "중등",
+    "time": ""
+   },
+   {
+    "capacity": "",
+    "days": "",
+    "fee": "",
+    "name": "고등 수능반",
+    "source": "owner",
+    "target": "고등",
+    "time": ""
+   }
+  ],
+  "mode": "",
+  "primary_action": "consult",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "cafe-owner-photo": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "아메리카노",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "카페라떼",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "커피",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "dinein",
+  "primary_action": "visit",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "cafe-talkative": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "아메리카노",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "카페라떼",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "커피",
+    "source": "assumed"
+   },
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "바스크치즈케이크",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "디저트",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "dinein",
+  "primary_action": "visit",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "cello-lesson": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "성인 취미반",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "입시반",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "작업",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "",
+  "primary_action": "inquire",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "group-workshop": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "주말 원데이클래스",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "4주 정규반",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "모임",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "",
+  "primary_action": "inquire",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "other-minimal": {
+  "catalog": [],
+  "classes": [],
+  "mode": "dinein",
+  "primary_action": "visit",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "pension-family": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "101호(복층)",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "102호(온돌)",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "바베큐장",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "객실",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "",
+  "primary_action": "reserve",
+  "rooms": [
+   {
+    "capacity": "",
+    "features": [
+     "복층"
+    ],
+    "name": "101호",
+    "price": "",
+    "source": "owner"
+   },
+   {
+    "capacity": "",
+    "features": [
+     "온돌"
+    ],
+    "name": "102호",
+    "price": "",
+    "source": "owner"
+   }
+  ],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "restaurant-changes": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "김치찌개",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "제육볶음",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "계란말이",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "메뉴",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "dinein",
+  "primary_action": "visit",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "restaurant-terse": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "김치찌개",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "된장찌개",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "메뉴",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "dinein",
+  "primary_action": "visit",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "salon-no-photo": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "컷",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "컷",
+    "source": "assumed"
+   },
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "염색",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "염색",
+    "source": "assumed"
+   },
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "펌",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "펌",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "solo",
+  "primary_action": "reserve",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "salon-photo": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "컷",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "컷",
+    "source": "assumed"
+   },
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "염색",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "염색",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "solo",
+  "primary_action": "reserve",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ },
+ "webservice-tool": {
+  "catalog": [
+   {
+    "items": [
+     {
+      "desc": "",
+      "name": "문자 알림",
+      "price": "",
+      "source": "owner"
+     },
+     {
+      "desc": "",
+      "name": "노쇼 관리",
+      "price": "",
+      "source": "owner"
+     }
+    ],
+    "name": "요금제",
+    "source": "assumed"
+   }
+  ],
+  "classes": [],
+  "mode": "",
+  "primary_action": "inquire",
+  "rooms": [],
+  "schedule": null,
+  "staff": [],
+  "version": 1
+ }
+}
