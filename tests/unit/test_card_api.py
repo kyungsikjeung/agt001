@@ -23,3 +23,18 @@ def test_read_and_owner_only_edit(client):
     r = client.put(f"/api/rooms/{rid}/card", json={"fields": {"shop_name": ""}}, headers={"X-Member-Id": "owner"})
     assert {x["key"]: x for x in r.json()["fields"]}["shop_name"]["status"] == "placeholder"
     assert client.get(f"/api/rooms/{rid}/card", headers={"X-Member-Id": "stranger"}).status_code == 404
+
+
+def test_edit_before_publish_rerenders_drafts(client, monkeypatch):
+    """공개 전 직접 고치기도 시안 3안을 다시 그린다 (EDIT_PUBLISH_PLAN §4-5)."""
+    from app.services import photos
+    calls = []
+    monkeypatch.setattr(photos, "_refresh_designs_async", lambda rid, req, announced="": calls.append((rid, announced)))
+    rid = _room(client)
+    client.put(f"/api/rooms/{rid}/card", json={"fields": {"shop_name": "모퉁이커피"}}, headers={"X-Member-Id": "owner"})
+    assert calls == []  # 시안이 없으면 다시 그릴 것도 없다
+    room = store.read_room(rid)
+    with store.session_tx(room["session_id"]) as s:
+        s["design_url"] = "/design/x"
+    client.put(f"/api/rooms/{rid}/card", json={"fields": {"phone": "010-1234-5678"}}, headers={"X-Member-Id": "owner"})
+    assert calls == [(rid, "고친 내용을 시안에 넣었어요.")]

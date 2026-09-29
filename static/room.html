@@ -217,6 +217,14 @@
     display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap;
   }
   #editSiteBtn[hidden] { display: none; }
+  /* 시안을 고른 뒤·공개 전 방장에게: 다듬기(편집 화면)·공개하기 (EDIT_PUBLISH_PLAN §4-7) */
+  #refineBtn, #publishBtn {
+    flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap; cursor: pointer;
+  }
+  #refineBtn { background: var(--bg); color: var(--accent-dark); text-decoration: none; }
+  #publishBtn { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  #refineBtn[hidden], #publishBtn[hidden] { display: none; }
   /* 무전기 줄은 더보기 안으로 옮기므로 본문에서는 숨긴다 (voice.js가 만든다) */
   #walkieRow { display: none !important; }
   #walkieSlot { display: flex; flex-direction: column; gap: 8px; }
@@ -343,6 +351,8 @@
   <div id="toolBar">
     <button id="inviteOpenBtn" type="button" hidden>초대하기</button>
     <a id="editSiteBtn" href="#" hidden>사이트 고치기</a>
+    <a id="refineBtn" href="#" hidden>다듬기</a>
+    <button id="publishBtn" type="button" hidden>공개하기</button>
     <button id="moreBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreSheetWrap">⋯ 더보기</button>
   </div>
   <div id="moreSheetWrap" hidden>
@@ -470,6 +480,7 @@ let roomMembers = [];
 let roomMe = null;
 let hasDesign = false;
 let sitePublished = false;
+let designChosen = false;  // 서버가 "N안(…)으로 정했어요"라고 답한 뒤 (공개 전 다듬기·공개하기 버튼)
 let invitesUnsupported = false;
 let ownerApiUnsupported = false;
 let leaveUnsupported = false;
@@ -842,15 +853,22 @@ async function refreshBookingStates() {
   }
 }
 
-// 공개된 방의 방장에게만 입력줄 위 고치기 버튼을 보인다 (더보기 안 링크는 그대로)
+// 방장에게만 입력줄 위 버튼: 시안을 고른 뒤 공개 전엔 '다듬기·공개하기', 공개 뒤엔 '사이트 고치기'.
+// (더보기 안 '직접 고치기' 링크는 그대로)
 function updateEditSiteBtn() {
   const btn = document.getElementById('editSiteBtn');
+  const refine = document.getElementById('refineBtn');
+  const pub = document.getElementById('publishBtn');
   if (!btn) return;
-  if (isOwner() && sitePublished) {
-    btn.hidden = false;
-    btn.href = '/editor?room=' + encodeURIComponent(roomId);
-  } else {
-    btn.hidden = true;
+  const editorUrl = '/editor?room=' + encodeURIComponent(roomId);
+  const owner = isOwner();
+  btn.hidden = !(owner && sitePublished);
+  btn.href = editorUrl;
+  const beforePublish = owner && designChosen && !sitePublished;
+  if (refine) { refine.hidden = !beforePublish; refine.href = editorUrl; }
+  if (pub) {
+    pub.hidden = !beforePublish;
+    pub.onclick = () => sendRoomMessage('공개');
   }
 }
 
@@ -971,6 +989,10 @@ function addMessage(m, isNew) {
   if (sayNo) pickedDesignNo = sayNo;
   const fixNo = findConfirmedNo(m.text);
   if (fixNo) pickedDesignNo = fixNo;
+  if (fixNo && !designChosen) {
+    designChosen = true;
+    updateEditSiteBtn();
+  }
   if (m.kind === 'ai_reply') {
     const did = findDesignId(m.text);
     if (did) buildDesignCards(bubble, did);

@@ -156,13 +156,16 @@ def remove(room_id_raw: str, member_id_raw: str, photo_id_raw: str) -> None:
             store.after_commit(lambda: _refresh_designs_async(room_id, session["requirement_id"]))
 
 
-def _refresh_designs_async(room_id: str, requirement_id: str) -> None:
+PHOTO_ANNOUNCE = "사진·영상을 시안에 넣었어요."
+
+
+def _refresh_designs_async(room_id: str, requirement_id: str, announced: str = PHOTO_ANNOUNCE) -> None:
     import threading
-    threading.Thread(target=refresh_designs, args=(room_id, requirement_id), daemon=True).start()
+    threading.Thread(target=refresh_designs, args=(room_id, requirement_id, announced), daemon=True).start()
 
 
-def refresh_designs(room_id: str, requirement_id: str) -> None:
-    """올린 사진을 넣어 시안 3안을 다시 만들고, 공개했으면 공개본도 바꾼 뒤 방에 알린다."""
+def refresh_designs(room_id: str, requirement_id: str, announced: str = PHOTO_ANNOUNCE) -> None:
+    """카드(올린 사진·직접 고친 글)로 시안 3안을 다시 만들고, 공개했으면 공개본도 바꾼 뒤 방에 알린다."""
     import logging
     from app.services import design, rooms
     log = logging.getLogger(__name__)
@@ -173,7 +176,6 @@ def refresh_designs(room_id: str, requirement_id: str) -> None:
         if not card:
             return
         design.render_variants(requirement_id, card)
-        announced = "사진·영상을 시안에 넣었어요."
         if card.get("published"):
             from app.services.publish_check import PublishBlockedError
             try:

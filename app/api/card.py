@@ -112,6 +112,11 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                 design.publish_choice(session["requirement_id"], card, card["published"])
             except PublishBlockedError as e:
                 raise HTTPException(status_code=400, detail="; ".join(e.reasons))
+        elif changed and session.get("design_url"):
+            # 공개 전 직접 고치기도 시안 그림에 넣는다 (EDIT_PUBLISH_PLAN §4-5, 전엔 카드만 바뀌었다)
+            from app.services import photos
+            rid, req = safe, session["requirement_id"]
+            store.after_commit(lambda: photos._refresh_designs_async(rid, req, "고친 내용을 시안에 넣었어요."))
         if changed:
             ind = prd_engine.industry_of(card)
             labels = ", ".join(S.label_for(ind, k) for k in changed)

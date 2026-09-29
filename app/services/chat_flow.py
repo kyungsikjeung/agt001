@@ -748,7 +748,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         design_log.chosen(session["requirement_id"], session["prd"], choice)  # D45
         name = _variant_name(session["prd"], choice)
         reply = (f"{choice[1]}안({name})으로 정했어요. {session['design_url']}/{choice}/ 에서 크게 볼 수 있어요.\n"
-                 "이대로 사이트를 열려면 '공개'라고 보내 주세요. 바꾸고 싶으면 다른 번호를 보내 주세요.")
+                 "글자·가격·사진은 아래 '다듬기'에서 고칠 수 있어요. 이대로 열려면 '공개하기'를 누르거나 '공개'라고 보내 주세요.\n"
+                 "다른 안으로 바꾸고 싶으면 번호를 보내 주세요.")
     elif publish_cmd:
         reply = _publish(session, base_url, force=_is_force_publish(user_text))
     elif has_design and state in ("GENERATING", "DONE") and design_concept.is_style_request(user_text):

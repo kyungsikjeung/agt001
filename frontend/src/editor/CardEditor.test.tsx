@@ -62,6 +62,8 @@ describe('CardEditor', () => {
     // 공개 사이트 링크와 채팅방 돌아가기 링크
     expect(screen.getByRole('link', { name: '공개 사이트 보기' }).getAttribute('href')).toBe('https://example.com/s1');
     expect(screen.getByRole('link', { name: '채팅방으로 돌아가기' }).getAttribute('href')).toBe('/room.html?room=r1');
+    // 공개 전에는 채팅방의 공개하기로 돌아가는 큰 링크 (EDIT_PUBLISH_PLAN §4-7)
+    expect(screen.getByRole('link', { name: /채팅방에서 공개하기/ }).getAttribute('href')).toBe('/room.html?room=r1');
     // X-Member-Id 헤더를 보낸다
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     const headers = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;

@@ -113,7 +113,7 @@ export default function CardEditor({ roomId }: CardEditorProps) {
       setDrafts(next);
       setNotice({
         kind: 'success',
-        text: updated.published ? '저장했어요. 사이트에도 반영했어요.' : '저장했어요.',
+        text: updated.published ? '저장했어요. 사이트에도 반영했어요.' : '저장했어요. 시안에도 곧 반영돼요.',
       });
     } catch {
       setNotice({ kind: 'error', text: '저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.' });
@@ -192,6 +192,11 @@ export default function CardEditor({ roomId }: CardEditorProps) {
         ) : null}
 
         <div className="ed-ai-box">
+          {!card.published ? (
+            <a className="ed-btn ed-btn--primary" href={`/room.html?room=${encodeURIComponent(roomId)}`}>
+              다 고쳤어요 — 채팅방에서 공개하기
+            </a>
+          ) : null}
           {card.site_url ? (
             <a href={card.site_url} target="_blank" rel="noopener noreferrer">
               공개 사이트 보기
