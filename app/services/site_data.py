@@ -246,6 +246,17 @@ def _example_price(name: str, prices: dict) -> str:
     return ""
 
 
+def _desc_with_time(item: dict) -> str:
+    """설명 + 걸리는 시간 ("펌 2시간 30분", D55 C3). 시간은 사장님이 말한 duration_min만."""
+    desc = str(item.get("desc") or "")
+    minutes = item.get("duration_min")
+    if not isinstance(minutes, int) or minutes <= 0:
+        return desc
+    hours, rest = divmod(minutes, 60)
+    took = " ".join(p for p in (f"{hours}시간" if hours else "", f"{rest}분" if rest else "") if p)
+    return f"{desc} · {took} 걸려요" if desc else f"{took} 걸려요"
+
+
 def _catalog_flat_items(data: dict, pack: dict) -> list:
     """catalog bind → 분류 없이 펼친 목록 (offerings--list-price용)."""
     items = []
@@ -255,7 +266,7 @@ def _catalog_flat_items(data: dict, pack: dict) -> list:
                 continue
             name = str(item["name"])
             price = str(item.get("price") or "")
-            entry = {"name": name, "desc": str(item.get("desc") or "")}
+            entry = {"name": name, "desc": _desc_with_time(item)}
             if price:
                 entry["price"] = price
             else:
@@ -289,7 +300,7 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
                 continue
             name = str(item["name"])
             price = str(item.get("price") or "")
-            entry = {"name": name, "desc": str(item.get("desc") or "")}
+            entry = {"name": name, "desc": _desc_with_time(item)}
             if price:
                 entry["price"] = price
             else:

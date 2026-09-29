@@ -158,7 +158,9 @@ def run_dialogue(scenario, engine, owner_llm_fn, *, max_turns: int = MAX_TURNS) 
     questions = []    # {"turn", "slot", "kind", "text", "options"}
     current_facts = dict(scenario.get("facts") or {})
     if (scenario.get("profile") or {}).get("say"):
-        current_facts["품목별 가격"] = scenario["profile"]["say"]  # 가상 사장님만 본다 (채점 칸 아님)
+        # 가격 질문은 price 칸을 묻는다. 다른 이름("품목별 가격")으로 두면 가상 사장님이 모른다고 보고
+        # '나중에 넣을게요'를 골랐다(9/29 진단). 품목별 가격 글이 곧 가격 사실이다.
+        current_facts["price"] = scenario["profile"]["say"]
     changes = sorted(scenario.get("changes") or [], key=lambda c: c.get("after_question", 0))
     labels = hidden_labels_for(scenario)
 

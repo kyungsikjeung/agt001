@@ -386,10 +386,11 @@ class TestRunSimulation(unittest.TestCase):
         for sc in scs:
             say = sc["profile"].get("say", "")
             for patch in (c.get("patch") or {} for c in sc.get("changes") or []):
-                say = patch.get("품목별 가격", say)  # 도중에 바뀐 가격이 정답
+                if patch.get("price"):
+                    say += ", " + patch["price"]  # 도중에 바뀐 가격이 정답 (아래에서 뒤 토막이 이긴다)
             segs = [x.strip() for x in re.split(r"(?<!\d),|,(?!\d)", say) if x.strip()]
             for item in sc["profile"]["items"]:
-                seg = next((x for x in segs if x.startswith(item["name"][:2])), "")
+                seg = next((x for x in reversed(segs) if x.startswith(item["name"][:2])), "")
                 if item["price_won"] is None:
                     self.assertFalse(seg, sc["id"])
                     self.assertIn("price", sc["unknown"], sc["id"])

@@ -141,3 +141,16 @@ def test_price_pairs_nested_names_and_change():
     assert card["price_pairs"] == {"카페라떼": "3천5백원", "라떼": "4천원"}
     E.apply_updates(card, [], "라떼는 4천원에서 4천5백원으로 바꿔주세요")
     assert card["price_pairs"]["라떼"] == "4천5백원"
+
+
+def test_site_menu_shows_duration():
+    # C3: 시술 카드에 걸리는 시간 ("펌 — 2시간 30분 걸려요"), 새 부품 없이 desc 칸으로
+    from app.services import site_data
+    data = card_data.build(_salon_card())
+    pack = {"prices": {}, "photos": {}, "catalog": []}
+    for variant in ("categories", "list-price"):
+        sec = {"variant": variant}
+        site_data._fill_catalog(sec, data, pack, "B", False)
+        items = sec["content"].get("items") or [i for c in sec["content"]["categories"] for i in c["items"]]
+        got = {i["name"]: i["desc"] for i in items}
+        assert got == {"컷": "30분 걸려요", "펌": "2시간 30분 걸려요"}, variant
