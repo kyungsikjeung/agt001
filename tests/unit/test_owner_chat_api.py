@@ -251,3 +251,16 @@ def test_thread_purge(client):
     _make_bot(client, key)
     _chat(client, key)
     assert ca.purge(datetime.datetime.now(KST) + datetime.timedelta(days=8)) == 1
+
+
+def test_activate_republishes_site(client, monkeypatch):
+    """봇을 켜면 공개 사이트를 바로 다시 그린다 ('채팅으로 예약' 링크, D55 B3)."""
+    from app.services import design
+    room_id, key, uid = _owned_site(client)
+    _login(client, uid)
+    with store.session_tx(store.read_room(room_id)["session_id"]) as s:
+        s["prd"] = dict(s.get("prd") or {}, published="v2")
+    calls = []
+    monkeypatch.setattr(design, "publish_choice", lambda k, c, v: calls.append((k, v)))
+    _make_bot(client, key)
+    assert calls == [(key, "v2")]

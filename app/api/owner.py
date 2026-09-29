@@ -3,6 +3,7 @@
 로그인 필수(401). 남의 가게는 404. 바꾸는 요청은 _check_origin.
 """
 import datetime
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -15,6 +16,7 @@ from app.services import auth, booking_engine, botmaker, shops
 from app.services.slots import KST
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
 
 def _me(request: Request) -> dict:
@@ -176,6 +178,7 @@ def bot_turn(site_key: str, body: BotTurnIn, request: Request):
     user, shop_id = _shop(request, site_key, ("owner",))
     if body.action == "activate":
         got = _engine_call(botmaker.activate, shop_id, user["id"])
+        _republish(site_key)
         return {"reply": f"예약 봇을 켰어요(설정 {got['version']}판). 손님은 사이트의 '채팅으로 예약'으로 들어와요.",
                 "buttons": [], "activated": got}
     draft = booking_engine.get_spec(shop_id, "draft")
@@ -187,6 +190,18 @@ def bot_turn(site_key: str, body: BotTurnIn, request: Request):
         spec, out = botmaker.turn(draft["spec"], text=body.text, action=body.action)
     booking_engine.save_draft(shop_id, spec, user["id"])
     return out
+
+
+def _republish(site_key: str) -> None:
+    """봇을 켜면 공개 사이트를 바로 다시 그려 '채팅으로 예약' 링크를 넣는다 (D55 B3).
+    전엔 다음 날 날짜가 넘어가 다시 그릴 때까지 링크가 없었다. 실패해도 켜기는 유지한다."""
+    from app.services import availability, design
+    try:
+        card = availability._card_for_site(site_key)
+        if card and card.get("published"):
+            design.publish_choice(site_key, card, card["published"])
+    except Exception:
+        log.exception("봇 켜기 뒤 공개본 다시 그리기 실패 site=%s", site_key)
 
 
 class RevertIn(BaseModel):

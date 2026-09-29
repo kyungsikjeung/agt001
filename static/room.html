@@ -362,6 +362,7 @@
       <button id="talkNotifyBtn" type="button" hidden>문의를 카톡으로 받기</button>
       <button id="aiImageBtn" type="button" hidden>AI 예시 이미지 만들기</button>
       <a id="editorLink" class="more-item" href="#" hidden>직접 고치기</a>
+      <a id="ownerLink" class="more-item" href="/owner" hidden>예약 관리 (예약 확인·예약 봇)</a>
       <div id="walkieSlot"></div>
       <button id="moreLeaveBtn" type="button">방에서 나가기</button>
       <button id="moreCloseBtn" type="button">닫기</button>
@@ -998,7 +999,7 @@ function addMessage(m, isNew) {
     if (did) buildDesignCards(bubble, did);
     if ((m.text || '').indexOf('사이트를 열었어요') >= 0 && !sitePublished) {
       sitePublished = true;
-      updateEditSiteBtn();
+      updateOwnerTools();
     }
   }
   row.appendChild(bubble);
@@ -1874,6 +1875,8 @@ function updateOwnerTools() {
   const moreLeave = document.getElementById('moreLeaveBtn');
   const aiBtn = document.getElementById('aiImageBtn');
   if (!talkBtn || !editor) return;
+  const ownerLink = document.getElementById('ownerLink');
+  if (ownerLink) ownerLink.hidden = !(isOwner() && sitePublished);  // 공개한 방장만 예약 관리 (D55 B4)
   if (!isOwner()) {
     talkBtn.hidden = true;
     editor.hidden = true;

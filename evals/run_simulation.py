@@ -570,6 +570,21 @@ def profile_section(scores: list) -> list:
     return L
 
 
+def write_dialogues(results: list, path: str) -> None:
+    """시나리오별 대화 전문·품목 짝을 남긴다 (성적표에는 실패 대화만 있어 통과한 대화의 원인을 못 봤다)."""
+    out = []
+    for r in results:
+        res = r.get("result") or {}
+        card = res.get("final_card") or {}
+        out.append({"id": r["scenario"].get("id"), "transcript": res.get("transcript"),
+                    "price_pairs": card.get("price_pairs"), "item_notes": card.get("item_notes"),
+                    "offerings": (card.get("slots", {}).get("offerings") or {}).get("value"),
+                    "price": (card.get("slots", {}).get("price") or {}).get("value"),
+                    "profile": (r.get("score") or {}).get("profile")})
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(out, f, ensure_ascii=False, indent=1)
+
+
 def write_markdown(results: list, path: str) -> str:
     """시나리오별 표 + 유형별·업종별 평균 + 합격선 대비 + 실패 대화 3개 전문."""
     skipped = [r["scenario"].get("id") for r in results if r.get("score") is None]
@@ -858,6 +873,7 @@ def main(argv=None) -> int:
               file=sys.stderr)
         return 3
     path = write_markdown(results, args.out or default_out_path())
+    write_dialogues(results, os.path.splitext(path)[0] + ".dialogues.json")
     if stopped:
         with open(path, encoding="utf-8") as f:
             body = f.read()
