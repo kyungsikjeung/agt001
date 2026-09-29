@@ -140,7 +140,7 @@ def verify_webhook(headers: dict, body: bytes) -> dict:
 | 경로 | 주소 | 하는 일 |
 |---|---|---|
 | `POST /api/orders/{site_key}` | 미리보기 주소 | 폼 → `parse_form` → 기기 기억이면 바로 `create` → 303 `/pay`. 아니면 `phone_verify.start` → 303 인증 화면. 스팸 숨김 칸 `website` 채워지면 조용히 가게로 되돌림. IP당 10분 5건(문의와 같은 방식) |
-| `GET·POST /api/orders/{site_key}/verify/{token}` (+ `/resend`) | 미리보기 주소 | `app/api/bookings.py`의 인증 화면·제출·재전송과 같은 동작. 성공하면 `create` → 303 `/pay` + 기기 기억 쿠키 |
+| `GET·POST /api/orders/{site_key}/verify/{token}` (+ `/resend`) | 미리보기 주소 | `app/api/bookings.py`의 인증 화면·제출·재전송과 같은 동작. 성공하면 `create` → 303 `/pay` + 기기 기억 쿠키 `pv_{site_key}`, **`path=/api/orders/{site_key}`**(물결 4 내 스탬프 `/api/orders/{site_key}/my`가 같은 쿠키를 쓴다) |
 | `GET /pay/{pay_id}` | 앱 주소 | `summary` → HTML(서버 문자열, `html.escape`). 이미 paid면 done으로 303 |
 | `GET /pay/{pay_id}/done` | 앱 주소 | `complete` → 결과 화면(완료 / 확인 중 / 실패) + 가게로 돌아가기 |
 | `POST /api/payments/webhook` | 앱 주소 | `verify_webhook` → 데이터의 paymentId로 `complete` |
@@ -228,3 +228,4 @@ def verify_webhook(headers: dict, body: bytes) -> dict:
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-30 | 처음 작성 |
+| 2026-09-30 | 주문 기기 쿠키 경로 명시(물결 4 STAMP_WAVE4_CONTRACT와 맞춤) |
