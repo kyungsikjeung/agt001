@@ -110,7 +110,8 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
         labels={"offerings": "대표 메뉴"},
         default_sections=("대표 메뉴", "매장 소개", "영업시간", "오시는 길"),
         hidden=(("parking", "주차"), ("pet", "반려동물 동반"), ("wifi", "콘센트·와이파이"), ("group", "단체석"), ("reserve", "예약")),
-        questions={"offerings": Question("offerings", "대표 메뉴는 무엇인가요?")},
+        # 메뉴와 가격을 한 번에 (가격은 필수 칸이 아니라 이어묻기가 질문 한도에서 잘리던 문제, T3 9/29)
+        questions={"offerings": Question("offerings", "대표 메뉴와 가격을 알려 주세요. 메뉴만 말씀하셔도 돼요.")},
     ),
     Industry(
         "restaurant", "식당", ("식당", "한식", "중식", "일식", "양식", "고깃집", "밥집", "분식", "주점", "치킨", "피자"),
@@ -126,7 +127,10 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
         labels={"offerings": "시술 메뉴", "contact_method": "예약 방법", "staff": "디자이너"},
         default_sections=("시술 메뉴", "디자이너 소개", "예약 안내", "오시는 길"),
         hidden=(("designer", "디자이너 지정"), ("parking", "주차"), ("same_day", "당일 예약"), ("men", "남성 전용 메뉴")),
-        questions={"contact_method": Question("contact_method", "예약은 어떻게 받으시나요?", options=("네이버 예약", "전화", "카카오톡 채널"))},
+        questions={
+            "offerings": Question("offerings", "시술 메뉴와 가격, 걸리는 시간을 알려 주세요. 예: 컷 2만원 30분, 펌 8만원 2시간. 메뉴만 말씀하셔도 돼요."),
+            "contact_method": Question("contact_method", "예약은 어떻게 받으시나요?", options=("네이버 예약", "전화", "카카오톡 채널")),
+        },
     ),
     Industry(
         "workshop", "공방", ("공방", "도자기", "가죽", "목공", "플라워", "꽃", "캔들", "향수", "클래스"),
@@ -147,6 +151,7 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
         hidden=(("shuttle", "차량 운행"), ("trial", "체험 수업"), ("makeup", "보강"), ("sibling", "형제 할인")),
         questions={
             "target": Question("target", "주로 어떤 학생을 가르치시나요?", options=("초등학생", "중·고등학생", "성인")),
+            "offerings": Question("offerings", "어떤 반이 있고 수강료는 얼마인가요? 예: 초등반 월수금 4시 월 20만원. 반 이름만 말씀하셔도 돼요."),
             "contact_method": Question("contact_method", "상담 신청은 어떻게 받으시나요?", options=("전화", "카카오톡 채널", "방문 상담")),
             "goal": Question("goal", "사이트로 가장 이루고 싶은 것은 무엇인가요?", options=("상담 신청 늘리기", "학원 알리기", "시간표·수업 안내")),
         },
