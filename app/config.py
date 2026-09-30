@@ -127,6 +127,16 @@ class Settings(BaseSettings):
     solapi_api_secret: Optional[str] = None
     sms_sender: Optional[str] = None  # 발신번호
 
+    # 포트원 테스트 결제 (PAY_WAVE3_CONTRACT §2.2). 실결제 금지, 테스트 채널 키만.
+    # 상점 ID·채널 키는 비밀값이 아니라 결제 페이지에 그대로 나간다.
+    portone_store_id: Optional[str] = None
+    portone_channel_key: Optional[str] = None
+    # 비밀값은 관리자 화면(keystore)에서 바꾸고, 없으면 여기 .env 값을 쓴다.
+    portone_api_secret: Optional[str] = None
+    portone_webhook_secret: Optional[str] = None
+    # 이번 물결에서는 늘 False. True 경로는 만들지 않는다.
+    portone_live: bool = False
+
     # compose에서는 db 서비스를 가리킨다. 로컬 개발은 .env에서 덮어쓴다.
     database_url: str = "postgresql+psycopg://agt001:agt001@localhost:5432/agt001"
     # 기동 시 alembic upgrade head를 실행한다. 테스트는 픽스처가 직접 실행하므로 끈다.

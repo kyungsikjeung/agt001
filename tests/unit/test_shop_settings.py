@@ -21,6 +21,10 @@ def _clean(monkeypatch):
     monkeypatch.setattr(settings, "sms_sender", None)
     monkeypatch.setattr(settings, "sms_dev_mode", False)
     monkeypatch.setattr(settings, "public_base_url", None)
+    monkeypatch.setattr(settings, "portone_store_id", None)
+    monkeypatch.setattr(settings, "portone_channel_key", None)
+    monkeypatch.setattr(settings, "portone_api_secret", None)
+    monkeypatch.setattr(settings, "portone_webhook_secret", None)
     with get_sessionmaker()() as db, db.begin():
         db.execute(delete(ShopSettingsRow))
 
@@ -234,3 +238,55 @@ def test_check_key(monkeypatch):
     monkeypatch.setattr(sms.httpx, "get", boom)
     assert sms.check_key("MYKEY12345", "MYSECRET12") is False
     assert sms.check_key("", "MYSECRET12") is False
+
+
+def test_order_on_needs_payments_ready(client):
+    """PAY_WAVE3_CONTRACT §6 테스트 1: 준비 안 되면 켜기 거절, 끄기는 됨."""
+    room_id, key = _room(client)
+    uid = _user_with_claim(room_id)
+    assert shop_settings.get(key)["order_on"] is False
+    with pytest.raises(ValueError, match="결제 준비 중"):
+        shop_settings.update(uid, key, order_on=True)
+    out = shop_settings.update(uid, key, order_on=False)
+    assert out["order_on"] is False
+    assert shop_settings.get(key)["order_on"] is False
+
+
+def test_order_on_ready_on_off(client, monkeypatch):
+    """준비되면(상점 ID·채널 키·API 시크릿) 켜짐·끄기 가능."""
+    from app.services import keystore
+    room_id, key = _room(client)
+    uid = _user_with_claim(room_id)
+    monkeypatch.setattr(settings, "portone_store_id", "store-test-123")
+    monkeypatch.setattr(settings, "portone_channel_key", "channel-test-123")
+    monkeypatch.setattr(settings, "portone_api_secret", "secret-test-123")
+    keystore.invalidate()
+    out = shop_settings.update(uid, key, order_on=True)
+    assert out["order_on"] is True
+    assert shop_settings.get(key)["order_on"] is True
+    out = shop_settings.update(uid, key, order_on=False)
+    assert out["order_on"] is False
+    assert shop_settings.get(key)["order_on"] is False
+
+
+def test_order_on_api_400_when_not_ready(client):
+    """준비 안 되면 API는 400."""
+    from app.services import auth as auth_svc
+    room_id, key = _room(client)
+    uid = _user_with_claim(room_id)
+    client.cookies.set(auth_svc.SESSION_COOKIE, auth_svc.create_session(uid))
+    r = client.put(f"/api/me/shops/{key}/settings", json={"order_on": True},
+                   headers={"Origin": "http://testserver"})
+    assert r.status_code == 400
+    assert "결제 준비 중" in r.json()["detail"]
+
+
+def test_migration_0017_adds_order_on_column(client):
+    """0017: shop_settings.order_on 칸이 not null default false로 있다."""
+    from sqlalchemy import text
+    with get_sessionmaker()() as db:
+        row = db.execute(text(
+            "SELECT is_nullable, column_default FROM information_schema.columns "
+            "WHERE table_name='shop_settings' AND column_name='order_on'")).one()
+    assert row[0] == "NO"
+    assert row[1] is not None

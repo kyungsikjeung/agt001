@@ -113,7 +113,7 @@
 
   function buildShop(shop) {
     var siteKey = shop.site_key;
-    var s = shop.settings || { phone_verify: false, own_key: false, key_last4: '', sms_sender: '' };
+    var s = shop.settings || { phone_verify: false, own_key: false, key_last4: '', sms_sender: '', order_on: false };
     var card = document.createElement('section');
     card.className = 'card';
 
@@ -176,6 +176,38 @@
         })
         .catch(function (e) {
           toggle.checked = !toggle.checked;
+          showError(errBox, e.message);
+        });
+    });
+
+    var orderLabel = document.createElement('label');
+    orderLabel.className = 'switch-row';
+    var orderToggle = document.createElement('input');
+    orderToggle.type = 'checkbox';
+    orderToggle.checked = !!s.order_on;
+    orderToggle.setAttribute('aria-label', '온라인 주문 받기 (테스트 결제)');
+    orderLabel.appendChild(orderToggle);
+    orderLabel.appendChild(document.createTextNode('온라인 주문 받기 (테스트 결제)'));
+    card.appendChild(orderLabel);
+    var orderSub = document.createElement('p');
+    orderSub.className = 'sub';
+    orderSub.textContent = '포장 주문 가게만 메뉴에 수량 칸이 생겨요. 지금은 테스트 결제라 돈이 나가지 않아요';
+    card.appendChild(orderSub);
+    orderToggle.addEventListener('change', function () {
+      errBox.hidden = true;
+      okBox.hidden = true;
+      api('/api/me/shops/' + encodeURIComponent(siteKey) + '/settings', 'PUT', { order_on: orderToggle.checked })
+        .then(function (res) {
+          if (!res.ok) return res.json().then(function (b) { throw new Error(b.detail || '저장하지 못했어요.'); });
+          return res.json();
+        })
+        .then(function (data) {
+          s = data.settings;
+          okBox.textContent = orderToggle.checked ? '온라인 주문 받기를 켰어요.' : '온라인 주문 받기를 껐어요.';
+          okBox.hidden = false;
+        })
+        .catch(function (e) {
+          orderToggle.checked = !orderToggle.checked;
           showError(errBox, e.message);
         });
     });

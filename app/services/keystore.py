@@ -32,6 +32,8 @@ EDITABLE = {
     "kakao_client_secret": ("카카오 Client Secret", "카카오 로그인·카카오톡 알림"),
     "google_client_secret": ("구글 로그인 Client Secret", "구글 로그인"),
     "telegram_bot_token": ("텔레그램 봇 토큰", "운영자 알림"),
+    "portone_api_secret": ("포트원 API 시크릿", "온라인 주문 테스트 결제 조회·취소"),
+    "portone_webhook_secret": ("포트원 웹훅 시크릿", "온라인 주문 테스트 결제 웹훅 서명 확인"),
 }
 KEEP_DAYS = 7
 CACHE_SEC = 30.0  # 여러 서버 프로세스가 있어도 이 시간 안에 새 키를 읽는다

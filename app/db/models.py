@@ -354,6 +354,8 @@ class ShopSettingsRow(Base):
 
     site_key: Mapped[str] = mapped_column(Text, primary_key=True)  # sessions.requirement_id
     phone_verify: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # 온라인 주문 받기 (PAY_WAVE3_CONTRACT §2.1). 켜기는 결제 준비가 돼 있을 때만.
+    order_on: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     solapi_key_enc: Mapped[Optional[str]] = mapped_column(Text)
     solapi_secret_enc: Mapped[Optional[str]] = mapped_column(Text)
     sms_sender: Mapped[Optional[str]] = mapped_column(Text)  # 숫자만

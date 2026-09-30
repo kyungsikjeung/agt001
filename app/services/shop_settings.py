@@ -14,8 +14,14 @@ log = logging.getLogger(__name__)
 _NO_KEY_MSG = "서버 설정 때문에 지금은 자기 키를 넣을 수 없어요."
 
 
-class SettingsError(Exception):
+class SettingsError(ValueError):
     """사장님에게 보여 줄 한 줄 사유."""
+
+
+def _payments_ready() -> bool:
+    """결제 준비됨 (규칙은 payments.ready() 한 곳)."""
+    from app.services import payments
+    return payments.ready()
 
 
 def _now() -> datetime.datetime:
@@ -35,27 +41,30 @@ def can_edit(user_id: str, site_key: str) -> bool:
 
 
 def get(site_key: str) -> dict:
-    """{phone_verify, own_key, key_last4, sms_sender} — 비밀값은 절대 돌려주지 않음."""
+    """{phone_verify, own_key, key_last4, sms_sender, order_on} — 비밀값은 절대 돌려주지 않음."""
     with get_sessionmaker()() as db:
         row = db.get(ShopSettingsRow, site_key)
         if row is None:
-            return {"phone_verify": False, "own_key": False, "key_last4": "", "sms_sender": ""}
+            return {"phone_verify": False, "own_key": False, "key_last4": "", "sms_sender": "",
+                    "order_on": False}
         return {"phone_verify": bool(row.phone_verify),
                 "own_key": bool(row.solapi_key_enc and row.solapi_secret_enc),
                 "key_last4": row.key_last4 or "",
-                "sms_sender": row.sms_sender or ""}
+                "sms_sender": row.sms_sender or "",
+                "order_on": bool(row.order_on)}
 
 
 def update(user_id: str, site_key: str, phone_verify: Optional[bool] = None,
            solapi_key: Optional[str] = None, solapi_secret: Optional[str] = None,
-           sms_sender: Optional[str] = None, clear_key: bool = False) -> dict:
+           sms_sender: Optional[str] = None, clear_key: bool = False,
+           order_on: Optional[bool] = None) -> dict:
     """가게 설정을 바꾼다. 권한 없으면 PermissionError, 입력이 틀리면 SettingsError."""
     if not can_edit(user_id, site_key):
         raise PermissionError("이 가게 설정을 바꿀 수 없어요.")
     with get_sessionmaker()() as db, db.begin():
         row = db.get(ShopSettingsRow, site_key)
         if row is None:
-            row = ShopSettingsRow(site_key=site_key, phone_verify=False)
+            row = ShopSettingsRow(site_key=site_key, phone_verify=False, order_on=False)
             db.add(row)
         if clear_key:
             row.solapi_key_enc = None
@@ -79,6 +88,10 @@ def update(user_id: str, site_key: str, phone_verify: Optional[bool] = None,
             row.key_last4 = key[-4:]
         if phone_verify is not None:
             row.phone_verify = bool(phone_verify)
+        if order_on is not None:
+            if bool(order_on) and not _payments_ready():
+                raise SettingsError("결제 준비 중이에요")
+            row.order_on = bool(order_on)
         row.updated_by = user_id
         row.updated_at = _now()
     return get(site_key)

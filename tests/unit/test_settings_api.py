@@ -81,7 +81,8 @@ def test_shops_list_only_owner_shops(client):
     assert shops[0]["room_id"] == room_id
     assert shops[0]["shop_name"] == "단정손끝"
     assert shops[0]["published"] is True
-    assert shops[0]["settings"] == {"phone_verify": False, "own_key": False, "key_last4": "", "sms_sender": ""}
+    assert shops[0]["settings"] == {"phone_verify": False, "own_key": False, "key_last4": "", "sms_sender": "",
+                                      "order_on": False}
 
 
 def test_put_phone_verify_toggle(client):
