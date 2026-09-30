@@ -285,8 +285,26 @@ def _catalog_flat_items(data: dict, pack: dict) -> list:
     return items
 
 
-def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool) -> None:
-    """catalog bind → offerings--categories."""
+def _orderable(item: dict) -> bool:
+    """주문 가능: 카드 가격(price_won)을 읽을 수 있을 때만. 예시 가격은 안 된다."""
+    won = (item or {}).get("price_won")
+    return isinstance(won, int) and not isinstance(won, bool) and won > 0
+
+
+def _order_action(card: dict) -> str | None:
+    """주문 폼 주소. design.py가 렌더 전에 카드 복사본에 둔다 (resolve에는 site_key가 안 들어온다)."""
+    form = (card or {}).get("order_form")
+    if not isinstance(form, dict):
+        return None
+    action = form.get("action")
+    if isinstance(action, str) and action.startswith("/api/orders/") and len(action) < 120:
+        return action
+    return None
+
+
+def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool,
+                  order_action: str | None = None) -> None:
+    """catalog bind → offerings--categories. order_action이 있으면 주문 폼(order_form·순서·주문 가능)도 넣는다."""
     if sec.get("variant") == "list-price":
         content = {"label": sec.get("label") or ("시술·가격" if archetype == "B" else "메뉴"),
                    "items": _catalog_flat_items(data, pack)}
@@ -295,6 +313,7 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
         sec["content"] = content
         return
     categories = []
+    idx = 0  # 주문 폼 칸 번호 (구역 안에서 0부터 차례로)
     for group in data.get("catalog") or []:
         if not isinstance(group, dict):
             continue
@@ -312,6 +331,9 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
                 entry["price"] = guess
                 if guess:
                     entry["price_example"] = True
+            entry["order_index"] = idx
+            idx += 1
+            entry["orderable"] = _orderable(item)
             items.append(entry)
         if not items:
             continue
@@ -325,7 +347,11 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
         categories.append(cat)
     if not categories:
         for group in pack["catalog"]:
-            items = [{**item, "example": True} for item in group.get("items") or []]
+            items = []
+            for item in group.get("items") or []:
+                one = {**item, "example": True, "order_index": idx, "orderable": False}
+                idx += 1
+                items.append(one)
             cat = {"name": group.get("name"), "items": items}
             photo = pack["photos"].get(f"category:{cat['name']}")
             if photo:
@@ -337,6 +363,8 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
                "categories": categories}
     if order:
         content["order"] = True
+    if order_action and (order or sec.get("order") is True):
+        content["order_form"] = {"action": order_action}
     sec["content"] = content
 
 
@@ -749,13 +777,14 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     menu_href = next((_anchor(sections, s["id"]) for s in sections
                       if s.get("bind") == "catalog"), "") or "#"
     order = (out.get("primary") or {}).get("target") == "order-soon" if isinstance(out.get("primary"), dict) else False
+    order_action = _order_action(card)
     for sec in sections:
         bind = sec.get("bind") or "none"
         if bind == "hero":
             _fill_hero(sec, card, pack, shop, detail, tagline, hours, address, primary, secondary,
                        archetype=archetype)
         elif bind == "catalog":
-            _fill_catalog(sec, data, pack, archetype, order)
+            _fill_catalog(sec, data, pack, archetype, order, order_action)
         elif bind == "staff":
             _fill_staff(sec, data, pack, booking_href)
         elif bind == "booking":
@@ -784,6 +813,10 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             sec["content"] = {"phone": phone, "return_href": menu_href}
         else:
             sec["content"] = {}
+    if order_action and any(isinstance(s, dict)
+                            and isinstance((s.get("content") or {}).get("order_form"), dict)
+                            for s in sections):
+        out["order_form"] = True
     links = []
     for sec in sections:
         nav = sec.get("nav")

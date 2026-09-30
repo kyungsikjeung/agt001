@@ -1591,6 +1591,39 @@ section.s-hero .s-lead { margin: 0 0 4px; }
 .s-menu__add:active { transform: scale(0.94); }
 .s-menu__order { margin: calc(var(--space-gap) * 1.5) 0 0; }
 
+/* ---- 포장 주문 폼 (PAY_WAVE3 §3.4): 수량 칸 44px 이상·16px(휴대폰 확대 방지), 칸은 문의 양식과 같은 모양 ---- */
+.s-menu__row:has(.s-menu__qty) { grid-template-columns: 1fr auto auto; }
+.s-menu__qty {
+  grid-row: 1;
+  grid-column: 3;
+  display: inline-block;
+  width: 76px;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--c-ink) 28%, transparent);
+  border-radius: var(--radius-card);
+}
+.s-menu .s-form__row input[type="text"],
+.s-menu .s-form__row input[type="tel"] {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.625;
+  color: var(--c-ink);
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--c-ink) 28%, transparent);
+  border-radius: var(--radius-card);
+}
+.s-menu__orderfields { margin: calc(var(--space-gap) * 1.5) 0 0; }
+
 /* ---- 담당자 (staff--team / staff--solo) ---- */
 .s-staff__row {
   display: grid;

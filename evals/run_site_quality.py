@@ -29,8 +29,8 @@ ROOT = Path(__file__).resolve().parent
 INDUSTRIES = ("cafe", "restaurant", "pension", "salon", "academy", "workshop")
 VIEW_W, VIEW_H = 390, 844
 
-# 누를 것 점검에서 믿는 폼 주소 앞부분 (문의·예약 공용 API).
-_ACTION_FORM_PREFIXES = ("/api/inquiries/", "/api/bookings/")
+# 누를 것 점검에서 믿는 폼 주소 앞부분 (문의·예약·주문 공용 API).
+_ACTION_FORM_PREFIXES = ("/api/inquiries/", "/api/bookings/", "/api/orders/")
 
 
 def _digits_only(value) -> str:

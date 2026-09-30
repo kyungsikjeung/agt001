@@ -549,9 +549,10 @@ def _map_links(address: str) -> list:
 
 
 def _menu_categories(content: dict) -> list:
-    """분류 메뉴판: [{name, index, image_*, items:[{name, desc, price, price_example, badge}], count}]."""
+    """분류 메뉴판: [{name, index, image_*, items:[{name, desc, price, price_example, badge, order_index, orderable}], count}]."""
     raw = content.get("categories")
     cats = []
+    n = 0  # 주문 폼 칸 번호 (구역 안에서 0부터 차례로, site_data와 같은 규칙)
     for pos, entry in enumerate(raw if isinstance(raw, list) else [], start=1):
         if not isinstance(entry, dict):
             continue
@@ -559,9 +560,14 @@ def _menu_categories(content: dict) -> list:
         for it in entry.get("items") if isinstance(entry.get("items"), list) else []:
             if not isinstance(it, dict) or not _text(it, "name").strip():
                 continue
+            stamped = it.get("order_index")
+            if not isinstance(stamped, int) or isinstance(stamped, bool):
+                stamped = n
             items.append({"name": _text(it, "name"), "desc": _text(it, "desc"), "price": _text(it, "price"),
                           "price_example": it.get("price_example") is True, "badge": _text(it, "badge")[:8],
-                          "example": it.get("example") is True})
+                          "example": it.get("example") is True, "order_index": stamped,
+                          "orderable": it.get("orderable") is True})
+            n += 1
         if not items:
             continue
         name = _text(entry, "name")
@@ -1078,6 +1084,10 @@ def _section_context(
         ctx["categories"] = _menu_categories(content)
         ctx["has_categories"] = bool(ctx["categories"])
         ctx["has_chips"] = len(ctx["categories"]) > 1
+        # 포장 주문 폼 (PAY_WAVE3 §3.4): content의 order_form(action)만 그대로 넘긴다.
+        form = content.get("order_form")
+        if isinstance(form, dict) and isinstance(form.get("action"), str) and form["action"].startswith("/api/orders/"):
+            ctx["order_form"] = {"action": form["action"]}
     elif section_type == "staff" and variant in ("team", "solo"):
         members = _staff_members(content)
         if not members:

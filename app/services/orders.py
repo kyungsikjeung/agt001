@@ -102,9 +102,9 @@ def _published(card: dict | None) -> bool:
     return bool(isinstance(card, dict) and card.get("published"))
 
 
-def create(site_key: str, lines: list[tuple[str, int]], name: str | None, phone: str) -> str:
-    """검사(§1 2번) → 한 트랜잭션으로 §1 5번 → pay_id. 가격은 menu_prices에서만."""
-    from app.services import customers, shop_settings, shops
+def check(site_key: str, lines: list[tuple[str, int]], phone: str) -> tuple[list[tuple[str, int, int]], int]:
+    """주문 검사(§1 2번)만: [(이름, 수량, 단가)], 합계. 인증 문자를 보내기 전에도 부른다(헛걸음·문자 비용 막기)."""
+    from app.services import shop_settings
     from app.services.customers import normalize_phone
 
     key = (site_key or "").strip()
@@ -135,6 +135,15 @@ def create(site_key: str, lines: list[tuple[str, int]], name: str | None, phone:
         checked.append((item, qty, price))
     if not 1 <= total <= MAX_TOTAL:
         raise OrderError("주문 금액은 1원부터 500,000원까지 가능해요.")
+    return checked, total
+
+
+def create(site_key: str, lines: list[tuple[str, int]], name: str | None, phone: str) -> str:
+    """검사(check) → 한 트랜잭션으로 §1 5번 → pay_id. 가격은 menu_prices에서만."""
+    from app.services import customers, shops
+
+    key = (site_key or "").strip()
+    checked, total = check(key, lines, phone)
     clean_name = (str(name or "").strip())[:40]
     pay_id = "ord_" + secrets.token_urlsafe(16)
     with get_sessionmaker()() as db, db.begin():

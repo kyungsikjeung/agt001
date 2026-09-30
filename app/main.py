@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import auth, bookings, callbot, card, chat, chat_agent, events, inquiries, owner, projects, public, rooms, settings as owner_settings, stt, tts
+from app.api import auth, bookings, callbot, card, chat, chat_agent, events, inquiries, orders, owner, projects, public, rooms, settings as owner_settings, stt, tts
 from app.config import settings
 from app.services import funnel, rag
 
@@ -41,7 +41,7 @@ async def lifespan(_app: FastAPI):
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/api/inquiries/", "/api/bookings/", "/health")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/api/inquiries/", "/api/bookings/", "/api/orders/", "/health")
 _GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/")
 
 
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(inquiries.router)
     app.include_router(bookings.router)
+    app.include_router(orders.router)
     app.include_router(owner_settings.router)
     app.include_router(owner.router)
     app.include_router(chat_agent.router)

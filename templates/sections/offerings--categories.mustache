@@ -5,6 +5,7 @@
     {{#categories}}<a class="s-chip" href="#menu-{{id}}-{{index}}">{{name}}</a>{{/categories}}
   </nav>
   {{/has_chips}}
+  {{#order_form}}<form class="s-form" method="post" action="{{order_form.action}}" enctype="application/x-www-form-urlencoded">{{/order_form}}
   {{#has_categories}}
   <div class="s-menu__groups">
     {{#categories}}
@@ -19,7 +20,7 @@
           <span class="s-menu__name">{{name}}{{#badge}} <em class="s-menu__badge">{{badge}}</em>{{/badge}}{{#example}} <span class="s-example" title="예시 메뉴: 공개할 때 빠져요">예시</span>{{/example}}</span>
           <span class="s-menu__price">{{#price}}{{price}}{{#price_example}} <span class="s-example" title="예시 가격: 공개할 때 사장님 가격으로 바뀌어요">예시</span>{{/price_example}}{{/price}}{{^price}}<span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span>{{/price}}</span>
           {{#desc}}<span class="s-menu__desc">{{desc}}</span>{{/desc}}
-          {{#order}}<a class="s-menu__add" href="#order-soon" aria-label="{{name}} 담기">담기</a>{{/order}}
+          {{#order}}{{#order_form}}{{#orderable}}<input type="hidden" name="item_{{order_index}}" value="{{name}}"><input class="s-menu__qty" type="number" name="qty_{{order_index}}" min="0" max="20" value="0" inputmode="numeric" aria-label="{{name}} 수량">{{/orderable}}{{^orderable}}<a class="s-menu__add" href="#order-soon" aria-label="{{name}} 담기">담기</a>{{/orderable}}{{/order_form}}{{^order_form}}<a class="s-menu__add" href="#order-soon" aria-label="{{name}} 담기">담기</a>{{/order_form}}{{/order}}
         </li>
         {{/items}}
       </ul>
@@ -30,5 +31,24 @@
   {{^has_categories}}
   <p><span class="is-placeholder" aria-label="메뉴: 아직 입력되지 않음">[메뉴 입력]</span></p>
   {{/has_categories}}
-  {{#order}}<p class="s-menu__order"><a class="s-btn s-btn--block" href="#order-soon">주문하기</a></p>{{/order}}
+  {{#order}}{{^order_form}}<p class="s-menu__order"><a class="s-btn s-btn--block" href="#order-soon">주문하기</a></p>{{/order_form}}{{/order}}
+  {{#order_form}}
+  <div class="s-menu__orderfields">
+    <p class="s-form__row">
+      <label for="order-name-{{id}}">이름 (선택)</label>
+      <input id="order-name-{{id}}" name="name" type="text" maxlength="40" autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="order-phone-{{id}}">전화번호 (필수)</label>
+      <input id="order-phone-{{id}}" name="phone" type="tel" maxlength="20" autocomplete="tel" required>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·전화번호·주문 내용은 주문 확인과 연락을 위해 가게에 전달되며, 30일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="order-website-{{id}}">웹사이트는 비워 두세요</label>
+      <input id="order-website-{{id}}" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn s-btn--block" type="submit">주문하기</button></p>
+  </div>
+  </form>
+  {{/order_form}}
 </section>

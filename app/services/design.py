@@ -48,6 +48,17 @@ def _section_name(sec: dict, offerings_label: str) -> str:
     return _SECTION_NAMES.get(sec["type"], sec["type"])
 
 
+def _order_form_action(requirement_id: str) -> Optional[str]:
+    """주문 폼 주소. order_on + 결제 준비일 때만. 실패해도 시안은 그냥 그린다."""
+    try:
+        from app.services import payments, shop_settings
+        if shop_settings.get(requirement_id).get("order_on") and payments.ready():
+            return f"/api/orders/{requirement_id}"
+    except Exception:
+        log.exception("주문 폼 여부 확인 실패, 폼 없이 그림 %s", requirement_id)
+    return None
+
+
 def _concept_board(requirement_id: str, title: str, items: list[dict], notes: list[str], placeholders: int,
                    concept: dict, offerings_label: str) -> str:
     """디자인 컨셉 보드 (Stitch식 과정 보여 주기): 컨셉 → 색 → 글꼴 → 구성 → 시안 3안.
@@ -158,7 +169,20 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
     design_dir = settings.generated_dir / requirement_id / "design"
     design_dir.mkdir(parents=True, exist_ok=True)
     title = DV.title_for(card)
-    items = DV.variants(card)
+    order_action = _order_form_action(requirement_id)
+    work = card
+    if order_action:
+        # resolve에는 site_key가 안 들어오므로 카드 복사본에 폼 주소를 실어 보낸다 (원본 카드는 안 건드린다).
+        import copy as _copy
+        work = _copy.deepcopy(card)
+        work["order_form"] = {"action": order_action}
+    items = DV.variants(work)
+    if order_action:
+        for v in items:
+            try:
+                v["spec"]["order_form"] = True
+            except Exception:
+                log.exception("주문 폼 표시 실패 %s/%s", requirement_id, v.get("id"))
     shots = []
     for v in items:
         page = site_render.render_site(v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
@@ -168,9 +192,16 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
             bare = _copy.deepcopy(card)
             bare["photos"] = []
             bare["ai_images"] = {}
+            if order_action:
+                bare["order_form"] = {"action": order_action}
             fixed = next((w for w in DV.variants(bare) if w["id"] == v["id"]), None)
             if fixed is not None:
                 v["spec"] = fixed["spec"]
+                if order_action:
+                    try:
+                        v["spec"]["order_form"] = True
+                    except Exception:
+                        log.exception("주문 폼 표시 실패 %s/%s", requirement_id, v["id"])
                 page = site_render.render_site(
                     v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
                 log.info("시안 1회 복구 %s/%s: %s", requirement_id, v["id"], "; ".join(_verify_html(page)) or "해소")
@@ -222,6 +253,11 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     from app.services import design_variants as DV
     from app.services import site_render
 
+    order_action = _order_form_action(requirement_id)
+    if order_action:
+        import copy as _copy
+        card = _copy.deepcopy(card)
+        card["order_form"] = {"action": order_action}
     v = DV.pick(card, variant_id)
     if v is None:
         raise ValueError(f"unknown variant {variant_id}")
@@ -239,6 +275,11 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     except Exception:
         log.exception("예약 현황 계산 실패, 계산 없이 공개 %s", requirement_id)
     out = settings.generated_dir / requirement_id / "published"
+    if order_action:
+        try:
+            v["spec"]["order_form"] = True
+        except Exception:
+            log.exception("주문 폼 표시 실패 %s", requirement_id)
     page = site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card),
                                    kind=DV.kind_for(card), public=True)
     from app.services import publish_check
