@@ -80,9 +80,14 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
 
 
 def _section_label(node: dict, offerings_label: str) -> str:
-    """미리보기 구역 이름. design._section_name을 쓰고 없으면 nav → label → id."""
+    """미리보기 구역 이름. 청사진 label → nav → design._section_name → id."""
     if isinstance(node, dict) and node.get("id") == "hero":
         return "첫 화면"
+    # 청사진 이름(사이트에 보이는 제목)이 먼저: 종류 이름만 쓰면 메뉴·시그니처가 둘 다 '대표 메뉴'로 겹친다
+    for key in ("label", "nav"):
+        value = node.get(key) if isinstance(node, dict) else None
+        if isinstance(value, str) and value.strip():
+            return value.strip()
     from app.services import design as D
     try:
         name = D._section_name(node, offerings_label) if isinstance(node, dict) else ""
@@ -90,10 +95,6 @@ def _section_label(node: dict, offerings_label: str) -> str:
             return name
     except Exception:
         pass
-    for key in ("nav", "label"):
-        value = node.get(key) if isinstance(node, dict) else None
-        if isinstance(value, str) and value.strip():
-            return value.strip()
     return node.get("id", "") if isinstance(node, dict) else ""
 
 

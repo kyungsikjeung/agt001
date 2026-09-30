@@ -655,3 +655,20 @@
     top: 12px;
   }
 }
+
+/* 보며 고치기: 사진 올리기는 브라우저 기본 파일 칸(영어 "Choose File") 대신 버튼 모양. 칸은 투명하게 위에 덮어 키보드로도 누른다 */
+.ed-file {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  border: 1.5px dashed var(--ed-primary);
+  border-radius: 12px;
+  color: var(--ed-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+.ed-file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+.ed-file:focus-within { outline: 2px solid var(--ed-primary); outline-offset: 2px; }
+.ed-btn--block { display: block; width: 100%; min-height: 48px; margin-top: 12px; }

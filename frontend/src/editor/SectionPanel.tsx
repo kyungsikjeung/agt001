@@ -338,7 +338,7 @@ export default function SectionPanel({
         ))}
 
         {kind === 'hero' ? (
-          <label className="ed-site-field" htmlFor={`ed-site-${selected.id}-photo`}>
+          <label className="ed-site-field ed-file" htmlFor={`ed-site-${selected.id}-photo`}>
             대표 사진 바꾸기
             <input
               id={`ed-site-${selected.id}-photo`}
@@ -351,7 +351,7 @@ export default function SectionPanel({
         ) : null}
 
         {kind === 'photos' ? (
-          <label className="ed-site-field" htmlFor={`ed-site-${selected.id}-photo`}>
+          <label className="ed-site-field ed-file" htmlFor={`ed-site-${selected.id}-photo`}>
             사진 올리기
             <input
               id={`ed-site-${selected.id}-photo`}
@@ -410,8 +410,8 @@ export default function SectionPanel({
                             onChange={(e) => patchItem(it.key, { note: e.target.value })}
                           />
                         </label>
-                        <label className="ed-site-field">
-                          항목 사진
+                        <label className="ed-site-field ed-file">
+                          항목 사진 올리기
                           <input
                             type="file"
                             accept="image/*"
@@ -468,7 +468,7 @@ export default function SectionPanel({
         ) : null}
 
         {kind === 'hero' || kind === 'catalog' || kind === 'location' || kind === 'contact' ? (
-          <button type="button" className="ed-btn ed-btn--primary" disabled={saving} onClick={() => void saveContent()}>
+          <button type="button" className="ed-btn ed-btn--primary ed-btn--block" disabled={saving} onClick={() => void saveContent()}>
             {saving ? '저장 중…' : '저장'}
           </button>
         ) : null}
