@@ -75,6 +75,7 @@
 </header>
 <nav id="tabs" role="tablist" hidden>
   <button role="tab" data-tab="bookings" aria-selected="true">예약</button>
+  <button role="tab" data-tab="orders" aria-selected="false">주문 <span class="pill">테스트 결제</span></button>
   <button role="tab" data-tab="bot" aria-selected="false">예약 봇</button>
   <button role="tab" data-tab="closures" aria-selected="false">휴무·막기</button>
   <button role="tab" data-tab="verify" aria-selected="false">가게 확인</button>
@@ -112,6 +113,14 @@
       </div>
       <button class="primary" id="pb-save">넣기</button>
       <p class="err" id="pb-err" hidden></p>
+    </section>
+  </div>
+
+  <div id="p-orders" hidden>
+    <section class="card">
+      <div class="row"><h2 style="flex:1">주문 <span class="pill">테스트 결제</span></h2><button id="oreload">새로고침</button></div>
+      <div class="row"><label class="f">날짜<input type="date" id="o-date"></label></div>
+      <div id="olist"><p class="sub">불러오는 중…</p></div>
     </section>
   </div>
 
@@ -181,8 +190,9 @@
   // ── 탭 ──
   function tab(name) {
     for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
-    for (const p of ["bookings", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
+    for (const p of ["bookings", "orders", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
     if (name === "bookings") loadBookings();
+    if (name === "orders") loadOrders();
     if (name === "bot") loadBot();
     if (name === "closures") loadClosures();
   }
@@ -223,6 +233,69 @@
   }
   function alertLine(parent, msg) { const p = el("p", msg, "err"); parent.append(p); setTimeout(() => p.remove(), 4000); }
   $("reload").addEventListener("click", loadBookings);
+
+  // ── 주문 ──
+  const OSTATUS = { open: "결제 대기", paid: "결제 완료", completed: "가져감", canceled: "환불됨" };
+  const fmtTime = iso => {
+    try { return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Asia/Seoul" }); }
+    catch (e) { return ""; }
+  };
+  async function loadOrders() {
+    const box = $("olist");
+    if (!$("o-date").value) $("o-date").value = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
+    try {
+      const { orders } = await api(base() + "/orders?date=" + encodeURIComponent($("o-date").value));
+      box.replaceChildren();
+      if (!orders.length) { box.append(el("p", "이 날짜에 주문이 없어요.", "sub")); return; }
+      for (const o of orders) {
+        const row = el("div", null, "bk");
+        const head = el("div", null, "row");
+        head.append(el("strong", `${fmtTime(o.created_at)} · ${(o.items || []).map(i => `${i.name} ${i.qty}`).join(", ")}`),
+          el("span", OSTATUS[o.status] || o.status, "pill"));
+        row.append(head, el("p", `${Number(o.total || 0).toLocaleString()}원`, "sub"));
+        if (o.phone) {
+          const p = el("p", null, "sub");
+          const a = document.createElement("a");
+          a.href = "tel:" + String(o.phone).replace(/\s/g, "");
+          a.textContent = o.phone;
+          p.append(a);
+          row.append(p);
+        }
+        const acts = el("div", null, "row");
+        if (o.status === "paid") {
+          const done = el("button", "가져감", "primary");
+          done.addEventListener("click", async () => {
+            done.disabled = true;
+            try { await post(`${base()}/orders/${o.order_id}/complete`); loadOrders(); } catch (e) { alertLine(row, e.message); done.disabled = false; }
+          });
+          acts.append(done);
+          const amt = document.createElement("input");
+          amt.type = "number"; amt.min = "1"; amt.placeholder = "금액(비우면 전액)"; amt.setAttribute("aria-label", "환불 금액");
+          acts.append(amt);
+          const refund = el("button", "환불", "danger");
+          refund.addEventListener("click", async () => {
+            if (!confirm("환불할까요?")) return;
+            refund.disabled = true;
+            const v = amt.value.trim();
+            try { await post(`${base()}/orders/${o.order_id}/refund`, { amount: v === "" ? null : Number(v), reason: "" }); loadOrders(); } catch (e) { alertLine(row, e.message); refund.disabled = false; }
+          });
+          acts.append(refund);
+        }
+        if (o.status === "open") {
+          const re = el("button", "다시 확인");
+          re.addEventListener("click", async () => {
+            re.disabled = true;
+            try { await post(`${base()}/orders/${o.order_id}/recheck`); loadOrders(); } catch (e) { alertLine(row, e.message); re.disabled = false; }
+          });
+          acts.append(re);
+        }
+        if (acts.childElementCount) row.append(acts);
+        box.append(row);
+      }
+    } catch (e) { if (e.message !== "login") box.replaceChildren(el("p", e.message, "err")); }
+  }
+  $("oreload").addEventListener("click", loadOrders);
+  $("o-date").addEventListener("change", loadOrders);
 
   function fillPhoneBox() {
     const s = spec;

@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.api.auth import _check_origin
 from app.config import settings
-from app.services import auth, booking_engine, botmaker, shops
+from app.services import auth, booking_engine, botmaker, orders, payments, shops
 from app.services.slots import KST
 
 router = APIRouter()
@@ -112,6 +112,65 @@ def booking_action(site_key: str, booking_id: int, action: str, request: Request
     _check_origin(request)
     user, shop_id = _shop(request, site_key)
     return {"booking": _engine_call(booking_engine.owner_action, shop_id, booking_id, action, user["id"])}
+
+
+# ── 주문 (PAY_WAVE3_CONTRACT §3.5) ──
+
+class RefundIn(BaseModel):
+    amount: Optional[int] = None
+    reason: str = ""
+
+
+@router.get("/api/owner/shops/{site_key}/orders")
+def list_orders(site_key: str, request: Request, date: Optional[str] = None):
+    """그날 주문 목록. 기본 오늘(KST)."""
+    _shop(request, site_key)
+    day = _date(date, datetime.datetime.now(KST).date())
+    return {"orders": orders.owner_list(site_key, day)}
+
+
+@router.post("/api/owner/shops/{site_key}/orders/{order_id}/refund")
+def refund_order(site_key: str, order_id: int, body: RefundIn, request: Request):
+    """환불. amount가 비면 남은 전액."""
+    _check_origin(request)
+    user, _ = _shop(request, site_key)
+    try:
+        return payments.refund(site_key, order_id, body.amount, body.reason or "", user["id"])
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/api/owner/shops/{site_key}/orders/{order_id}/complete")
+def complete_order(site_key: str, order_id: int, request: Request):
+    """가져감 처리. 결제된 주문만."""
+    _check_origin(request)
+    user, _ = _shop(request, site_key)
+    try:
+        return orders.mark_completed(site_key, order_id, user["id"])
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/api/owner/shops/{site_key}/orders/{order_id}/recheck")
+def recheck_order(site_key: str, order_id: int, request: Request):
+    """포트원에 결제 상태를 다시 묻는다(웹훅을 못 받았을 때)."""
+    _check_origin(request)
+    _shop(request, site_key)
+    from sqlalchemy import select
+
+    from app.db.models import PaymentRow
+    from app.db.session import get_sessionmaker
+
+    with get_sessionmaker()() as db:
+        pay = db.scalar(select(PaymentRow).where(PaymentRow.order_id == order_id))
+        if pay is None or pay.site_key != site_key:
+            raise HTTPException(status_code=404, detail="주문을 찾을 수 없어요.")
+        pid = pay.provider_payment_id
+    return {"result": payments.complete(pid)}
 
 
 # ── 휴무·막기 ──
