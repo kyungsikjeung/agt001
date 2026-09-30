@@ -46,7 +46,7 @@ flowchart LR
 |---|---|---|---|---|
 | 5-1 | **통합 테스트** `tests/unit/test_commerce_flow.py`: 주문 폼 → 인증 → `/pay` → (포트원 가짜) 완료 → 도장 적립 → 목표 도달 쿠폰 발급 → 다음 주문에 쿠폰 잡기 → 0원이면 무료 완료 → 매장 사용 거절(이미 씀) → 전액 환불 → 도장 회수 | 한 테스트로 끝까지, 기존 단위 테스트와 함께 통과 | OpenCode W5-A | 10/13 |
 | 5-2 | **보안 점검**: 물결 2~4 커밋 범위 `/security-review` + 손 점검 목록 — 사장님 경로의 가게 확인(남의 가게 404), 웹훅 서명, `/pay`·`/my` CSP·캐시, 쿠폰 번호 추측(12자리 난수 + 사장님 입력 제한), 기기 쿠키 경로·서명, 미리보기 iframe `allow-same-origin` 없음, 금액이 서버 값에서만 | 막는 문제 0건. 나온 것은 고치거나 대표 판단 | Claude | 10/13~10/14 |
-| 5-3 | **비상 스위치** `settings.commerce_enabled`(기본 True, `.env` + 관리자 키 저장소처럼 재시작 없이 읽기). False면: 공개본 렌더에서 `order_form`·`stamps`를 넣지 않음, `/api/orders/*`·`/pay/*`는 "지금은 온라인 주문을 잠시 멈췄어요. 전화로 주문해 주세요" 200 화면, 웹훅은 그대로 받아 기록(돈이 오간 결제는 확정해야 함). 켜고 끌 때 켠 가게들의 공개본 다시 공개 | 끄면 1분 안에 모든 공개본에서 주문 폼이 사라짐(테스트), 웹훅은 계속 처리 | OpenCode W5-A | 10/13~10/14 |
+| 5-3 | **비상 스위치** `.env` `COMMERCE_PAUSED`(기본 false) + 서비스 재시작(재배포 불필요, [WAVE5_CONTRACT](WAVE5_CONTRACT.md) §0). False면: 공개본 렌더에서 `order_form`·`stamps`를 넣지 않음, `/api/orders/*`·`/pay/*`는 "지금은 온라인 주문을 잠시 멈췄어요. 전화로 주문해 주세요" 200 화면, 웹훅은 그대로 받아 기록(돈이 오간 결제는 확정해야 함). 켜고 끈 뒤 `scripts/republish_commerce.py`로 켠 가게들의 공개본 다시 공개 | 끄면 1분 안에 모든 공개본에서 주문 폼이 사라짐(테스트), 웹훅은 계속 처리 | OpenCode W5-A | 10/13~10/14 |
 | 5-4 | **운영 신호** 2개를 기존 익명 사건 기록(`funnel.record`)에 남기고 `funnel.report()`에 한 줄씩: ① 포트원 조회 금액·통화 불일치로 `failed`가 된 결제(`payment_mismatch`) ② 웹훅 서명 실패(`webhook_bad_signature`). 관리자 사이트 문제 신호(D49)·텔레그램 보내기는 아직 코드에 없어 **그때 붙인다** | 가짜로 일으켜 보고서 숫자 +1 | OpenCode W5-B | 10/14 |
 | 5-5 | **고지 초안**: 개인정보처리방침 추가(결제 처리 위탁: 포트원·토스페이먼츠 / 손님 스탬프·쿠폰: 전화번호·도장 기록·쿠폰 번호, 보관 기간은 §3 결정대로), 공개 사이트 주문 폼 한 줄, 내 스탬프 화면 한 줄 | 대표 승인. **법률 검토(L1~L6)는 실결제 전 필수로 남김** | OpenCode W5-B 초안 → Claude 검토 → 대표 | 10/14 |
 | 5-6 | **베타 사장님 안내문**(1쪽, 휴대폰으로 읽는 글): 보며 고치기, 앱형 시안, 공지 띠·팝업, 주문 받기 켜기(테스트 결제라 돈이 안 나감), 스탬프 규칙, 쿠폰 사용(번호 입력·카메라) | 대표가 한 번 읽고 막힘 없음 | OpenCode W5-B 초안 → Claude | 10/14 |
@@ -81,13 +81,14 @@ flowchart LR
 | 묶음 | 담당 파일 | 선행 | 날짜 |
 |---|---|---|---|
 | W5-A 통합 테스트·비상 스위치 | `tests/unit/test_commerce_flow.py`(신규), `app/config.py`(한 줄), `app/api/orders.py`(스위치 검사), `app/services/design.py`(스위치 검사), `tests/unit/test_commerce_switch.py`(신규) | W4-C·D 커밋 | 10/13~10/14 |
-| W5-B 운영 신호·문서 초안 | `app/services/payments.py`(신호 두 곳 기록만), `app/services/funnel.py`(보고서 두 줄), `static/privacy.html`(초안, 대표 승인 전 배포 안 함), `docs/product/BETA_OWNER_GUIDE.md`(신규) | W4-C·D 커밋 | 10/14 |
+| W5-B 운영 신호·문서 초안 | `app/services/payments.py`(신호 두 곳 기록만), `app/services/funnel.py`(보고서 두 줄), `docs/product/PRIVACY_COMMERCE_DRAFT.md`(초안, `static/privacy.html`은 대표 승인 뒤 Claude가 옮김), `docs/product/BETA_OWNER_GUIDE.md`·`COMMERCE_RUNBOOK.md`(신규) | W4-C·D 커밋 | 10/14 |
 | W5-C 빚 정리 | `tests/unit/test_ai_images.py`, `frontend/src/editor/editor.css`·`SectionPanel.tsx`(저장 버튼 고정만), `app/services/layout_edits.py`(더한 구역 위치만) + 해당 테스트 | 없음(지금도 가능) | 10/13 |
 
-W5-A와 W5-B는 `app/services/payments.py`를 같이 만지지 않게, W5-A는 payments.py를 건드리지 않는다. 계약서(함수 이름·설정 이름)는 W4-C·D 결과를 본 뒤 10/13에 확정한다.
+W5-A와 W5-B는 `app/services/payments.py`를 같이 만지지 않게, W5-A는 payments.py를 건드리지 않는다. 계약서 [WAVE5_CONTRACT](WAVE5_CONTRACT.md)(9/30 작성, W4-C·D 결과가 다르면 실행 전에 고친다).
 
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-30 | 처음 작성 |
+| 2026-09-30 | W5-A·B 계약 반영: 스위치는 .env+재시작, 방침은 문서 초안, 운영 신호는 사건 기록+스크립트 |
