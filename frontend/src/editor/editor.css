@@ -665,8 +665,26 @@
   .ed-site-body--desktop .ed-site-view {
     position: static;
   }
+  /* 노트북 모양: 어두운 테두리 안에 1280×800 화면을 줄여 넣는다(크기는 SiteEditor가 style로 준다) */
+  .ed-site-body--desktop .ed-site-screen {
+    overflow: hidden;
+    border: 10px solid #1f2326;
+    border-radius: 14px 14px 4px 4px;
+    box-sizing: content-box;
+    background: #fff;
+  }
   .ed-site-body--desktop .ed-site-frame {
-    width: 100%;
+    border: 0;
+    border-radius: 0;
+    display: block;
+    max-width: none;
+  }
+  .ed-site-body--desktop .ed-site-view::after {
+    content: '';
+    display: block;
+    height: 10px;
+    border-radius: 0 0 10px 10px;
+    background: linear-gradient(#d6d8da, #b9bcbf);
   }
 }
 
@@ -682,8 +700,11 @@
   background: var(--ed-card);
 }
 .ed-device button {
-  min-height: 36px;
-  padding: 6px 16px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 36px;
+  padding: 0;
   border: 0;
   border-radius: 999px;
   background: transparent;

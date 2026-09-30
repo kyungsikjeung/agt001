@@ -49,6 +49,9 @@ export interface BuilderControl {
 }
 
 const DEVICE_KEY = 'agt001_preview_device';
+/** 노트북 미리보기: 사이트를 이 크기로 그린 뒤 칸 폭에 맞게 통째로 줄인다. */
+const LAPTOP_W = 1280;
+const LAPTOP_H = 800;
 
 export default function SiteEditor({
   roomId,
@@ -89,7 +92,19 @@ export default function SiteEditor({
       /* 저장이 막혀도 이번 화면에선 바뀐다 */
     }
   }
+  // 노트북 미리보기의 줄임 비율 = 칸 폭 / 1280. 칸 폭이 바뀌면 다시 잰다.
+  useEffect(() => {
+    const el = viewRef.current;
+    if (device !== 'desktop' || !el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setLaptopScale(Math.min(1, el.clientWidth / LAPTOP_W) || 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const viewRef = useRef<HTMLDivElement | null>(null);
+  const [laptopScale, setLaptopScale] = useState(1);
   const pendingScroll = useRef<string | null>(null);
   const pendingFlash = useRef<string | null>(null);
   const variantRef = useRef(variant);
@@ -218,21 +233,50 @@ export default function SiteEditor({
         <div className={`ed-site-body${device === 'desktop' ? ' ed-site-body--desktop' : ''}`}>
           <div className="ed-site-view">
             <div className="ed-device" role="group" aria-label="미리보기 크기">
-              <button type="button" aria-pressed={device === 'mobile'} onClick={() => pickDevice('mobile')}>
-                휴대폰
+              <button
+                type="button"
+                aria-label="휴대폰"
+                title="휴대폰 미리보기"
+                aria-pressed={device === 'mobile'}
+                onClick={() => pickDevice('mobile')}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                  <path d="M11 18h2" />
+                </svg>
               </button>
-              <button type="button" aria-pressed={device === 'desktop'} onClick={() => pickDevice('desktop')}>
-                데스크톱
+              <button
+                type="button"
+                aria-label="노트북"
+                title="노트북 미리보기"
+                aria-pressed={device === 'desktop'}
+                onClick={() => pickDevice('desktop')}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="4" width="16" height="11" rx="1.5" />
+                  <path d="M2 19h20" />
+                </svg>
               </button>
             </div>
-            <iframe
-              ref={frameRef}
-              className="ed-site-frame"
-              title="사이트 미리보기"
-              sandbox="allow-scripts"
-              srcDoc={preview.html}
-              onLoad={onFrameLoad}
-            />
+            <div
+              ref={viewRef}
+              className="ed-site-screen"
+              style={device === 'desktop' ? { height: LAPTOP_H * laptopScale } : undefined}
+            >
+              <iframe
+                ref={frameRef}
+                className="ed-site-frame"
+                title="사이트 미리보기"
+                sandbox="allow-scripts"
+                srcDoc={preview.html}
+                onLoad={onFrameLoad}
+                style={
+                  device === 'desktop'
+                    ? { width: LAPTOP_W, height: LAPTOP_H, transform: `scale(${laptopScale})`, transformOrigin: '0 0' }
+                    : undefined
+                }
+              />
+            </div>
           </div>
           <SectionPanel
             roomId={roomId}
