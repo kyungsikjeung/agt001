@@ -34,7 +34,9 @@ SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generat
                             # 사진 선택지 답·실제 업로드(D48·D45, 원문·개인정보 없음)
                             "photo_answered", "photo_uploaded",
                             # AI 예시 이미지 생성(업종·칸만, 개인정보 없음)
-                            "ai_image_made"})
+                            "ai_image_made",
+                            # 온라인 결제 운영 신호(W5-B, 금액·결제 번호·전화 없음)
+                            "payment_mismatch", "webhook_bad_signature"})
 
 _TOKEN = re.compile(r"[^A-Za-z0-9_.:-]")
 _MAX_LEN = 64

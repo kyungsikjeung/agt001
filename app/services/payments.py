@@ -166,8 +166,20 @@ def complete(pay_id: str) -> str:
                                 text += " · 쿠폰 사용"
                             notify_args = (site_key, order_id, text)
                             result = "paid"
-                        elif status in ("PAID", "FAILED", "CANCELED", "CANCELLED"):
+                        elif status == "PAID":
                             # PAID인데 금액·통화가 다르면 실패로 둔다. 사장님께 알리지 않는다.
+                            pay.status = "failed"
+                            result = "failed"
+                            # 금액 먼저 본다. 둘 다 다르면 amount로 남긴다.
+                            reason = "amount" if total != want else ("currency" if currency != "KRW" else None)
+                            if reason is not None:
+                                try:
+                                    from app.services import funnel
+                                    funnel.record("payment_mismatch",
+                                                  props={"site": site_key, "reason": reason})
+                                except Exception:
+                                    pass
+                        elif status in ("FAILED", "CANCELED", "CANCELLED"):
                             pay.status = "failed"
                             result = "failed"
                         else:
@@ -274,18 +286,30 @@ def refund(site_key: str, order_id: int, amount: int | None, reason: str, by: st
 def verify_webhook(headers: dict, body: bytes) -> dict:
     """Standard Webhooks 서명 확인(HMAC-SHA256). 틀리면 ValueError. 맞으면 JSON."""
     from app.services import keystore
+
+    def _note(reason: str) -> None:
+        # 기록 실패가 검증 결과를 바꾸지 않게 삼킨다.
+        try:
+            from app.services import funnel
+            funnel.record("webhook_bad_signature", props={"reason": reason})
+        except Exception:
+            pass
+
     low = {str(k).lower(): v for k, v in (headers or {}).items()}
     wid = str(low.get("webhook-id") or "").strip()
     ts = str(low.get("webhook-timestamp") or "").strip()
     sig = str(low.get("webhook-signature") or "").strip()
     if not (wid and ts and sig):
+        _note("missing")
         raise ValueError("서명이 없어요.")
     try:
         ts_n = int(ts)
     except ValueError:
+        _note("stale")
         raise ValueError("서명이 틀렸어요.")
     now_n = int(_now().timestamp())
     if abs(now_n - ts_n) > 300:
+        _note("stale")
         raise ValueError("서명이 틀렸어요.")
     secret = (keystore.get("portone_webhook_secret") or "").strip()
     if secret.startswith("whsec_"):
@@ -293,13 +317,16 @@ def verify_webhook(headers: dict, body: bytes) -> dict:
     try:
         raw_key = base64.b64decode(secret, validate=True)
     except Exception:
+        _note("mismatch")
         raise ValueError("서명이 틀렸어요.")
     if not raw_key:
         # 비밀값이 없으면 빈 열쇠 서명을 누구나 만들 수 있다 → 받지 않는다
+        _note("no_secret")
         raise ValueError("웹훅 비밀값이 없어요.")
     try:
         text = body.decode("utf-8")
     except Exception:
+        _note("mismatch")
         raise ValueError("서명이 틀렸어요.")
     msg = f"{wid}.{ts}.{text}".encode("utf-8")
     digest = base64.b64encode(hmac.new(raw_key, msg, hashlib.sha256).digest()).decode()
@@ -312,8 +339,10 @@ def verify_webhook(headers: dict, body: bytes) -> dict:
             ok = True
             break
     if not ok:
+        _note("mismatch")
         raise ValueError("서명이 틀렸어요.")
     try:
         return json.loads(text)
     except ValueError:
+        _note("mismatch")
         raise ValueError("서명이 틀렸어요.")
