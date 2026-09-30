@@ -197,18 +197,41 @@ _PROBE = r"""
     return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && s.display !== 'none' && +s.opacity !== 0; };
   const rgb = (c) => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null;
     const p = m[1].split(/[ ,\/]+/).filter(Boolean).map(Number); return {r:p[0], g:p[1], b:p[2], a: p.length > 3 ? p[3] : 1}; };
+  // 대비 판정용: rgb + oklch. 짙은 띠(section[data-tone=inverse]) 배경은
+  // getComputedStyle이 oklch()로 돌려준다 (QA-1). 못 읽으면 흰 바탕으로 떨어져
+  // 흰 글자가 1.00으로 찍혔던 문제. 색 개수(color_count)는 기존 rgb만 쓴다.
+  const color = (c) => { const v = rgb(c); if (v) return v;
+    const m = c.match(/oklch\(\s*([0-9.]+%?)\s+([0-9.]+)\s+([0-9.]+|none)\s*(?:\/\s*([0-9.]+%?))?\)/);
+    if (!m) return null;
+    let l = parseFloat(m[1]); if (m[1].endsWith('%')) l /= 100;
+    let a = m[4] === undefined ? 1 : parseFloat(m[4]); if (m[4] && m[4].endsWith('%')) a /= 100;
+    const v2 = oklchToRgb(l, parseFloat(m[2]), m[3] === 'none' ? 0 : parseFloat(m[3]));
+    return {r:v2[0], g:v2[1], b:v2[2], a}; };
+  // oklch(L C h) → sRGB 0~255 (gamut 밖은 자른다).
+  const oklchToRgb = (l, cc, h) => { const a = cc * Math.cos(h * Math.PI / 180), b = cc * Math.sin(h * Math.PI / 180);
+    let L = l + 0.3963377774 * a + 0.2158037573 * b, M = l - 0.1055613458 * a - 0.0638541728 * b,
+      S = l - 0.0894841775 * a - 1.2914855480 * b;
+    L *= L * L; M *= M * M; S *= S * S;
+    return [4.0767416621 * L - 3.3077115913 * M + 0.2309699292 * S,
+      -1.2684380046 * L + 2.6097574011 * M - 0.3413193965 * S,
+      -0.0041960863 * L - 0.7034186147 * M + 1.7076147010 * S].map(v =>
+      Math.min(255, Math.max(0, (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055)) * 255)); };
   const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
     return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
   const blend = (fg, bg) => ({r: fg.r * fg.a + bg.r * (1 - fg.a), g: fg.g * fg.a + bg.g * (1 - fg.a), b: fg.b * fg.a + bg.b * (1 - fg.a), a: 1});
   // 글자 뒤 배경: 불투명한 배경색이 나올 때까지 위로. 배경 그림·그라데이션을 만나면 판정 보류.
-  const bgOf = (el) => { let layers = [];
+  // 바탕(BODY)까지 닿았으면 pageBg=true (사진 위 글자일 수 있음).
+  const bgOf = (el) => { let layers = []; let pageBg = false;
     for (let e = el; e; e = e.parentElement) { const s = getComputedStyle(e);
-      if (s.backgroundImage && s.backgroundImage !== 'none') return null;
-      const c = rgb(s.backgroundColor); if (c && c.a > 0) { layers.push(c); if (c.a >= 1) break; } }
-    let base = {r:255, g:255, b:255, a:1}; for (const c of layers.reverse()) base = blend(c, base); return base; };
+      if (s.backgroundImage && s.backgroundImage !== 'none') return {bg: null, pageBg: false};
+      const c = color(s.backgroundColor);
+      if (c && c.a > 0) { layers.push(c);
+        if (c.a >= 1) { pageBg = (e.tagName === 'BODY' || e.tagName === 'HTML'); break; } } }
+    let base = {r:255, g:255, b:255, a:1}; for (const c of layers.reverse()) base = blend(c, base);
+    return {bg: base, pageBg}; };
   const out = {overflow: document.documentElement.scrollWidth > window.innerWidth + 1,
     scrollWidth: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight,
-    smallText: [], lowContrast: [], contrastUnknown: 0, textChecked: 0, smallTargets: [], brokenImages: 0,
+    smallText: [], lowContrast: [], contrastUnknown: 0, photoBacked: 0, textChecked: 0, smallTargets: [], brokenImages: 0,
     missingAlt: 0, h1: document.querySelectorAll('h1').length, sections: document.querySelectorAll('section').length};
   const seen = new Set();
   for (const el of document.body.querySelectorAll('*')) {
@@ -216,8 +239,14 @@ _PROBE = r"""
     if (!own || !vis(el) || el.closest('svg')) continue;
     const s = getComputedStyle(el); const size = parseFloat(s.fontSize); out.textChecked++;
     if (size < 14 && !seen.has('s' + own)) { seen.add('s' + own); out.smallText.push(`${size}px "${own.slice(0, 30)}"`); }
-    const fg = rgb(s.color); const bg = bgOf(el);
+    const fg = color(s.color); const {bg, pageBg} = bgOf(el);
     if (!fg || !bg) { out.contrastUnknown++; continue; }
+    // 첫 화면 사진 위 흰 글자: 덮개(.s-media::after)·사진 픽셀은 CSS로 못 읽어
+    // 바탕색과 견주면 1.0대로 오판한다. 실측 증거(QA-1 generated/qa1/contrast-pixels.md:
+    // 획 뒤 최악이 큰 글자 3.1·보통 글자 4.5 이상)로 덮개 설계가 받치므로 판정 보류(photoBacked)로 둔다.
+    // 기준을 낮추지 않는다. 버튼처럼 자체 불투명 바탕이 있으면(pageBg 아님) 그대로 판정한다.
+    if (pageBg && el.closest('.s-hero--photo-overlay .s-hero__body')) {
+      out.contrastUnknown++; out.photoBacked++; continue; }
     const f = blend(fg, bg); const L1 = lum(f), L2 = lum(bg);
     const ratio = (Math.max(L1, L2) + 0.05) / (Math.min(L1, L2) + 0.05);
     const large = size >= 24 || (size >= 18.66 && +s.fontWeight >= 700);
@@ -606,7 +635,7 @@ def _six(m: dict) -> dict:
 def report(pages: list[dict], dist: dict, ux: list | None = None,
            vision: dict | None = None) -> str:
     rows, issues = [], {"overflow": 0, "small": 0, "contrast": 0, "targets": 0, "broken": 0, "ph": 0, "facts": 0,
-                        "fold_name": 0, "fold_cta": 0, "h1": 0}
+                        "fold_name": 0, "fold_cta": 0, "h1": 0, "photo": 0}
     six_rows, six_pass = [], {"title": 0, "spacing": 0, "color": 0, "cta": 0, "actions": 0}
     act_pages = {"dead": 0, "wrong": 0, "unknown": 0, "fail": 0}
     act_total = {"dead": 0, "wrong": 0, "unknown": 0}
@@ -629,6 +658,8 @@ def report(pages: list[dict], dist: dict, ux: list | None = None,
                      "ph": bool(m.get("placeholders")) or m.get("exampleLabel"), "facts": bool(missing),
                      "fold_name": not m.get("nameAboveFold"), "fold_cta": not m.get("ctaAboveFold"),
                      "h1": m.get("h1") != 1}
+            # 사진 위 글자는 판정 보류(X 아님) — 사장님 사진이 밝으면 안 보일 수 있어 개수는 늘 드러낸다
+            issues["photo"] += (m.get("photoBacked") or 0) > 0
             for k, v in flags.items():
                 issues[k] += bool(v)
             rows.append(f"| {name} | {'X' if m.get('overflow') else '-'} | "
@@ -675,6 +706,7 @@ def report(pages: list[dict], dist: dict, ux: list | None = None,
             f"| 가로 넘침 | 화면보다 넓으면 X | {issues['overflow']}/{n} |\n"
             f"| 작은 글자 | 14px 미만 글자가 있음 | {issues['small']}/{n} |\n"
             f"| 글자 대비 | WCAG AA(4.5:1, 큰 글자 3:1) 미달 | {issues['contrast']}/{n} |\n"
+            f"| 사진 위 글자 | 첫 화면 사진 덮개 위 글자, CSS로 못 재서 판정 보류(참고, X 아님 — 밝은 사진이면 실측) | {issues['photo']}/{n} |\n"
             f"| 누름 칸 크기 | 44×44px 미만 버튼·링크·입력칸 | {issues['targets']}/{n} |\n"
             f"| 깨진 그림 | 불러오지 못한 이미지 | {issues['broken']}/{n} |\n"
             f"| 빈칸 노출 | 공개본에 `[… 입력]`·'예시' | {issues['ph']}/{n} |\n"

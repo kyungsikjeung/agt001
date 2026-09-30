@@ -1385,7 +1385,7 @@ section.s-hero .s-lead { margin: 0 0 4px; }
   border-radius: var(--radius-btn);
 }
 .s-navbar__links a:active { background: var(--ground-soft); }
-.s-navbar .s-navbar__cta { min-height: 40px; padding: 6px 16px; font-size: 14px; flex: none; }
+.s-navbar .s-navbar__cta { min-height: 44px; padding: 4px 16px; font-size: 14px; flex: none; }
 
 /* ---- 첫 화면 켄번즈 (느린 확대, CSS만) ---- */
 @keyframes s-kenburns {
@@ -1510,11 +1510,13 @@ section.s-hero .s-lead { margin: 0 0 4px; }
 .s-hero__link::after { content: "→"; margin-left: 6px; transition: transform var(--motion-fast) var(--motion-ease-out); }
 .s-hero__link:hover::after { transform: translateX(3px); }
 
-/* 칩·태그 */
+/* 칩·태그 (QA-1: 분류 칩은 44×44 이상) */
 .s-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 40px;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
   padding: 6px 16px;
   font-size: 15px;
   font-weight: 700;
@@ -1527,6 +1529,10 @@ section.s-hero .s-lead { margin: 0 0 4px; }
   transition: background-color var(--motion-base), color var(--motion-base), border-color var(--motion-base);
 }
 .s-chip:hover, .s-chip:focus-visible { border-color: var(--c-primary); color: var(--c-primary); }
+/* QA-1 작은 글자: 2주차 부품(templates/css/40-w2-parts.css)보다 특이성이 높게 덮어쓴다 (묶음에서 뒤에 오므로) */
+section .s-rooms__hint,
+section .s-cards__hint { font-size: 14px; }
+.s-chip.s-chip--sm { font-size: 14px; }
 .s-tags { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 10px 0 0; padding: 0; }
 .s-tags li {
   padding: 3px 10px;
@@ -1567,7 +1573,7 @@ section.s-hero .s-lead { margin: 0 0 4px; }
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
-.s-menu__count { font-family: var(--font-body); font-size: 13px; font-weight: 600; color: var(--muted); }
+.s-menu__count { font-family: var(--font-body); font-size: 14px; font-weight: 600; color: var(--muted); }
 .s-menu__list { list-style: none; margin: 0; padding: 0; }
 .s-menu__row {
   display: grid;

@@ -530,6 +530,48 @@ def _cta_pair(cta) -> tuple:
     return (label, href) if label.strip() and href else ("", "")
 
 
+def _cta_fallback(bar, body_ids: set) -> tuple:
+    """빠진 구역으로 가는 주 버튼의 차선책 (QA-1: min 쪽 길찾기처럼).
+
+    전화(tel:)가 있으면 전화로, 없으면 문의 양식으로. 둘 다 없으면 ("", "").
+    호출자는 빈 값이면 버튼을 그리지 않는다."""
+    label2, href2 = _cta_pair((bar or {}).get("secondary") if isinstance(bar, dict) else None)
+    if href2.lower().startswith("tel:") and _digits(href2[4:]):
+        return (label2 or "전화", href2)
+    for cand in sorted(body_ids):
+        if cand.startswith("contact-title-"):
+            return ("문의하기", f"#{cand}")
+    return ("", "")
+
+
+def _fix_hero_cta(part: str, body_ids: set, fallback: tuple) -> str:
+    """첫 화면 버튼 묶음에서 빠진 구역으로 가는 링크를 고친다.
+
+    첫 버튼(주 행동)은 차선책(전화·문의)으로 바꾸고, 둘째부터는 지운다.
+    차선책도 없으면 버튼을 빼고, 묶음에 링크가 하나도 없으면 묶음째로 뺀다."""
+    def fix_p(m):
+        block = m.group(0)
+        first = True
+
+        def fix_a(a):
+            nonlocal first
+            head, target = a.group(1), a.group(2)
+            mine = first
+            first = False
+            if target in body_ids:
+                return a.group(0)
+            if mine and fallback[1]:
+                return (f'<a class="{head}" href="{html.escape(fallback[1], quote=True)}">'
+                        f'{html.escape(fallback[0])}</a>')
+            return ""
+
+        block = re.sub(r'<a class="([^"]*)" href="#([^"]+)">.*?</a>', fix_a, block, flags=re.S)
+        return "" if "<a " not in block else block
+
+    return re.sub(r'<p class="(?:s-hero__cta|s-app-card__cta|ed-cine__cta)[^"]*">.*?</p>',
+                  fix_p, part, flags=re.S)
+
+
 def _drop_examples(value):
     """공개본용 (D53①): example=True인 목록 항목은 빼고, <칸>_example=True인 칸 값은 비운다.
     image_example(예시 이미지 표시)은 D51대로 공개본에도 표시와 함께 남긴다."""
@@ -1361,8 +1403,12 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             part = part.replace(_HERO_EMPTY_MARK, _illustration_block(kind, "hero"), 1)
         rendered_parts.append(_apply_tone(part, section))
 
-    # 첫 화면 두 번째 행동(글자 링크)도 빠진 섹션(공개본에서 빠진 예시 담당자 등)을 가리키면 지운다.
+    # 첫 화면 버튼·내비 CTA도 빠진 섹션(공개본에서 빠진 빈 구역)을 가리키면
+    # 차선책(전화·문의)으로 바꾸고, 없으면 그리지 않는다 (QA-1: min 쪽 길찾기).
+    bar = spec.get("actionbar")
     ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+    fallback = _cta_fallback(bar if isinstance(bar, dict) else {}, ids)
+    rendered_parts = [_fix_hero_cta(part, ids, fallback) for part in rendered_parts]
     rendered_parts = [re.sub(r'<a class="s-hero__link" href="#([^"]+)">.*?</a>',
                              lambda m: m.group(0) if m.group(1) in ids else "", part) for part in rendered_parts]
 
@@ -1371,7 +1417,15 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
         links = [l for l in (nav.get("links") or []) if isinstance(l, dict)
                  and ((l.get("href") or "")[1:] in body_ids or _is_my_link(l.get("href") or ""))]
-        nctx = _navbar_context({**nav, "links": links})
+        nav_fixed = {**nav, "links": links}
+        cta = nav_fixed.get("cta") if isinstance(nav_fixed.get("cta"), dict) else {}
+        href = cta.get("href") if isinstance(cta.get("href"), str) else ""
+        if href.startswith("#") and href[1:] not in body_ids:
+            if fallback[1]:
+                nav_fixed["cta"] = {"label": fallback[0], "href": fallback[1]}
+            else:
+                nav_fixed.pop("cta", None)
+        nctx = _navbar_context(nav_fixed)
         if nctx is not None:
             ntemplate = bundle["templates"].get("navbar--main")
             if ntemplate is None:
