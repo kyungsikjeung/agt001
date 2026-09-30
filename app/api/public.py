@@ -19,6 +19,9 @@ _SITE_HEADERS = {
     # 사장님이 고쳐도 옛 화면이 보였다 (10/1). no-cache는 매번 ETag로 확인만 하고 안 바뀌었으면 304.
     "Cache-Control": "no-cache",
 }
+# 앱 화면 틀(랜딩·빌더 등)은 해시 붙은 새 스크립트를 가리키므로 매번 확인하게 한다.
+# 없으면 공개본과 같이 추측 캐시로 배포·빌드 뒤에도 옛 화면이 보였다 (10/1).
+_SHELL_HEADERS = {"Cache-Control": "no-cache"}
 _DESIGN_HEADERS = {
     # 시안은 보기 전용: 스크립트·폼·팝업 모두 불필요. 검색 노출 금지.
     "Content-Security-Policy": "sandbox; form-action 'none'",
@@ -38,7 +41,7 @@ def _project_dir(requirement_id: str, sub: str):
 def home():
     # 랜딩(React). 빌드 전(단위 테스트·CI)에는 기존 1:1 채팅 화면으로 폴백한다.
     index = settings.frontend_dist_dir / "index.html"
-    return FileResponse(index if index.is_file() else settings.static_dir / "index.html")
+    return FileResponse(index if index.is_file() else settings.static_dir / "index.html", headers=_SHELL_HEADERS)
 
 
 @router.get("/editor", include_in_schema=False)
@@ -47,7 +50,7 @@ def editor():
     page = settings.frontend_dist_dir / "editor.html"
     if not page.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(page)
+    return FileResponse(page, headers=_SHELL_HEADERS)
 
 
 @router.get("/start", include_in_schema=False)
@@ -56,7 +59,7 @@ def builder():
     page = settings.frontend_dist_dir / "builder.html"
     if not page.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(page)
+    return FileResponse(page, headers=_SHELL_HEADERS)
 
 
 @router.get("/projects", include_in_schema=False)
@@ -65,7 +68,7 @@ def projects_page():
     page = settings.frontend_dist_dir / "projects.html"
     if not page.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(page)
+    return FileResponse(page, headers=_SHELL_HEADERS)
 
 
 @router.get("/landing.html", include_in_schema=False)

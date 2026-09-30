@@ -15,6 +15,29 @@ interface AgtEditMessage {
   type?: unknown;
   section?: unknown;
   text?: unknown;
+  img?: unknown;
+  src?: unknown;
+  index?: unknown;
+  photo?: unknown;
+}
+
+/** 글자를 눌렀을 때 구역 안에 있던 첫 사진. 첫 화면은 글자에 가려 사진 누름이 안 오므로 이 값으로 사진 시트를 연다. */
+interface PickPhoto {
+  src: string;
+  index: number;
+}
+
+interface PickState {
+  id: string | null;
+  text: string;
+  photo: PickPhoto | null;
+}
+
+/** 미리보기 메시지의 photo를 읽는다. 주소가 글자가 아니면 null. */
+function photoOf(data: AgtEditMessage): PickPhoto | null {
+  const p = data.photo as { src?: unknown; index?: unknown } | null | undefined;
+  if (!p || typeof p !== 'object' || typeof p.src !== 'string' || p.src === '') return null;
+  return { src: p.src, index: typeof p.index === 'number' ? p.index : 0 };
 }
 
 /** 빌더 화면이 미리보기를 다루는 손잡이 (BUILDER_CONTRACT §3).
@@ -25,12 +48,18 @@ export interface BuilderControl {
   setVariant: (v: string) => void;
 }
 
+const DEVICE_KEY = 'agt001_preview_device';
+/** 노트북 미리보기: 사이트를 이 크기로 그린 뒤 칸 폭에 맞게 통째로 줄인다. */
+const LAPTOP_W = 1280;
+const LAPTOP_H = 800;
+
 export default function SiteEditor({
   roomId,
   card,
   onSaved,
   builderMode,
   controlRef,
+  onPhotoPick,
 }: {
   roomId: string;
   card: RoomCard;
@@ -39,13 +68,43 @@ export default function SiteEditor({
   builderMode?: boolean;
   /** 부모가 미리보기를 다시 그리게 하는 손잡이. */
   controlRef?: { current: BuilderControl | null };
+  /** 미리보기에서 사진을 누르면 구역 패널 대신 사진 시트를 연다(PHOTO_EDIT_CONTRACT §5). */
+  onPhotoPick?: (pick: { section: string; src: string; index: number }) => void;
 }) {
   const [variant, setVariant] = useState(() => startVariant(card.choice));
   const [preview, setPreview] = useState<CardPreview | null>(null);
   const [failed, setFailed] = useState<'no-design' | 'error' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pick, setPick] = useState<{ id: string | null; text: string }>({ id: null, text: '' });
+  const [pick, setPick] = useState<PickState>({ id: null, text: '', photo: null });
+  // 넓은 화면에서 미리보기 폭: 휴대폰(390px) 또는 데스크톱(가득). 사이트는 반응형이라 폭만 바꾸면 된다.
+  const [device, setDevice] = useState<'mobile' | 'desktop'>(() => {
+    try {
+      return localStorage.getItem(DEVICE_KEY) === 'desktop' ? 'desktop' : 'mobile';
+    } catch {
+      return 'mobile';
+    }
+  });
+  function pickDevice(next: 'mobile' | 'desktop') {
+    setDevice(next);
+    try {
+      localStorage.setItem(DEVICE_KEY, next);
+    } catch {
+      /* 저장이 막혀도 이번 화면에선 바뀐다 */
+    }
+  }
+  // 노트북 미리보기의 줄임 비율 = 칸 폭 / 1280. 칸 폭이 바뀌면 다시 잰다.
+  useEffect(() => {
+    const el = viewRef.current;
+    if (device !== 'desktop' || !el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setLaptopScale(Math.min(1, el.clientWidth / LAPTOP_W) || 1);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const viewRef = useRef<HTMLDivElement | null>(null);
+  const [laptopScale, setLaptopScale] = useState(1);
   const pendingScroll = useRef<string | null>(null);
   const pendingFlash = useRef<string | null>(null);
   const variantRef = useRef(variant);
@@ -69,7 +128,7 @@ export default function SiteEditor({
   );
 
   useEffect(() => {
-    setPick({ id: null, text: '' });
+    setPick({ id: null, text: '', photo: null });
     void load(variant);
   }, [load, variant]);
 
@@ -111,12 +170,22 @@ export default function SiteEditor({
       if (!frame || e.source !== frame.contentWindow) return;
       const data = (e.data ?? {}) as AgtEditMessage;
       if (data.type !== 'agt-edit' || typeof data.section !== 'string' || !data.section) return;
+      // 사진을 누르면 구역 패널 대신 사진 시트를 연다.
+      if (data.img === true && typeof data.src === 'string' && data.src !== '') {
+        onPhotoPick?.({
+          section: data.section,
+          src: data.src,
+          index: typeof data.index === 'number' ? data.index : 0,
+        });
+        return;
+      }
+      // 글자를 눌렀어도 구역 안에 사진이 있으면 사진 시트로 갈 수 있게 기억한다.
       // 한 번에 갱신한다 (두 번 나누면 패널이 접힌 채로 먼저 그려진다).
-      setPick({ id: data.section, text: typeof data.text === 'string' ? data.text : '' });
+      setPick({ id: data.section, text: typeof data.text === 'string' ? data.text : '', photo: photoOf(data) });
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, []);
+  }, [onPhotoPick]);
 
   // 저장 뒤 미리보기를 다시 불러오고, 누른 구역으로 스크롤한다.
   function handleSaved(updated: RoomCard, section: string) {
@@ -161,15 +230,54 @@ export default function SiteEditor({
       {legacy ? <p role="status">이 시안은 구역 편집이 안 돼요.</p> : null}
 
       {!loading && !failed && preview && !legacy ? (
-        <div className="ed-site-body">
-          <iframe
-            ref={frameRef}
-            className="ed-site-frame"
-            title="사이트 미리보기"
-            sandbox="allow-scripts"
-            srcDoc={preview.html}
-            onLoad={onFrameLoad}
-          />
+        <div className={`ed-site-body${device === 'desktop' ? ' ed-site-body--desktop' : ''}`}>
+          <div className="ed-site-view">
+            <div className="ed-device" role="group" aria-label="미리보기 크기">
+              <button
+                type="button"
+                aria-label="휴대폰"
+                title="휴대폰 미리보기"
+                aria-pressed={device === 'mobile'}
+                onClick={() => pickDevice('mobile')}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="6" y="2" width="12" height="20" rx="2.5" />
+                  <path d="M11 18h2" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                aria-label="노트북"
+                title="노트북 미리보기"
+                aria-pressed={device === 'desktop'}
+                onClick={() => pickDevice('desktop')}
+              >
+                <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="4" y="4" width="16" height="11" rx="1.5" />
+                  <path d="M2 19h20" />
+                </svg>
+              </button>
+            </div>
+            <div
+              ref={viewRef}
+              className="ed-site-screen"
+              style={device === 'desktop' ? { height: LAPTOP_H * laptopScale } : undefined}
+            >
+              <iframe
+                ref={frameRef}
+                className="ed-site-frame"
+                title="사이트 미리보기"
+                sandbox="allow-scripts"
+                srcDoc={preview.html}
+                onLoad={onFrameLoad}
+                style={
+                  device === 'desktop'
+                    ? { width: LAPTOP_W, height: LAPTOP_H, transform: `scale(${laptopScale})`, transformOrigin: '0 0' }
+                    : undefined
+                }
+              />
+            </div>
+          </div>
           <SectionPanel
             roomId={roomId}
             card={card}
@@ -180,9 +288,22 @@ export default function SiteEditor({
             variant={variant}
             selectedId={pick.id}
             clickedText={pick.text}
-            onSelect={(id) => setPick((prev) => ({ ...prev, id }))}
+            onSelect={(id) => setPick((prev) => ({ ...prev, id, photo: null }))}
             onSaved={handleSaved}
           />
+          {pick.id !== null && pick.photo !== null && onPhotoPick ? (
+            <button
+              type="button"
+              className="ed-btn"
+              onClick={() =>
+                pick.id !== null &&
+                pick.photo !== null &&
+                onPhotoPick({ section: pick.id, src: pick.photo.src, index: pick.photo.index })
+              }
+            >
+              사진 고치기
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

@@ -190,6 +190,13 @@ def ops_match(expect: list[dict], actual: list[dict]) -> int:
         for i, act in enumerate(remaining):
             if act.get("op") != exp.get("op"):
                 continue
+            # 영업시간·위치는 사장님 말을 다듬어도 된다(SAY_CONTRACT §4): 숫자가 모두 같으면 맞다
+            if (exp.get("op") == "set_field" and exp.get("key") in ("hours", "location")
+                    and act.get("key") == exp.get("key")
+                    and sorted(_digits(str(act.get("value") or ""))) == sorted(_digits(str(exp.get("value") or "")))):
+                matched += 1
+                remaining.pop(i)
+                break
             if exp.get("op") in _KIND_ONLY or all(_same(k, act.get(k), v)
                                                   for k, v in exp.items() if k != "op"):
                 matched += 1

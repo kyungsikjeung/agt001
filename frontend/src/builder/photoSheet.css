@@ -1,0 +1,202 @@
+/* 사진 시트 (PHOTO_EDIT_CONTRACT §5). editor.css 변수를 쓴다. */
+.ph-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.ph-sheet {
+  width: 100%;
+  max-width: 720px;
+  max-height: 85dvh;
+  overflow: auto;
+  background: var(--ed-card, #fff);
+  color: var(--ed-ink, #1f2622);
+  border-radius: 16px 16px 0 0;
+  padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  display: grid;
+  gap: 10px;
+  font-size: 16px;
+  line-height: 1.625;
+}
+
+.ph-sheet :focus-visible {
+  outline: 3px solid var(--ed-focus, #0f7aa8);
+  outline-offset: 2px;
+}
+
+.ph-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ph-title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.ph-photo {
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
+  background: #fff;
+}
+
+.ph-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ph-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ed-primary, #2f5d50);
+  background: var(--ed-card, #fff);
+  color: var(--ed-primary, #2f5d50);
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.ph-btn:disabled {
+  opacity: 0.4;
+}
+
+.ph-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* "내 사진으로 바꾸기" 파일 입력. 눈에는 안 보이지만 읽기·누름은 된다. */
+.ph-file-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.ph-btn--primary {
+  background: var(--ed-primary, #2f5d50);
+  color: var(--ed-on-primary, #fff);
+}
+
+.ph-notice,
+.ph-msg {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ed-note, #33413c);
+}
+
+.ph-error {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #8c2f2f;
+}
+
+.ph-ai {
+  display: grid;
+  gap: 8px;
+}
+
+.ph-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ph-input {
+  width: 100%;
+  min-height: 44px;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--ed-primary, #2f5d50);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ed-ink, #1f2622);
+  box-sizing: border-box;
+}
+
+.ph-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ph-chip {
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
+  background: var(--ed-card, #fff);
+  color: var(--ed-ink, #1f2622);
+  font-size: 14px;
+}
+
+.ph-wait {
+  display: grid;
+  gap: 8px;
+}
+
+.ph-result {
+  display: grid;
+  gap: 8px;
+}
+
+.ph-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ph-shot {
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.ph-shot img {
+  width: 100%;
+  max-height: 240px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
+}
+
+.ph-shot figcaption {
+  font-size: 13px;
+  color: var(--ed-note, #33413c);
+}
+
+.ph-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ph-row .ph-btn {
+  flex: 1;
+}
+
+@media (max-width: 759px) {
+  .ph-compare {
+    grid-template-columns: 1fr;
+  }
+}

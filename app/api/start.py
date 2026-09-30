@@ -41,6 +41,24 @@ class PublishIn(BaseModel):
     force: bool = False
 
 
+class PhotoPreviewIn(BaseModel):
+    target: str = Field(default="", max_length=200)
+    action: Optional[str] = Field(default=None, max_length=32)
+    instruction: Optional[str] = Field(default=None, max_length=100)
+
+
+class PhotoApplyIn(BaseModel):
+    candidate_id: str = Field(default="", max_length=64)
+
+
+class PhotoUndoIn(BaseModel):
+    target: str = Field(default="", max_length=200)
+
+
+class SayIn(BaseModel):
+    text: str = Field(default="", max_length=400)
+
+
 log = logging.getLogger(__name__)
 
 
@@ -263,7 +281,8 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                 card_api.post_change_followup(
                     room, session, safe, ["layout"], f"빌더에서 바꿨어요: {label} {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
-                              props={"kind": "section", "choice": "on" if body.on else "off"})
+                              props={"kind": "section", "ref": key[len("section:"):],
+                                     "choice": "on" if body.on else "off"})
             if body.on:
                 focus = key[len("section:"):]
         elif key == "notice":
@@ -278,7 +297,7 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                 card_api.post_change_followup(
                     room, session, safe, ["notice"], f"빌더에서 바꿨어요: 공지 {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
-                              props={"kind": "notice", "choice": "on" if body.on else "off"})
+                              props={"kind": "notice", "ref": "notice", "choice": "on" if body.on else "off"})
         elif key in ("stamps", "order"):
             raise HTTPException(status_code=400, detail="공개한 뒤 사장님 화면에서 켤 수 있어요")
         else:
@@ -301,3 +320,189 @@ def post_publish(room_id: str, body: PublishIn, request: Request,
         if card.get("published"):
             return {"ok": True, "site_url": session.get("deploy_url")}
         return _classify_publish(reply, base_url, safe)
+
+
+def _photo_spec(card: dict) -> dict:
+    """미리보기가 그리는 페이지 명세 (card 미리보기와 같은 안 고르기). 시안 전이면 409."""
+    from app.services import design_variants as DV
+    vid = card.get("design_choice")
+    vid = vid if vid in VARIANTS else "v1"
+    found = DV.pick(card, vid)
+    if found is None:
+        raise HTTPException(status_code=409, detail="no design yet")
+    return found["spec"]
+
+
+def _photo_limits(card: dict, slot: str) -> tuple:
+    """(오늘 남은 AI 횟수, 이 칸 쿨다운 남은 초). photo_edit._check_ai_limits와 같은 규칙."""
+    import time
+    from app.services import ai_images as AI
+    from app.services import photo_edit as PE
+    rec = card.get("ai_edit_day") or {}
+    used = int(rec.get("n") or 0) if rec.get("date") == PE._kst_today() else 0
+    left_today = max(0, PE.DAY_LIMIT - used)
+    at = max((((card.get("ai_images") or {}).get(slot) or {}).get("at") or 0),
+             ((card.get("ai_edit_at") or {}).get(slot) or 0))
+    left = int(AI.COOLDOWN_SEC - (time.time() - at))
+    return left_today, (left if left > 0 else 0)
+
+
+def _photo_find(card: dict, spec: dict, target: str):
+    """칸 이름으로 지금 사진 찾기. 미리보기는 target만 보내서 서버가 다시 푼다."""
+    from app.services import photo_edit as PE
+    for sec in spec.get("sections") or []:
+        if not isinstance(sec, dict) or not sec.get("id"):
+            continue
+        try:
+            entries = PE._entries(sec)
+        except Exception:
+            continue
+        for pos, (url, _name) in enumerate(entries):
+            try:
+                got = PE.resolve_target(card, spec, sec["id"], url, pos)
+            except ValueError:
+                continue
+            if got.get("target") == target:
+                return got
+    return None
+
+
+def _cand_session(session: dict) -> dict:
+    """photo_edit에 넘길 세션 겉개.
+
+    저장소 sessions 열은 고정(_SESSION_FIELDS)이라 session 최상위에
+    photo_candidates를 두면 커밋 때 거부된다. 후보는 카드(prd) JSON 안
+    photo_candidates에 두고(같은 행·같은 방 잠금·같은 트랜잭션),
+    photo_edit에는 같은 객체를 가리키는 겉 dict를 넘긴다.
+    """
+    card = session.get("prd")
+    if not isinstance(card, dict):
+        card = session["prd"] = {}
+    cands = card.get("photo_candidates")
+    if not isinstance(cands, dict):
+        cands = card["photo_candidates"] = {}
+    return {"prd": card, "photo_candidates": cands}
+
+
+@router.get("/api/rooms/{room_id}/photo-edit/target")
+def photo_edit_target(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None),
+                      section: str = "", src: str = "", index: int = 0):
+    """누른 사진의 칸·종류·남은 횟수 (PHOTO_EDIT_CONTRACT §4). 방장만."""
+    from app.services import photo_edit as PE
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    room = store.read_room(safe)
+    if rooms.owner_id(room) != member_id:
+        raise HTTPException(status_code=403, detail="owner only")
+    session = store.read_session(room["session_id"]) or {}
+    card = session.get("prd") or {}
+    spec = _photo_spec(card)
+    try:
+        got = PE.resolve_target(card, spec, section, src, index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    left_today, cooldown = _photo_limits(card, got["target"])
+    return JSONResponse(content={"target": got["target"], "kind": got["kind"],
+                                 "current_url": got["current_url"],
+                                 "actions": PE.actions_for(got["kind"]),
+                                 "ai_allowed": got["kind"] != "owner",
+                                 "left_today": left_today, "cooldown_sec": cooldown},
+                        headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/photo-edit/preview")
+def photo_edit_preview(room_id: str, body: PhotoPreviewIn, request: Request,
+                       x_member_id: Optional[str] = Header(default=None)):
+    """후보 1개 만들기. 카드는 그대로 (PHOTO_EDIT_CONTRACT §4). 방장만."""
+    from app.services import ai_images as AI
+    from app.services import photo_edit as PE
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        card = session.get("prd") or {}
+        spec = _photo_spec(card)
+        want = (body.target or "").strip()
+        got = _photo_find(card, spec, want)
+        if got is None:
+            raise HTTPException(status_code=400, detail=PE.UNKNOWN)
+        try:
+            # ponytail: AI 고치기를 방 잠금 안에서 부른다(최대 60초), 방에 다른 사람이 붙으면 잠금 밖으로 뺀다
+            out = PE.make_candidate(safe, _cand_session(session), got, action=body.action,
+                                    instruction=body.instruction)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        except AI.ImageError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        if (body.instruction or "") and got["kind"] != "owner":
+            slot = got["target"]
+            kind = "item" if slot.startswith("item:") else ("gallery" if slot.startswith("gallery") else "hero")
+            funnel.record("ai_image_edited",
+                          props={"industry": prd_engine.industry_of(card).key, "kind": kind,
+                                 "source": "example" if got["kind"] == "example" else "ai"})
+        return JSONResponse(content={"candidate_id": out["candidate_id"],
+                                     "before_url": out["before_url"], "after_url": out["after_url"]},
+                            headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/photo-edit/apply")
+def photo_edit_apply(room_id: str, body: PhotoApplyIn, request: Request,
+                     x_member_id: Optional[str] = Header(default=None)):
+    """후보를 카드에 쓰기 (PHOTO_EDIT_CONTRACT §4). 방장만."""
+    from app.services import photo_edit as PE
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        try:
+            out = PE.apply_candidate(_cand_session(session), (body.candidate_id or "").strip())
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        card_api.post_change_followup(room, session, safe, ["photos"], "빌더에서 사진을 바꿨어요")
+        return JSONResponse(content={"ok": True, "url": out["url"], "undo": True},
+                            headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/photo-edit/undo")
+def photo_edit_undo(room_id: str, body: PhotoUndoIn, request: Request,
+                    x_member_id: Optional[str] = Header(default=None)):
+    """직전 사진으로 되돌리기 1단계 (PHOTO_EDIT_CONTRACT §4). 방장만."""
+    from app.services import photo_edit as PE
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        try:
+            out = PE.undo(_cand_session(session), (body.target or "").strip())
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        card_api.post_change_followup(room, session, safe, ["photos"], "빌더에서 사진을 되돌렸어요")
+        return JSONResponse(content={"ok": True, "url": out["url"]}, headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/say")
+def post_say(room_id: str, body: SayIn, request: Request,
+             x_member_id: Optional[str] = Header(default=None)):
+    """말로 고치기 (SAY_CONTRACT §6). 방장만."""
+    from app.services import builder_agent
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        try:
+            out = builder_agent.say(room, session, safe, body.text or "")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return JSONResponse(content=out, headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/undo")
+def post_undo(room_id: str, request: Request,
+              x_member_id: Optional[str] = Header(default=None)):
+    """말로 고치기 되돌리기 1단계 (SAY_CONTRACT §6). 방장만."""
+    from app.services import builder_agent
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        out = builder_agent.undo(room, session, safe)
+        return JSONResponse(content=out, headers=_NO_STORE)

@@ -210,3 +210,26 @@ def test_start_page_missing_build_is_404(client):
         assert client.get("/start").status_code == 200
     else:
         assert client.get("/start").status_code == 404
+
+
+def test_builder_feature_records_chip_id(client, monkeypatch):
+    """builder_feature 사건에 어떤 칩인지(ref) 남긴다 — 칩별 인기 보기 (B4)."""
+    from app.api import start as start_api
+    seen = []
+    monkeypatch.setattr(start_api.funnel, "record",
+                        lambda event, **kw: seen.append((event, kw.get("props"))) or True)
+    body = _start(client)
+    rid, headers = body["room_id"], _owner(body)
+    client.put(f"/api/rooms/{rid}/features", json={"key": "section:space", "on": True}, headers=headers)
+    client.put(f"/api/rooms/{rid}/features", json={"key": "notice", "on": True, "text": "쉬어요"}, headers=headers)
+    feats = [p for e, p in seen if e == "builder_feature"]
+    assert feats == [{"kind": "section", "ref": "space", "choice": "on"},
+                     {"kind": "notice", "ref": "notice", "choice": "on"}]
+
+
+def test_app_shell_pages_are_no_cache(client):
+    """랜딩·빌더 화면 틀은 no-cache — 추측 캐시로 새 빌드 뒤에도 옛 화면이 보이던 것 (10/1)."""
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    r = client.get("/start")
+    if r.status_code == 200:
+        assert r.headers["cache-control"] == "no-cache"

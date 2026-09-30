@@ -161,6 +161,65 @@ def _generate_bytes(prompt: str, timeout_sec: float = 120.0, slot: str = "hero")
     raise ImageError("AI 이미지가 비어 나왔어요. 다시 눌러 주세요.")
 
 
+def edit_bytes(image: bytes, instruction: str, slot: str = "hero") -> bytes:
+    """지금 그림 + 걸러낸 말로 1장 고치기 (PHOTO_EDIT_CONTRACT §3).
+
+    _generate_bytes와 같은 주소·머리글·imageConfig(칸 규격).
+    실패하면 ImageError(사용자용 한 줄).
+    """
+    from app.services import keystore
+    key = (keystore.get("gemini_api_key") or "").strip()
+    if not key:
+        raise ImageError("지금은 고칠 수 없어요. 다른 사진을 올리거나 잠시 뒤 다시 해 주세요.")
+    base = (settings.gemini_api_base or "https://generativelanguage.googleapis.com").rstrip("/")
+    model = _model_for(slot)
+    image_config = _IMAGE_CONFIG.get(slot, _IMAGE_CONFIG["gallery-1"])
+    # 공용 예시는 webp라 그대로 image/jpeg로 보내면 형식이 어긋난다 → 보내기 전에 JPEG로
+    try:
+        import io
+        from PIL import Image
+        buf = io.BytesIO()
+        Image.open(io.BytesIO(image)).convert("RGB").save(buf, "JPEG", quality=90)
+        image = buf.getvalue()
+    except Exception:
+        raise ImageError("지금 사진을 읽을 수 없어요.")
+    prompt = (f"Edit this photo. Request (Korean): {instruction}. Keep it photorealistic "
+              "and the same place. Do not add any people, faces, text, letters, "
+              "signs, logos or brand names.")
+    try:
+        r = httpx.post(
+            f"{base}/v1beta/models/{model}:generateContent",
+            timeout=60.0,
+            headers={"x-goog-api-key": key},
+            json={"contents": [{"parts": [
+                {"inlineData": {"mimeType": "image/jpeg",
+                                "data": base64.b64encode(image).decode()}},
+                {"text": prompt}]}],
+                "generationConfig": {"responseModalities": ["IMAGE"],
+                                     "imageConfig": image_config}},
+        )
+    except httpx.HTTPError as e:
+        log.warning("Gemini 사진 고치기 연결 실패: %s", type(e).__name__)
+        raise ImageError("지금은 고칠 수 없어요. 다른 사진을 올리거나 잠시 뒤 다시 해 주세요.")
+    if r.status_code != 200:
+        log.warning("Gemini 사진 고치기 응답 %s: %s", r.status_code, r.text[:200])
+        raise ImageError("지금은 고칠 수 없어요. 다른 사진을 올리거나 잠시 뒤 다시 해 주세요.")
+    try:
+        parts = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
+    except (ValueError, AttributeError, IndexError):
+        parts = []
+    for p in parts:
+        inline = (p or {}).get("inlineData") or {}
+        data = inline.get("data")
+        if data:
+            try:
+                return base64.b64decode(data)
+            except (ValueError, TypeError):
+                break
+    log.warning("Gemini 사진 고치기 내용 없음")
+    raise ImageError("지금은 고칠 수 없어요. 다른 사진을 올리거나 잠시 뒤 다시 해 주세요.")
+
+
 def _save(room_id: str, slot: str, raw: bytes) -> str:
     """JPEG 1920px·q90으로 다듬어 저장하고 주소를 돌려준다 (업로드 사진 q85와 분리)."""
     from app.services import photos
@@ -179,9 +238,12 @@ def _cooldown_left(card: dict, slot: str) -> int:
     return left if left > 0 else 0
 
 
-def _record(card: dict, slot: str, url: str) -> None:
+def _record(card: dict, slot: str, url: str, prev_url: str | None = None) -> None:
     imgs = card.setdefault("ai_images", {})
-    imgs[slot] = {"url": url, "at": time.time()}
+    entry = {"url": url, "at": time.time()}
+    if prev_url:
+        entry["prev_url"] = prev_url
+    imgs[slot] = entry
 
 
 def _wants(slot: str, card: dict) -> list[str]:

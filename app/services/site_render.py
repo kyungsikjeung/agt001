@@ -205,7 +205,7 @@ def _safe(value):
 
 # 시안에서는 사진마다 붙던 "예시 이미지" 배지를 숨기고 위에 한 줄로 모은다 (디자인 품질 2번:
 # 배지가 여기저기 붙어 견본처럼 보였다). 공개본은 D51대로 사진마다 표시를 남긴다.
-_DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 채팅방에서 가게 사진을 올리면 바로 바뀌어요.</p>'
+_DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 내 가게 사진으로 바꿀 수 있어요.</p>'
                '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
 
 # 보며 고치기 미리보기 (EDIT_WAVE2_CONTRACT §3.3). 구역 뿌리의 data-section-id로만 구역을 알아낸다.
@@ -218,7 +218,7 @@ _EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
                '100%{background:transparent}}'
                '@media (prefers-reduced-motion: reduce){.agt-flash{animation:none}}</style>')
 _EDIT_SCRIPT = """<script>(function(){try{
-document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-section-id]'):null;if(!t){e.preventDefault();return;}var el=e.target;var txt='';try{txt=((el.innerText||el.alt)||'').trim().slice(0,80)}catch(_){}try{parent.postMessage({type:'agt-edit',section:t.getAttribute('data-section-id'),text:txt,img:el.tagName==='IMG'},'*')}catch(_){}e.preventDefault();},true);
+document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-section-id]'):null;if(!t){e.preventDefault();return;}var el=e.target;var txt='';try{txt=((el.innerText||el.alt)||'').trim().slice(0,80)}catch(_){}var src='';var idx=-1;try{if(el.tagName==='IMG'){src=el.getAttribute('src')||'';var imgs=t.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(imgs[i]===el){idx=i;break}}}}catch(_){}var photo=null;try{if(el.tagName!=='IMG'){var f=t.querySelector('img');if(f){photo={src:f.getAttribute('src')||'',index:0}}}}catch(_){}try{parent.postMessage({type:'agt-edit',section:t.getAttribute('data-section-id'),text:txt,img:el.tagName==='IMG',src:src,index:idx,photo:photo},'*')}catch(_){}e.preventDefault();},true);
 document.addEventListener('submit',function(e){e.preventDefault();},true);
 window.addEventListener('message',function(e){try{var d=e.data;if(!d||!d.section)return;var q=document.querySelector('[data-section-id="'+d.section+'"]');if(!q)return;if(d.type==='agt-scroll'){if(q.scrollIntoView)q.scrollIntoView()}else if(d.type==='agt-flash'){q.classList.add('agt-flash');setTimeout(function(){q.classList.remove('agt-flash')},1000)}}catch(_){}});
 }catch(e){}})();</script>"""

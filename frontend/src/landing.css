@@ -214,19 +214,120 @@
 .lp-num { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; color: var(--accent); opacity: 0.9; line-height: 1; }
 .lp-how b { font-size: 17px; letter-spacing: -0.01em; }
 .lp-how p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.6; }
-.lp-draw { height: 76px; border-radius: 14px; background: var(--ground); border: 1px solid var(--line); position: relative; overflow: hidden; margin-top: 6px; }
-.lp-draw i, .lp-draw b, .lp-draw span { position: absolute; }
-.lp-draw-talk { left: 18px; top: 16px; width: 118px; height: 30px; border-radius: 14px 14px 14px 4px; background: var(--accent); }
-.lp-draw-talk2 { left: 44px; top: 48px; width: 92px; height: 16px; border-radius: 8px; background: var(--accent-soft); border: 1px solid var(--accent); }
-.lp-draw-card { left: 18px; top: 14px; right: 18px; height: 48px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
-.lp-draw-tick {
-  right: 30px; top: 24px; width: 28px; height: 28px; border-radius: 50%;
-  background: var(--accent); color: var(--accent-ink);
-  display: grid; place-items: center; font-size: 15px; font-weight: 800; font-style: normal;
+/* 단계 그림: 실제 화면을 줄인 모형. 카드가 보일 때(.is-in) 움직인다 */
+.lp-art {
+  position: relative; height: 168px; margin-top: 10px; border-radius: 16px; overflow: hidden;
+  background: radial-gradient(120% 90% at 100% 0%, var(--glow), transparent 60%), var(--ground);
+  border: 1px solid var(--line); padding: 16px;
 }
-.lp-draw-lines { left: 30px; top: 26px; width: 96px; height: 8px; border-radius: 4px; background: var(--line); box-shadow: 0 14px 0 var(--line); }
-.lp-draw-browser { left: 18px; top: 12px; right: 18px; bottom: 12px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
-.lp-draw-pill { left: 50%; bottom: 22px; transform: translateX(-50%); width: 110px; height: 24px; border-radius: 999px; background: var(--accent); }
+/* 01 말하기 */
+.lp-art-bubble {
+  margin: 0 0 0 auto !important; max-width: 86%; width: fit-content;
+  background: var(--accent); color: var(--accent-ink) !important; font-size: 13.5px !important; font-weight: 600; line-height: 1.45 !important;
+  padding: 10px 14px; border-radius: 16px 16px 4px 16px; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+.lp-art-voice {
+  position: absolute; left: 16px; right: 16px; bottom: 16px; height: 48px;
+  display: flex; align-items: center; gap: 10px; padding: 0 8px 0 6px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 999px;
+}
+.lp-art-mic {
+  flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); position: relative;
+}
+.lp-art-mic::after { content: ''; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); opacity: 0; }
+.is-in .lp-art-mic::after { animation: lp-ring 1.8s ease-out infinite; }
+@keyframes lp-ring { from { transform: scale(1); opacity: 0.6; } to { transform: scale(1.7); opacity: 0; } }
+.lp-art-wave { flex: 1; display: flex; align-items: center; gap: 3px; height: 24px; }
+.lp-art-wave i { flex: 1; height: 30%; border-radius: 2px; background: var(--accent); opacity: 0.55; }
+.is-in .lp-art-wave i { animation: lp-bar 1.1s ease-in-out infinite alternate; animation-delay: calc(var(--i) * -0.13s); }
+@keyframes lp-bar { from { height: 18%; } to { height: 100%; } }
+.lp-art-photo { flex: none; width: 34px; height: 34px; border-radius: 10px; background: center / cover; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--line); }
+/* 02 확인하기 */
+.lp-art-check { container-type: inline-size; }
+/* 3칸으로 좁아진 카드(800px 안팎)에선 항목 이름을 숨겨 값이 잘리지 않게 */
+@container (max-width: 300px) { .lp-art-card p span { display: none; } }
+.lp-art-card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.07);
+}
+.lp-art-card small { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.lp-art-card p { display: flex; align-items: center; gap: 8px; margin: 0 !important; padding: 5px 0; font-size: 13px !important; line-height: 1.3 !important; border-top: 1px dashed var(--line); }
+.lp-art-card p span { color: var(--muted); flex: none; white-space: nowrap; }
+.lp-art-card p b { font-size: 13px; flex: 1; min-width: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp-art-card p i {
+  width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 800;
+  background: var(--accent); color: var(--accent-ink); transform: scale(0);
+}
+.is-in .lp-art-card p i { animation: lp-tick 0.35s cubic-bezier(0.3, 1.6, 0.5, 1) forwards; animation-delay: calc(0.5s + var(--i) * 0.35s); }
+@keyframes lp-tick { to { transform: scale(1); } }
+/* 03 공개하기 */
+.lp-art-open { display: flex; justify-content: center; padding-bottom: 0; }
+.lp-art-phone {
+  width: 150px; height: 170px; border-radius: 22px 22px 0 0; border: 5px solid var(--ink); border-bottom: 0;
+  background: var(--surface); overflow: hidden; display: flex; flex-direction: column; gap: 10px;
+}
+.lp-art-hero { height: 92px; display: flex; align-items: flex-end; padding: 10px; }
+.lp-art-hero b { color: #fff; font-size: 14px; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.5); }
+.lp-art-cta { align-self: center; padding: 7px 22px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; }
+.lp-art-toast {
+  position: absolute; right: 12px; top: 14px; margin: 0 !important; display: flex; align-items: center; gap: 7px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 7px 11px;
+  font-size: 12px !important; font-weight: 700; color: var(--ink) !important; line-height: 1.2 !important;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12); opacity: 0; transform: translateY(-8px);
+}
+.lp-art-toast i { width: 8px; height: 8px; border-radius: 50%; background: #e5484d; }
+.is-in .lp-art-toast { animation: lp-toast 0.45s ease 0.9s forwards; }
+@keyframes lp-toast { to { opacity: 1; transform: none; } }
+
+/* ---- 섹션 배경: 섹션마다 아주 살짝 다른 색의 그라데이션, 경계는 흐리게 이어진다.
+   색은 바탕(--ground)에 몇 %만 섞어 만들어 다크 모드에서도 그대로 은은하다 ---- */
+.page {
+  overflow-x: clip;
+  --tint-mint: color-mix(in srgb, var(--accent) 7%, var(--ground));
+  --tint-sky: color-mix(in srgb, #3f7fc4 6%, var(--ground));
+  --tint-sand: color-mix(in srgb, #d9a441 9%, var(--ground));
+  --tint-peach: color-mix(in srgb, #e0785a 6%, var(--ground));
+}
+.lp-bg { position: relative; isolation: isolate; }
+.lp-bg::before {
+  content: ''; position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%;
+  width: 100vw; transform: translateX(-50%); pointer-events: none;
+}
+/* 첫 화면: 오른쪽 위 복숭아빛 */
+.lp-bg-hero::before {
+  background:
+    radial-gradient(50% 60% at 85% 10%, var(--tint-peach), transparent 70%),
+    radial-gradient(45% 55% at 5% 60%, var(--tint-mint), transparent 70%);
+}
+/* 어떻게 되나요: 민트 → 하늘 */
+.lp-bg-how { padding-bottom: 56px; }
+.lp-bg-how::before {
+  background:
+    radial-gradient(45% 70% at 90% 50%, var(--tint-sky), transparent 75%),
+    linear-gradient(180deg, transparent, var(--tint-mint) 25%, var(--tint-mint) 75%, transparent);
+}
+/* 템플릿: 하늘 → 모래 */
+.lp-bg-tpl { padding-block: 64px; }
+.lp-bg-tpl::before {
+  background:
+    radial-gradient(40% 60% at 10% 30%, var(--tint-sky), transparent 75%),
+    linear-gradient(180deg, transparent, var(--tint-sand) 30%, var(--tint-sand) 70%, transparent);
+}
+/* 안심 띠: 모래 → 복숭아 */
+.lp-bg-trust { padding-bottom: 40px; }
+.lp-bg-trust::before {
+  background:
+    radial-gradient(40% 70% at 85% 60%, var(--tint-peach), transparent 75%),
+    linear-gradient(180deg, transparent, var(--tint-sand) 40%, transparent);
+}
+/* 마지막 행동 띠: 어두운 카드 안의 빛 번짐 */
+.lp-cta {
+  background:
+    radial-gradient(55% 90% at 8% 0%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%),
+    radial-gradient(45% 80% at 100% 100%, color-mix(in srgb, var(--kakao) 14%, transparent), transparent 70%),
+    var(--ink) !important;
+}
 
 /* ---- 템플릿 ---- */
 .lp-tgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
@@ -267,7 +368,8 @@
 @media (prefers-reduced-motion: reduce) {
   .lp-underline svg path { animation: none; stroke-dashoffset: 0; }
   .lp-reveal { opacity: 1; transform: none; transition: none; }
-  .lp-caret, .lp-wave i, .lp-check, .lp-enter, .lp-pop { animation: none !important; }
+  .lp-caret, .lp-wave i, .lp-check, .lp-enter, .lp-pop, .lp-art *, .lp-art-mic::after { animation: none !important; }
+  .lp-art-card p i, .lp-art-toast { opacity: 1 !important; transform: none !important; }
   .lp-check, .lp-site-rows li, .lp-site-sub, .lp-site-map, .lp-site-cta, .lp-published { opacity: 1 !important; transform: none !important; }
   .lp-draft { transition: none; }
 }

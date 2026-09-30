@@ -54,6 +54,23 @@ function callsTo(part: string, method?: string) {
   );
 }
 
+/** iframe 창이 보낸 것처럼 message를 보낸다. */
+function sendFrameMessage(source: unknown, data: unknown) {
+  const evt = new MessageEvent('message', { data });
+  Object.defineProperty(evt, 'source', { value: source });
+  window.dispatchEvent(evt);
+}
+
+const PHOTO_TARGET = {
+  target: 'hero',
+  kind: 'ai',
+  current_url: 'http://x/before.jpg',
+  actions: ['brighter', 'warmer', 'sharper', 'square', 'wide'],
+  ai_allowed: true,
+  left_today: 9,
+  cooldown_sec: 0,
+};
+
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem('agt001_member_id', 'm1');
@@ -161,6 +178,22 @@ describe('BuilderPage', () => {
     expect(puts[0]).toEqual({ fields: {}, choice: 'v2' });
   });
 
+  it('가게 정보 저장 뒤 미리보기를 다시 부른다 (B4)', async () => {
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      if (init?.method === 'PUT') return okJson(CARD);
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    const before = callsTo('/card/preview').length;
+    fireEvent.click(screen.getByRole('button', { name: '가게 정보 펼치기' }));
+    fireEvent.change(screen.getByLabelText('가게 이름'), { target: { value: '모퉁이 커피' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(callsTo('/card/preview').length).toBe(before + 1));
+  });
+
   it('공개 need=login이면 로그인 버튼 2개를 보인다', async () => {
     stubFetch(async (url) => {
       if (url.includes('/card/preview')) return okJson(PREVIEW);
@@ -203,15 +236,81 @@ describe('BuilderPage', () => {
     expect(await screen.findByRole('link', { name: '공개 사이트 보기' })).toBeInTheDocument();
   });
 
-  it('말로 고치기 자리는 비활성 입력으로 둔다', async () => {
+  it('말로 고치기 입력은 빈 말풍선 없이 켜져 있다', async () => {
     stubFetch(async (url) => {
       if (url.includes('/card/preview')) return okJson(PREVIEW);
       if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
       return okJson(CARD);
     });
     render(<BuilderPage roomId="r1" />);
-    const voice = (await screen.findByPlaceholderText('곧 말로 고칠 수 있어요')) as HTMLInputElement;
-    expect(voice.disabled).toBe(true);
+    const say = (await screen.findByLabelText('말로 고치기')) as HTMLInputElement;
+    expect(say.disabled).toBe(false);
+    expect(say.maxLength).toBe(300);
+    expect(screen.queryByLabelText('고치기 답')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '되돌리기' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '채팅으로 설명하기' }).getAttribute('href')).toBe('/room.html?room=r1');
+  });
+
+  it('사진 누름(img:true+src)은 사진 시트를 연다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/photo-edit/target')) return okJson(PHOTO_TARGET);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    const frame = (await screen.findByTitle('사이트 미리보기')) as HTMLIFrameElement;
+    sendFrameMessage(frame.contentWindow, {
+      type: 'agt-edit',
+      section: 'hero',
+      text: '',
+      img: true,
+      src: 'http://x/a.jpg',
+      index: 0,
+    });
+    expect(await screen.findByRole('dialog', { name: '사진 고치기' })).toBeInTheDocument();
+    await waitFor(() => expect(callsTo('/photo-edit/target')).toHaveLength(1));
+    expect(String(callsTo('/photo-edit/target')[0][0])).toContain('section=hero');
+    // 구역 패널은 열지 않는다.
+    expect(screen.queryByRole('button', { name: '구역 위로' })).not.toBeInTheDocument();
+  });
+
+  it('글자 누름은 사진 시트를 열지 않는다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/photo-edit/target')) return okJson(PHOTO_TARGET);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    const frame = (await screen.findByTitle('사이트 미리보기')) as HTMLIFrameElement;
+    sendFrameMessage(frame.contentWindow, { type: 'agt-edit', section: 'menu', text: '아메리카노' });
+    // 구역 패널이 열리고 사진 시트는 뜨지 않는다.
+    expect(await screen.findByRole('button', { name: '구역 위로' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '사진 고치기' })).not.toBeInTheDocument();
+    expect(callsTo('/photo-edit/target')).toHaveLength(0);
+  });
+
+  it('사진 있는 구역 글자 누름은 구역 패널에 사진 고치기를 보이고 누르면 사진 시트를 연다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/photo-edit/target')) return okJson(PHOTO_TARGET);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    const frame = (await screen.findByTitle('사이트 미리보기')) as HTMLIFrameElement;
+    sendFrameMessage(frame.contentWindow, {
+      type: 'agt-edit',
+      section: 'menu',
+      text: '아메리카노',
+      photo: { src: 'http://x/hero.jpg', index: 0 },
+    });
+    // 구역 패널은 열리고 사진 시트는 아직 뜨지 않는다.
+    expect(await screen.findByRole('button', { name: '구역 위로' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '사진 고치기' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '사진 고치기' }));
+    expect(await screen.findByRole('dialog', { name: '사진 고치기' })).toBeInTheDocument();
+    await waitFor(() => expect(callsTo('/photo-edit/target')).toHaveLength(1));
   });
 });

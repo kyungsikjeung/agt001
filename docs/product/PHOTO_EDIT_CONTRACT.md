@@ -77,7 +77,7 @@ sequenceDiagram
 
 - **카드에 쓰는 법**: 사장님 사진은 그 `photos` 항목의 `url`을 새 파일로 바꾸고 `prev_url`을 남긴다(사진 id·태그 그대로, 원본 파일은 지우지 않음). AI·예시는 `ai_images[slot] = {"url", "at", "prev_url"}`(`_record` 확장). 공용 예시를 고친 경우 그 칸은 이제 가게 AI 사진이다.
 - **하루 제한**: `card["ai_edit_day"] = {"date": KST 날짜, "n": 횟수}`. 쿨다운은 `ai_images[slot].at` 기준(지금 생성과 공유).
-- **후보**: `session["photo_candidates"][candidate_id] = {"target", "file", "at"}` — 30분 지난 것은 apply 때 거절, apply·새 preview 때 지난 후보 파일 삭제.
+- **후보**: `card["photo_candidates"][candidate_id] = {"target", "file", "at"}` (10/1 구현: sessions 열이 고정이라 카드 안에 둔다) — 30분 지난 것은 apply 때 거절, apply·새 preview 때 지난 후보 파일 삭제.
 - 편집 스크립트(`site_render._EDIT_SCRIPT`): 사진을 누르면 메시지에 `src`(`getAttribute('src')`)와 `index`(같은 `[data-section-id]` 안 `img` 중 순서)를 더한다.
 
 ## 5. 화면 (`frontend/src/builder/PhotoSheet.tsx` 신규)
@@ -118,3 +118,4 @@ sequenceDiagram
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-30 | 처음 작성 |
+| 2026-10-01 | 구현 반영: 후보는 카드 안, AI 고치기는 방 잠금 안에서 부름(최대 60초, 방에 여럿이 붙으면 밖으로) |
