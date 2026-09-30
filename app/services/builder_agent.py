@@ -44,6 +44,8 @@ _FIELD_LABEL = {"shop_name": "가게 이름", "phone": "전화번호", "hours": 
                 "location": "위치", "detail": "소개", "contact_method": "연락 방법"}
 _SET_FIELD_KEYS = ("shop_name", "phone", "hours", "location", "detail", "contact_method")
 # LLM이 낼 수 있는 명령 (§3)
+# 모양(1~3안) 바꾸기는 말에 이런 근거가 있을 때만 (LLM이 '분위기 있게'에 안을 바꾸던 것)
+_VARIANT_HINTS = ("1안", "2안", "3안", "모양", "스타일", "사진", "크게", "기본", "원래", "처음", "간결", "심플", "앱", "v1", "v2", "v3")
 _LLM_OPS = ("set_field", "item", "section", "notice", "style", "variant", "feature", "ask")
 
 PUBLISH_REPLY = "위 공개하기를 눌러 주세요."
@@ -53,12 +55,13 @@ VAGUE_REPLY = "어느 부분을 어떻게 바꾸면 좋을까요?"
 _SYSTEM = (
     "너는 가게 사이트 빌더의 편집 도우미다. HTML·CSS를 쓰지 않는다. 아래 명령만 JSON으로 낸다. "
     "사장님이 이번에 말하지 않은 가격·전화·주소·시간·이름·숫자는 절대 쓰지 않는다. 모르면 ask 하나만 낸다. "
-    '출력: {"ops":[...], "reply":"한 줄"}. '
+    '출력: {"ops":[...], "reply":"한 줄"}. 명령마다 "op" 칸에 이름을 쓴다. '
+    '예: {"ops":[{"op":"item","name":"라떼","price":"5,000원","add":true}],"reply":"라떼를 넣었어요"}. '
     "명령: set_field{key: 가게 이름·전화·영업시간·위치·소개·연락 방법 중 하나를 "
     "shop_name·phone·hours·location·detail·contact_method으로, value}, "
     "item{name, rename?, price?, note?, add?, remove?}, "
     "section{id, action: add·hide·show·up·down}, notice{text, popup?, off?}, style{text}, "
-    "variant{v1·v2·v3}, feature{key: stamps·order}, ask{question}."
+    "variant{variant: v1(기본형, 기본 스타일·원래대로)·v2(사진 강조형, 사진 크게)·v3(간결형, 앱처럼)}, feature{key: stamps·order}, ask{question}."
 )
 
 
@@ -344,20 +347,24 @@ def ask_llm(ctx: dict, text: str) -> dict:
                 data = None
     if not isinstance(data, dict) or not isinstance(data.get("ops"), list):
         raise ValueError("LLM 답을 읽지 못했어요.")
-    ops = [o for o in data["ops"] if isinstance(o, dict) and o.get("op") in _LLM_OPS]
+    ops = []
+    for o in data["ops"]:
+        # 모델이 {"item": {...}} 모양으로 내기도 한다 → {"op": "item", ...}로 편다
+        if isinstance(o, dict) and "op" not in o and len(o) == 1:
+            (name, body), = o.items()
+            o = {"op": name, **body} if isinstance(body, dict) else {"op": name}
+        if isinstance(o, dict) and o.get("op") == "variant" and "variant" not in o:
+            o = {**o, "variant": o.get("value")}  # variant 대신 value에 넣기도 한다
+        if isinstance(o, dict) and o.get("op") in _LLM_OPS:
+            ops.append(o)
     return {"ops": ops, "reply": str(data.get("reply") or "").strip()}
 
 
 def _style_changed(card: dict, text: str) -> bool:
     """§4 style 검사. 규칙 대응이면 LLM 없이, 아니면 adjust로."""
+    if design_concept._keyword_adjust({}, text)[1]:  # 낱말표로 바뀌면 지금 컨셉을 볼 것 없이 통과(LLM 0번)
+        return True
     try:
-        keyword_adjust = getattr(design_concept, "_keyword_adjust", None)
-        if keyword_adjust is not None:
-            current = card.get("concept") if isinstance(
-                card.get("concept"), dict) else design_concept.rule_concept(card)
-            _, msg = keyword_adjust(dict(current), text)
-            if msg:
-                return True
         current = card.get("concept") if isinstance(
             card.get("concept"), dict) else design_concept.rule_concept(card)
         new, said = design_concept.adjust(dict(current), text)
@@ -492,6 +499,8 @@ def validate(card: dict, ctx: dict | None, text: str, ops) -> tuple:
             continue
         if kind == "style":
             stext = str(op.get("text") or "")
+            if _spaceless(stext) not in t_nospace:  # 말에 없는 디자인 지시를 지어내면 사장님 말 그대로 본다
+                stext = text
             if not stext.strip():
                 rejected.append("느낌을 읽지 못했어요.")
                 continue
@@ -501,6 +510,9 @@ def validate(card: dict, ctx: dict | None, text: str, ops) -> tuple:
                 rejected.append("말씀하신 느낌을 찾지 못했어요.")
             continue
         if kind == "variant":
+            if not any(w in t_nospace for w in _VARIANT_HINTS):
+                rejected.append("말씀하지 않은 모양 바꾸기라 하지 않았어요.")
+                continue
             if op.get("variant") in VARIANTS:
                 kept.append({"op": "variant", "variant": op["variant"]})
             else:
@@ -513,7 +525,9 @@ def validate(card: dict, ctx: dict | None, text: str, ops) -> tuple:
                 rejected.append("그 기능은 여기서 켤 수 없어요.")
             continue
         if kind == "ask":
-            q = str(op.get("question") or "").strip()
+            q = re.sub(r"\s*\(예[^)]*\)", "", str(op.get("question") or "")).strip()
+            if re.search(r"\d", q):  # 되묻기에 예시 주소·가격을 넣으면 사장님이 따라 쓸 수 있다
+                q = VAGUE_REPLY
             if q:
                 kept.append({"op": "ask", "question": q[:200]})
             else:
@@ -582,6 +596,8 @@ def plan(card: dict, text: str, ctx: dict | None = None) -> dict:
         found = made.get("ops") or []
         reply_from_llm = made.get("reply") or ""
     kept, rejected = validate(work, ctx, text, found)
+    if not kept and rejected:  # §4: 남은 명령이 없으면 버린 사유로 되묻는다
+        kept = [{"op": "ask", "question": rejected[0]}]
     if kept:
         asks = [o for o in kept if o.get("op") == "ask"]
         if asks and len(asks) == len(kept):

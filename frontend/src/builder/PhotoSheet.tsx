@@ -55,12 +55,15 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
   const [busy, setBusy] = useState(false);
   const [applyBusy, setApplyBusy] = useState(false);
   const [undoBusy, setUndoBusy] = useState(false);
+  const [uploadBusy, setUploadBusy] = useState(false);
   const [candidate, setCandidate] = useState<PhotoCandidate | null>(null);
   const [instruction, setInstruction] = useState('');
   const [err, setErr] = useState('');
   const [canUndo, setCanUndo] = useState(false);
   /** 늦게 온 미리보기 응답을 버리는 번호. */
   const reqId = useRef(0);
+  /** "내 사진으로 바꾸기"가 여는 파일 입력. */
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!pick) return;
@@ -157,8 +160,8 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
 
   /** 내 사진으로 바꾸기: 기존 사진 올리기에 칸 태그를 붙인다. 사장님 사진이 항상 먼저 쓰인다(D51). */
   async function runUpload(file: File | undefined) {
-    if (!info || !file) return;
-    setBusy(true);
+    if (!info || !file || uploadBusy) return;
+    setUploadBusy(true);
     setErr('');
     try {
       await uploadPhoto(roomId, readMemberId(), file, uploadTag(info.target));
@@ -166,7 +169,8 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
       onClose();
     } catch (e) {
       setErr(errMsg(e));
-      setBusy(false);
+    } finally {
+      setUploadBusy(false);
     }
   }
 
@@ -183,23 +187,34 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
         </div>
         {targetBusy && <p className="ph-msg">사진을 불러오는 중이에요.</p>}
         {err !== '' && (
-          <p className="ph-error" role="alert">
+          <p className="ph-error" role="status">
             {err}
           </p>
         )}
         {info && (
           <>
             {nowUrl !== '' && <img className="ph-photo" src={nowUrl} alt="지금 사진" />}
-            <label className="ph-btn ph-btn--primary ph-upload">
-              내 사진 올리기
-              <input
-                type="file"
-                accept="image/*"
-                hidden
-                disabled={busy || applyBusy}
-                onChange={(e) => void runUpload(e.target.files?.[0])}
-              />
-            </label>
+            <button
+              type="button"
+              className="ph-btn ph-btn--primary ph-upload"
+              disabled={uploadBusy || busy || applyBusy}
+              onClick={() => fileRef.current?.click()}
+            >
+              {uploadBusy ? '올리는 중…' : '내 사진으로 바꾸기'}
+            </button>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="ph-file-hidden"
+              aria-label="내 사진으로 바꾸기"
+              disabled={uploadBusy || busy || applyBusy}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                e.target.value = '';
+                void runUpload(f);
+              }}
+            />
             <div className="ph-actions" role="group" aria-label="보정">
               {info.actions.map((a) => (
                 <button

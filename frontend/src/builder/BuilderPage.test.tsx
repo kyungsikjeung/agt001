@@ -274,4 +274,27 @@ describe('BuilderPage', () => {
     expect(screen.queryByRole('dialog', { name: '사진 고치기' })).not.toBeInTheDocument();
     expect(callsTo('/photo-edit/target')).toHaveLength(0);
   });
+
+  it('사진 있는 구역 글자 누름은 구역 패널에 사진 고치기를 보이고 누르면 사진 시트를 연다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/photo-edit/target')) return okJson(PHOTO_TARGET);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    const frame = (await screen.findByTitle('사이트 미리보기')) as HTMLIFrameElement;
+    sendFrameMessage(frame.contentWindow, {
+      type: 'agt-edit',
+      section: 'menu',
+      text: '아메리카노',
+      photo: { src: 'http://x/hero.jpg', index: 0 },
+    });
+    // 구역 패널은 열리고 사진 시트는 아직 뜨지 않는다.
+    expect(await screen.findByRole('button', { name: '구역 위로' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: '사진 고치기' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '사진 고치기' }));
+    expect(await screen.findByRole('dialog', { name: '사진 고치기' })).toBeInTheDocument();
+    await waitFor(() => expect(callsTo('/photo-edit/target')).toHaveLength(1));
+  });
 });

@@ -18,6 +18,26 @@ interface AgtEditMessage {
   img?: unknown;
   src?: unknown;
   index?: unknown;
+  photo?: unknown;
+}
+
+/** 글자를 눌렀을 때 구역 안에 있던 첫 사진. 첫 화면은 글자에 가려 사진 누름이 안 오므로 이 값으로 사진 시트를 연다. */
+interface PickPhoto {
+  src: string;
+  index: number;
+}
+
+interface PickState {
+  id: string | null;
+  text: string;
+  photo: PickPhoto | null;
+}
+
+/** 미리보기 메시지의 photo를 읽는다. 주소가 글자가 아니면 null. */
+function photoOf(data: AgtEditMessage): PickPhoto | null {
+  const p = data.photo as { src?: unknown; index?: unknown } | null | undefined;
+  if (!p || typeof p !== 'object' || typeof p.src !== 'string' || p.src === '') return null;
+  return { src: p.src, index: typeof p.index === 'number' ? p.index : 0 };
 }
 
 /** 빌더 화면이 미리보기를 다루는 손잡이 (BUILDER_CONTRACT §3).
@@ -50,7 +70,7 @@ export default function SiteEditor({
   const [preview, setPreview] = useState<CardPreview | null>(null);
   const [failed, setFailed] = useState<'no-design' | 'error' | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pick, setPick] = useState<{ id: string | null; text: string }>({ id: null, text: '' });
+  const [pick, setPick] = useState<PickState>({ id: null, text: '', photo: null });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const pendingScroll = useRef<string | null>(null);
   const pendingFlash = useRef<string | null>(null);
@@ -75,7 +95,7 @@ export default function SiteEditor({
   );
 
   useEffect(() => {
-    setPick({ id: null, text: '' });
+    setPick({ id: null, text: '', photo: null });
     void load(variant);
   }, [load, variant]);
 
@@ -126,8 +146,9 @@ export default function SiteEditor({
         });
         return;
       }
+      // 글자를 눌렀어도 구역 안에 사진이 있으면 사진 시트로 갈 수 있게 기억한다.
       // 한 번에 갱신한다 (두 번 나누면 패널이 접힌 채로 먼저 그려진다).
-      setPick({ id: data.section, text: typeof data.text === 'string' ? data.text : '' });
+      setPick({ id: data.section, text: typeof data.text === 'string' ? data.text : '', photo: photoOf(data) });
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -195,9 +216,22 @@ export default function SiteEditor({
             variant={variant}
             selectedId={pick.id}
             clickedText={pick.text}
-            onSelect={(id) => setPick((prev) => ({ ...prev, id }))}
+            onSelect={(id) => setPick((prev) => ({ ...prev, id, photo: null }))}
             onSaved={handleSaved}
           />
+          {pick.id !== null && pick.photo !== null && onPhotoPick ? (
+            <button
+              type="button"
+              className="ed-btn"
+              onClick={() =>
+                pick.id !== null &&
+                pick.photo !== null &&
+                onPhotoPick({ section: pick.id, src: pick.photo.src, index: pick.photo.index })
+              }
+            >
+              사진 고치기
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>

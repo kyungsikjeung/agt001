@@ -87,7 +87,7 @@ describe('PhotoSheet', () => {
     await waitFor(() => expect(callsTo('/photo-edit/undo', 'POST')).toHaveLength(1));
   });
 
-  it('내 사진 올리기 → 칸 태그로 올리고 미리보기 다시 그림·닫기', async () => {
+  it('내 사진으로 바꾸기 → 칸 태그로 올리고 미리보기 다시 그림·닫기', async () => {
     const onApplied = vi.fn();
     const onClose = vi.fn();
     stubFetch(async (url) => {
@@ -97,12 +97,56 @@ describe('PhotoSheet', () => {
     });
     render(<PhotoSheet roomId="r1" pick={PICK} onClose={onClose} onApplied={onApplied} />);
     await screen.findByAltText('지금 사진');
-    const input = screen.getByLabelText('내 사진 올리기') as HTMLInputElement;
+    expect(screen.getByRole('button', { name: '내 사진으로 바꾸기' })).toBeInTheDocument();
+    const input = screen.getByLabelText('내 사진으로 바꾸기') as HTMLInputElement;
     fireEvent.change(input, { target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] } });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     const form = callsTo('/room/r1/photos', 'POST')[0][1]?.body as FormData;
     expect(form.get('tag')).toBe('item:라떼');
     expect(onApplied).toHaveBeenCalledWith('item:라떼', '');
+  });
+
+  it('첫 화면 사진은 hero 태그로 올리고 올리는 중에는 버튼이 잠긴다', async () => {
+    const onApplied = vi.fn();
+    const onClose = vi.fn();
+    let done!: (v: Response) => void;
+    stubFetch(async (url) => {
+      if (url.includes('/photo-edit/target')) return okJson({ ...AI_TARGET, target: 'hero' });
+      if (url.includes('/photos')) {
+        return new Promise<Response>((resolve) => {
+          done = resolve;
+        });
+      }
+      throw new Error(`몰라요: ${url}`);
+    });
+    render(<PhotoSheet roomId="r1" pick={PICK} onClose={onClose} onApplied={onApplied} />);
+    await screen.findByAltText('지금 사진');
+    const input = screen.getByLabelText('내 사진으로 바꾸기') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] } });
+    expect(await screen.findByRole('button', { name: '올리는 중…' })).toBeDisabled();
+    done(okJson({}));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const form = callsTo('/room/r1/photos', 'POST')[0][1]?.body as FormData;
+    expect(form.get('tag')).toBe('hero');
+    expect(onApplied).toHaveBeenCalledWith('hero', '');
+  });
+
+  it('올리기 실패는 메시지를 보이고 시트를 닫지 않는다', async () => {
+    const onApplied = vi.fn();
+    const onClose = vi.fn();
+    stubFetch(async (url) => {
+      if (url.includes('/photo-edit/target')) return okJson({ ...AI_TARGET, target: 'hero' });
+      if (url.includes('/photos')) return errJson(400, '사진을 올리지 못했습니다 (400)');
+      throw new Error(`몰라요: ${url}`);
+    });
+    render(<PhotoSheet roomId="r1" pick={PICK} onClose={onClose} onApplied={onApplied} />);
+    await screen.findByAltText('지금 사진');
+    const input = screen.getByLabelText('내 사진으로 바꾸기') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] } });
+    expect(await screen.findByRole('status')).toHaveTextContent('사진을 올리지 못했습니다 (400)');
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onApplied).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: '사진 고치기' })).toBeInTheDocument();
   });
 
   it('사장님 사진은 안내만 보이고 입력은 없다', async () => {
