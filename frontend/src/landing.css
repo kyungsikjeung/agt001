@@ -244,14 +244,17 @@
 @keyframes lp-bar { from { height: 18%; } to { height: 100%; } }
 .lp-art-photo { flex: none; width: 34px; height: 34px; border-radius: 10px; background: center / cover; box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--line); }
 /* 02 확인하기 */
+.lp-art-check { container-type: inline-size; }
+/* 3칸으로 좁아진 카드(800px 안팎)에선 항목 이름을 숨겨 값이 잘리지 않게 */
+@container (max-width: 300px) { .lp-art-card p span { display: none; } }
 .lp-art-card {
   background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.07);
 }
 .lp-art-card small { display: block; font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
 .lp-art-card p { display: flex; align-items: center; gap: 8px; margin: 0 !important; padding: 5px 0; font-size: 13px !important; line-height: 1.3 !important; border-top: 1px dashed var(--line); }
-.lp-art-card p span { color: var(--muted); width: 58px; flex: none; }
-.lp-art-card p b { font-size: 13px; flex: 1; color: var(--ink); }
+.lp-art-card p span { color: var(--muted); flex: none; white-space: nowrap; }
+.lp-art-card p b { font-size: 13px; flex: 1; min-width: 0; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .lp-art-card p i {
   width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; font-weight: 800;
   background: var(--accent); color: var(--accent-ink); transform: scale(0);
