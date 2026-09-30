@@ -15,6 +15,9 @@ _SITE_HEADERS = {
     # 스크립트는 허용하되(생성 사이트 동작), 앱 출처로 취급되지 않게 한다. 외부 링크 새 탭과 문의 폼 전송은 허용.
     "Content-Security-Policy": "sandbox allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox",
     "X-Content-Type-Options": "nosniff",
+    # 고친 뒤 바로 보이게: 없으면 브라우저가 Last-Modified로 추측 캐시(나이의 10%, 1주 된 공개본은 ~17시간)해
+    # 사장님이 고쳐도 옛 화면이 보였다 (10/1). no-cache는 매번 ETag로 확인만 하고 안 바뀌었으면 304.
+    "Cache-Control": "no-cache",
 }
 _DESIGN_HEADERS = {
     # 시안은 보기 전용: 스크립트·폼·팝업 모두 불필요. 검색 노출 금지.

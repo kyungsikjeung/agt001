@@ -180,6 +180,7 @@ def test_publish_chosen_design(client):
     assert "사이트를 열었어요" in r["reply"] and sess["deploy_url"].endswith(f"/site/{sess['requirement_id']}/")
     page = client.get(f"/site/{sess['requirement_id']}/")
     assert page.status_code == 200 and "allow-forms" in page.headers["content-security-policy"]
+    assert page.headers["cache-control"] == "no-cache"  # 고친 뒤 옛 화면이 캐시로 보이지 않게
     assert sess["prd"]["published"] == "v3"
 
 
