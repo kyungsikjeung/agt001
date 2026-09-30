@@ -324,19 +324,41 @@ export default function Landing() {
               <span className="lp-num" aria-hidden="true">01</span>
               <b>말하기</b>
               <p>글·음성·사진으로 편하게. 하는 일과 원하는 것만 말하세요.</p>
-              <span className="lp-draw" aria-hidden="true"><i className="lp-draw-talk" /><i className="lp-draw-talk2" /></span>
+              <div className="lp-art lp-art-talk" aria-hidden="true">
+                <p className="lp-art-bubble">동네 카페예요. 소금빵이 제일 잘 나가요</p>
+                <div className="lp-art-voice">
+                  <span className="lp-art-mic">
+                    <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" /></svg>
+                  </span>
+                  <span className="lp-art-wave">{Array.from({ length: 14 }, (_, i) => <i key={i} style={{ '--i': i } as CSSProperties} />)}</span>
+                  <span className="lp-art-photo" style={{ backgroundImage: `url(${PHOTOS.cafe})` }} />
+                </div>
+              </div>
             </li>
             <li className="lp-reveal" style={{ '--d': '0.1s' } as CSSProperties}>
               <span className="lp-num" aria-hidden="true">02</span>
               <b>확인하기</b>
               <p>요약 카드에서 사장님이 확인. 여럿이면 한 방에서 같이 정해요.</p>
-              <span className="lp-draw" aria-hidden="true"><i className="lp-draw-card" /><i className="lp-draw-lines" /><b className="lp-draw-tick">✓</b></span>
+              <div className="lp-art lp-art-check" aria-hidden="true">
+                <div className="lp-art-card">
+                  <small>이렇게 이해했어요</small>
+                  {[['가게 이름', '모퉁이 커피'], ['대표 메뉴', '소금빵 3,500원'], ['영업시간', '매일 9시–8시']].map(([k, v], i) => (
+                    <p key={k} style={{ '--i': i } as CSSProperties}><span>{k}</span><b>{v}</b><i>✓</i></p>
+                  ))}
+                </div>
+              </div>
             </li>
             <li className="lp-reveal" style={{ '--d': '0.2s' } as CSSProperties}>
               <span className="lp-num" aria-hidden="true">03</span>
               <b>공개하기</b>
               <p>고른 시안 그대로 공개. 문의·예약 버튼으로 손님이 바로 와요.</p>
-              <span className="lp-draw" aria-hidden="true"><i className="lp-draw-browser" /><i className="lp-draw-pill" /></span>
+              <div className="lp-art lp-art-open" aria-hidden="true">
+                <div className="lp-art-phone">
+                  <div className="lp-art-hero" style={{ background: photoBg(PHOTOS.cafe) }}><b>모퉁이 커피</b></div>
+                  <span className="lp-art-cta">문의하기</span>
+                </div>
+                <p className="lp-art-toast"><i />새 문의가 왔어요</p>
+              </div>
             </li>
           </ol>
         </section>
