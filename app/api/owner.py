@@ -4,6 +4,9 @@
 """
 import datetime
 import logging
+import threading
+import time
+from collections import deque
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request
@@ -17,6 +20,11 @@ from app.services.slots import KST
 
 router = APIRouter()
 log = logging.getLogger(__name__)
+
+# 쿠폰 번호 오타 막기: 사장님당 60초에 틀린 번호 10번이면 잠금(문의 IP 제한과 같은 방식).
+_REDEEM_LIMIT, _REDEEM_WINDOW = 10, 60
+_redeem_hits: dict[str, deque] = {}
+_redeem_lock = threading.Lock()
 
 
 def _me(request: Request) -> dict:
@@ -273,3 +281,182 @@ def bot_revert(site_key: str, body: RevertIn, request: Request):
     _check_origin(request)
     user, shop_id = _shop(request, site_key, ("owner",))
     return {"activated": _engine_call(booking_engine.activate, shop_id, user["id"], body.spec_id)}
+
+
+# ── 스탬프·쿠폰 (STAMP_WAVE4_CONTRACT §3.5) ──
+
+def _redeem_blocked(user_id: str) -> bool:
+    """60초에 틀린 번호 10번이면 잠금."""
+    now = time.monotonic()
+    with _redeem_lock:
+        q = _redeem_hits.setdefault(user_id, deque())
+        while q and now - q[0] > _REDEEM_WINDOW:
+            q.popleft()
+        return len(q) >= _REDEEM_LIMIT
+
+
+def _redeem_fail(user_id: str) -> None:
+    now = time.monotonic()
+    with _redeem_lock:
+        q = _redeem_hits.setdefault(user_id, deque())
+        while q and now - q[0] > _REDEEM_WINDOW:
+            q.popleft()
+        q.append(now)
+
+
+class StampRuleIn(BaseModel):
+    active: Optional[bool] = None
+    goal: Optional[int] = None
+    per: Optional[str] = None
+    reward_title: Optional[str] = Field(default=None, max_length=30)
+    reward_kind: Optional[str] = None
+    reward_value: Optional[int] = None
+    coupon_days: Optional[int] = None
+
+
+_RULE_DEFAULTS = {"active": False, "goal": 10, "per": "order", "reward_title": "음료 1잔 무료",
+                  "reward_kind": "free", "reward_value": 0, "coupon_days": 90}
+
+
+def _rule_row_dict(site_key: str) -> dict:
+    """꺼진 규칙도 보여준다(사장님 화면 form용)."""
+    from app.db.models import StampRuleRow
+    from app.db.session import get_sessionmaker
+
+    with get_sessionmaker()() as db:
+        row = db.get(StampRuleRow, site_key)
+        if row is None:
+            return {"site_key": site_key, **_RULE_DEFAULTS}
+        return {"site_key": row.site_key, "active": row.active, "goal": row.goal, "per": row.per,
+                "reward_title": row.reward_title, "reward_kind": row.reward_kind,
+                "reward_value": row.reward_value, "coupon_days": row.coupon_days}
+
+
+@router.get("/api/owner/shops/{site_key}/stamps/rule")
+def stamp_rule(site_key: str, request: Request):
+    _shop(request, site_key)
+    return {"rule": _rule_row_dict(site_key)}
+
+
+@router.put("/api/owner/shops/{site_key}/stamps/rule")
+def stamp_rule_update(site_key: str, body: StampRuleIn, request: Request):
+    """규칙 바꾸기. 켜기·끄기가 바뀌고 공개본이 있으면 다시 공개한다."""
+    from app.services import stamps
+
+    _check_origin(request)
+    user, _ = _shop(request, site_key)
+    old_active = _rule_row_dict(site_key)["active"]
+    fields = body.model_dump(exclude_none=True)
+    try:
+        out = stamps.set_rule(user["id"], site_key, **fields)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if "active" in fields and bool(fields["active"]) != bool(old_active):
+        _republish(site_key)
+    return {"rule": out}
+
+
+class RedeemIn(BaseModel):
+    code: str = Field(default="", max_length=20)
+
+
+@router.post("/api/owner/shops/{site_key}/coupons/redeem")
+def coupon_redeem(site_key: str, body: RedeemIn, request: Request):
+    from app.db.session import get_sessionmaker
+    from app.services import stamps
+
+    _check_origin(request)
+    user, _ = _shop(request, site_key)
+    if _redeem_blocked(user["id"]):
+        raise HTTPException(status_code=429, detail="잠시 뒤 다시 입력해 주세요")
+    try:
+        with get_sessionmaker()() as db, db.begin():
+            out = stamps.redeem(db, site_key, body.code, user["id"])
+    except LookupError:
+        _redeem_fail(user["id"])
+        raise HTTPException(status_code=404, detail="없는 쿠폰 번호예요")
+    except ValueError as e:
+        _redeem_fail(user["id"])
+        raise HTTPException(status_code=400, detail=str(e))
+    out["used_at"] = out["used_at"].isoformat() if out.get("used_at") else None
+    return out
+
+
+class ManualIn(BaseModel):
+    phone: str = Field(default="", max_length=20)
+    count: int
+
+
+@router.post("/api/owner/shops/{site_key}/stamps/manual")
+def stamp_manual(site_key: str, body: ManualIn, request: Request):
+    from app.db.session import get_sessionmaker
+    from app.services import stamps
+
+    _check_origin(request)
+    user, _ = _shop(request, site_key)
+    if isinstance(body.count, bool) or not 1 <= body.count <= 10:
+        raise HTTPException(status_code=400, detail="수동 적립은 1개부터 10개까지 가능해요.")
+    try:
+        with get_sessionmaker()() as db, db.begin():
+            out = stamps.manual(db, site_key, body.phone, body.count, user["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"balance": out["balance"], "issued": out["issued"]}
+
+
+class IssueIn(BaseModel):
+    phone: str = Field(default="", max_length=20)
+    title: Optional[str] = Field(default=None, max_length=30)
+
+
+@router.post("/api/owner/shops/{site_key}/coupons/issue")
+def coupon_issue(site_key: str, body: IssueIn, request: Request):
+    from app.db.models import StampRuleRow
+    from app.db.session import get_sessionmaker
+    from app.services import stamps
+    from app.services.customers import touch
+
+    _check_origin(request)
+    _shop(request, site_key)
+    try:
+        with get_sessionmaker()() as db, db.begin():
+            if db.get(StampRuleRow, site_key) is None:
+                raise HTTPException(status_code=400, detail="스탬프 규칙을 먼저 정해 주세요")
+            cid = touch(db, site_key, body.phone, None)
+            if cid is None:
+                raise HTTPException(status_code=400, detail="전화번호를 확인해 주세요.")
+            cid_out = stamps.issue(db, site_key, cid, source="owner",
+                                   title=(body.title or None))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"id": cid_out}
+
+
+@router.get("/api/owner/shops/{site_key}/coupons")
+def coupon_list(site_key: str, request: Request, status: Optional[str] = None):
+    """최근 50장. 번호·전화는 뒤 4자리만(전체 노출 금지)."""
+    from sqlalchemy import select
+
+    from app.db.models import CouponRow, CustomerRow
+    from app.db.session import get_sessionmaker
+
+    _shop(request, site_key)
+    with get_sessionmaker()() as db:
+        stmt = select(CouponRow).where(CouponRow.site_key == site_key)
+        if status:
+            stmt = stmt.where(CouponRow.status == status)
+        rows = db.scalars(stmt.order_by(CouponRow.id.desc()).limit(50)).all()
+        phones = {}
+        cids = {r.customer_id for r in rows}
+        if cids:
+            for c in db.scalars(select(CustomerRow).where(CustomerRow.id.in_(cids))).all():
+                phones[c.id] = c.phone or ""
+        out = []
+        for r in rows:
+            ph = phones.get(r.customer_id, "")
+            out.append({"id": r.id, "code_last4": (r.code or "")[-4:], "title": r.title,
+                        "phone_last4": ph[-4:] if ph else "", "status": r.status,
+                        "issued_at": r.issued_at.isoformat() if r.issued_at else None,
+                        "used_at": r.used_at.isoformat() if r.used_at else None,
+                        "expires_at": r.expires_at.isoformat() if r.expires_at else None})
+        return {"coupons": out}

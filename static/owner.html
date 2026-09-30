@@ -76,6 +76,7 @@
 <nav id="tabs" role="tablist" hidden>
   <button role="tab" data-tab="bookings" aria-selected="true">예약</button>
   <button role="tab" data-tab="orders" aria-selected="false">주문 <span class="pill">테스트 결제</span></button>
+  <button role="tab" data-tab="stamps" aria-selected="false">스탬프·쿠폰</button>
   <button role="tab" data-tab="bot" aria-selected="false">예약 봇</button>
   <button role="tab" data-tab="closures" aria-selected="false">휴무·막기</button>
   <button role="tab" data-tab="verify" aria-selected="false">가게 확인</button>
@@ -121,6 +122,69 @@
       <div class="row"><h2 style="flex:1">주문 <span class="pill">테스트 결제</span></h2><button id="oreload">새로고침</button></div>
       <div class="row"><label class="f">날짜<input type="date" id="o-date"></label></div>
       <div id="olist"><p class="sub">불러오는 중…</p></div>
+    </section>
+  </div>
+
+  <div id="p-stamps" hidden>
+    <section class="card">
+      <h2>쿠폰 사용</h2>
+      <p class="sub">손님이 보여 준 바코드의 숫자 12자리를 넣어 주세요.</p>
+      <div class="row">
+        <input id="st-code" inputmode="numeric" maxlength="14" autocomplete="off"
+          placeholder="쿠폰 번호 12자리" style="flex:1;min-width:0" aria-label="쿠폰 번호">
+        <button id="st-cam" hidden>카메라</button>
+      </div>
+      <div id="st-cambox" hidden>
+        <video id="st-video" playsinline muted style="width:100%;border-radius:8px;background:#000"></video>
+        <div class="row"><button id="st-camclose">닫기</button></div>
+      </div>
+      <div id="st-confirm" class="row" hidden>
+        <span id="st-confirm-txt" style="flex:1">이 쿠폰을 쓸까요?</span>
+        <button class="primary" id="st-use">사용</button>
+      </div>
+      <p id="st-big" style="font-size:1.25rem;font-weight:800;margin:0" hidden></p>
+      <p class="err" id="st-err" hidden></p>
+    </section>
+    <section class="card">
+      <h2>수동 적립</h2>
+      <p class="sub">현장에서 결제한 손님의 전화번호로 도장을 넣어 주세요.</p>
+      <div class="row">
+        <label class="f">전화<input id="st-phone" type="tel" maxlength="20" style="flex:1;min-width:0"></label>
+        <label class="f">개수 (1~10)<input id="st-count" type="number" min="1" max="10" value="1"></label>
+        <button class="primary" id="st-save">적립</button>
+      </div>
+      <p class="err" id="st-manual-err" hidden></p>
+      <p class="sub" id="st-manual-ok" hidden></p>
+    </section>
+    <section class="card">
+      <h2>쿠폰 보내기</h2>
+      <p class="sub">손님 전화번호로 쿠폰 한 장을 바로 보내요.</p>
+      <div class="row">
+        <label class="f">전화<input id="st-issue-phone" type="tel" maxlength="20"></label>
+        <label class="f">혜택 이름 (비우면 규칙 혜택)<input id="st-issue-title" maxlength="30"></label>
+        <button class="primary" id="st-issue">보내기</button>
+      </div>
+      <p class="err" id="st-issue-err" hidden></p>
+      <p class="sub" id="st-issue-ok" hidden></p>
+    </section>
+    <section class="card">
+      <h2>스탬프 규칙</h2>
+      <div class="grid">
+        <label class="f">켜기<select id="st-active"><option value="on">켜짐</option><option value="off">꺼짐</option></select></label>
+        <label class="f">목표 개수 (2~50)<input id="st-goal" type="number" min="2" max="50" value="10"></label>
+        <label class="f">적립 기준<select id="st-per"><option value="order">주문마다 1개</option><option value="item">메뉴 수량만큼</option></select></label>
+        <label class="f">혜택 이름<input id="st-title" maxlength="30" value="음료 1잔 무료"></label>
+        <label class="f">혜택 종류<select id="st-kind"><option value="free">무료 (제일 비싼 메뉴 1개)</option><option value="amount">정액 할인 (원)</option><option value="percent">정률 할인 (%)</option></select></label>
+        <label class="f">혜택 값<input id="st-value" type="number" min="0" value="0"></label>
+        <label class="f">쿠폰 기한 (7~365일)<input id="st-days" type="number" min="7" max="365" value="90"></label>
+      </div>
+      <p class="sub">목표 개수가 차면 쿠폰이 자동으로 나와요. 정액은 깎아 주는 금액, 정률은 1~100 사이의 숫자예요.</p>
+      <button class="primary" id="st-rule-save">저장</button>
+      <p class="err" id="st-rule-err" hidden></p>
+    </section>
+    <section class="card">
+      <div class="row"><h2 style="flex:1">최근 쿠폰</h2><button id="st-reload">새로고침</button></div>
+      <div id="st-list"><p class="sub">불러오는 중…</p></div>
     </section>
   </div>
 
@@ -190,9 +254,10 @@
   // ── 탭 ──
   function tab(name) {
     for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
-    for (const p of ["bookings", "orders", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
+    for (const p of ["bookings", "orders", "stamps", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
     if (name === "bookings") loadBookings();
     if (name === "orders") loadOrders();
+    if (name === "stamps") loadStamps();
     if (name === "bot") loadBot();
     if (name === "closures") loadClosures();
   }
@@ -320,6 +385,121 @@
       $("pb-name").value = $("pb-phone").value = "";
       loadBookings();
     } catch (e) { $("pb-err").textContent = e.message; $("pb-err").hidden = false; }
+  });
+
+  // ── 스탬프·쿠폰 ──
+  const stDigits = s => String(s || "").replace(/\D/g, "").slice(0, 12);
+  let stStream = null, stTimer = null;
+
+  function stStopCam() {
+    if (stTimer) { clearInterval(stTimer); stTimer = null; }
+    if (stStream) { for (const t of stStream.getTracks()) t.stop(); stStream = null; }
+    $("st-cambox").hidden = true;
+  }
+  async function loadStamps() {
+    if ("BarcodeDetector" in window) $("st-cam").hidden = false;
+    const { rule } = await api(base() + "/stamps/rule");
+    $("st-active").value = rule.active ? "on" : "off";
+    $("st-goal").value = rule.goal;
+    $("st-per").value = rule.per;
+    $("st-title").value = rule.reward_title;
+    $("st-kind").value = rule.reward_kind;
+    $("st-value").value = rule.reward_value;
+    $("st-days").value = rule.coupon_days;
+    loadCouponList();
+  }
+  async function loadCouponList() {
+    const box = $("st-list");
+    try {
+      const { coupons } = await api(base() + "/coupons");
+      box.replaceChildren();
+      if (!coupons.length) { box.append(el("p", "아직 쿠폰이 없어요.", "sub")); return; }
+      const ST = { issued: "쓸 수 있음", held: "결제 대기 중", used: "씀", expired: "기간 지남" };
+      for (const c of coupons.slice(0, 50)) {
+        const row = el("div", null, "bk");
+        const head = el("div", null, "row");
+        head.append(el("strong", `${c.title} · ****${c.code_last4}`), el("span", ST[c.status] || c.status, "pill"));
+        row.append(head, el("p", `손님 ****${c.phone_last4}`, "sub"));
+        box.append(row);
+      }
+    } catch (e) { box.replaceChildren(el("p", e.message, "err")); }
+  }
+  $("st-reload").addEventListener("click", loadCouponList);
+  $("st-code").addEventListener("input", () => {
+    const v = stDigits($("st-code").value);
+    $("st-code").value = v;
+    $("st-confirm").hidden = v.length !== 12;
+    $("st-confirm-txt").textContent = v.length === 12 ? `****${v.slice(8)} 이 쿠폰을 쓸까요?` : "이 쿠폰을 쓸까요?";
+    $("st-big").hidden = true;
+    $("st-err").hidden = true;
+  });
+  $("st-use").addEventListener("click", async () => {
+    $("st-use").disabled = true;
+    $("st-err").hidden = true;
+    try {
+      const out = await post(base() + "/coupons/redeem", { code: $("st-code").value });
+      $("st-big").textContent = `${out.title} · 손님 ****${out.phone_last4} · 사용 완료`;
+      $("st-big").hidden = false;
+      $("st-confirm").hidden = true;
+      $("st-code").value = "";
+      loadCouponList();
+    } catch (e) { $("st-err").textContent = e.message; $("st-err").hidden = false; }
+    $("st-use").disabled = false;
+  });
+  $("st-cam").addEventListener("click", async () => {
+    try {
+      stStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+    } catch (e) { alertLine($("st-cam").closest("section"), "카메라를 켤 수 없어요."); return; }
+    $("st-video").srcObject = stStream;
+    $("st-video").play();
+    $("st-cambox").hidden = false;
+    const det = new BarcodeDetector({ formats: ["code_128"] });
+    stTimer = setInterval(async () => {
+      try {
+        const found = await det.detect($("st-video"));
+        if (found && found.length) {
+          $("st-code").value = stDigits(found[0].rawValue);
+          stStopCam();
+          $("st-confirm").hidden = $("st-code").value.length !== 12;
+          $("st-confirm-txt").textContent = `****${$("st-code").value.slice(8)} 이 쿠폰을 쓸까요?`;
+        }
+      } catch (e) {}
+    }, 300);
+  });
+  $("st-camclose").addEventListener("click", stStopCam);
+  $("st-save").addEventListener("click", async () => {
+    $("st-manual-err").hidden = true;
+    $("st-manual-ok").hidden = true;
+    try {
+      const out = await post(base() + "/stamps/manual",
+        { phone: $("st-phone").value, count: Number($("st-count").value) });
+      $("st-manual-ok").textContent = `도장 ${out.balance}개예요.${out.issued ? ` 쿠폰 ${out.issued}장이 나왔어요.` : ""}`;
+      $("st-manual-ok").hidden = false;
+    } catch (e) { $("st-manual-err").textContent = e.message; $("st-manual-err").hidden = false; }
+  });
+  $("st-issue").addEventListener("click", async () => {
+    $("st-issue-err").hidden = true;
+    $("st-issue-ok").hidden = true;
+    try {
+      await post(base() + "/coupons/issue",
+        { phone: $("st-issue-phone").value, title: $("st-issue-title").value.trim() || null });
+      $("st-issue-ok").textContent = "쿠폰을 보냈어요.";
+      $("st-issue-ok").hidden = false;
+      loadCouponList();
+    } catch (e) { $("st-issue-err").textContent = e.message; $("st-issue-err").hidden = false; }
+  });
+  $("st-rule-save").addEventListener("click", async () => {
+    $("st-rule-err").hidden = true;
+    $("st-rule-save").disabled = true;
+    try {
+      await api(base() + "/stamps/rule", { method: "PUT", body: JSON.stringify({
+        active: $("st-active").value === "on", goal: Number($("st-goal").value), per: $("st-per").value,
+        reward_title: $("st-title").value.trim(), reward_kind: $("st-kind").value,
+        reward_value: Number($("st-value").value), coupon_days: Number($("st-days").value),
+      }) });
+      loadCouponList();
+    } catch (e) { $("st-rule-err").textContent = e.message; $("st-rule-err").hidden = false; }
+    $("st-rule-save").disabled = false;
   });
 
   // ── 예약 봇 ──
