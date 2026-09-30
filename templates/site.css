@@ -1420,6 +1420,24 @@ section.s-hero .s-lead { margin: 0 0 4px; }
 }
 .s-marquee:hover .s-marquee__track,
 .s-marquee:active .s-marquee__track { animation-play-state: paused; }
+/* 터치 기기: 자동 흐름은 손가락으로 밀 수 없다(잘라 둔 틀 안에서 움직이기만 함). 안내 문구대로 손으로 밀게 바꾸고
+   끊김 없는 흐름용 복사본은 숨긴다. 마우스 기기는 자동 흐름 그대로, 밀 수 없으니 안내도 숨긴다. */
+@media (hover: none) {
+  .s-marquee {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .s-marquee::-webkit-scrollbar { display: none; }
+  .s-marquee__track { animation: none; }
+  .s-marquee__track li { scroll-snap-align: start; }
+  .s-marquee__repeat { display: none; }
+}
+@media (hover: hover) {
+  .s-marquee + .s-gallery__notice { display: none; }
+}
 
 /* ---- 버튼·카드 손맛 (hover 되는 기기만) ---- */
 @media (hover: hover) and (pointer: fine) {
@@ -1443,6 +1461,7 @@ section.s-hero .s-lead { margin: 0 0 4px; }
   .s-marquee__track { animation: none; }
   .s-marquee { overflow-x: auto; }
   .s-marquee__track { width: auto; }
+  .s-marquee__repeat { display: none; }
 }
 
 /* ==== 적합성 부품 (DESIGN_FIT_PLAN 2단계) + 모션 토큰 (docs/product/MOTION_PLAN.md) ====

@@ -251,3 +251,16 @@ def test_app_tabs_keep_phone_when_primary_is_directions():
     bar = {"primary": {"label": "길찾기", "href": "#around"}, "secondary": {"label": "전화", "href": "tel:0212345678"}}
     tabs = _app_tabs(nav, bar, {"top", "a", "b", "c", "around"})
     assert [t["label"] for t in tabs] == ["홈", "a", "b", "길찾기", "전화"]
+
+
+def test_marquee_swipeable_on_touch_and_repeat_hidden():
+    """흐르는 사진 띠: 끊김 없는 흐름용 복사본은 aria-hidden, 터치 기기에선 자동 흐름을 끄고 손으로 민다
+    (전엔 overflow:hidden 틀 안에서 움직이기만 해 휴대폰에서 '좌우로 밀어 볼 수 있어요'가 거짓이었다)."""
+    import re
+    items = [{"src": f"/art/ex/cafe-{n}.webp", "alt": n} for n in ("hero", "space")]
+    doc = _page([{"id": "space", "type": "gallery", "variant": "marquee", "content": {"items": items}}])
+    lis = re.findall(r"<li[^>]*>", doc.split('class="s-marquee__track"')[1].split("</ul>")[0])
+    assert len(lis) == 4
+    assert sum('class="s-marquee__repeat" aria-hidden="true"' in li for li in lis) == 2
+    touch = doc.split("@media (hover: none)")[1].split("@media")[0]
+    assert "overflow-x: auto" in touch and "animation: none" in touch and ".s-marquee__repeat { display: none; }" in touch
