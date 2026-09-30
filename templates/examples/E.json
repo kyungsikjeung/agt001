@@ -29,9 +29,11 @@
   },
   "photos": {
     "hero": "/art/ex/workshop-hero.webp",
-    "space:1": "/art/ex/workshop-space.webp",
-    "space:2": "/art/ex/workshop-works.webp",
-    "staff:1": "/art/ex/workshop-teacher.webp"
+    "staff:1": "/art/ex/workshop-teacher.webp",
+    "space:1": "/art/ex/workshop-space1.webp",
+    "space:2": "/art/ex/workshop-space2.webp",
+    "space:3": "/art/ex/workshop-space3.webp",
+    "space:4": "/art/ex/workshop-space4.webp"
   },
   "prices": {
     "원데이": "5만원",

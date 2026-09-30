@@ -29,9 +29,11 @@
   },
   "photos": {
     "hero": "/art/ex/academy-hero.webp",
-    "space:1": "/art/ex/academy-class.webp",
-    "space:2": "/art/ex/academy-study.webp",
-    "staff:1": "/art/ex/academy-teacher.webp"
+    "staff:1": "/art/ex/academy-teacher.webp",
+    "space:1": "/art/ex/academy-space1.webp",
+    "space:2": "/art/ex/academy-space2.webp",
+    "space:3": "/art/ex/academy-space3.webp",
+    "space:4": "/art/ex/academy-space4.webp"
   },
   "prices": {
     "내신": "월 24만원",
