@@ -155,16 +155,27 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     void sendChip(chip.key, !chip.on);
   }
 
+  // 말로 고친 뒤 위 제목·가게 정보 칸도 새 카드로 (미리보기만 바뀌고 제목은 옛 이름이던 것)
+  async function refreshCard() {
+    try {
+      handleSaved(await fetchCard(roomId, readMemberId()));
+    } catch {
+      /* 제목만 늦게 바뀐다. 미리보기는 이미 새것 */
+    }
+  }
+
   // 말로 고치기 답 뒤: 칩을 새 목록으로 바꾸고 미리보기를 다시 그린다.
   function handleSayApplied(r: SayResponse) {
     setFeatures(r.features);
     control.current?.reload(r.focus);
+    void refreshCard();
   }
 
   // 되돌리기 뒤: 칩을 새 목록으로 바꾸고 미리보기를 다시 그린다.
   function handleSayUndone(r: UndoResponse) {
     setFeatures(r.features);
     control.current?.reload(null);
+    void refreshCard();
   }
 
   // 사진 시트에서 "이걸로 쓰기"·되돌리기 뒤: 누른 구역으로 미리보기를 다시 그리고 반짝인다.
