@@ -29,8 +29,8 @@ sequenceDiagram
     G->>O: 6 매장에서 바코드 보여 줌
     O->>D: 7 번호 입력/카메라 → 사용 (FOR UPDATE, 한 번만)
     G->>A: 8 온라인 주문 /pay에서 쿠폰 고르기
-    A->>D: 9 쿠폰 잡기(held, 15분) + 할인 반영
-    A->>D: 10 결제 확정 → 쿠폰 used / 결제 안 하면 15분 뒤 저절로 풀림
+    A->>D: 9 쿠폰 잡기(held, 60분) + 할인 반영
+    A->>D: 10 결제 확정 → 쿠폰 used / 결제 안 하면 60분 뒤 저절로 풀림
     O->>D: 11 전액 환불 → 그 주문 도장 회수 (쿠폰 썼으면 쿠폰 되돌림)
     O->>D: 12 수동 적립 (현장 결제 손님, 전화번호)
 ```
@@ -66,7 +66,7 @@ sequenceDiagram
 
 ```python
 CODE_LEN = 12
-HOLD_MINUTES = 15  # = orders.READY_MINUTES
+HOLD_MINUTES = 60  # 결제 페이지 만료(15분)보다 길게 — 변경 이력 참고
 
 def rule(site_key: str) -> dict | None: ...                 # 꺼졌거나 없으면 None
 def set_rule(user_id: str, site_key: str, **fields) -> dict: # 범위 검사, 사람 말 ValueError
@@ -163,7 +163,7 @@ def code128c_svg(digits: str, *, height: int = 80, module: int = 2) -> str:
 | 3 | `revoke` 두 번 불러도 한 번, 부분 환불(=`revoke` 안 부름)은 그대로, 쓴 쿠폰 되돌림 | `test_stamps.py` |
 | 4 | `redeem`: 성공 뒤 두 번째 거절, 다른 가게 번호 LookupError, 기간 지남 거절, 12자리 아님 거절, **두 스레드가 동시에 써도 한 번만 성공** | `test_stamps.py` |
 | 5 | `discount`: free는 가장 비싼 한 개(상한 적용), amount·percent 경계, 음수·합계 초과 없음 | `test_stamps.py` |
-| 6 | `hold`: 다른 손님 쿠폰 거절, 바꾸기·빼기 뒤 금액 복원, 잡힌 쿠폰은 매장 사용 거절, 15분 지나면 다시 쓸 수 있음 | `test_stamps.py` |
+| 6 | `hold`: 다른 손님 쿠폰 거절, 바꾸기·빼기 뒤 금액 복원, 잡힌 쿠폰은 매장 사용 거절, 60분 지나면 다시 쓸 수 있음, 15분 지난 주문은 잡기 거절 | `test_stamps.py` |
 | 7 | 바코드: 패턴 107개가 모두 6개 막대·합 11모듈이고 서로 다름, 알려진 입력의 검사값, 홀수 자리·숫자 아님 ValueError, SVG에 `<script` 없음 | `test_barcode.py` |
 | 8 | 결제 확정 → 도장 +1, 합계 0원 쿠폰 주문 → 포트원 부르지 않고 paid + 쿠폰 used, 전액 환불 → 도장 회수 | `test_stamps_api.py` |
 | 9 | `/my`: 쿠키 없으면 전화 입력, 인증 뒤 도장판·바코드, 다른 가게 쿠키로는 못 봄, 쿠폰 번호는 이 화면에만 전체 | `test_stamps_api.py` |
@@ -176,7 +176,7 @@ def code128c_svg(digits: str, *, height: int = 80, module: int = 2) -> str:
 | 위험 | 대응 |
 |---|---|
 | 바코드를 스캐너가 못 읽음 | 흰 바탕·검정 막대·조용한 여백·모듈 2px 이상. W4-E에서 실제 기기로. 안 되면 숫자 입력이 기본 길 |
-| 결제 버리고 쿠폰이 묶임 | `held_until` 15분 뒤 저절로 쓸 수 있음(cron 없음) |
+| 결제 버리고 쿠폰이 묶임 | `held_until` 60분 뒤 저절로 쓸 수 있음(cron 없음) |
 | 환불 뒤 도장 음수 | 허용(§1 11번). 화면에는 0 이하를 0으로 보인다 |
 | 한 사람이 번호 여러 개로 도장 모으기 | 문자 인증으로 번호 소유는 확인됨. 그 이상(기기·사람 묶기)은 하지 않는다 — 소규모 가게 규모에서 수동 적립보다 위험하지 않음 |
 | 일정(10/13) 밀림 | APP_COMMERCE_PLAN §4대로 베타는 수동 적립 + 매장 사용만 먼저(W4-C의 결제 할인은 뒤로) |
@@ -186,3 +186,4 @@ def code128c_svg(digits: str, *, height: int = 80, module: int = 2) -> str:
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-30 | 처음 작성 |
+| 2026-09-30 | W4-A 검토: 쿠폰 잡기 15분→60분. 15분이면 14분에 연 결제창이 16분에 끝날 때 그 사이 풀린 쿠폰이 매장·다른 주문에서 한 번 더 쓰일 수 있었다. 결제 페이지는 15분 뒤 새 결제창을 안 열고, 15분 지난 주문은 쿠폰 잡기 거절 |

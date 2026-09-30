@@ -577,3 +577,85 @@ class AgentThreadRow(Base):
     shop_id: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), nullable=False)  # = site_key
     draft: Mapped[Optional[dict]] = mapped_column(JSONB)
     updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class StampRuleRow(Base):
+    """스탬프 규칙 (STAMP_WAVE4_CONTRACT §2). 가게당 한 줄."""
+
+    __tablename__ = "stamp_rules"
+    __table_args__ = (
+        CheckConstraint("goal BETWEEN 2 AND 50", name="ck_stamp_rules_goal"),
+        CheckConstraint("per IN ('order', 'item')", name="ck_stamp_rules_per"),
+        CheckConstraint("char_length(reward_title) BETWEEN 1 AND 30", name="ck_stamp_rules_title"),
+        CheckConstraint("reward_kind IN ('free', 'amount', 'percent')", name="ck_stamp_rules_kind"),
+        CheckConstraint("reward_value >= 0", name="ck_stamp_rules_value"),
+        CheckConstraint("coupon_days BETWEEN 7 AND 365", name="ck_stamp_rules_days"),
+    )
+
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), primary_key=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    goal: Mapped[int] = mapped_column(Integer, nullable=False, server_default="10")
+    per: Mapped[str] = mapped_column(Text, nullable=False, server_default="order")  # order·item
+    reward_title: Mapped[str] = mapped_column(Text, nullable=False, server_default="음료 1잔 무료")
+    reward_kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="free")
+    reward_value: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    coupon_days: Mapped[int] = mapped_column(Integer, nullable=False, server_default="90")
+    updated_by: Mapped[Optional[str]] = mapped_column(Text)
+    updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class CouponRow(Base):
+    """바코드 쿠폰 (STAMP_WAVE4_CONTRACT §2). 번호는 12자리 숫자, 서버 난수."""
+
+    __tablename__ = "coupons"
+    __table_args__ = (
+        UniqueConstraint("site_key", "code", name="uq_coupons_site_code"),
+        Index("ix_coupons_site_customer_status", "site_key", "customer_id", "status"),
+        CheckConstraint("code ~ '^[0-9]{12}$'", name="ck_coupons_code"),
+        CheckConstraint("kind IN ('free', 'amount', 'percent')", name="ck_coupons_kind"),
+        CheckConstraint("value >= 0", name="ck_coupons_value"),
+        CheckConstraint("status IN ('issued', 'held', 'used', 'expired')", name="ck_coupons_status"),
+        CheckConstraint("source IN ('stamp', 'owner')", name="ck_coupons_source"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("customers.id", ondelete="CASCADE"),
+                                             nullable=False)
+    code: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False, server_default="free")
+    value: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="issued")
+    issued_at: Mapped[datetime.datetime] = _now_col()
+    expires_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    held_order_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("orders.id", ondelete="SET NULL"))
+    held_until: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    used_by: Mapped[Optional[str]] = mapped_column(Text)
+    used_order_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("orders.id", ondelete="SET NULL"))
+    source: Mapped[str] = mapped_column(Text, nullable=False, server_default="stamp")
+
+
+class StampEventRow(Base):
+    """도장 적립·회수 기록 (STAMP_WAVE4_CONTRACT §2). delta 합계가 곧 도장 수."""
+
+    __tablename__ = "stamp_events"
+    __table_args__ = (
+        CheckConstraint("delta <> 0", name="ck_stamp_events_delta"),
+        CheckConstraint("reason IN ('order', 'refund', 'manual', 'reward')",
+                        name="ck_stamp_events_reason"),
+        Index("uq_stamp_events_order_reason", "order_id", "reason", unique=True,
+              postgresql_where=text("order_id IS NOT NULL")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(ForeignKey("shops.site_key"), nullable=False)
+    customer_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("customers.id", ondelete="CASCADE"),
+                                             nullable=False)
+    order_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("orders.id", ondelete="SET NULL"))
+    delta: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)  # order·refund·manual·reward
+    coupon_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("coupons.id", ondelete="SET NULL"))
+    by_user_id: Mapped[Optional[str]] = mapped_column(Text)
+    created_at: Mapped[datetime.datetime] = _now_col()
