@@ -225,3 +225,11 @@ def test_builder_feature_records_chip_id(client, monkeypatch):
     feats = [p for e, p in seen if e == "builder_feature"]
     assert feats == [{"kind": "section", "ref": "space", "choice": "on"},
                      {"kind": "notice", "ref": "notice", "choice": "on"}]
+
+
+def test_app_shell_pages_are_no_cache(client):
+    """랜딩·빌더 화면 틀은 no-cache — 추측 캐시로 새 빌드 뒤에도 옛 화면이 보이던 것 (10/1)."""
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    r = client.get("/start")
+    if r.status_code == 200:
+        assert r.headers["cache-control"] == "no-cache"
