@@ -48,6 +48,8 @@ export interface BuilderControl {
   setVariant: (v: string) => void;
 }
 
+const DEVICE_KEY = 'agt001_preview_device';
+
 export default function SiteEditor({
   roomId,
   card,
@@ -71,6 +73,22 @@ export default function SiteEditor({
   const [failed, setFailed] = useState<'no-design' | 'error' | null>(null);
   const [loading, setLoading] = useState(true);
   const [pick, setPick] = useState<PickState>({ id: null, text: '', photo: null });
+  // 넓은 화면에서 미리보기 폭: 휴대폰(390px) 또는 데스크톱(가득). 사이트는 반응형이라 폭만 바꾸면 된다.
+  const [device, setDevice] = useState<'mobile' | 'desktop'>(() => {
+    try {
+      return localStorage.getItem(DEVICE_KEY) === 'desktop' ? 'desktop' : 'mobile';
+    } catch {
+      return 'mobile';
+    }
+  });
+  function pickDevice(next: 'mobile' | 'desktop') {
+    setDevice(next);
+    try {
+      localStorage.setItem(DEVICE_KEY, next);
+    } catch {
+      /* 저장이 막혀도 이번 화면에선 바뀐다 */
+    }
+  }
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const pendingScroll = useRef<string | null>(null);
   const pendingFlash = useRef<string | null>(null);
@@ -197,15 +215,25 @@ export default function SiteEditor({
       {legacy ? <p role="status">이 시안은 구역 편집이 안 돼요.</p> : null}
 
       {!loading && !failed && preview && !legacy ? (
-        <div className="ed-site-body">
-          <iframe
-            ref={frameRef}
-            className="ed-site-frame"
-            title="사이트 미리보기"
-            sandbox="allow-scripts"
-            srcDoc={preview.html}
-            onLoad={onFrameLoad}
-          />
+        <div className={`ed-site-body${device === 'desktop' ? ' ed-site-body--desktop' : ''}`}>
+          <div className="ed-site-view">
+            <div className="ed-device" role="group" aria-label="미리보기 크기">
+              <button type="button" aria-pressed={device === 'mobile'} onClick={() => pickDevice('mobile')}>
+                휴대폰
+              </button>
+              <button type="button" aria-pressed={device === 'desktop'} onClick={() => pickDevice('desktop')}>
+                데스크톱
+              </button>
+            </div>
+            <iframe
+              ref={frameRef}
+              className="ed-site-frame"
+              title="사이트 미리보기"
+              sandbox="allow-scripts"
+              srcDoc={preview.html}
+              onLoad={onFrameLoad}
+            />
+          </div>
           <SectionPanel
             roomId={roomId}
             card={card}

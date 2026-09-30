@@ -648,11 +648,57 @@
     align-items: start;
   }
 
+  .ed-site-view {
+    position: sticky;
+    top: 12px;
+  }
+
   .ed-site-frame {
     width: 390px;
     height: 78dvh;
-    position: sticky;
-    top: 12px;
+  }
+
+  /* 데스크톱 미리보기: 미리보기를 가득(사이트의 760px 이상 배치), 고치기 칸은 아래로 */
+  .ed-site-body--desktop {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ed-site-body--desktop .ed-site-view {
+    position: static;
+  }
+  .ed-site-body--desktop .ed-site-frame {
+    width: 100%;
+  }
+}
+
+/* 미리보기 크기 고르기: 넓은 화면에서만 (휴대폰은 늘 휴대폰 크기) */
+.ed-device {
+  display: none;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding: 3px;
+  width: fit-content;
+  border: 1px solid var(--ed-line);
+  border-radius: 999px;
+  background: var(--ed-card);
+}
+.ed-device button {
+  min-height: 36px;
+  padding: 6px 16px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ed-primary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ed-device button[aria-pressed='true'] {
+  background: var(--ed-primary);
+  color: var(--ed-on-primary);
+}
+@media (min-width: 760px) {
+  .ed-device {
+    display: flex;
   }
 }
 

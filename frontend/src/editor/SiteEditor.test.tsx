@@ -161,3 +161,21 @@ describe('SiteEditor', () => {
     expect(puts[0]).toMatchObject({ layout: { variant: 'v3', added: ['sign'] } });
   });
 });
+
+describe('SiteEditor 미리보기 크기', () => {
+  it('데스크톱을 누르면 넓게 바뀌고 다음에도 기억한다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      return okJson(CARD);
+    });
+    const { container, unmount } = render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '데스크톱' }));
+    expect(container.querySelector('.ed-site-body--desktop')).not.toBeNull();
+    unmount();
+    const again = render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} />);
+    await screen.findByTitle('사이트 미리보기');
+    expect(again.container.querySelector('.ed-site-body--desktop')).not.toBeNull();
+    expect(screen.getByRole('button', { name: '데스크톱' })).toHaveAttribute('aria-pressed', 'true');
+  });
+});
