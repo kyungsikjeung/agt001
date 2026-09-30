@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { PLACEHOLDERS, TEMPLATES, type Template } from './templates';
 import { logout, me, startLogin, type MeUser } from './auth';
 import { startRoom, track } from './api';
+import { MEMBER_KEY, startBuilder } from './editor/cardApi';
 import { MSG, voiceSupported, useVoiceInput } from './voice';
 import { PHOTOS, photoBg } from './landing/photos';
 import HeroDemo from './landing/HeroDemo';
@@ -117,10 +118,26 @@ export default function Landing() {
     }
   }
 
-  function pick(t: Template) {
-    setText(t.starter);
-    setTemplateId(t.id);
-    inputRef.current?.focus();
+  // 템플릿은 빌더로 시작한다(BUILDER_CONTRACT §4). 실패하면 예시 문장을 채운다.
+  async function startFromTemplate(t: Template) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    track('template_click', t.id);
+    try {
+      const r = await startBuilder(t.id);
+      try {
+        localStorage.setItem(MEMBER_KEY, r.member_id);
+      } catch {
+        // 저장소를 못 써도 이동은 한다.
+      }
+      location.href = r.builder_url;
+    } catch {
+      setText(t.starter);
+      setTemplateId(t.id);
+      setBusy(false);
+      inputRef.current?.focus();
+    }
   }
 
   function onLogin(provider: 'kakao' | 'google') {
@@ -285,7 +302,7 @@ export default function Landing() {
                     type="button"
                     role="listitem"
                     className={`chip${templateId === t.id ? ' on' : ''}`}
-                    onClick={() => pick(t)}
+                    onClick={() => void startFromTemplate(t)}
                   >
                     {t.name}
                   </button>
@@ -336,7 +353,7 @@ export default function Landing() {
                 type="button"
                 className="card lp-tcard lp-reveal"
                 style={{ '--d': `${Math.min(i, 5) * 0.07}s` } as CSSProperties}
-                onClick={() => submit(t.starter, t.id)}
+                onClick={() => void startFromTemplate(t)}
                 disabled={busy}
               >
                 <MiniSite t={t} />

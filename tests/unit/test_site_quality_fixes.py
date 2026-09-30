@@ -179,3 +179,24 @@ def test_프로브_사진위글자_보류():
     """첫 화면 사진 위 글자는 대비 실패가 아니라 보류(photoBacked)로 센다."""
     assert "photoBacked" in _PROBE
     assert ".s-hero--photo-overlay .s-hero__body" in _PROBE
+
+
+def test_actionbar_promotes_phone_when_primary_section_missing():
+    """주 버튼('길찾기')의 구역이 빠져도 행동 바를 통째로 빼지 않고 전화를 주 버튼으로
+    (주소 없는 가게·빌더에서 '오시는 길'을 숨긴 경우 — 전엔 공개 사이트에 전화 링크가 없었다)."""
+    import re
+    from app.services import design_variants as DV
+    from app.services import prd_engine as E
+    from app.services import prd_schema as S
+    from app.services.site_render import render_site
+    card = E.new_card("cafe")
+    E._put(card, "shop_name", "모퉁이커피", S.FILLED, 1)
+    E._put(card, "phone", "02-123-4567", S.FILLED, 1)
+    card["turn"] = 1
+    card["layout_edits"] = {"v1": {"hidden": ["around"]}}  # 빌더 처음 모양처럼 '오시는 길'을 숨김
+    spec = DV.variants(card)[0]["spec"]
+    doc = render_site(spec, site_key="x", title="모퉁이커피", kind="cafe", public=True)
+    ids = set(re.findall(r'id="([^"]+)"', doc))
+    assert "around-title-around" not in ids  # '오시는 길'이 빠진 공개본
+    bar = re.search(r'<nav class="s-actionbar".*?</nav>', doc, re.S)
+    assert bar and "tel:021234567" in bar.group(0) and "#around-title-around" not in bar.group(0)

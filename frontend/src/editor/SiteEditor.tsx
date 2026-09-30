@@ -17,14 +17,28 @@ interface AgtEditMessage {
   text?: unknown;
 }
 
+/** 빌더 화면이 미리보기를 다루는 손잡이 (BUILDER_CONTRACT §3).
+ * reload는 미리보기를 다시 그리고 다 그린 뒤 focus 구역으로 스크롤·반짝한다. */
+export interface BuilderControl {
+  reload: (focus?: string | null) => void;
+  flash: (section: string) => void;
+  setVariant: (v: string) => void;
+}
+
 export default function SiteEditor({
   roomId,
   card,
   onSaved,
+  builderMode,
+  controlRef,
 }: {
   roomId: string;
   card: RoomCard;
   onSaved: (c: RoomCard) => void;
+  /** 빌더 모드면 구역 목록 대신 칩을 쓰므로 목록은 접는다(builder.css). */
+  builderMode?: boolean;
+  /** 부모가 미리보기를 다시 그리게 하는 손잡이. */
+  controlRef?: { current: BuilderControl | null };
 }) {
   const [variant, setVariant] = useState(() => startVariant(card.choice));
   const [preview, setPreview] = useState<CardPreview | null>(null);
@@ -33,6 +47,9 @@ export default function SiteEditor({
   const [pick, setPick] = useState<{ id: string | null; text: string }>({ id: null, text: '' });
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const pendingScroll = useRef<string | null>(null);
+  const pendingFlash = useRef<string | null>(null);
+  const variantRef = useRef(variant);
+  variantRef.current = variant;
 
   const load = useCallback(
     async (v: string) => {
@@ -55,6 +72,37 @@ export default function SiteEditor({
     setPick({ id: null, text: '' });
     void load(variant);
   }, [load, variant]);
+
+  // iframe에 메시지를 보낸다. 아직 안 떴으면 건너뛴다.
+  function postToFrame(msg: { type: string; section: string }) {
+    try {
+      frameRef.current?.contentWindow?.postMessage(msg, '*');
+    } catch {
+      // iframe이 아직 안 떴으면 스크롤·반짝을 건너뛴다.
+    }
+  }
+
+  // 빌더 부모용 손잡이. variant는 ref로 읽어 오래된 값을 쓰지 않는다.
+  useEffect(() => {
+    if (!controlRef) return;
+    controlRef.current = {
+      reload: (focus) => {
+        pendingScroll.current = focus ?? null;
+        pendingFlash.current = focus ?? null;
+        void load(variantRef.current);
+      },
+      flash: (section) => {
+        postToFrame({ type: 'agt-scroll', section });
+        postToFrame({ type: 'agt-flash', section });
+      },
+      setVariant: (v) => {
+        if (v === 'v1' || v === 'v2' || v === 'v3') setVariant(v);
+      },
+    };
+    return () => {
+      controlRef.current = null;
+    };
+  }, [controlRef, load]);
 
   // iframe 알림만 받는다. 출처가 다르면 무시한다.
   useEffect(() => {
@@ -79,19 +127,17 @@ export default function SiteEditor({
 
   function onFrameLoad() {
     const section = pendingScroll.current;
-    if (!section) return;
     pendingScroll.current = null;
-    try {
-      frameRef.current?.contentWindow?.postMessage({ type: 'agt-scroll', section }, '*');
-    } catch {
-      // iframe이 아직 안 떴으면 스크롤을 건너뛴다.
-    }
+    if (section) postToFrame({ type: 'agt-scroll', section });
+    const flash = pendingFlash.current;
+    pendingFlash.current = null;
+    if (flash) postToFrame({ type: 'agt-flash', section: flash });
   }
 
   const legacy = !loading && !failed && preview && preview.sections.length === 0;
 
   return (
-    <div className="ed-site">
+    <div className={builderMode ? 'ed-site ed-site--builder' : 'ed-site'}>
       <div className="ed-site-bar" role="group" aria-label="시안 고르기">
         {VARIANTS.map((v, i) => (
           <button

@@ -169,7 +169,9 @@ def test_order_soon_sheet_targets_and_safe_return():
 def test_actionbar_needs_existing_target():
     bar = {"primary": {"label": "예약하기", "href": "#booking-title-booking"}, "secondary": {"label": "전화", "href": "tel:02-1-2"}}
     assert 's-actionbar' in _page([_slots()], actionbar=bar)
-    assert 'class="s-actionbar"' not in _page([_map("주소")], actionbar=bar)     # 예약 섹션이 없으면 그리지 않는다
+    no_booking = _page([_map("주소")], actionbar=bar)
+    # 예약 섹션이 없으면 예약 버튼(죽은 링크)은 그리지 않고, 전화를 주 버튼으로 올린다 (전엔 바를 통째로 빼 전화도 사라졌다)
+    assert "#booking-title-booking" not in no_booking and 'href="tel:0212"' in no_booking
     assert 'href="tel:0212"' in _page([_slots()], actionbar=bar)
 
 

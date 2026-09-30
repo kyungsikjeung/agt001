@@ -1,5 +1,5 @@
 """직접 편집 (contracts/ROOM_FEATURES_API.md §5, D27: 내용은 직접, 구조는 채팅)."""
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -47,6 +47,7 @@ class CardIn(BaseModel):
     notice: Optional[NoticeIn] = None  # 공지 띠·팝업 (D56). 빈 글이면 공지를 끈다
     items: list[ItemIn] = Field(default=[], max_length=30)  # 한 요청에 최대 30줄
     layout: Optional[LayoutIn] = None
+    choice: Optional[Literal["v1", "v2", "v3"]] = None  # 빌더 모양 바꾸기 (B1)
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -269,13 +270,7 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                 prd_engine._put(card, key, value, S.FILLED, turn, "editor")
             changed.append(key)
         if body.notice is not None:
-            text = body.notice.text.strip()[:200]
-            new = {"text": text, "popup": bool(body.notice.popup and text)} if text else None
-            if new != card.get("notice"):
-                if new:
-                    card["notice"] = new
-                else:
-                    card.pop("notice", None)
+            if save_notice(card, body.notice.text, body.notice.popup):
                 changed.append("notice")
         if body.items:
             if _apply_items(card, body.items, turn):
@@ -283,33 +278,61 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
         if body.layout is not None:
             if _apply_layout(card, body.layout):
                 changed.append("layout")
-        if changed and card.get("published"):
-            from app.services.publish_check import PublishBlockedError
-            try:
-                design.publish_choice(session["requirement_id"], card, card["published"])
-            except PublishBlockedError as e:
-                raise HTTPException(status_code=400, detail="; ".join(e.reasons))
-        elif changed and session.get("design_url"):
-            # 공개 전 직접 고치기도 시안 그림에 넣는다 (EDIT_PUBLISH_PLAN §4-5, 전엔 카드만 바뀌었다)
-            from app.services import photos
-            rid, req = safe, session["requirement_id"]
-            store.after_commit(lambda: photos._refresh_designs_async(rid, req, "고친 내용을 시안에 넣었어요."))
+        if body.choice is not None:
+            if card.get("design_choice") != body.choice:
+                card["design_choice"] = body.choice
+                changed.append("choice")
         if changed:
             ind = prd_engine.industry_of(card)
             labels = ", ".join(_changed_label(ind, k) for k in changed)
-            rooms._append(room, "system", "시스템", f"직접 편집으로 고쳤어요: {labels}", kind="system")
+            post_change_followup(room, session, safe, changed, f"직접 편집으로 고쳤어요: {labels}")
         return _view(room, session, member_id)
 
 
 def _changed_label(ind, key: str) -> str:
-    """바뀐 칸 이름 (items → 상품 칸 이름, layout → 구역)."""
+    """바뀐 칸 이름 (items → 상품 칸 이름, layout → 구역, choice → 모양)."""
     if key == "notice":
         return "공지"
     if key == "layout":
         return "구역"
+    if key == "choice":
+        return "모양"
     if key == "items":
         return S.label_for(ind, "offerings")
     return S.label_for(ind, key)
+
+
+def save_notice(card: dict, text: str, popup: bool = False) -> bool:
+    """공지 저장 (W2 PUT /card와 빌더 PUT /features가 함께 쓴다). 바뀌면 True."""
+    clean = (text or "").strip()[:200]
+    new = {"text": clean, "popup": bool(popup and clean)} if clean else None
+    if new != card.get("notice"):
+        if new:
+            card["notice"] = new
+        else:
+            card.pop("notice", None)
+        return True
+    return False
+
+
+def post_change_followup(room: dict, session: dict, safe: str, changed: list, message: str) -> None:
+    """바뀐 뒤 후속 (W2 PUT /card와 빌더 PUT /features가 함께 쓴다).
+
+    공개본이 있으면 다시 공개하고, 없으면 시안 파일 뒤에서 갱신한 뒤 시스템 메시지 한 줄."""
+    card = session.get("prd") or {}
+    if changed and card.get("published"):
+        from app.services.publish_check import PublishBlockedError
+        try:
+            design.publish_choice(session["requirement_id"], card, card["published"])
+        except PublishBlockedError as e:
+            raise HTTPException(status_code=400, detail="; ".join(e.reasons))
+    elif changed and session.get("design_url"):
+        # 공개 전 직접 고치기도 시안 그림에 넣는다 (EDIT_PUBLISH_PLAN §4-5, 전엔 카드만 바뀌었다)
+        from app.services import photos
+        rid, req = safe, session["requirement_id"]
+        store.after_commit(lambda: photos._refresh_designs_async(rid, req, "고친 내용을 시안에 넣었어요."))
+    if changed:
+        rooms._append(room, "system", "시스템", message, kind="system")
 
 
 @router.get("/api/rooms/{room_id}/card/preview")

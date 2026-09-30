@@ -89,10 +89,11 @@ export interface CardLayoutEdit {
   reset?: boolean;
 }
 
-/** PUT /card에 fields·notice 말고 더 보낼 것. */
+/** PUT /card에 fields·notice 말고 더 보낼 것. choice는 고른 안 바꾸기(빌더 "모양 바꾸기"). */
 export interface CardSaveExtra {
   items?: CardItemEdit[];
   layout?: CardLayoutEdit;
+  choice?: string;
 }
 
 export const MEMBER_KEY = 'agt001_member_id';
@@ -156,6 +157,7 @@ export async function saveCard(
   if (notice) body.notice = notice;
   if (extra?.items) body.items = extra.items;
   if (extra?.layout) body.layout = extra.layout;
+  if (extra?.choice) body.choice = extra.choice;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',
@@ -187,6 +189,117 @@ export async function getPreview(
   if (!data || typeof data.html !== 'string' || !Array.isArray(data.sections)) {
     throw new Error('미리보기 모양이 맞지 않아요.');
   }
+  return data;
+}
+
+/** 빌더 시작 응답 (BUILDER_CONTRACT §2.1). member_id는 방장 신분이다. */
+export interface BuilderStart {
+  room_id: string;
+  member_id: string;
+  builder_url: string;
+}
+
+/** 템플릿으로 빌더 방을 연다. 실패하면 예외를 던진다. */
+export async function startBuilder(template: string): Promise<BuilderStart> {
+  const res = await fetch('/api/start', {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ template }),
+  });
+  if (!res.ok) throw new Error(`시작하지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as BuilderStart;
+  if (!data || typeof data.room_id !== 'string' || typeof data.member_id !== 'string' || typeof data.builder_url !== 'string') {
+    throw new Error('시작 모양이 맞지 않아요.');
+  }
+  return data;
+}
+
+/** 기능 칩 1개 (BUILDER_CONTRACT §2.2). hero·inquiry는 목록에 없다(항상 켜짐). */
+export interface FeatureChip {
+  key: string;
+  label: string;
+  kind: 'section' | 'shop';
+  on: boolean;
+  locked?: boolean;
+  needs_text?: boolean;
+  after_publish?: boolean;
+}
+
+/** GET features 응답 (BUILDER_CONTRACT §2.2). */
+export interface FeatureList {
+  variant: string;
+  features: FeatureChip[];
+}
+
+/** 기능 칩 목록을 불러온다. 실패하면 예외를 던진다. */
+export async function getFeatures(roomId: string, memberId: string | null): Promise<FeatureList> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/features`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`기능을 불러오지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as FeatureList;
+  if (!data || !Array.isArray(data.features)) throw new Error('기능 모양이 맞지 않아요.');
+  return data;
+}
+
+/** PUT features 응답 (BUILDER_CONTRACT §2.3). focus는 새로 보인 구역 id(끄면 null). */
+export interface FeatureUpdate {
+  features: FeatureChip[];
+  focus: string | null;
+}
+
+/** 기능 칩을 켜고 끈다. 공지는 text(1~200자)와 함께 켠다. */
+export async function putFeature(
+  roomId: string,
+  memberId: string | null,
+  key: string,
+  on: boolean,
+  text?: string,
+): Promise<FeatureUpdate> {
+  const body: Record<string, unknown> = { key, on };
+  if (text !== undefined) body.text = text;
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/features`, {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = new Error(`바꾸지 못했습니다 (${res.status})`) as Error & { status: number };
+    err.status = res.status;
+    throw err;
+  }
+  const data = (await res.json()) as FeatureUpdate;
+  if (!data || !Array.isArray(data.features)) throw new Error('기능 모양이 맞지 않아요.');
+  return data;
+}
+
+/** 공개 결과 (BUILDER_CONTRACT §2.5). ok면 site_url, 아니면 need별 안내. */
+export interface PublishResult {
+  ok?: boolean;
+  site_url?: string;
+  need?: 'login' | 'confirm' | 'blocked';
+  message?: string;
+  login_urls?: string[];
+}
+
+/** 빌더에서 공개한다. force는 빈칸 확인 뒤 "그대로 공개"가 쓴다. */
+export async function publishRoom(
+  roomId: string,
+  memberId: string | null,
+  force: boolean,
+): Promise<PublishResult> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/publish`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
+    body: JSON.stringify({ force }),
+  });
+  if (!res.ok) throw new Error(`공개하지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as PublishResult;
+  if (!data || (data.ok !== true && typeof data.need !== 'string')) throw new Error('공개 모양이 맞지 않아요.');
   return data;
 }
 

@@ -47,6 +47,15 @@ def editor():
     return FileResponse(page)
 
 
+@router.get("/start", include_in_schema=False)
+def builder():
+    # 빌더 화면(BUILDER_CONTRACT §2.6). 빌드 전에는 404.
+    page = settings.frontend_dist_dir / "builder.html"
+    if not page.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(page)
+
+
 @router.get("/projects", include_in_schema=False)
 def projects_page():
     # 내 프로젝트(1-1b): 이 기기에서 연 방 + 로그인하면 계정에 옮긴 방.

@@ -209,12 +209,18 @@ _DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 채팅�
                '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
 
 # 보며 고치기 미리보기 (EDIT_WAVE2_CONTRACT §3.3). 구역 뿌리의 data-section-id로만 구역을 알아낸다.
+# agt-flash는 빌더가 칩으로 켠 구역으로 눈을 이끄는 1초 반짝임 (BUILDER_CONTRACT §3-4).
 _EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
-               '[data-section-id]:hover{outline:2px dashed var(--c-primary);outline-offset:-2px}</style>')
+               '[data-section-id]:hover{outline:2px dashed var(--c-primary);outline-offset:-2px}'
+               '.agt-flash{outline:2px solid var(--c-primary);outline-offset:-2px;'
+               'animation:agt-flash 1s ease}'
+               '@keyframes agt-flash{0%{background:color-mix(in srgb,var(--c-primary) 25%,transparent)}'
+               '100%{background:transparent}}'
+               '@media (prefers-reduced-motion: reduce){.agt-flash{animation:none}}</style>')
 _EDIT_SCRIPT = """<script>(function(){try{
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-section-id]'):null;if(!t){e.preventDefault();return;}var el=e.target;var txt='';try{txt=((el.innerText||el.alt)||'').trim().slice(0,80)}catch(_){}try{parent.postMessage({type:'agt-edit',section:t.getAttribute('data-section-id'),text:txt,img:el.tagName==='IMG'},'*')}catch(_){}e.preventDefault();},true);
 document.addEventListener('submit',function(e){e.preventDefault();},true);
-window.addEventListener('message',function(e){try{var d=e.data;if(!d||d.type!=='agt-scroll'||!d.section)return;var q=document.querySelector('[data-section-id="'+d.section+'"]');if(q&&q.scrollIntoView)q.scrollIntoView()}catch(_){}});
+window.addEventListener('message',function(e){try{var d=e.data;if(!d||!d.section)return;var q=document.querySelector('[data-section-id="'+d.section+'"]');if(!q)return;if(d.type==='agt-scroll'){if(q.scrollIntoView)q.scrollIntoView()}else if(d.type==='agt-flash'){q.classList.add('agt-flash');setTimeout(function(){q.classList.remove('agt-flash')},1000)}}catch(_){}});
 }catch(e){}})();</script>"""
 
 
@@ -1454,6 +1460,12 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         label, href = _cta_pair(bar.get("primary"))
         label2, href2 = _cta_pair(bar.get("secondary"))
         ok = (lambda h: bool(h) and (not h.startswith("#") or h[1:] in body_ids))
+        if not (label and ok(href)):
+            # 주 버튼 구역이 빠졌으면(주소 없는 가게·빌더에서 숨긴 '오시는 길') 전화→문의로 올린다.
+            # 전엔 행동 바가 통째로 빠져 공개 사이트에 전화 링크가 하나도 없을 수 있었다.
+            label, href = _cta_fallback(bar, body_ids)
+            if href == href2:
+                label2, href2 = "", ""
         if label and ok(href):
             rendered_parts.append(chevron.render(bundle["templates"]["actionbar--sticky"], _safe({
                 "primary_label": label, "primary_href": href,
