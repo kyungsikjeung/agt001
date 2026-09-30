@@ -345,6 +345,33 @@ def test_영상카드_비면숨김_최대3개():
     assert "DDD444DDD44" not in out
 
 
+def test_edit_mode_relay_and_body_flag():
+    """테스트 5: edit=True에 data-edit-mode·agt-edit, public 출력엔 둘 다 없음, 둘 다 True는 ValueError."""
+    spec = _load_sample("cafe")
+    edit = render_site(spec, kind="cafe", edit=True)
+    assert "<body data-edit-mode>" in edit
+    assert "agt-edit" in edit
+    assert "agt-scroll" in edit and "scrollIntoView" in edit
+    assert "[data-section-id]" in edit
+    assert edit.index("agt-edit") < edit.index("</body>")
+    assert "allow-same-origin" not in edit
+    public = render_site(spec, kind="cafe", public=True)
+    assert public.count("data-edit-mode") == 0 and public.count("agt-edit") == 0
+    with pytest.raises(ValueError):
+        render_site(spec, kind="cafe", edit=True, public=True)
+
+
+def test_edit_mode_hides_notice_popup_keeps_band():
+    """edit 모드에서 공지 팝업은 빼고 띠는 둔다."""
+    spec = _load_sample("cafe")
+    spec["notice"] = {"text": "10월 3일은 쉬어요", "popup": True}
+    plain = render_site(spec, kind="cafe")
+    assert 'id="s-popup"' in plain and "s-notice" in plain
+    edit = render_site(spec, kind="cafe", edit=True)
+    assert "s-notice" in edit and "10월 3일은 쉬어요" in edit
+    assert 'id="s-popup"' not in edit
+
+
 def test_public_quality_fixes_2026_09_26():
     """사이트 품질 점검(docs/product/evals/site-quality-2026-09-26.md) Q-2~Q-5 회귀 방지."""
     # Q-4: 예약 주소 없이 전화만 있는 cta--external은 공개본에서 뺀다(제목만 남던 문제)

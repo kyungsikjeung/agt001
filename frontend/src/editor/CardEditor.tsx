@@ -3,6 +3,7 @@
 // D23 자리 표시는 "입력 필요" 배지, D24 사실 확인은 "확인 대기" 배지와 사실 표시로 보여준다.
 import { useEffect, useMemo, useState } from 'react';
 import { fetchCard, readMemberId, saveCard, statusLabel, type RoomCard } from './cardApi';
+import SiteEditor from './SiteEditor';
 
 /** 공지 띠·팝업 (D56): 사이트 맨 위 한 줄, 켜면 들어올 때 팝업(닫기)도. */
 function NoticeBox({ roomId, card, onSaved }: { roomId: string; card: RoomCard; onSaved: (c: RoomCard) => void }) {
@@ -50,6 +51,7 @@ export default function CardEditor({ roomId }: CardEditorProps) {
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [confirmEmpty, setConfirmEmpty] = useState<string[] | null>(null);
+  const [tab, setTab] = useState<'form' | 'site'>('form');
 
   useEffect(() => {
     let alive = true;
@@ -161,6 +163,32 @@ export default function CardEditor({ roomId }: CardEditorProps) {
         {readonly ? <p className="ed-banner">방장만 고칠 수 있어요. 내용은 볼 수 있어요.</p> : null}
       </header>
 
+      <div className="ed-tabs" role="tablist" aria-label="편집 방식">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'form'}
+          aria-pressed={tab === 'form'}
+          className="ed-btn"
+          onClick={() => setTab('form')}
+        >
+          칸으로 고치기
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'site'}
+          aria-pressed={tab === 'site'}
+          className="ed-btn"
+          onClick={() => setTab('site')}
+        >
+          보며 고치기
+        </button>
+      </div>
+
+      {tab === 'site' ? (
+        <SiteEditor roomId={roomId} card={card} onSaved={setCard} />
+      ) : (
       <main className="ed-main">
         {notice ? (
           <p className={notice.kind === 'success' ? 'ed-banner-ok' : 'ed-error'} role={notice.kind === 'error' ? 'alert' : 'status'}>
@@ -237,6 +265,7 @@ export default function CardEditor({ roomId }: CardEditorProps) {
           <a href={`/room.html?room=${encodeURIComponent(roomId)}`}>AI에게 부탁하기 — 채팅방으로 이동</a>
         </div>
       </main>
+      )}
 
       {confirmEmpty ? (
         <div className="ed-scrim" onClick={() => setConfirmEmpty(null)}>

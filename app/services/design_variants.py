@@ -12,6 +12,7 @@ from typing import Optional
 from app.config import settings
 from app.services import design_concept as DC
 from app.services import intake
+from app.services import layout_edits as LE
 from app.services import prd_engine as E
 from app.services import prd_schema as S
 
@@ -563,6 +564,7 @@ def _blueprint_variants(card: dict, blueprint: dict, archetype: str) -> list[dic
     used: list = []
     for pos, strategy in enumerate(blueprint.get("strategies") or []):
         spec = SD.skeleton(blueprint, pos)
+        spec = LE.apply(spec, blueprint, pos, (card.get("layout_edits") or {}).get(strategy.get("id") or f"v{pos + 1}"))
         pal = PAL.pick(archetype, pos + 1, mood=mood, used=tuple(used), photo=photo)
         used.append(pal)
         tokens = dict(base_tokens)

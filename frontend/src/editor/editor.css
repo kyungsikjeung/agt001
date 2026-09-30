@@ -473,3 +473,185 @@
 .ed-input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid #d4d4d8; border-radius: 8px; font: inherit; font-size: 16px; box-sizing: border-box; }
 .ed-check { display: flex; align-items: center; gap: 8px; min-height: 44px; font-size: 15px; }
 .ed-check input { width: 20px; height: 20px; }
+
+/* 보며 고치기 (EDIT_WAVE2 물결 2). 휴대폰은 iframe 위·패널 아래, 넓은 화면은 왼쪽 iframe 390px·오른쪽 패널. */
+.ed-tabs {
+  display: flex;
+  gap: 8px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 12px 0;
+}
+
+.ed-tabs .ed-btn {
+  flex: 1;
+}
+
+.ed-site {
+  display: grid;
+  gap: 10px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 8px 12px calc(24px + env(safe-area-inset-bottom, 0px));
+}
+
+.ed-site-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ed-site-bar button {
+  flex: 1;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ed-primary);
+  background: var(--ed-card);
+  color: var(--ed-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ed-site-bar button[aria-pressed='true'] {
+  background: var(--ed-primary);
+  color: var(--ed-on-primary);
+}
+
+.ed-site-body {
+  display: grid;
+  gap: 10px;
+}
+
+.ed-site-frame {
+  width: 100%;
+  height: 60dvh;
+  min-height: 320px;
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.ed-site-panel {
+  background: var(--ed-card);
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+}
+
+.ed-site-panel h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.ed-site-panel h3 {
+  margin: 8px 0 4px;
+  font-size: 15px;
+}
+
+.ed-site-panel p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.ed-site-hint {
+  font-size: 14px;
+  color: var(--ed-note);
+}
+
+.ed-sec-list {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.ed-sec-list button {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--ed-line);
+  background: var(--ed-card);
+  color: var(--ed-ink);
+  font-size: 14px;
+  text-align: left;
+}
+
+.ed-sec-list button[aria-current='true'] {
+  border-color: var(--ed-primary);
+  color: var(--ed-primary);
+  font-weight: 700;
+}
+
+.ed-site-field {
+  display: grid;
+  gap: 6px;
+  margin: 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ed-site-field input[type='file'] {
+  min-height: 44px;
+  font-size: 14px;
+}
+
+.ed-item-list ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.ed-item {
+  border: 1px solid var(--ed-line);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.ed-item > button {
+  width: 100%;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--ed-ink);
+  font-size: 15px;
+  font-weight: 600;
+  text-align: left;
+}
+
+.ed-item-form {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.ed-item-add {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+@media (min-width: 760px) {
+  .ed-site {
+    max-width: 1024px;
+  }
+
+  .ed-site-body {
+    grid-template-columns: 390px 1fr;
+    align-items: start;
+  }
+
+  .ed-site-frame {
+    width: 390px;
+    height: 78dvh;
+    position: sticky;
+    top: 12px;
+  }
+}

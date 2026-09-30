@@ -33,6 +33,66 @@ export interface RoomCard {
   published: string | null;
   site_url: string | null;
   can_edit: boolean;
+  layout?: Record<string, { order?: string[]; hidden?: string[]; added?: string[] }>;
+}
+
+/** 미리보기 구역 1개 (EDIT_WAVE2_CONTRACT §2.1). 숨긴 것까지 순서대로 온다. */
+export interface PreviewSection {
+  id: string;
+  label: string;
+  bind: string;
+  locked: boolean;
+  hidden: boolean;
+}
+
+/** 이 안에 더할 수 있는 구역 (EDIT_WAVE2_CONTRACT §2.1). */
+export interface PreviewAddable {
+  id: string;
+  label: string;
+  bind: string;
+}
+
+/** GET preview 응답 (EDIT_WAVE2_CONTRACT §2.1). */
+export interface CardPreview {
+  variant: string;
+  html: string;
+  sections: PreviewSection[];
+  addable: PreviewAddable[];
+  /** 이 안의 지금 구역 편집 (없으면 빈 객체). 다음 저장이 더한 구역을 잃지 않게 여기서 시작한다. */
+  layout: { order?: string[]; hidden?: string[]; added?: string[] };
+  /** 항목의 지금 가격·설명 */
+  items: PreviewItem[];
+}
+
+export interface PreviewItem {
+  name: string;
+  price: string;
+  note: string;
+}
+
+/** 항목 고치기 1줄 (EDIT_WAVE2_CONTRACT §2.2). */
+export interface CardItemEdit {
+  name: string;
+  rename?: string;
+  price?: string;
+  note?: string;
+  remove?: boolean;
+  add?: boolean;
+}
+
+/** 구역 순서·숨기기·추가 (EDIT_WAVE2_CONTRACT §2.2). */
+export interface CardLayoutEdit {
+  variant: string;
+  order?: string[];
+  hidden?: string[];
+  added?: string[];
+  reset?: boolean;
+}
+
+/** PUT /card에 fields·notice 말고 더 보낼 것. */
+export interface CardSaveExtra {
+  items?: CardItemEdit[];
+  layout?: CardLayoutEdit;
 }
 
 export const MEMBER_KEY = 'agt001_member_id';
@@ -90,15 +150,60 @@ export async function saveCard(
   memberId: string | null,
   fields: Record<string, string>,
   notice?: CardNotice,
+  extra?: CardSaveExtra,
 ): Promise<RoomCard> {
+  const body: Record<string, unknown> = { fields };
+  if (notice) body.notice = notice;
+  if (extra?.items) body.items = extra.items;
+  if (extra?.layout) body.layout = extra.layout;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
-    body: JSON.stringify(notice ? { fields, notice } : { fields }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(`저장하지 못했습니다 (${res.status})`);
   const data = (await res.json()) as RoomCard;
   if (!data || !Array.isArray(data.fields)) throw new Error('카드 모양이 맞지 않아요.');
   return data;
+}
+
+/** 미리보기를 불러온다 (EDIT_WAVE2_CONTRACT §2.1). 실패하면 status를 단 예외를 던진다. */
+export async function getPreview(
+  roomId: string,
+  memberId: string | null,
+  variant: string,
+): Promise<CardPreview> {
+  const res = await fetch(
+    `/api/rooms/${encodeURIComponent(roomId)}/card/preview?variant=${encodeURIComponent(variant)}`,
+    { credentials: 'same-origin', headers: memberHeaders(memberId) },
+  );
+  if (!res.ok) {
+    const err = new Error(`미리보기를 불러오지 못했습니다 (${res.status})`) as Error & { status: number };
+    err.status = res.status;
+    throw err;
+  }
+  const data = (await res.json()) as CardPreview;
+  if (!data || typeof data.html !== 'string' || !Array.isArray(data.sections)) {
+    throw new Error('미리보기 모양이 맞지 않아요.');
+  }
+  return data;
+}
+
+/** 사진을 올린다. 채팅방과 같은 호출(POST /room/{id}/photos, FormData file+tag). */
+export async function uploadPhoto(
+  roomId: string,
+  memberId: string | null,
+  file: File,
+  tag?: string,
+): Promise<void> {
+  const form = new FormData();
+  form.append('file', file);
+  if (tag) form.append('tag', tag);
+  const res = await fetch(`/room/${encodeURIComponent(roomId)}/photos`, {
+    method: 'POST',
+    headers: memberHeaders(memberId),
+    body: form,
+  });
+  if (!res.ok) throw new Error(`사진을 올리지 못했습니다 (${res.status})`);
 }

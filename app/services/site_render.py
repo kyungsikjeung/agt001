@@ -208,6 +208,15 @@ def _safe(value):
 _DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 채팅방에서 가게 사진을 올리면 바로 바뀌어요.</p>'
                '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
 
+# 보며 고치기 미리보기 (EDIT_WAVE2_CONTRACT §3.3). 구역 뿌리의 data-section-id로만 구역을 알아낸다.
+_EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
+               '[data-section-id]:hover{outline:2px dashed var(--c-primary);outline-offset:-2px}</style>')
+_EDIT_SCRIPT = """<script>(function(){try{
+document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-section-id]'):null;if(!t){e.preventDefault();return;}var el=e.target;var txt='';try{txt=((el.innerText||el.alt)||'').trim().slice(0,80)}catch(_){}try{parent.postMessage({type:'agt-edit',section:t.getAttribute('data-section-id'),text:txt,img:el.tagName==='IMG'},'*')}catch(_){}e.preventDefault();},true);
+document.addEventListener('submit',function(e){e.preventDefault();},true);
+window.addEventListener('message',function(e){try{var d=e.data;if(!d||d.type!=='agt-scroll'||!d.section)return;var q=document.querySelector('[data-section-id="'+d.section+'"]');if(q&&q.scrollIntoView)q.scrollIntoView()}catch(_){}});
+}catch(e){}})();</script>"""
+
 
 def _og_tags(sections: list, site_key: str, page_title: str) -> list:
     """카톡·문자에 주소를 붙이면 뜨는 미리보기 (디자인 품질 7번, EDIT_PUBLISH_PLAN §5-1).
@@ -1257,7 +1266,8 @@ def _apply_tone(part: str, section: dict) -> str:
 
 
 def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
-                title: str = "", kind: str = "other", public: bool = False) -> str:
+                title: str = "", kind: str = "other", public: bool = False,
+                edit: bool = False) -> str:
     """명세를 완전한 HTML 문서 한 장으로 렌더한다.
 
     kind는 업종 키 10종 중 하나 (모르면 other). 사진이 비었을 때
@@ -1267,7 +1277,10 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
     public=True(공개 사이트): 방문자에게 [… 입력] 빈칸을 보이지 않는다. 빈 부품은 빼고,
     빈 줄은 CSS로 숨기며, 빈 가격은 "가격 문의"로 보인다. 시안(public=False)에서는 사장님이 채울 곳이 보인다.
     공개본에만 객실 요금표 다시 계산용 인라인 스크립트 하나를 넣는다 (BETA_FLOW §2.5).
+    edit=True(보며 고치기 미리보기): 구역 누름 알림 스크립트와 data-edit-mode를 넣는다. public과 함께 못 쓴다.
     """
+    if edit and public:
+        raise ValueError("edit와 public은 함께 쓸 수 없음")
     if not isinstance(spec, dict):
         raise SiteSpecError("명세는 dict 형태여야 함")
     bundle = _bundle()
@@ -1355,7 +1368,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         # 공지 띠는 맨 위(내비 다음). 팝업은 켰을 때만, 스크립트가 없으면 띠만 보인다.
         at = 1 if rendered_parts and rendered_parts[0].lstrip().startswith('<nav class="s-navbar"') else 0
         rendered_parts.insert(at, f'<p class="s-notice" role="note"><strong>공지</strong> {html.escape(notice_text.strip())}</p>')
-        if notice.get("popup") is True:
+        if notice.get("popup") is True and not edit:
             rendered_parts.append(_notice_popup(notice_text.strip()))
     app_layout = spec.get("layout") == "app"
     bar = spec.get("actionbar")
@@ -1384,6 +1397,18 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
     if public and need_season_script:
         rendered_parts.append(_SEASON_SCRIPT)
+    if edit:
+        # 공지 팝업은 편집을 가리므로 빼고(띠는 둔다), relay는 </body> 바로 앞.
+        rendered_parts.append(_EDIT_STYLE)
+        rendered_parts.append(_EDIT_SCRIPT)
+    # 공개 사이트에서는 시안용 "예시" 표시도 숨긴다. edit는 테스트용 표지로 data-edit-mode를 단다.
+    if edit:
+        body_open = "<body data-edit-mode>" if not app_layout else '<body data-edit-mode class="is-app">'
+    elif public:
+        body_open = ('<body class="is-public{}"><style>.is-public .s-kicker{{display:none}}</style>').format(
+            " is-app" if app_layout else "")
+    else:
+        body_open = "<body>" if not app_layout else '<body class="is-app">'
     doc = "\n".join([
         "<!doctype html>",
         '<html lang="ko">',
@@ -1400,9 +1425,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         bundle["site_css"],
         "</style>",
         "</head>",
-        # 공개 사이트에서는 시안용 "예시" 표시도 숨긴다
-        ('<body class="is-public{}"><style>.is-public .s-kicker{{display:none}}</style>' if public else '<body{}>').format(
-            (" is-app" if app_layout else "") if public else (' class="is-app"' if app_layout else "")),
+        body_open,
         *([_DRAFT_NOTE] if not public and _has_example_art(rendered_parts) else []),
         *rendered_parts,
         "</body>",
