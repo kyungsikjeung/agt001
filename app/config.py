@@ -71,6 +71,8 @@ class Settings(BaseSettings):
 
     # 카카오·구글 로그인 (1-2). 값은 scripts/set_oauth_secrets.sh로 서버 .env에만 넣는다 (D10).
     kakao_rest_api_key: Optional[str] = None
+    # 공개 사이트·미리보기 지도 JS 키 (MAP_CONTRACT §4, REST 키와 다름, 화면에 그대로 나간다).
+    kakao_js_key: str = "db5e5247ff48a792df0cc393b4453c6d"
     kakao_client_secret: Optional[str] = None
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None

@@ -1,4 +1,7 @@
 """직접 편집 (contracts/ROOM_FEATURES_API.md §5, D27: 내용은 직접, 구조는 채팅)."""
+import threading
+import time
+from collections import deque
 from typing import Literal, Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
@@ -235,6 +238,85 @@ def _member_room(room_id: str, x_member_id: Optional[str], request: Optional[Req
             if row_mid:
                 return safe, row_mid
     raise HTTPException(status_code=404, detail="room not found")
+
+
+# 주소 검색 호출 상한: IP·방당 1분 20번 (stt.py 방식 재사용, IP는 메모리에서만 쓴다)
+GEO_RATE_LIMIT_PER_MIN = 20
+_geo_hits: dict[str, deque] = {}
+_geo_lock = threading.Lock()
+
+
+def _geo_allow(key: str) -> bool:
+    now = time.monotonic()
+    with _geo_lock:
+        q = _geo_hits.setdefault(key, deque())
+        while q and now - q[0] > 60:
+            q.popleft()
+        if len(q) >= GEO_RATE_LIMIT_PER_MIN:
+            return False
+        q.append(now)
+        return True
+
+
+class GeoIn(BaseModel):
+    """주소 저장 (MAP_CONTRACT §1). x는 경도, y는 위도."""
+    road: str = Field(default="", max_length=200)
+    jibun: Optional[str] = Field(default="", max_length=200)
+    detail: Optional[str] = Field(default="", max_length=200)
+    x: float = 0.0
+    y: float = 0.0
+    src: str = "search"
+
+
+@router.get("/api/rooms/{room_id}/geo/search")
+def geo_search(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None),
+               q: Optional[str] = None):
+    """주소 후보 검색 (MAP_CONTRACT §2-3). 방장만, q 1~100자, IP·방당 1분 20번."""
+    from app.services import geo as geo_svc
+
+    safe, member_id = _member_room(room_id, x_member_id, request)
+    room = store.read_room(safe)
+    if rooms.owner_id(room) != member_id:
+        raise HTTPException(status_code=403, detail="owner only")
+    text = (q or "").strip()
+    if not text or len(text) > 100:
+        raise HTTPException(status_code=400, detail="q는 1~100자예요")
+    ip = request.client.host if request.client else "unknown"
+    if not _geo_allow(f"{ip}:{safe}"):
+        raise HTTPException(status_code=429, detail="too many requests")
+    return {"candidates": geo_svc.search(text)}
+
+
+@router.put("/api/rooms/{room_id}/geo")
+def put_geo(room_id: str, body: GeoIn, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """주소 저장 (MAP_CONTRACT §2-4). 방장만, 대한민국 범위 밖이면 400. 응답은 PUT /card와 같은 모양."""
+    from app.services import geo as geo_svc
+
+    safe, member_id = _member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        road = (body.road or "").strip()
+        if not road:
+            raise HTTPException(status_code=400, detail="road가 비었어요")
+        if not (geo_svc.X_MIN <= body.x <= geo_svc.X_MAX and geo_svc.Y_MIN <= body.y <= geo_svc.Y_MAX):
+            raise HTTPException(status_code=400, detail="우리나라 범위를 벗어났어요")
+        if body.src not in ("search", "postcode", "placeholder"):
+            raise HTTPException(status_code=400, detail="src가 이상해요")
+        card = session.get("prd")
+        if card is None:
+            card = session["prd"] = prd_engine.new_card()
+        turn = card.get("turn", 0)
+        detail = (body.detail or "").strip()
+        card["location_geo"] = {"road": road, "jibun": (body.jibun or "").strip(),
+                                "detail": detail, "x": float(body.x), "y": float(body.y), "src": body.src}
+        text = f"{road} {detail}".strip()[:200]
+        status = S.PLACEHOLDER if body.src == "placeholder" else S.FILLED
+        prd_engine._put(card, "location", text, status, turn, "editor")
+        ind = prd_engine.industry_of(card)
+        post_change_followup(room, session, safe, ["location"],
+                             f"직접 편집으로 고쳤어요: {_changed_label(ind, 'location')}")
+        return _view(room, session, member_id)
 
 
 @router.get("/api/rooms/{room_id}/card")

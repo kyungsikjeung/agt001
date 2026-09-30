@@ -320,6 +320,25 @@
   /* 답장 강조: 챙길 곳은 빨간 굵은 글씨, 흐름의 핵심 낱말(시안·공개)은 굵은 강조색 */
   .t-warn { color: var(--warn); font-weight: 700; }
   .t-key { color: var(--accent-dark); font-weight: 800; }
+  /* 요약 주소 줄 옆 단추 + 주소 검색 시트 (MAP_CONTRACT §3) */
+  .addr-search-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  .addr-search-btn[hidden] { display: none; }
+  #addrSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 28; display: flex; align-items: flex-end; justify-content: center; }
+  #addrSheetWrap[hidden] { display: none; }
+  #addrSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 88dvh; overflow-y: auto; }
+  #addrSheet h2 { margin: 0; font-size: 1rem; }
+  #addrPost { min-height: 200px; }
+  #addrPicked { margin: 0; font-size: 0.875rem; font-weight: 600; }
+  #addrPicked[hidden] { display: none; }
+  #addrDetailLabel { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; font-weight: 600; }
+  #addrDetailLabel[hidden] { display: none; }
+  #addrDetail { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 0.9375rem; }
+  #addrSheetRow { display: flex; gap: 8px; }
+  #addrSave { flex: 1; min-height: 44px; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; font-weight: 600; cursor: pointer; }
+  #addrSave[hidden] { display: none; }
+  #addrClose { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-weight: 600; cursor: pointer; }
+  #addrMsg { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
+  #addrMsg:empty { display: none; }
 </style>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -393,6 +412,19 @@
         <a id="designSheetOpen" href="#" target="_blank" rel="noopener">새 탭으로 열기</a>
       </div>
       <button id="designSheetClose" type="button">닫기</button>
+    </div>
+  </div>
+  <div id="addrSheetWrap" hidden>
+    <div id="addrSheet" role="dialog" aria-modal="true" aria-labelledby="addrSheetTitle">
+      <h2 id="addrSheetTitle">주소 검색</h2>
+      <div id="addrPost"></div>
+      <p id="addrPicked" hidden></p>
+      <label id="addrDetailLabel" for="addrDetail" hidden>상세 주소(층·호)<input id="addrDetail" type="text" maxlength="100" placeholder="예: 2층 201호" autocomplete="off"></label>
+      <div id="addrSheetRow">
+        <button id="addrSave" type="button" hidden>저장</button>
+        <button id="addrClose" type="button">닫기</button>
+      </div>
+      <p id="addrMsg" role="status"></p>
     </div>
   </div>
   <div id="inviteDialogWrap" hidden>
@@ -816,6 +848,133 @@ function buildSiteShare(bubble, url) {
   bubble.appendChild(row);
 }
 
+// 주소 검색 (MAP_CONTRACT §3). 우편번호 스크립트는 단추를 누를 때만 한 번 받는다.
+// 가게 이름·전화는 어디에도 보내지 않는다. 저장 뒤 요약을 다시 받는다(pollMessages).
+let addrRoad = '';
+let addrJibun = '';
+let addrSheetReturnFocus = null;
+function loadPostcodeOnce() {
+  let tag = document.querySelector('script[src*="postcode.v2.js"]');
+  if (!tag) {
+    tag = document.createElement('script');
+    tag.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    tag.async = true;
+    document.head.appendChild(tag);
+  }
+  if (window.daum && window.daum.Postcode) return Promise.resolve();
+  const el = tag;
+  return new Promise((resolve) => {
+    el.addEventListener('load', () => resolve(), { once: true });
+    el.addEventListener('error', () => resolve(), { once: true });
+  });
+}
+function setAddrMsg(t) {
+  const m = document.getElementById('addrMsg');
+  if (m) m.textContent = t || '';
+}
+function openAddrSheet() {
+  const wrap = document.getElementById('addrSheetWrap');
+  if (!wrap) return;
+  addrSheetReturnFocus = document.activeElement;
+  wrap.hidden = false;
+  setAddrMsg('');
+  const closeBtn = document.getElementById('addrClose');
+  if (closeBtn) closeBtn.focus();
+  loadPostcodeOnce().then(() => {
+    if (wrap.hidden) return;
+    const box = document.getElementById('addrPost');
+    if (!box || !window.daum || !window.daum.Postcode) {
+      setAddrMsg('주소 창을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+      return;
+    }
+    box.replaceChildren();
+    try {
+      new window.daum.Postcode({ oncomplete: onPostcodeComplete }).embed(box);
+    } catch (e) {
+      setAddrMsg('주소 창을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    }
+  });
+}
+function closeAddrSheet() {
+  const wrap = document.getElementById('addrSheetWrap');
+  if (!wrap || wrap.hidden) return;
+  wrap.hidden = true;
+  if (addrSheetReturnFocus && document.contains(addrSheetReturnFocus)) addrSheetReturnFocus.focus();
+  addrSheetReturnFocus = null;
+}
+function onPostcodeComplete(d) {
+  addrRoad = (d && (d.roadAddress || d.jibunAddress || d.address)) || '';  // 지번을 고르면 도로명이 빌 수 있다
+  addrJibun = (d && d.jibunAddress) || '';
+  const p = document.getElementById('addrPicked');
+  if (p) { p.hidden = false; p.textContent = '고른 주소: ' + addrRoad; }
+  const lb = document.getElementById('addrDetailLabel');
+  if (lb) lb.hidden = false;
+  const inp = document.getElementById('addrDetail');
+  if (inp) { inp.value = ''; inp.focus(); }
+  const save = document.getElementById('addrSave');
+  if (save) save.hidden = false;
+}
+async function saveAddrGeo() {
+  const road = (addrRoad || '').trim();
+  if (!road) return;
+  const detailEl = document.getElementById('addrDetail');
+  const detail = detailEl ? detailEl.value.trim() : '';
+  const save = document.getElementById('addrSave');
+  if (save) save.disabled = true;
+  setAddrMsg('저장 중…');
+  try {
+    const res = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/geo/search?q=' + encodeURIComponent(road), {
+      headers: { 'X-Member-Id': memberId },
+    });
+    if (!res.ok) throw new Error('search');
+    const data = await res.json();
+    const cands = (data && data.candidates) || [];
+    if (cands.length && cands[0].x != null && cands[0].y != null) {
+      const put = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/geo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+        body: JSON.stringify({ road: road, jibun: addrJibun, detail: detail, x: cands[0].x, y: cands[0].y, src: 'postcode' }),
+      });
+      if (!put.ok) throw new Error('save');
+      closeAddrSheet();
+      await pollMessages();
+      return;
+    }
+    if (!window.confirm('지도 위치를 찾지 못했어요. 주소만 저장할까요?')) return;
+    const location = detail ? road + ' ' + detail : road;
+    const put = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/card', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ fields: { location: location } }),
+    });
+    if (!put.ok) throw new Error('save');
+    closeAddrSheet();
+    await pollMessages();
+  } catch (e) {
+    setAddrMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+  } finally {
+    if (save) save.disabled = false;
+  }
+}
+// 요약의 주소 줄 옆 단추 (방장만 보인다).
+function maybeAddAddrBtn(bubble, text) {
+  const s = text || '';
+  if (!/주소|위치/.test(s)) return;
+  if (!/이렇게 이해했어요|다시 읽어 보니|빠진 게 있어|요약|정리/.test(s)) return;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'addr-search-btn';
+  b.textContent = '주소 검색';
+  b.hidden = !isOwner();
+  b.onclick = openAddrSheet;
+  bubble.appendChild(b);
+}
+function refreshAddrBtns() {
+  const owner = isOwner();
+  const btns = document.querySelectorAll('.addr-search-btn');
+  for (const b of btns) b.hidden = !owner;
+}
+
 // 예약 말풍선 아래쪽: 방장이면 버튼, 아니면 글자만
 function buildBookingArea(bubble, m) {
   const info = (m && m.booking) || {};
@@ -1062,6 +1221,7 @@ function addMessage(m, isNew) {
       sitePublished = true;
       updateOwnerTools();
     }
+    maybeAddAddrBtn(bubble, m.text);
   }
   row.appendChild(bubble);
   log.appendChild(row);
@@ -2098,6 +2258,7 @@ function updateOwnerTools() {
     editor.hidden = true;
     if (aiBtn) aiBtn.hidden = true;
     if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
+    refreshAddrBtns();
     return;
   }
   if (aiBtn) aiBtn.hidden = false;
@@ -2109,6 +2270,7 @@ function updateOwnerTools() {
     editor.hidden = true;
   }
   if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
+  refreshAddrBtns();
 }
 
 async function checkNotify() {
@@ -2352,6 +2514,8 @@ document.getElementById('ownerConfirmBtn').addEventListener('click', confirmOwne
 document.getElementById('ownerCancelBtn').addEventListener('click', closeOwnerDialog);
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  const addrWrap = document.getElementById('addrSheetWrap');
+  if (addrWrap && !addrWrap.hidden) { closeAddrSheet(); return; }
   const chooser = document.getElementById('photoTagChooser');
   if (chooser) {
     clearPhotoTagChooser();
@@ -2402,6 +2566,16 @@ document.getElementById('designSheetWrap').addEventListener('click', (e) => {
 });
 document.getElementById('designSheetWrap').addEventListener('keydown', (e) => {
   const wrap = document.getElementById('designSheetWrap');
+  trapTab(e, wrap);
+});
+// 주소 검색 시트 닫기 연결 (바깥 누름·Esc·탭 가두기, 저장 뒤 요약을 다시 받는다)
+document.getElementById('addrClose').addEventListener('click', closeAddrSheet);
+document.getElementById('addrSave').addEventListener('click', saveAddrGeo);
+document.getElementById('addrSheetWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'addrSheetWrap') closeAddrSheet();
+});
+document.getElementById('addrSheetWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('addrSheetWrap');
   trapTab(e, wrap);
 });
 document.getElementById('moreLeaveBtn').addEventListener('click', () => { closeMoreSheet(); leaveRoom(); });

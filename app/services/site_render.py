@@ -593,8 +593,27 @@ def _drop_examples(value):
     return value
 
 
-def _map_links(address: str) -> list:
-    """지도 앱 검색 링크 (키 필요 없음, D53②: 지도 그림은 아직 예시)."""
+def _geo_pair(geo) -> tuple | None:
+    """공개 지도 좌표 (MAP_CONTRACT §4). 숫자로 안 읽히면 없음."""
+    if not isinstance(geo, dict):
+        return None
+    try:
+        return (float(geo.get("x")), float(geo.get("y")))
+    except (TypeError, ValueError):
+        return None
+
+
+def _map_links(address: str, geo: tuple | None = None) -> list:
+    """지도 앱 검색 링크 (키 필요 없음, D53②: 지도 그림은 아직 예시).
+
+    좌표가 있으면 카카오맵 크게 보기 깊은 링크 한 개 (MAP_CONTRACT §4).
+    """
+    if geo is not None:
+        x, y = geo
+        # 이름에 쉼표가 있으면 링크 형식(이름,위도,경도)이 깨지므로 통째로 인코딩한다
+        name = quote(address.strip() or "가게", safe="")
+        return [{"label": "카카오맵에서 크게 보기",
+                 "href": f"https://map.kakao.com/link/map/{name},{y},{x}"}]
     if not address.strip():
         return []
     q = quote(address.strip())
@@ -990,7 +1009,14 @@ def _section_context(
         ctx["has_items"] = has_items
         if variant == "map":
             ctx["label"] = _text(content, "label")
-            ctx["links"] = _map_links(ctx["address"])
+            geo = _geo_pair(content.get("geo"))  # site_data가 location_geo에서 채운 좌표
+            if geo is not None:
+                ctx["has_geo"] = True
+                ctx["geo_x"], ctx["geo_y"] = (str(geo[0]), str(geo[1]))
+                ctx["map_key"] = settings.kakao_js_key
+                ctx["links"] = _map_links(ctx["address"], geo)
+            else:
+                ctx["links"] = _map_links(ctx["address"])
             ctx["has_links"] = bool(ctx["links"])
     elif section_type == "contact" and variant == "call-first":
         phone, digits = _phone_pair(content)

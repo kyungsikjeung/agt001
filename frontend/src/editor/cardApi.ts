@@ -369,6 +369,58 @@ export async function uploadPhoto(
   if (!res.ok) throw new Error(`사진을 올리지 못했습니다 (${res.status})`);
 }
 
+/** 주소 후보 1개 (MAP_CONTRACT §1). x는 경도, y는 위도. */
+export interface GeoCandidate {
+  road: string;
+  jibun: string;
+  x: number;
+  y: number;
+}
+
+/** 고른 도로명으로 좌표 후보를 찾는다. 주소 말만 보낸다(이름·전화 금지). */
+export async function geoSearch(
+  roomId: string,
+  memberId: string | null,
+  query: string,
+): Promise<GeoCandidate[]> {
+  const res = await fetch(
+    `/api/rooms/${encodeURIComponent(roomId)}/geo/search?q=${encodeURIComponent(query)}`,
+    { credentials: 'same-origin', headers: memberHeaders(memberId) },
+  );
+  if (!res.ok) throw new Error(`주소를 찾지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as { candidates?: unknown };
+  if (!data || !Array.isArray(data.candidates)) throw new Error('주소 모양이 맞지 않아요.');
+  return data.candidates as GeoCandidate[];
+}
+
+/** 주소 저장 본문 (MAP_CONTRACT §1). */
+export interface GeoSaveBody {
+  road: string;
+  jibun?: string;
+  detail?: string;
+  x?: number;
+  y?: number;
+  src: string;
+}
+
+/** 고른 주소를 저장한다. 답은 PUT /card와 같은 카드다. */
+export async function saveGeo(
+  roomId: string,
+  memberId: string | null,
+  body: GeoSaveBody,
+): Promise<RoomCard> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/geo`, {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`저장하지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as RoomCard;
+  if (!data || !Array.isArray(data.fields)) throw new Error('카드 모양이 맞지 않아요.');
+  return data;
+}
+
 /** 고칠 곳 목록 1개 (FIX_TAGS_CONTRACT §2). 모양 검사는 여기서만 한다. */
 export async function getFixTargets(
   roomId: string,

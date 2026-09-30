@@ -739,6 +739,17 @@ def _fill_menu_photos(sec: dict, card: dict, data: dict, pack: dict) -> None:
     sec["content"] = {"label": sec.get("label") or "", "items": items}
 
 
+def _location_geo(card: dict) -> dict | None:
+    """공개 지도 좌표 (MAP_CONTRACT §1). placeholder면 없음."""
+    geo = card.get("location_geo")
+    if not isinstance(geo, dict) or geo.get("src") == "placeholder":
+        return None
+    try:
+        return {"x": float(geo.get("x")), "y": float(geo.get("y"))}
+    except (TypeError, ValueError):
+        return None
+
+
 def _location_items(phone: str, hours: str, archetype: str = "") -> list:
     """around--map에 붙는 전화·영업시간 (FILLED만, 없는 값은 뺀다)."""
     items = []
@@ -803,6 +814,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_signature(sec, card, data, pack)
         elif bind == "location":
             sec["content"] = {"address": address, "items": _location_items(phone, hours, archetype=archetype)}
+            geo = _location_geo(card)  # 좌표 있을 때만 공개 지도용으로 더한다
+            if geo is not None:
+                sec["content"]["geo"] = geo
         elif bind == "contact":
             sec["content"] = {"phone": phone, "hours": hours, "address": address}
         elif bind in ("space_photos", "style_photos"):

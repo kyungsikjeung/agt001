@@ -13,6 +13,7 @@ import {
   type PublishResult,
   type RoomCard,
 } from '../editor/cardApi';
+import AddressSearch from './AddressSearch';
 import FeatureChips from './FeatureChips';
 import PhotoSheet, { type PhotoSheetPick } from './PhotoSheet';
 import PublishBar from './PublishBar';
@@ -82,6 +83,12 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   function handleSaved(updated: RoomCard) {
     setCard(updated);
     setDrafts(topDraftsOf(updated));
+  }
+
+  // 주소 검색 저장 뒤: 카드와 미리보기를 새로 부른다.
+  function handleAddrSaved(updated: RoomCard) {
+    handleSaved(updated);
+    control.current?.reload(null);
   }
 
   async function saveTop() {
@@ -250,6 +257,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
                 />
               </label>
             ))}
+            <AddressSearch roomId={roomId} onSaved={handleAddrSaved} />
             <button type="button" className="ed-btn ed-btn--primary" disabled={topBusy} onClick={() => void saveTop()}>
               {topBusy ? '저장 중…' : '저장'}
             </button>

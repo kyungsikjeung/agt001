@@ -108,7 +108,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "ui_agent_enabled", False)
     # 사진을 올리면 뒤에서 시안을 다시 만드는데, 테스트 사이 DB 정리와 겹치지 않게 끈다(직접 부르는 테스트는 따로).
     from app.services import photos as photos_svc
-    monkeypatch.setattr(photos_svc, "_refresh_designs_async", lambda room_id, requirement_id: None)
+    monkeypatch.setattr(photos_svc, "_refresh_designs_async", lambda *a, **k: None)
     monkeypatch.setattr(codegen_svc, "start", fake_codegen_done)
     with TestClient(create_app()) as c:
         yield c
