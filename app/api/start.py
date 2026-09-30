@@ -55,6 +55,10 @@ class PhotoUndoIn(BaseModel):
     target: str = Field(default="", max_length=200)
 
 
+class SayIn(BaseModel):
+    text: str = Field(default="", max_length=400)
+
+
 log = logging.getLogger(__name__)
 
 
@@ -472,3 +476,32 @@ def photo_edit_undo(room_id: str, body: PhotoUndoIn, request: Request,
             raise HTTPException(status_code=400, detail=str(e))
         card_api.post_change_followup(room, session, safe, ["photos"], "빌더에서 사진을 되돌렸어요")
         return JSONResponse(content={"ok": True, "url": out["url"]}, headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/say")
+def post_say(room_id: str, body: SayIn, request: Request,
+             x_member_id: Optional[str] = Header(default=None)):
+    """말로 고치기 (SAY_CONTRACT §6). 방장만."""
+    from app.services import builder_agent
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        try:
+            out = builder_agent.say(room, session, safe, body.text or "")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        return JSONResponse(content=out, headers=_NO_STORE)
+
+
+@router.post("/api/rooms/{room_id}/undo")
+def post_undo(room_id: str, request: Request,
+              x_member_id: Optional[str] = Header(default=None)):
+    """말로 고치기 되돌리기 1단계 (SAY_CONTRACT §6). 방장만."""
+    from app.services import builder_agent
+    safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    with store.room_tx(safe) as (room, session):
+        if rooms.owner_id(room) != member_id:
+            raise HTTPException(status_code=403, detail="owner only")
+        out = builder_agent.undo(room, session, safe)
+        return JSONResponse(content=out, headers=_NO_STORE)

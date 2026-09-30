@@ -264,3 +264,119 @@ def test_10_plan_writes_nothing(client, monkeypatch):
     room, session = _room_session(body["room_id"])
     assert room == room_before and session == session_before
     assert _counts() == rows_before
+
+
+def _owner_headers(body):
+    return {"X-Member-Id": body["member_id"]}
+
+
+def test_11_route_say_undo_owner(client, monkeypatch):
+    """항목 7 중 경로 몫: 방장은 /say·/undo를 쓰고 답은 no-store다."""
+    _no_llm(monkeypatch)
+    body = _start(client)
+    rid, headers = body["room_id"], _owner_headers(body)
+    _, session = _room_session(rid)
+    before = copy.deepcopy(session["prd"])
+    r = client.post(f"/api/rooms/{rid}/say", json={"text": "시그니처 넣어줘"},
+                    headers=headers)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert set(data) == {"reply", "focus", "features", "undo", "rejected", "source"}
+    assert data["undo"] is True and data["focus"] == "sign"
+    assert r.headers["cache-control"] == "no-store"
+    _, session = _room_session(rid)
+    assert session["prd"] != before
+    r = client.post(f"/api/rooms/{rid}/undo", headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.headers["cache-control"] == "no-store"
+    assert r.json()["reply"] == "되돌렸어요."
+    assert r.json()["undo"] is False
+    _, session = _room_session(rid)
+    assert session["prd"] == before
+
+
+def test_12_route_guards_403_400_ask_again(client, monkeypatch):
+    """항목 7 중 경로 몫: 방장 아님 403·다른 출처 403·301자 400·LLM 실패는 되묻기 200."""
+    import uuid
+    from app.config import settings
+    from app.db.models import UserRoomRow, UserRow
+    from app.db.session import get_sessionmaker
+    from app.services import auth
+    _no_llm(monkeypatch)
+    body = _start(client)
+    rid, headers = body["room_id"], _owner_headers(body)
+    client.post(f"/room/{rid}/chat",
+                json={"member_id": "guest", "nickname": "손님", "message": ""})
+    guest = {"X-Member-Id": "guest"}
+    r = client.post(f"/api/rooms/{rid}/say", json={"text": "시그니처 넣어줘"},
+                    headers=guest)
+    assert r.status_code == 403 and r.json()["detail"] == "owner only"
+    r = client.post(f"/api/rooms/{rid}/undo", headers=guest)
+    assert r.status_code == 403 and r.json()["detail"] == "owner only"
+    # 쿠키로 붙은 쓰기는 우리 출처에서만 받는다.
+    user_id = f"u-{uuid.uuid4().hex[:8]}"
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRow(id=user_id, nickname="사장님"))
+        db.flush()
+        db.add(UserRoomRow(user_id=user_id, room_id=rid, member_id=body["member_id"]))
+    client.cookies.set(auth.SESSION_COOKIE, auth.create_session(user_id))
+    try:
+        ours = (settings.public_base_url or "http://testserver").rstrip("/")
+        payload = {"text": "시그니처 넣어줘"}
+        assert client.post(f"/api/rooms/{rid}/say", json=payload).status_code == 403
+        r = client.post(f"/api/rooms/{rid}/say", json=payload,
+                        headers={"Origin": "https://evil.example"})
+        assert r.status_code == 403, r.text
+        r = client.post(f"/api/rooms/{rid}/say", json=payload,
+                        headers={"Origin": ours})
+        assert r.status_code == 200, r.text
+    finally:
+        client.cookies.clear()
+    r = client.post(f"/api/rooms/{rid}/say", json={"text": "가" * 301},
+                    headers=headers)
+    assert r.status_code == 400
+
+    def _fail(system, user, **kwargs):
+        raise TimeoutError("시간 초과")
+    monkeypatch.setattr(llm, "chat_json", _fail)
+    r = client.post(f"/api/rooms/{rid}/say",
+                    json={"text": "영업시간 오전 11시부터 밤 9시까지야"},
+                    headers=headers)
+    assert r.status_code == 200, r.text
+    assert "다시" in r.json()["reply"]
+
+
+def test_13_other_change_invalidates_undo(client, monkeypatch):
+    """되돌리기 안전: 말로 고친 뒤 칩을 바꾸면 되돌리기는 무효, 칩 변경은 남는다."""
+    _no_llm(monkeypatch)
+    body = _start(client)
+    rid, headers = body["room_id"], _owner_headers(body)
+    r = client.post(f"/api/rooms/{rid}/say", json={"text": "시그니처 넣어줘"},
+                    headers=headers)
+    assert r.status_code == 200 and r.json()["undo"] is True
+    r = client.put(f"/api/rooms/{rid}/features",
+                   json={"key": "section:space", "on": True}, headers=headers)
+    assert r.status_code == 200, r.text
+    assert {f["key"]: f for f in r.json()["features"]}["section:space"]["on"] is True
+    r = client.post(f"/api/rooms/{rid}/undo", headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["reply"] == "되돌릴 게 없어요."
+    feats = client.get(f"/api/rooms/{rid}/features", headers=headers).json()["features"]
+    assert {f["key"]: f for f in feats}["section:space"]["on"] is True
+
+
+def test_14_undo_keeps_unrelated_later_change(client, monkeypatch):
+    """되돌리기는 말로 고친 칸만 되돌린다: 그 뒤 다른 칸(공지)을 바꿨으면 공지는 남는다."""
+    _no_llm(monkeypatch)
+    body = _start(client)
+    rid, headers = body["room_id"], _owner_headers(body)
+    r = client.post(f"/api/rooms/{rid}/say", json={"text": "시그니처 넣어줘"}, headers=headers)
+    assert r.status_code == 200 and r.json()["undo"] is True
+    r = client.put(f"/api/rooms/{rid}/features",
+                   json={"key": "notice", "on": True, "text": "10월 휴무 없음"}, headers=headers)
+    assert r.status_code == 200, r.text
+    r = client.post(f"/api/rooms/{rid}/undo", headers=headers)
+    assert r.json()["reply"] == "되돌렸어요.", r.text
+    feats = {f["key"]: f for f in r.json()["features"]}
+    assert feats["section:sign"]["on"] is False
+    assert feats["notice"]["on"] is True

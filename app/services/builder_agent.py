@@ -731,14 +731,27 @@ def apply(room: dict, session: dict, safe: str, ops: list) -> dict:
     return {"changed": changed, "focus": focus, "labels": labels, "kinds": kinds}
 
 
-def _fresh_undo(card: dict):
-    """카드 안 되돌리기 스냅샷. 없거나 30분 지났으면 None.
+def _same(a, b) -> bool:
+    """JSONB를 한 번 오간 값과도 같게 비교한다."""
+    return json.dumps(a, sort_keys=True, ensure_ascii=False, default=str) == \
+        json.dumps(b, sort_keys=True, ensure_ascii=False, default=str)
 
-    sessions 열 집합이 고정이라 최상위 키를 둘 수 없어서 카드(prd JSONB) 안에 둔다.
-    스냅샷을 뜰 때 스냅샷 키 자체는 뺀다(한 겹만 유지).
-    """
+
+def _undo_record(before: dict, card: dict) -> dict:
+    """말로 고치기가 바꾼 최상위 칸만 {전, 후}로 남긴다. 없던 칸은 before에 넣지 않는다."""
+    keys = [k for k in set(before) | set(card)
+            if k != "builder_undo" and not _same(before.get(k), card.get(k))]
+    return {"keys": keys,
+            "before": {k: copy.deepcopy(before[k]) for k in keys if k in before},
+            "after": {k: copy.deepcopy(card[k]) for k in keys if k in card},
+            "at": time.time()}
+
+
+def _fresh_undo(card: dict):
+    """카드 안 되돌리기 기록(sessions 열이 고정이라 카드 안에 둔다). 없거나 30분 지났거나,
+    그 뒤 다른 길(칩·사진·채팅·공개 등)로 같은 칸이 또 바뀌었으면 None."""
     snap = (card or {}).get("builder_undo")
-    if not isinstance(snap, dict) or not isinstance(snap.get("prd"), dict):
+    if not isinstance(snap, dict) or not isinstance(snap.get("keys"), list):
         return None
     try:
         at = float(snap.get("at") or 0)
@@ -746,13 +759,10 @@ def _fresh_undo(card: dict):
         return None
     if time.time() - at > _UNDO_TTL_SEC:
         return None
+    after = snap.get("after") or {}
+    if any((k in card) != (k in after) or not _same(card.get(k), after.get(k)) for k in snap["keys"]):
+        return None
     return snap
-
-
-def _take_snapshot(card: dict) -> None:
-    snap = copy.deepcopy(card)
-    snap.pop("builder_undo", None)
-    card["builder_undo"] = {"prd": snap, "at": time.time()}
 
 
 def _has_undo(card: dict) -> bool:
@@ -776,10 +786,13 @@ def undo(room: dict, session: dict, safe: str) -> dict:
         card.pop("builder_undo", None)
         return {"reply": "되돌릴 게 없어요.",
                 "features": _current_features(session, card), "undo": False}
-    restored = copy.deepcopy(snap["prd"])
-    restored.pop("builder_undo", None)
-    session["prd"] = restored
-    card = session["prd"]
+    card.pop("builder_undo", None)
+    before = snap.get("before") or {}
+    for key in snap["keys"]:  # 바꾼 칸만 되돌린다. 다른 칸(사진·공개 상태 등)은 그대로
+        if key in before:
+            card[key] = copy.deepcopy(before[key])
+        else:
+            card.pop(key, None)
     card_api.post_change_followup(room, session, safe, ["undo"], "되돌렸어요.")
     return {"reply": "되돌렸어요.",
             "features": _current_features(session, card), "undo": False}
@@ -835,12 +848,10 @@ def say(room: dict, session: dict, safe: str, text: str) -> dict:
         return {"reply": reply or VAGUE_REPLY, "focus": None,
                 "features": _current_features(session, card),
                 "undo": _has_undo(card), "rejected": rejected, "source": source}
-    _take_snapshot(card)
-    try:
-        result = apply(room, session, safe, changing)
-    except Exception:
-        card.pop("builder_undo", None)
-        raise
+    before = copy.deepcopy(card)
+    card.pop("builder_undo", None)
+    result = apply(room, session, safe, changing)
+    record = _undo_record(before, card)  # 명령이 바꾼 칸만(후속 처리가 바꾼 공개 상태 등은 빼고)
     changed = result.get("changed") or []
     labels = result.get("labels") or []
     kinds = result.get("kinds") or []
@@ -850,6 +861,9 @@ def say(room: dict, session: dict, safe: str, text: str) -> dict:
     except Exception:
         log.exception("말로 고치기 후속 처리 실패")
         raise
+    record["after"] = {k: copy.deepcopy(card[k]) for k in record["keys"] if k in card}
+    if record["keys"]:
+        card["builder_undo"] = record
     try:
         funnel.record("builder_say",
                       props={"kind": kinds[0] if kinds else "say", "source": source})

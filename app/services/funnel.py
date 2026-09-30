@@ -39,6 +39,8 @@ SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generat
                             "ai_image_edited",
                             # 빌더 시작·기능 칩(B1, 업종·칩 종류·켜기/끄기만)
                             "builder_start", "builder_feature",
+                            # 빌더 말로 고치기(B5, 종류·출처만)
+                            "builder_say",
                             # 온라인 결제 운영 신호(W5-B, 금액·결제 번호·전화 없음)
                             "payment_mismatch", "webhook_bad_signature"})
 
