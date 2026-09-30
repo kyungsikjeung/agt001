@@ -280,7 +280,8 @@ _PROBE = r"""
   for (const [k, v] of Object.entries(facts)) {
     if (!v) continue;
     out.facts[k] = k === 'phone' ? !!document.querySelector(`a[href="tel:${v}"]`) || text.includes(v)
-      : Array.isArray(v) ? v.every(x => text.includes(x)) : text.includes(v);
+      // '객실 3개'는 사이트가 '객실 1·2·3'으로 나눠 그린다 → 이름만 있으면 있음으로 본다
+      : Array.isArray(v) ? v.every(x => text.includes(x) || text.includes(x.replace(/\s*\d+\s*개$/, ''))) : text.includes(v);
   }
   // D37 6요소 (제목 대비·여백 리듬·사진·색·버튼·첫 화면 행동)
   // 1. title_ratio: h1 글자 크기 / 본문(p) 대표 글자 크기(중앙값)
