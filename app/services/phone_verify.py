@@ -176,6 +176,28 @@ def device_ok(cookie: Optional[str], site_key: str, phone_raw: Optional[str]) ->
         return False
 
 
+def device_phone(cookie: Optional[str], site_key: str) -> Optional[str]:
+    """기기 기억 쿠키 안의 번호. device_ok와 같은 서명·만료 검사, 맞으면 번호."""
+    try:
+        key = _device_key()
+        if not key or not cookie or not site_key:
+            return None
+        parts = cookie.split(".")
+        if len(parts) != 3:
+            return None
+        c_phone, c_expires, c_sig = parts
+        if customers.normalize_phone(c_phone) != c_phone:
+            return None
+        if int(c_expires) <= int(_now().timestamp()):
+            return None
+        want = hmac.new(key.encode(), f"{site_key}:{c_phone}:{c_expires}".encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(want, c_sig):
+            return None
+        return c_phone
+    except (ValueError, TypeError):
+        return None
+
+
 def purge() -> int:
     """만료 1일이 지난 요청을 지운다."""
     with get_sessionmaker()() as db, db.begin():

@@ -7,17 +7,25 @@
 - GET /pay/{pay_id}/done: 포트원 조회로 확정한 결과 화면.
 - POST /api/payments/webhook: 포트원 웹훅 (서명 확인 → 같은 확정 함수).
 """
+import datetime
 import html
 import json
 from typing import Optional
 
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 
+from app.api.auth import _check_origin
 from app.api.inquiries import _allow, _page
 from app.config import settings
+from app.db.models import CouponRow, CustomerRow, OrderRow, PaymentRow, StampEventRow
+from app.db.session import get_sessionmaker
 from app.security import sanitize_token
 from app.services import availability, orders, payments, phone_verify
+from app.services import stamps
+from app.services.barcode import code128c_svg
 
 router = APIRouter()
 
@@ -166,9 +174,19 @@ def verify_submit(site_key: str, token: str, code: Optional[str] = Form(default=
         payload = phone_verify.check(token, code)
     except phone_verify.VerifyError as e:
         return _verify_page(site_key, token, str(e), 400)
-    if not isinstance(payload, dict) or payload.get("kind") != "order":
+    if not isinstance(payload, dict):
         return _verify_page(site_key, token, "인증 요청을 찾을 수 없어요.", 400)
     key = sanitize_token(site_key or "")
+    if payload.get("kind") == "my":
+        # 내 스탬프 보기용 인증. 주문을 만들지 않고 기기 기억만 둔다.
+        resp = RedirectResponse(f"/api/orders/{key}/my", status_code=303)
+        cookie = phone_verify.device_cookie(key, str(payload.get("phone") or ""))
+        if cookie is not None:
+            resp.set_cookie(f"pv_{key}", cookie, max_age=_DEVICE_MAX_AGE, httponly=True, secure=True,
+                            samesite="lax", path=f"/api/orders/{key}")
+        return resp
+    if payload.get("kind") != "order":
+        return _verify_page(site_key, token, "인증 요청을 찾을 수 없어요.", 400)
     lines = _verified_lines(payload)
     if not lines:
         return _verify_page(site_key, token, "주문할 메뉴를 골라 주세요.", 400)
@@ -197,9 +215,56 @@ def verify_resend(site_key: str, token: str, request: Request):
     return RedirectResponse(f"/api/orders/{key}/verify/{sanitize_token(new_token)}", status_code=303)
 
 
-@router.get("/pay/{pay_id}", include_in_schema=False)
-def pay_page(pay_id: str, request: Request):
-    pid = sanitize_token(pay_id or "")
+def _kst_date(dt) -> str:
+    """UTC 시각 → KST 날짜 (YYYY-MM-DD)."""
+    if dt is None:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    kst = dt.astimezone(datetime.timezone(datetime.timedelta(hours=9)))
+    return kst.date().isoformat()
+
+
+def _pay_stamp_ctx(pid: str) -> Optional[dict]:
+    """쿠폰 칸에 필요한 주문·손님·쓸 수 있는 쿠폰. 없으면 None."""
+    with get_sessionmaker()() as db:
+        pay = db.scalar(select(PaymentRow).where(PaymentRow.provider_payment_id == pid))
+        if pay is None:
+            return None
+        order = db.get(OrderRow, pay.order_id)
+        if order is None:
+            return None
+        held = db.scalar(select(CouponRow.id).where(
+            CouponRow.held_order_id == order.id, CouponRow.status == "held"))
+        usable = []
+        if order.customer_id is not None:
+            usable = stamps.usable(db, order.site_key, order.customer_id)
+        return {"order_id": order.id, "customer_id": order.customer_id,
+                "held_id": held, "coupons": usable}
+
+
+def _coupon_block(pid: str, ctx: dict, subtotal: int, total: int) -> str:
+    """쿠폰 고르기 폼. 쓸 수 있는 쿠폰이 없으면 금액 줄만."""
+    e = html.escape
+    disc = max(subtotal - total, 0)
+    parts = [f"<p>합계 {subtotal:,}원 · 쿠폰 할인 {disc:,}원 · 결제할 금액 {total:,}원</p>"]
+    if ctx.get("customer_id") is not None and ctx.get("coupons"):
+        labels = []
+        for c in ctx["coupons"]:
+            checked = " checked" if ctx.get("held_id") == c["id"] else ""
+            labels.append(
+                f"<label><input type=\"radio\" name=\"coupon_id\" value=\"{int(c['id'])}\"{checked}>"
+                f" {e(c['title'])} · 기한 {_kst_date(c.get('expires_at'))}</label>")
+        none_checked = " checked" if ctx.get("held_id") is None else ""
+        labels.append(f"<label><input type=\"radio\" name=\"coupon_id\" value=\"\"{none_checked}> 쓰지 않기</label>")
+        parts.append(
+            f"<form method=\"post\" action=\"/pay/{e(pid, quote=True)}/coupon\">"
+            + "<br>".join(labels) + "<br><button type=\"submit\">쿠폰 고르기</button></form>")
+    return "".join(parts)
+
+
+def _render_pay(pid: str, request: Request, error: Optional[str] = None) -> HTMLResponse:
+    """결제 페이지 본문. 쿠폰 오류는 같은 화면에 문구로 보여준다."""
     got = orders.summary(pid)
     if got is None:
         return _pay_msg("페이지를 찾을 수 없어요", "주문 주소를 다시 확인해 주세요.", "/", 404)
@@ -214,30 +279,120 @@ def pay_page(pay_id: str, request: Request):
     rows = "".join(f"<li>{e(r['name'])} {int(r['qty'])}개 · {int(r['amount']):,}원</li>"
                    for r in got["items"])
     total = int(got["total"])
+    subtotal = sum(int(r["amount"]) for r in got["items"])
     store_id = settings.portone_store_id or ""
     channel_key = settings.portone_channel_key or ""
     done = _done_url(request, pid)
     order_name = (got["shop_name"] or "우리 가게")[:40] + " 주문"
+    err = f"<p>{e(error)}</p>" if error else ""
+    ctx = _pay_stamp_ctx(pid) or {}
+    coupon = _coupon_block(pid, ctx, subtotal, total)
+    if total == 0:
+        # 쿠폰으로 전액 할인되면 포트원 없이 바로 확정한다.
+        pay_btn = (f"<form method=\"post\" action=\"/pay/{e(pid, quote=True)}/free\">"
+                   f"<button class=\"s-paybtn\" type=\"submit\">쿠폰으로 주문하기</button></form>")
+        scripts = ""
+    else:
+        pay_btn = (f"<p id=\"pay-msg\" role=\"status\"></p>"
+                   f"<p><button class=\"s-paybtn\" id=\"pay-btn\" type=\"button\">{total:,}원 결제하기</button></p>")
+        scripts = (f"<script src=\"https://cdn.portone.io/v2/browser-sdk.js\"></script>"
+                   f"<script>(function(){{var btn=document.getElementById('pay-btn');"
+                   f"btn.addEventListener('click',async function(){{"
+                   f"var msg=document.getElementById('pay-msg');msg.textContent='결제창을 여는 중이에요.';"
+                   f"try{{var res=await PortOne.requestPayment({{storeId:{_js(store_id)},"
+                   f"channelKey:{_js(channel_key)},paymentId:{_js(pid)},"
+                   f"orderName:{_js(order_name)},totalAmount:{total},"
+                   f"currency:\"CURRENCY_KRW\",payMethod:\"CARD\",redirectUrl:{_js(done)}}});"
+                   f"if(res&&res.code!=null){{msg.textContent='결제가 끝나지 않았어요. 다시 눌러 주세요.';return;}}"
+                   f"location.href={_js(done)};}}"
+                   f"catch(err){{msg.textContent='결제창을 열지 못했어요. 다시 눌러 주세요.';}}}});}})();</script>")
     # 손님 전화번호는 어떤 칸에도 넣지 않는다 (summary에 없음).
     inner = (f"<h1>주문 확인</h1>"
              f"<p class=\"s-test\">테스트 결제예요. 실제로 돈이 나가지 않아요</p>"
              f"<p><strong>{e(got['shop_name'] or '우리 가게')}</strong></p>"
-             f"<ul>{rows}</ul><p>합계 {total:,}원</p>"
-             f"<p id=\"pay-msg\" role=\"status\"></p>"
-             f"<p><button class=\"s-paybtn\" id=\"pay-btn\" type=\"button\">{total:,}원 결제하기</button></p>"
+             f"<ul>{rows}</ul>{coupon}{err}{pay_btn}"
              f"<p><a href=\"{e(got['site_url'], quote=True)}\">가게로 돌아가기</a></p>"
-             f"<script src=\"https://cdn.portone.io/v2/browser-sdk.js\"></script>"
-             f"<script>(function(){{var btn=document.getElementById('pay-btn');"
-             f"btn.addEventListener('click',async function(){{"
-             f"var msg=document.getElementById('pay-msg');msg.textContent='결제창을 여는 중이에요.';"
-             f"try{{var res=await PortOne.requestPayment({{storeId:{_js(store_id)},"
-             f"channelKey:{_js(channel_key)},paymentId:{_js(pid)},"
-             f"orderName:{_js(order_name)},totalAmount:{total},"
-             f"currency:\"CURRENCY_KRW\",payMethod:\"CARD\",redirectUrl:{_js(done)}}});"
-             f"if(res&&res.code!=null){{msg.textContent='결제가 끝나지 않았어요. 다시 눌러 주세요.';return;}}"
-             f"location.href={_js(done)};}}"
-             f"catch(err){{msg.textContent='결제창을 열지 못했어요. 다시 눌러 주세요.';}}}});}})();</script>")
+             f"{scripts}")
     return _pay_doc("주문 확인", inner)
+
+
+@router.get("/pay/{pay_id}", include_in_schema=False)
+def pay_page(pay_id: str, request: Request):
+    return _render_pay(sanitize_token(pay_id or ""), request)
+
+
+@router.post("/pay/{pay_id}/coupon", include_in_schema=False)
+def pay_coupon(pay_id: str, request: Request, coupon_id: Optional[str] = Form(default=None)):
+    _check_origin(request)
+    pid = sanitize_token(pay_id or "")
+    raw = (coupon_id or "").strip()
+    cid: Optional[int] = None
+    if raw:
+        try:
+            cid = int(raw)
+        except ValueError:
+            return _render_pay(pid, request, "쿠폰을 고를 수 없어요.")
+        if cid <= 0:
+            return _render_pay(pid, request, "쿠폰을 고를 수 없어요.")
+    try:
+        ctx = _pay_stamp_ctx(pid)
+        if ctx is None:
+            return _pay_msg("페이지를 찾을 수 없어요", "주문 주소를 다시 확인해 주세요.", "/", 404)
+        with get_sessionmaker()() as db, db.begin():
+            stamps.hold(db, ctx["order_id"], cid)
+    except (ValueError, LookupError) as exc:
+        return _render_pay(pid, request, str(exc))
+    except IntegrityError:
+        # 전액 할인(합계 0원)은 payments.amount > 0 검사를 넘지 못한다 (DEVIATIONS).
+        # 500 대신 같은 화면에 문구로 보여준다.
+        return _render_pay(pid, request, "쿠폰을 지금 쓸 수 없어요. 가게에 물어봐 주세요.")
+    return RedirectResponse(f"/pay/{pid}", status_code=303)
+
+
+@router.post("/pay/{pay_id}/free", include_in_schema=False)
+def pay_free(pay_id: str, request: Request):
+    _check_origin(request)
+    pid = sanitize_token(pay_id or "")
+    try:
+        result = payments.complete_free(pid)
+    except (ValueError, LookupError) as exc:
+        return _render_pay(pid, request, str(exc))
+    if result in ("paid", "already"):
+        return RedirectResponse(_done_url(request, pid), status_code=303)
+    return _render_pay(pid, request, "결제할 금액이 남아 있어요.")
+
+
+def _done_stamp_line(pid: str) -> str:
+    """done 화면에 붙는 도장 한 줄. 규칙 꺼짐·손님 없음이면 빈 값."""
+    try:
+        with get_sessionmaker()() as db:
+            pay = db.scalar(select(PaymentRow).where(PaymentRow.provider_payment_id == pid))
+            if pay is None:
+                return ""
+            order = db.get(OrderRow, pay.order_id)
+            if order is None or order.customer_id is None:
+                return ""
+            rule = stamps.rule(order.site_key)
+            if rule is None:
+                return ""
+            bal = stamps.balance(db, order.site_key, order.customer_id)
+            shown = min(max(bal, 0), rule["goal"])
+            line = f"도장 {shown}/{rule['goal']}"
+            # 이 주문 뒤에 생긴 보상 기록이 이 주문 적립으로 받은 쿠폰이다.
+            created = order.created_at
+            if created is not None:
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=datetime.timezone.utc)
+                n = db.scalar(select(func.count()).select_from(StampEventRow).where(
+                    StampEventRow.site_key == order.site_key,
+                    StampEventRow.customer_id == order.customer_id,
+                    StampEventRow.reason == "reward",
+                    StampEventRow.created_at >= created)) or 0
+                if n:
+                    line += f" · 쿠폰 {n}장 받았어요"
+            return line
+    except Exception:
+        return ""
 
 
 @router.get("/pay/{pay_id}/done", include_in_schema=False)
@@ -248,12 +403,117 @@ def pay_done(pay_id: str):
         return _pay_msg("페이지를 찾을 수 없어요", "주문 주소를 다시 확인해 주세요.", "/", 404)
     result = payments.complete(pid)
     if result in ("paid", "already"):
-        return _pay_msg("주문이 들어갔어요", "주문이 가게에 전달됐어요. 준비되면 연락드릴게요.", got["site_url"])
+        body = "주문이 가게에 전달됐어요. 준비되면 연락드릴게요."
+        stamp_line = _done_stamp_line(pid)
+        if stamp_line:
+            body += f" {stamp_line}"
+        return _pay_msg("주문이 들어갔어요", body, got["site_url"])
     if result == "pending":
         return _pay_msg("결제를 확인하고 있어요", "결제를 확인하고 있어요. 잠시 뒤 새로고침해 주세요.",
                         got["site_url"])
     return _pay_msg("결제가 확인되지 않았어요", "결제가 확인되지 않았어요. 가게에 전화로 주문해 주세요.",
                     got["site_url"])
+
+
+# 내 스탬프 화면 (미리보기 주소, 스크립트 없음).
+_MY_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
+    "Referrer-Policy": "no-referrer",
+    "Cache-Control": "no-store",
+    "X-Content-Type-Options": "nosniff",
+}
+
+
+def _my_doc(title: str, inner: str, status: int = 200) -> HTMLResponse:
+    """내 스탬프 화면 틀. 글자 16px·버튼 44px, 스크립트 없음."""
+    doc = (f"<!doctype html><html lang=\"ko\"><head><meta charset=\"utf-8\">"
+           f"<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+           f"<title>{html.escape(title)}</title>"
+           f"<style>body{{font-family:system-ui,sans-serif;max-width:32rem;margin:10vh auto;"
+           f"padding:0 16px;font-size:16px;line-height:1.6;color:#1f2328}}"
+           f"input,button{{font-size:16px;min-height:44px}}a{{color:#0b5fff}}</style></head>"
+           f"<body>{inner}</body></html>")
+    return HTMLResponse(doc, status_code=status, headers=_MY_HEADERS)
+
+
+def _stamp_board(balance: int, goal: int) -> str:
+    """도장판 (목표 칸, 채운 만큼 파랑)."""
+    filled = min(max(balance, 0), goal)
+    dots = "".join(
+        "<span style=\"display:inline-block;width:18px;height:18px;border-radius:50%;margin:2px;"
+        + ("background:#0b5fff;" if i < filled else "border:2px solid #ccc;")
+        + "\"></span>"
+        for i in range(goal))
+    return (f"<p>도장 {filled}/{goal}</p><p>{dots}</p>")
+
+
+@router.get("/api/orders/{site_key}/my", include_in_schema=False)
+def my_page(site_key: str, request: Request):
+    key = sanitize_token(site_key or "")
+    e = html.escape
+    phone = phone_verify.device_phone(request.cookies.get(f"pv_{key}"), key)
+    if not phone:
+        inner = (f"<h1>내 스탬프</h1><p>전화번호를 적어 주세요.</p>"
+                 f"<form method=\"post\" action=\"/api/orders/{e(key, quote=True)}/my\">"
+                 f"<input name=\"phone\" inputmode=\"tel\" autocomplete=\"tel\" required>"
+                 f"<button type=\"submit\">번호로 확인하기</button></form>")
+        return _my_doc("내 스탬프", inner)
+    with get_sessionmaker()() as db:
+        cust = db.scalar(select(CustomerRow).where(
+            CustomerRow.site_key == key, CustomerRow.phone == phone))
+        rule = stamps.rule(key)
+        if rule is None:
+            return _my_doc("내 스탬프", "<h1>내 스탬프</h1><p>이 가게는 스탬프를 쓰지 않아요</p>")
+        if cust is None:
+            bal, usable = 0, []
+            dimmed: list = []
+        else:
+            bal = stamps.balance(db, key, cust.id)
+            usable = stamps.usable(db, key, cust.id)
+            usable_ids = {c["id"] for c in usable}
+            now = datetime.datetime.now(datetime.timezone.utc)
+            rows = db.scalars(select(CouponRow).where(
+                CouponRow.site_key == key, CouponRow.customer_id == cust.id)
+                .order_by(CouponRow.id.desc()).limit(10)).all()
+            dimmed = [r for r in rows
+                      if r.id not in usable_ids and r.status in ("used", "expired")
+                      or (r.id not in usable_ids and r.status == "issued"
+                          and r.expires_at is not None
+                          and (r.expires_at if r.expires_at.tzinfo else
+                               r.expires_at.replace(tzinfo=datetime.timezone.utc)) <= now)]
+            dimmed = dimmed[:5]
+    parts = [f"<h1>내 스탬프</h1>", _stamp_board(bal, rule["goal"])]
+    if usable:
+        items = []
+        for c in usable:
+            code = str(c.get("code") or "")
+            grouped = f"{code[0:4]} {code[4:8]} {code[8:12]}" if len(code) == 12 else e(code)
+            items.append(
+                f"<li><p><strong>{e(c.get('title') or '')}</strong> · 기한 {_kst_date(c.get('expires_at'))}</p>"
+                f"{code128c_svg(code)}<p>{grouped}</p></li>")
+        parts.append("<h2>쓸 수 있는 쿠폰</h2><ul>" + "".join(items) + "</ul>"
+                     "<p>화면을 밝게 하고 보여 주세요</p>")
+    if dimmed:
+        items = []
+        for r in dimmed:
+            state = "쓴 쿠폰" if r.status == "used" else "기간 지남"
+            items.append(f"<li style=\"opacity:.5\"><p><strong>{e(r.title)}</strong> · {state}</p></li>")
+        parts.append("<h2>지난 쿠폰</h2><ul>" + "".join(items) + "</ul>")
+    return _my_doc("내 스탬프", "".join(parts))
+
+
+@router.post("/api/orders/{site_key}/my", include_in_schema=False)
+async def my_start(site_key: str, request: Request):
+    if not _allow(request.client.host if request.client else "unknown"):
+        return _page("잠시 후 다시 보내 주세요", "짧은 시간에 신청이 많이 들어왔어요.", site_key, 429)
+    form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
+    key = sanitize_token(site_key or "")
+    phone = str(form.get("phone") or "")
+    try:
+        token = phone_verify.start(key, phone, {"kind": "my", "phone": phone}, _shop_name(key))
+    except phone_verify.VerifyError as exc:
+        return _page("인증번호를 보내지 못했어요", str(exc), site_key, 400)
+    return RedirectResponse(f"/api/orders/{key}/verify/{sanitize_token(token)}", status_code=303)
 
 
 @router.post("/api/payments/webhook", include_in_schema=False)

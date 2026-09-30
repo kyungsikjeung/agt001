@@ -59,6 +59,16 @@ def _order_form_action(requirement_id: str) -> Optional[str]:
     return None
 
 
+def _stamps_on(requirement_id: str) -> bool:
+    """스탬프 규칙이 켜져 있으면 True. 실패해도 시안은 그냥 그린다."""
+    try:
+        from app.services import stamps
+        return stamps.rule(requirement_id) is not None
+    except Exception:
+        log.exception("스탬프 규칙 확인 실패, 표시 없이 그림 %s", requirement_id)
+        return False
+
+
 def _concept_board(requirement_id: str, title: str, items: list[dict], notes: list[str], placeholders: int,
                    concept: dict, offerings_label: str) -> str:
     """디자인 컨셉 보드 (Stitch식 과정 보여 주기): 컨셉 → 색 → 글꼴 → 구성 → 시안 3안.
@@ -170,12 +180,16 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
     design_dir.mkdir(parents=True, exist_ok=True)
     title = DV.title_for(card)
     order_action = _order_form_action(requirement_id)
+    stamps_on = _stamps_on(requirement_id)
     work = card
-    if order_action:
+    if order_action or stamps_on:
         # resolve에는 site_key가 안 들어오므로 카드 복사본에 폼 주소를 실어 보낸다 (원본 카드는 안 건드린다).
         import copy as _copy
         work = _copy.deepcopy(card)
-        work["order_form"] = {"action": order_action}
+        if order_action:
+            work["order_form"] = {"action": order_action}
+        if stamps_on:
+            work["stamps"] = {"site_key": requirement_id}
     items = DV.variants(work)
     if order_action:
         for v in items:
@@ -183,6 +197,12 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
                 v["spec"]["order_form"] = True
             except Exception:
                 log.exception("주문 폼 표시 실패 %s/%s", requirement_id, v.get("id"))
+    if stamps_on:
+        for v in items:
+            try:
+                v["spec"]["stamps"] = True
+            except Exception:
+                log.exception("스탬프 표시 실패 %s/%s", requirement_id, v.get("id"))
     shots = []
     for v in items:
         page = site_render.render_site(v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
@@ -194,6 +214,8 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
             bare["ai_images"] = {}
             if order_action:
                 bare["order_form"] = {"action": order_action}
+            if stamps_on:
+                bare["stamps"] = {"site_key": requirement_id}
             fixed = next((w for w in DV.variants(bare) if w["id"] == v["id"]), None)
             if fixed is not None:
                 v["spec"] = fixed["spec"]
@@ -202,6 +224,11 @@ def render_variants(requirement_id: str, card: dict, *, log_shown: bool = True) 
                         v["spec"]["order_form"] = True
                     except Exception:
                         log.exception("주문 폼 표시 실패 %s/%s", requirement_id, v["id"])
+                if stamps_on:
+                    try:
+                        v["spec"]["stamps"] = True
+                    except Exception:
+                        log.exception("스탬프 표시 실패 %s/%s", requirement_id, v["id"])
                 page = site_render.render_site(
                     v["spec"], site_key=requirement_id, title=title, kind=DV.kind_for(card))
                 log.info("시안 1회 복구 %s/%s: %s", requirement_id, v["id"], "; ".join(_verify_html(page)) or "해소")
@@ -254,10 +281,14 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
     from app.services import site_render
 
     order_action = _order_form_action(requirement_id)
-    if order_action:
+    stamps_on = _stamps_on(requirement_id)
+    if order_action or stamps_on:
         import copy as _copy
         card = _copy.deepcopy(card)
-        card["order_form"] = {"action": order_action}
+        if order_action:
+            card["order_form"] = {"action": order_action}
+        if stamps_on:
+            card["stamps"] = {"site_key": requirement_id}
     v = DV.pick(card, variant_id)
     if v is None:
         raise ValueError(f"unknown variant {variant_id}")
@@ -280,6 +311,11 @@ def publish_choice(requirement_id: str, card: dict, variant_id: str) -> None:
             v["spec"]["order_form"] = True
         except Exception:
             log.exception("주문 폼 표시 실패 %s", requirement_id)
+    if stamps_on:
+        try:
+            v["spec"]["stamps"] = True
+        except Exception:
+            log.exception("스탬프 표시 실패 %s", requirement_id)
     page = site_render.render_site(v["spec"], site_key=requirement_id, title=DV.title_for(card),
                                    kind=DV.kind_for(card), public=True)
     from app.services import publish_check

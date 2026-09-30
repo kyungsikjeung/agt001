@@ -242,6 +242,11 @@ def _og_tags(sections: list, site_key: str, page_title: str) -> list:
 
 
 # 하단 탭 아이콘 (선 그림, 24칸). 탭 이름의 낱말로 고른다.
+def _is_my_link(href: str) -> bool:
+    """내 스탬프 화면 링크 (/api/orders/<키>/my). 구역이 아니라도 내비·탭에 둔다."""
+    return isinstance(href, str) and href.startswith("/api/orders/") and href.endswith("/my")
+
+
 _TAB_ICONS = (
     (("홈",), "M3 11l9-8 9 8M5 10v10h14V10"),
     (("메뉴", "시술", "가격", "요금"), "M4 6h16M4 12h16M4 18h16"),
@@ -250,6 +255,7 @@ _TAB_ICONS = (
     (("전화",), "M5 4h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 3 6a2 2 0 0 1 2-2z"),
     (("공간", "사진", "스타일", "작품", "객실"), "M4 5h16v14H4zM4 16l5-5 4 4 3-3 4 4"),
     (("수업", "반", "클래스", "시간표"), "M4 5h7v15H4zM13 5h7v15h-7z"),
+    (("스탬프", "쿠폰"), "M4 7h16v10H4zM14 7v10"),
 )
 _TAB_DEFAULT_ICON = "M4 5h16v11H9l-5 4z"  # 말풍선 (문의 등)
 
@@ -268,7 +274,7 @@ def _app_tabs(nav: dict, bar: dict, body_ids: set) -> list:
     links = []
     for link in nav.get("links") or []:
         label, href = (link.get("label"), link.get("href")) if isinstance(link, dict) else (None, None)
-        if isinstance(label, str) and isinstance(href, str) and href[1:] in body_ids:
+        if isinstance(label, str) and isinstance(href, str) and (href[1:] in body_ids or _is_my_link(href)):
             links.append((label, href))
     actions = []
     for key in ("primary", "secondary"):
@@ -1364,7 +1370,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         # 내비는 섹션 다음에 그린다: 빠진 부품(공개본 빈칸·v3 사진첩)으로 가는 링크를 빼기 위해.
         body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
         links = [l for l in (nav.get("links") or []) if isinstance(l, dict)
-                 and (l.get("href") or "")[1:] in body_ids]
+                 and ((l.get("href") or "")[1:] in body_ids or _is_my_link(l.get("href") or ""))]
         nctx = _navbar_context({**nav, "links": links})
         if nctx is not None:
             ntemplate = bundle["templates"].get("navbar--main")

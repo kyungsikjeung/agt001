@@ -11,7 +11,7 @@ from typing import Optional
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.db.models import BookingRow, CustomerRow, InquiryRow
+from app.db.models import BookingRow, CouponRow, CustomerRow, InquiryRow, OrderRow, StampEventRow
 from app.db.session import get_sessionmaker
 
 log = logging.getLogger(__name__)
@@ -77,7 +77,8 @@ def mark_verified(db, site_key: str, phone_raw: Optional[str]) -> None:
 
 
 def purge_orphans(now: Optional[datetime.datetime] = None) -> int:
-    """붙은 문의·예약이 하나도 없고 마지막 방문이 30일 지난 손님을 지운다."""
+    """붙은 문의·예약·주문·도장·쿠폰이 하나도 없고 마지막 방문이 30일 지난 손님을 지운다.
+    도장·쿠폰 표는 손님 삭제에 따라 지워지므로, 주문만 한 손님의 기록이 30일 뒤에 사라지지 않게 남긴다."""
     now = now or datetime.datetime.now(datetime.timezone.utc)
     cutoff = now - datetime.timedelta(days=ORPHAN_DAYS)
     with get_sessionmaker()() as db, db.begin():
@@ -85,6 +86,9 @@ def purge_orphans(now: Optional[datetime.datetime] = None) -> int:
             CustomerRow.last_seen < cutoff,
             ~select(InquiryRow.id).where(InquiryRow.customer_id == CustomerRow.id).exists(),
             ~select(BookingRow.id).where(BookingRow.customer_id == CustomerRow.id).exists(),
+            ~select(OrderRow.id).where(OrderRow.customer_id == CustomerRow.id).exists(),
+            ~select(StampEventRow.id).where(StampEventRow.customer_id == CustomerRow.id).exists(),
+            ~select(CouponRow.id).where(CouponRow.customer_id == CustomerRow.id).exists(),
         )).rowcount
     if n:
         log.info("손님 %d명 삭제 (빈 손님 %d일 경과)", n, ORPHAN_DAYS)

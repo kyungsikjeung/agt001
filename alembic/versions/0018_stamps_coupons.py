@@ -21,6 +21,14 @@ def _now():
 
 
 def upgrade() -> None:
+    # 쿠폰으로 합계 0원인 주문(complete_free)을 받으려면 0015의 결제 제약 두 개를 넓혀야 한다:
+    # 금액 > 0 → >= 0, 결제 방법에 coupon 추가. (W4-C에서 발견: 이대로면 0원 쿠폰 주문이 CheckViolation)
+    op.drop_constraint("ck_payments_amount", "payments", type_="check")
+    op.create_check_constraint("ck_payments_amount", "payments", "amount >= 0")
+    op.drop_constraint("ck_payments_method", "payments", type_="check")
+    op.create_check_constraint(
+        "ck_payments_method", "payments",
+        "method IS NULL OR method IN ('card', 'easy_pay', 'transfer', 'cash', 'onsite_card', 'coupon')")
     op.create_table(
         "stamp_rules",
         sa.Column("site_key", sa.Text(), sa.ForeignKey("shops.site_key"), primary_key=True),
@@ -89,6 +97,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # 0원·coupon 결제 행이 있으면 되돌리기 전에 정리해야 한다(제약이 다시 좁아진다).
+    op.drop_constraint("ck_payments_method", "payments", type_="check")
+    op.create_check_constraint(
+        "ck_payments_method", "payments",
+        "method IS NULL OR method IN ('card', 'easy_pay', 'transfer', 'cash', 'onsite_card')")
+    op.drop_constraint("ck_payments_amount", "payments", type_="check")
+    op.create_check_constraint("ck_payments_amount", "payments", "amount > 0")
     op.drop_table("stamp_events")
     op.drop_index("ix_coupons_site_customer_status", table_name="coupons")
     op.drop_table("coupons")

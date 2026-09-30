@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 
 from app import store
 from app.config import settings
-from app.db.models import OrderItemRow, OrderRow, PaymentRow, RefundRow, RoomRow, SessionRow
+from app.db.models import CouponRow, OrderItemRow, OrderRow, PaymentRow, RefundRow, RoomRow, SessionRow
 from app.db.session import get_sessionmaker
 
 log = logging.getLogger(__name__)
@@ -144,10 +144,27 @@ def complete(pay_id: str) -> str:
                             order = db.scalar(select(OrderRow).where(OrderRow.id == order_id).with_for_update())
                             if order is not None:
                                 order.status = "paid"
+                            # 도장·쿠폰은 처음 paid가 되는 자리에서 (W4-C).
+                            coupon_used = False
+                            try:
+                                from app.services import stamps
+                                held = db.scalar(select(func.count()).select_from(CouponRow).where(
+                                    CouponRow.held_order_id == order_id,
+                                    CouponRow.status == "held")) or 0
+                                # savepoint: 도장 쪽 DB 오류가 결제 확정까지 되돌리지 않게
+                                with db.begin_nested():
+                                    stamps.settle_held(db, order_id)
+                                    stamps.earn(db, order_id)
+                                coupon_used = held > 0
+                            except Exception:
+                                log.exception("스탬프 적립 실패 order=%s", order_id)
                             items = db.scalars(select(OrderItemRow).where(OrderItemRow.order_id == order_id)
                                                .order_by(OrderItemRow.id)).all()
                             desc = ", ".join(f"{r.name} {r.qty}" for r in items) or "주문"
-                            notify_args = (site_key, order_id, f"새 주문: {desc} · {want:,}원 (테스트 결제)")
+                            text = f"새 주문: {desc} · {want:,}원 (테스트 결제)"
+                            if coupon_used:
+                                text += " · 쿠폰 사용"
+                            notify_args = (site_key, order_id, text)
                             result = "paid"
                         elif status in ("PAID", "FAILED", "CANCELED", "CANCELLED"):
                             # PAID인데 금액·통화가 다르면 실패로 둔다. 사장님께 알리지 않는다.
@@ -159,6 +176,44 @@ def complete(pay_id: str) -> str:
     if notify_args is not None:
         _notify_paid(*notify_args)
     return result
+
+
+def complete_free(pay_id: str) -> str:
+    """합계 0원 주문을 포트원 없이 확정한다. 'paid'·'already'. 금액이 남으면 ValueError."""
+    pid = (pay_id or "").strip()
+    if not pid:
+        raise ValueError("결제할 금액이 남아 있어요.")
+    notify_args: Optional[tuple] = None
+    with get_sessionmaker()() as db, db.begin():
+        pay = db.scalar(select(PaymentRow).where(PaymentRow.provider_payment_id == pid).with_for_update())
+        if pay is None:
+            raise ValueError("결제할 금액이 남아 있어요.")
+        if pay.status == "paid":
+            return "already"
+        if pay.status != "ready" or pay.amount != 0:
+            raise ValueError("결제할 금액이 남아 있어요.")
+        pay.provider = "manual"
+        pay.method = "coupon"
+        pay.status = "paid"
+        pay.paid_at = _now()
+        order = db.scalar(select(OrderRow).where(OrderRow.id == pay.order_id).with_for_update())
+        if order is not None:
+            order.status = "paid"
+        try:
+            from app.services import stamps
+            with db.begin_nested():  # 도장 실패가 결제 확정을 되돌리지 않게
+                stamps.settle_held(db, pay.order_id)
+                stamps.earn(db, pay.order_id)
+        except Exception:
+            log.exception("스탬프 적립 실패 order=%s", pay.order_id)
+        items = db.scalars(select(OrderItemRow).where(OrderItemRow.order_id == pay.order_id)
+                           .order_by(OrderItemRow.id)).all()
+        desc = ", ".join(f"{r.name} {r.qty}" for r in items) or "주문"
+        notify_args = (pay.site_key, pay.order_id,
+                       f"새 주문: {desc} · 0원 (테스트 결제) · 쿠폰 사용")
+    if notify_args is not None:
+        _notify_paid(*notify_args)
+    return "paid"
 
 
 def refund(site_key: str, order_id: int, amount: int | None, reason: str, by: str) -> dict:
@@ -205,6 +260,13 @@ def refund(site_key: str, order_id: int, amount: int | None, reason: str, by: st
         if left == 0:
             pay.status = "canceled"
             order.status = "canceled"
+            # 전액 환불이면 그 주문 도장을 회수한다 (W4-C).
+            try:
+                from app.services import stamps
+                with db.begin_nested():  # 회수 실패가 환불 기록을 되돌리지 않게
+                    stamps.revoke(db, order_id)
+            except Exception:
+                log.exception("스탬프 회수 실패 order=%s", order_id)
         return {"order_id": order_id, "payment_id": pay.id, "refunded": want,
                 "remaining": left, "status": pay.status}
 

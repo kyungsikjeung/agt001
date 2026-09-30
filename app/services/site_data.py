@@ -824,6 +824,18 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             href = _anchor(sections, sec["id"])
             if href:
                 links.append({"label": nav, "href": href})
+    if (spec.get("stamps") is True or isinstance(card.get("stamps"), dict)) and len(links) < 4:
+        # 스탬프 화면 주소. site_key는 주문 폼과 같은 방식으로 카드 복사본에 실려 온다.
+        stamp_key = ""
+        boxed = card.get("stamps")
+        if isinstance(boxed, dict) and isinstance(boxed.get("site_key"), str):
+            stamp_key = boxed["site_key"]
+        if not stamp_key:
+            action = _order_action(card) or ""
+            if action.startswith("/api/orders/"):
+                stamp_key = action[len("/api/orders/"):].strip("/")
+        if stamp_key and not any(l.get("href", "").endswith("/my") for l in links):
+            links.append({"label": "스탬프", "href": f"/api/orders/{stamp_key}/my"})
     out["navbar"] = {"title": shop, "top": "#hero-title-hero", "links": links}
     if primary:
         out["navbar"]["cta"] = primary
