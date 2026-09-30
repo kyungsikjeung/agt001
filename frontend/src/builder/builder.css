@@ -26,12 +26,15 @@
 
 .bd-top-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
 .bd-title {
+  flex: 1;
+  min-width: 0;
   margin: 0;
   font-size: 18px;
   line-height: 1.4;
@@ -248,10 +251,22 @@
   font-weight: 600;
 }
 
+/* 공개 버튼만 제목 옆에 두고, 로그인·확인 안내는 위 줄 아래 한 줄로 내린다 (B4: 390px에서 제목·버튼이 찌그러졌다) */
 .bd-publish {
+  display: contents;
+}
+.bd-publish > div,
+.bd-publish > p {
+  flex-basis: 100%;
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  margin: 0;
+}
+.bd-publish > div > .bd-msg {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .bd-notice-sheet {

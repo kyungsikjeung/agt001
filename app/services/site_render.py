@@ -205,7 +205,7 @@ def _safe(value):
 
 # 시안에서는 사진마다 붙던 "예시 이미지" 배지를 숨기고 위에 한 줄로 모은다 (디자인 품질 2번:
 # 배지가 여기저기 붙어 견본처럼 보였다). 공개본은 D51대로 사진마다 표시를 남긴다.
-_DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 채팅방에서 가게 사진을 올리면 바로 바뀌어요.</p>'
+_DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 내 가게 사진으로 바꿀 수 있어요.</p>'
                '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
 
 # 보며 고치기 미리보기 (EDIT_WAVE2_CONTRACT §3.3). 구역 뿌리의 data-section-id로만 구역을 알아낸다.

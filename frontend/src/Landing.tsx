@@ -366,7 +366,7 @@ export default function Landing() {
         <section className="templates" aria-labelledby="tpl-title">
           <div className="section-head">
             <h2 id="tpl-title">템플릿으로 시작하기</h2>
-            <p>고르면 그 업종에 맞는 질문부터 시작해요. 가게 이름과 사진은 대화하며 바꿉니다.</p>
+            <p>고르면 바로 시안이 나와요. 기능은 눌러서 붙이고, 이름·사진은 그 자리에서 바꿔요.</p>
           </div>
           <div className="grid lp-tgrid">
             {TEMPLATES.map((t, i) => (
