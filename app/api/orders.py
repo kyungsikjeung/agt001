@@ -398,8 +398,7 @@ def pay_coupon(pay_id: str, request: Request, coupon_id: Optional[str] = Form(de
     except (ValueError, LookupError) as exc:
         return _render_pay(pid, request, str(exc))
     except IntegrityError:
-        # 전액 할인(합계 0원)은 payments.amount > 0 검사를 넘지 못한다 (DEVIATIONS).
-        # 500 대신 같은 화면에 문구로 보여준다.
+        # DB 제약에 걸려도 500 대신 같은 화면에 문구로 (0원 제약은 0018에서 풀었다)
         return _render_pay(pid, request, "쿠폰을 지금 쓸 수 없어요. 가게에 물어봐 주세요.")
     return RedirectResponse(f"/pay/{pid}", status_code=303)
 

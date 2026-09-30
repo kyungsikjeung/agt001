@@ -204,6 +204,15 @@ def complete_free(pay_id: str) -> str:
             return "already"
         if pay.status != "ready" or pay.amount != 0:
             raise ValueError("결제할 금액이 남아 있어요.")
+        # 0원은 쿠폰 덕분이다. 그 쿠폰이 아직 이 주문에 묶여 있어야 한다: 잡은 시간(60분)이 지나 풀린 쿠폰을
+        # 매장·다른 주문에서 쓴 뒤 이 주문을 0원으로 확정하면 한 쿠폰으로 두 번 받는다 (보안 점검 9/30).
+        held = db.scalar(select(CouponRow).where(
+            CouponRow.held_order_id == pay.order_id, CouponRow.status == "held").with_for_update())
+        until = held.held_until if held is not None else None
+        if until is not None and until.tzinfo is None:
+            until = until.replace(tzinfo=datetime.timezone.utc)
+        if until is None or until <= _now():
+            raise ValueError("쿠폰을 잡아 둔 시간이 지났어요. 쿠폰을 다시 골라 주세요.")
         pay.provider = "manual"
         pay.method = "coupon"
         pay.status = "paid"

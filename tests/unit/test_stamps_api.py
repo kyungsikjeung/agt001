@@ -352,3 +352,26 @@ def test_purge_orphans_keeps_order_only_customer(client):
             CustomerRow.site_key == key, CustomerRow.phone == "01020000099")) is not None
         assert db.scalar(select(CustomerRow.id).where(
             CustomerRow.site_key == key, CustomerRow.phone == "01020000098")) is None
+
+
+def test_free_order_rejected_after_hold_expired_and_coupon_used_in_store(client, _ready):
+    """보안 점검 9/30: 쿠폰을 잡아 0원을 만든 뒤 60분이 지나 풀린 쿠폰을 매장에서 쓰고,
+    첫 주문을 /free로 확정하면 한 쿠폰으로 두 번 받는다 → 거절, 결제는 ready 그대로."""
+    key = _site(client)
+    stamps.set_rule("tester", key, active=True, goal=10, per="order")
+    phone = "010-2000-0008"
+    pay_id = orders.create(key, [("아메리카노", 1)], "김손님", phone)
+    cid = _customer_id(key, phone)
+    with get_sessionmaker()() as db, db.begin():
+        coid = stamps.issue(db, key, cid, source="owner", kind="free", value=0, title="음료 1잔 무료")
+        code = db.get(CouponRow, coid).code
+    assert client.post(f"/pay/{pay_id}/coupon", data={"coupon_id": str(coid)}, headers=ORIGIN,
+                       follow_redirects=False).status_code == 303
+    with get_sessionmaker()() as db, db.begin():
+        db.get(CouponRow, coid).held_until = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=1)
+    with get_sessionmaker()() as db, db.begin():
+        stamps.redeem(db, key, code, "owner-1")  # 풀린 쿠폰을 매장에서 씀
+    r = client.post(f"/pay/{pay_id}/free", headers=ORIGIN, follow_redirects=False)
+    assert r.status_code == 200 and "쿠폰을 잡아 둔 시간이 지났어요" in r.text
+    with get_sessionmaker()() as db:
+        assert db.scalar(select(PaymentRow.status).where(PaymentRow.provider_payment_id == pay_id)) == "ready"
