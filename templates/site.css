@@ -2109,8 +2109,22 @@ body:has(.s-tabbar) { padding-bottom: 88px; }
 @media (min-width: 760px) { .s-tabbar { display: none; } body:has(.s-tabbar) { padding-bottom: 0; } }
 
 /* 공지 띠·팝업 (D56) */
-.s-notice { margin: 0; padding: 10px 16px; font-size: 15px; line-height: 1.5; background: var(--c-primary); color: var(--on-primary, #fff); text-align: center; }
-.s-notice strong { margin-right: 6px; }
+.s-notice { margin: 0; padding: 6px 16px; font-size: 15px; line-height: 1.5; background: var(--c-primary); color: var(--on-primary, #fff); }
+/* 공지 띠 (NOTICE_PHOTO_CONTRACT §2): 종 아이콘 + 작은 사진 + 글. 팝업이 있으면 띠 전체가 단추 */
+.s-notice__open, .s-notice > .s-notice__bell { font: inherit; color: inherit; }
+.s-notice__open { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; text-align: left; }
+.s-notice:not(:has(.s-notice__open)) { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; }
+.s-notice__bell { flex: none; }
+.s-notice__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.s-notice__thumb { flex: none; width: 32px; height: 32px; border-radius: 8px; object-fit: cover; }
+/* 팝업이 있는 띠만 한 줄로 자른다(누르면 전부 보임). 글만 있는 띠는 줄바꿈해 다 보인다 */
+.s-notice__open .s-notice__text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-notice__photos { display: flex; gap: 0; margin: 0 0 12px; padding: 0; list-style: none; overflow-x: auto; scroll-snap-type: x mandatory; border-radius: 14px; }
+.s-notice__photos li { flex: 0 0 100%; scroll-snap-align: center; }
+.s-notice__photos img { display: block; width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
+.s-notice__dots { display: flex; justify-content: center; gap: 6px; margin: 0 0 12px; padding: 0; list-style: none; }
+.s-notice__dots li { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+.s-notice__dots li.on { background: var(--c-primary); }
 .s-popup { position: fixed; inset: 0; z-index: 80; display: flex; align-items: flex-end; justify-content: center; background: rgba(0,0,0,.45); }
 .s-popup[hidden] { display: none; }
 .s-popup__panel { width: 100%; max-width: 480px; background: #fff; color: var(--c-ink); border-radius: 20px 20px 0 0; padding: 22px 20px calc(12px + env(safe-area-inset-bottom)); }

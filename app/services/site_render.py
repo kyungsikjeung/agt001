@@ -293,16 +293,54 @@ def _app_tabs(nav: dict, bar: dict, body_ids: set) -> list:
     return [{"label": l, "href": h, "icon": _tab_icon(l)} for l, h in tabs] if len(tabs) >= 2 else []
 
 
-def _notice_popup(text: str) -> str:
-    """공지 팝업 (D56). 닫기만: 공개 사이트는 CSP sandbox(출처 없음)라 기기 저장소를 못 써
+_BELL = ('<svg class="s-notice__bell" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" '
+         'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+         '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>')
+
+
+def _notice_photos(notice: dict) -> list:
+    """공지 사진 주소 (NOTICE_PHOTO_CONTRACT §2): 이 사이트 올린 사진(/uploads/)만, 5장까지."""
+    raw = notice.get("photos") if isinstance(notice.get("photos"), list) else []
+    return [p for p in raw if isinstance(p, str) and p.startswith("/uploads/")][:5]
+
+
+def _notice_band(text: str, photos: list, can_open: bool) -> str:
+    """공지 띠: 종 아이콘 + (사진이면 첫 장 작은 그림) + 글. 팝업이 있으면 띠 전체가 여는 단추."""
+    thumb = (f'<img class="s-notice__thumb" src="{html.escape(photos[0], quote=True)}" alt="" '
+             'width="32" height="32" loading="lazy">' if photos else "")
+    label = html.escape(text) if text else f"사진 공지 {len(photos)}장"
+    inner = f'{_BELL}<span class="s-notice__label">공지</span>{thumb}<span class="s-notice__text">{label}</span>'
+    if can_open:
+        inner = f'<button type="button" class="s-notice__open" data-popup="open" aria-haspopup="dialog">{inner}</button>'
+    return f'<div class="s-notice" role="note">{inner}</div>'
+
+
+def _notice_popup(text: str, photos: list | None = None, auto_open: bool = True) -> str:
+    """공지 팝업 (D56 + 사진 넘기기). 닫기만: 공개 사이트는 CSP sandbox(출처 없음)라 기기 저장소를 못 써
     '오늘 하루 보지 않기'가 저장되지 않는다. 스크립트가 없으면 hidden 그대로라 띠만 보인다."""
+    photos = photos or []
+    body = f'<p class="s-popup__text">{html.escape(text)}</p>' if text else ""
+    if photos:
+        items = "".join(f'<li><img src="{html.escape(u, quote=True)}" alt="공지 사진 {i}" loading="lazy"></li>'
+                        for i, u in enumerate(photos, start=1))
+        body += f'<ul class="s-notice__photos">{items}</ul>'
+        if len(photos) > 1:
+            body += ('<ol class="s-notice__dots" aria-hidden="true">'
+                     + "".join('<li class="on"></li>' if i == 0 else "<li></li>" for i in range(len(photos))) + "</ol>")
+    auto = "1" if auto_open else "0"
     return (
-        '<div class="s-popup" id="s-popup" role="dialog" aria-modal="true" aria-labelledby="s-popup-title" hidden>'
-        '<div class="s-popup__panel"><p class="s-popup__kicker" id="s-popup-title">공지</p>'
-        f'<p class="s-popup__text">{html.escape(text)}</p>'
+        f'<div class="s-popup" id="s-popup" role="dialog" aria-modal="true" aria-labelledby="s-popup-title" '
+        f'data-auto="{auto}" hidden>'
+        f'<div class="s-popup__panel"><p class="s-popup__kicker" id="s-popup-title">공지</p>{body}'
         '<div class="s-popup__row"><button type="button" data-popup="close">닫기</button></div></div></div>'
-        "<script>(function(){var p=document.getElementById('s-popup');if(!p)return;p.hidden=false;"
-        "p.addEventListener('click',function(e){if(e.target===p||e.target.hasAttribute('data-popup'))p.hidden=true;});})();</script>"
+        "<script>(function(){var p=document.getElementById('s-popup');if(!p)return;"
+        "if(p.getAttribute('data-auto')==='1')p.hidden=false;"
+        "document.addEventListener('click',function(e){var t=e.target;"
+        "if(t&&t.closest&&t.closest('[data-popup=\"open\"]')){p.hidden=false;return;}"
+        "if(t===p||(t&&t.getAttribute&&t.getAttribute('data-popup')==='close'))p.hidden=true;});"
+        "var ul=p.querySelector('.s-notice__photos'),d=p.querySelectorAll('.s-notice__dots li');"
+        "if(ul&&d.length){ul.addEventListener('scroll',function(){var i=Math.round(ul.scrollLeft/Math.max(1,ul.clientWidth));"
+        "for(var k=0;k<d.length;k++)d[k].className=(k===i?'on':'');},{passive:true});}})();</script>"
     )
 
 
@@ -1465,13 +1503,16 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             rendered_parts.insert(0, chevron.render(ntemplate, _safe(nctx)))
 
     notice = spec.get("notice") if isinstance(spec.get("notice"), dict) else {}
-    notice_text = notice.get("text") if isinstance(notice.get("text"), str) else ""
-    if notice_text.strip():
-        # 공지 띠는 맨 위(내비 다음). 팝업은 켰을 때만, 스크립트가 없으면 띠만 보인다.
+    notice_text = (notice.get("text") if isinstance(notice.get("text"), str) else "").strip()
+    notice_photos = _notice_photos(notice)
+    if notice_text or notice_photos:
+        # 공지 띠는 맨 위(내비 다음). 팝업은 사진이 있거나 켰을 때만(편집 미리보기는 없음),
+        # 켰으면 들어올 때 한 번 열고, 사진만 있으면 띠를 누를 때 연다. 스크립트가 없으면 띠만 보인다.
+        with_popup = (notice.get("popup") is True or bool(notice_photos)) and not edit
         at = 1 if rendered_parts and rendered_parts[0].lstrip().startswith('<nav class="s-navbar"') else 0
-        rendered_parts.insert(at, f'<p class="s-notice" role="note"><strong>공지</strong> {html.escape(notice_text.strip())}</p>')
-        if notice.get("popup") is True and not edit:
-            rendered_parts.append(_notice_popup(notice_text.strip()))
+        rendered_parts.insert(at, _notice_band(notice_text, notice_photos, with_popup))
+        if with_popup:
+            rendered_parts.append(_notice_popup(notice_text, notice_photos, auto_open=notice.get("popup") is True))
     app_layout = spec.get("layout") == "app"
     bar = spec.get("actionbar")
     if app_layout:

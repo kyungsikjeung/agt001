@@ -228,10 +228,10 @@ def test_notice_banner_and_popup_escape():
     """공지 띠는 늘, 팝업은 켰을 때만. 사장님 글은 이스케이프 (D56)."""
     hero = {"id": "hero", "type": "hero", "variant": "photo-overlay", "content": {"title": "마포"}}
     on = _page([hero], public=True, notice={"text": "쉬어요 <b>", "popup": True})
-    assert '<p class="s-notice" role="note"><strong>공지</strong> 쉬어요 &lt;b&gt;</p>' in on
-    assert 'id="s-popup"' in on and "오늘 하루" not in on
+    assert '<div class="s-notice" role="note">' in on and "쉬어요 &lt;b&gt;" in on and "쉬어요 <b>" not in on
+    assert 'data-popup="open"' in on and 'id="s-popup"' in on and "오늘 하루" not in on
     off = _page([hero], public=True, notice={"text": "쉬어요", "popup": False})
-    assert '<p class="s-notice"' in off and 'id="s-popup"' not in off
+    assert '<div class="s-notice"' in off and 'id="s-popup"' not in off and 'data-popup="open"' not in off
 
 
 def test_app_layout_tabbar_replaces_actionbar():
