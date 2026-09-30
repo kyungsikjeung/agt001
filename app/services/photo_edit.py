@@ -29,6 +29,10 @@ OWNER_ONLY = ("실제 사진은 밝기·색감·선명도·자르기만 바꿀 �
 FORBIDDEN = "사람·글자·간판·로고는 넣을 수 없어요"
 NO_UNDO = "되돌릴 게 없어요"
 EXPIRED = "후보가 만료됐어요. 다시 만들어 주세요"
+UNCHANGED = "사진이 거의 바뀌지 않았어요. 다르게 말해 주세요(횟수는 빼지 않았어요)"
+# AI 결과가 원본과 이만큼도 안 다르면 '안 바뀜'(64×64 RGB 평균 차, 0~255).
+# P3 실측: 안 바뀐 공방 1.6, 색만 바꾼 식당 5.4 이상 (evals/photo-edit-check-2026-10-01.md)
+UNCHANGED_DIFF = 3.0
 
 ACTIONS = ("brighter", "warmer", "sharper", "square", "wide")
 
@@ -237,6 +241,17 @@ def _check_ai_limits(card: dict, slot: str) -> None:
         raise ValueError("오늘 AI 사진 고치기를 다 썼어요(하루 10번). 내일 다시 해 주세요.")
 
 
+def _barely_changed(before: bytes, after: bytes) -> bool:
+    """AI 결과가 원본과 사실상 같은가 (P3 공방: 돈은 썼는데 변화 없음)."""
+    from PIL import Image, ImageChops, ImageStat
+
+    try:
+        a, b = (Image.open(io.BytesIO(x)).convert("RGB").resize((64, 64)) for x in (before, after))
+    except Exception:
+        return False
+    return sum(ImageStat.Stat(ImageChops.difference(a, b)).mean) / 3 < UNCHANGED_DIFF
+
+
 def _prune_candidates(session: dict) -> None:
     """지난 후보 파일·기록 지우기."""
     cands = session.get("photo_candidates") or {}
@@ -303,6 +318,8 @@ def make_candidate(room_id: str, session: dict, target: dict, *,
         _check_ai_limits(card, slot)
         raw = ai_images.edit_bytes(image_bytes, cleaned, slot)
         clean, _w, _h = photos._clean_ai_image(raw)
+        if _barely_changed(image_bytes, clean):  # 횟수·쿨다운을 쓰지 않고 다시 말하게 한다
+            raise ValueError(UNCHANGED)
         rec = card.setdefault("ai_edit_day", {"date": _kst_today(), "n": 0})
         if rec.get("date") != _kst_today():
             rec["date"], rec["n"] = _kst_today(), 0

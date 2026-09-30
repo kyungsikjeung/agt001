@@ -158,3 +158,29 @@ describe('PhotoSheet', () => {
     expect(onApplied).not.toHaveBeenCalled();
   });
 });
+
+describe('PhotoSheet 남은 횟수', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  it('AI로 고치면 남은 횟수를 다시 읽는다 (P3 검수)', async () => {
+    let left = 9;
+    stubFetch(async (url) => {
+      if (url.includes('/photo-edit/target')) return okJson({ ...AI_TARGET, left_today: left });
+      if (url.includes('/photo-edit/preview')) {
+        left = 8;
+        return okJson(CANDIDATE);
+      }
+      return okJson({});
+    });
+    render(<PhotoSheet roomId="r1" pick={PICK} onClose={() => {}} onApplied={() => {}} />);
+    expect(await screen.findByText('오늘 9번 남았어요.')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('예: 더 따뜻한 느낌으로'), {
+      target: { value: '여름 느낌으로' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'AI로 고치기' }));
+    expect(await screen.findByText('오늘 8번 남았어요.')).toBeInTheDocument();
+  });
+});

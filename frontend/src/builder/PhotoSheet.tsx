@@ -104,6 +104,10 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
       const c = await previewPhotoEdit(roomId, body);
       if (reqId.current !== id) return;
       setCandidate(c);
+      // AI로 고쳤으면 남은 횟수가 줄었다 → 다시 읽는다(시트를 열 때 한 번만 읽던 것)
+      if (body.instruction && pick) {
+        getPhotoTarget(roomId, pick).then((t) => reqId.current === id && setInfo(t), () => {});
+      }
     } catch (e) {
       if (reqId.current !== id) return;
       setErr(errMsg(e));

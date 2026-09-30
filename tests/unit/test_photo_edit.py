@@ -581,3 +581,18 @@ def test_14_owner_undo_finds_the_edited_photo(room_iso):
     PE.apply_candidate(session, got["candidate_id"])
     assert PE.undo(session, "hero")["url"] == u2
     assert card["photos"][0]["url"] == u1 and card["photos"][1]["url"] == u2
+
+
+def test_15_unchanged_ai_result_not_counted(room_iso, monkeypatch):
+    """AI가 원본과 사실상 같은 사진을 주면 후보 없이 되묻고, 횟수·쿨다운은 그대로 (P3 공방)."""
+    card = _cafe_card()
+    spec = DV.variants(card)[0]["spec"]
+    hero_url = next(s for s in spec["sections"] if s["id"] == "hero")["content"]["image"]
+    target = PE.resolve_target(card, spec, "hero", hero_url, 0)
+    session = _session(card)
+    monkeypatch.setattr(AI, "edit_bytes", lambda image, words, slot: image)
+    with pytest.raises(ValueError, match="거의 바뀌지"):
+        PE.make_candidate(room_iso, session, target, instruction="작업대를 더 밝게")
+    assert int((card.get("ai_edit_day") or {}).get("n") or 0) == 0
+    assert "hero" not in (card.get("ai_edit_at") or {})
+    assert session["photo_candidates"] == {}
