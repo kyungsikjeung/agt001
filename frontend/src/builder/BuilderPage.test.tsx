@@ -178,6 +178,22 @@ describe('BuilderPage', () => {
     expect(puts[0]).toEqual({ fields: {}, choice: 'v2' });
   });
 
+  it('가게 정보 저장 뒤 미리보기를 다시 부른다 (B4)', async () => {
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      if (init?.method === 'PUT') return okJson(CARD);
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    const before = callsTo('/card/preview').length;
+    fireEvent.click(screen.getByRole('button', { name: '가게 정보 펼치기' }));
+    fireEvent.change(screen.getByLabelText('가게 이름'), { target: { value: '모퉁이 커피' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(callsTo('/card/preview').length).toBe(before + 1));
+  });
+
   it('공개 need=login이면 로그인 버튼 2개를 보인다', async () => {
     stubFetch(async (url) => {
       if (url.includes('/card/preview')) return okJson(PREVIEW);

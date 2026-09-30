@@ -98,6 +98,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       const updated = await saveCard(roomId, readMemberId(), fields);
       handleSaved(updated);
       setChangeSeq((n) => n + 1);
+      control.current?.reload(null); // 미리보기 첫 화면의 [가게 이름 입력]이 저장 뒤에도 남던 것 (B4)
       setTopMsg('저장했어요.');
     } catch {
       setTopMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
