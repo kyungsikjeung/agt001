@@ -202,7 +202,7 @@ export default function Landing() {
       </header>
 
       <main>
-        <section className="hero lp-hero">
+        <section className="hero lp-hero lp-bg lp-bg-hero">
           <div className="lp-hero-grid">
             <div className="lp-hero-copy">
               <p className="badge">베타 시연 · 무료</p>
@@ -315,7 +315,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="lp-section" aria-labelledby="how-title">
+        <section className="lp-section lp-bg lp-bg-how" aria-labelledby="how-title">
           <p className="lp-kicker">어떻게 되나요</p>
           <h2 className="lp-h2" id="how-title">말하고, 고르고, 열면 끝</h2>
           <p className="lp-lead">어려운 설정은 없어요. 세 단계면 가게 사이트가 열립니다.</p>
@@ -363,7 +363,7 @@ export default function Landing() {
           </ol>
         </section>
 
-        <section className="templates" aria-labelledby="tpl-title">
+        <section className="templates lp-bg lp-bg-tpl" aria-labelledby="tpl-title">
           <div className="section-head">
             <h2 id="tpl-title">템플릿으로 시작하기</h2>
             <p>고르면 바로 시안이 나와요. 기능은 눌러서 붙이고, 이름·사진은 그 자리에서 바꿔요.</p>
@@ -388,7 +388,7 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="lp-section" aria-label="안심하고 시작하세요">
+        <section className="lp-section lp-bg lp-bg-trust" aria-label="안심하고 시작하세요">
           <p className="lp-kicker">안심하고 시작하세요</p>
           <h2 className="lp-h2">없는 말은 만들지 않아요</h2>
           <ul className="lp-trust">

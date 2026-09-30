@@ -280,6 +280,55 @@
 .is-in .lp-art-toast { animation: lp-toast 0.45s ease 0.9s forwards; }
 @keyframes lp-toast { to { opacity: 1; transform: none; } }
 
+/* ---- 섹션 배경: 섹션마다 아주 살짝 다른 색의 그라데이션, 경계는 흐리게 이어진다.
+   색은 바탕(--ground)에 몇 %만 섞어 만들어 다크 모드에서도 그대로 은은하다 ---- */
+.page {
+  overflow-x: clip;
+  --tint-mint: color-mix(in srgb, var(--accent) 7%, var(--ground));
+  --tint-sky: color-mix(in srgb, #3f7fc4 6%, var(--ground));
+  --tint-sand: color-mix(in srgb, #d9a441 9%, var(--ground));
+  --tint-peach: color-mix(in srgb, #e0785a 6%, var(--ground));
+}
+.lp-bg { position: relative; isolation: isolate; }
+.lp-bg::before {
+  content: ''; position: absolute; z-index: -1; top: 0; bottom: 0; left: 50%;
+  width: 100vw; transform: translateX(-50%); pointer-events: none;
+}
+/* 첫 화면: 오른쪽 위 복숭아빛 */
+.lp-bg-hero::before {
+  background:
+    radial-gradient(50% 60% at 85% 10%, var(--tint-peach), transparent 70%),
+    radial-gradient(45% 55% at 5% 60%, var(--tint-mint), transparent 70%);
+}
+/* 어떻게 되나요: 민트 → 하늘 */
+.lp-bg-how { padding-bottom: 56px; }
+.lp-bg-how::before {
+  background:
+    radial-gradient(45% 70% at 90% 50%, var(--tint-sky), transparent 75%),
+    linear-gradient(180deg, transparent, var(--tint-mint) 25%, var(--tint-mint) 75%, transparent);
+}
+/* 템플릿: 하늘 → 모래 */
+.lp-bg-tpl { padding-block: 64px; }
+.lp-bg-tpl::before {
+  background:
+    radial-gradient(40% 60% at 10% 30%, var(--tint-sky), transparent 75%),
+    linear-gradient(180deg, transparent, var(--tint-sand) 30%, var(--tint-sand) 70%, transparent);
+}
+/* 안심 띠: 모래 → 복숭아 */
+.lp-bg-trust { padding-bottom: 40px; }
+.lp-bg-trust::before {
+  background:
+    radial-gradient(40% 70% at 85% 60%, var(--tint-peach), transparent 75%),
+    linear-gradient(180deg, transparent, var(--tint-sand) 40%, transparent);
+}
+/* 마지막 행동 띠: 어두운 카드 안의 빛 번짐 */
+.lp-cta {
+  background:
+    radial-gradient(55% 90% at 8% 0%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 70%),
+    radial-gradient(45% 80% at 100% 100%, color-mix(in srgb, var(--kakao) 14%, transparent), transparent 70%),
+    var(--ink) !important;
+}
+
 /* ---- 템플릿 ---- */
 .lp-tgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 @media (max-width: 760px) { .lp-tgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
