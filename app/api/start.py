@@ -281,7 +281,8 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                 card_api.post_change_followup(
                     room, session, safe, ["layout"], f"빌더에서 바꿨어요: {label} {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
-                              props={"kind": "section", "choice": "on" if body.on else "off"})
+                              props={"kind": "section", "ref": key[len("section:"):],
+                                     "choice": "on" if body.on else "off"})
             if body.on:
                 focus = key[len("section:"):]
         elif key == "notice":
@@ -296,7 +297,7 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                 card_api.post_change_followup(
                     room, session, safe, ["notice"], f"빌더에서 바꿨어요: 공지 {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
-                              props={"kind": "notice", "choice": "on" if body.on else "off"})
+                              props={"kind": "notice", "ref": "notice", "choice": "on" if body.on else "off"})
         elif key in ("stamps", "order"):
             raise HTTPException(status_code=400, detail="공개한 뒤 사장님 화면에서 켤 수 있어요")
         else:
