@@ -5,7 +5,7 @@
 
 ## 0. 결론
 
-- 빌더 아래 입력줄(글·음성)에 말하면 `POST /api/rooms/{id}/say`. **규칙 먼저, 못 읽은 말만 LLM 1번.** LLM은 **명령 JSON만** 내고(§3), 명령은 칩·눌러 고치기와 **같은 공통 함수**로 적용된다. HTML·CSS·새 적용 경로 없음.
+- 빌더 아래 입력줄(글·음성)에 말하면 `POST /api/rooms/{id}/say`. **규칙 먼저(LLM 호출 0번), 못 읽은 말만 LLM 1번.** 판단(명령 만들기)은 DB를 건드리지 않는 `plan()` 하나에 모으고, 적용은 따로 한다(평가 S3가 `plan()`만 부른다). LLM은 **명령 JSON만** 내고(§3), 명령은 칩·눌러 고치기와 **같은 공통 함수**로 적용된다. HTML·CSS·새 적용 경로 없음.
 - **사실 값(가격·전화·주소·시간·이름·공지 글)은 사장님이 이번에 한 말에 그대로 있어야** 통과한다. 없으면 적용하지 않고 한 줄로 되묻는다.
 - 적용 직전 카드를 **1단계 되돌리기**용으로 세션에 둔다. 답은 한 줄 + 바뀐 구역으로 스크롤·반짝(B1의 `agt-flash`).
 - 스탬프·온라인 주문은 B1 칩과 같이 "공개한 뒤 사장님 화면에서" 안내만. 공개는 "위 공개하기를 눌러 주세요"로 안내만(말로 공개하지 않는다 — 로그인·빈칸 확인이 버튼 흐름에 있다).
@@ -39,19 +39,28 @@ sequenceDiagram
 | 7 | 적용 | 방 잠금 안에서 다시 검사(그 사이 카드가 바뀌었을 수 있음) 후 적용. 명령 최대 5개 |
 | 8 | 응답 | `focus`는 마지막으로 보이게 된 구역 id(없으면 null). `features`는 B1 `GET /features`와 같은 모양 |
 
-## 2. 규칙 먼저 (`builder_agent.rules(card, text, ctx) -> list[Op] | None`)
+## 2. 규칙 먼저 (`builder_agent.rules(card, text, ctx) -> list[Op] | None`) — **LLM 호출 0번**
 
-| 순서 | 규칙 | 예 | 명령 |
-|---|---|---|---|
-| 1 | 되돌리기 말 | "되돌려", "방금 거 취소" | `undo` |
-| 2 | 공개 말(`chat_flow.PUBLISH_WORDS`) | "공개해 줘" | 없음, 답만 "위 **공개하기**를 눌러 주세요" |
-| 3 | 칩 이름 + 켜기/끄기 말 | "후기 넣어 줘", "사진첩 빼", "공간 보여 줘" | `section` (칩 라벨·구역 id 둘 다로 찾음. 켜기: 넣/추가/보여/켜, 끄기: 빼/숨/지워/없애/꺼) |
-| 4 | 안 바꾸기 | "1안", "앱처럼", "사진 크게 보이는 걸로" | `variant` (앱→v3, 사진 강조→v2, 기본→v1) |
-| 5 | 품목 번호 고치기 | "2번 가격 1만원" | `prd_engine.correct_item_row` 그대로 (카드에 바로 적용되는 함수라 §5 적용 단계에서 부른다) |
-| 6 | 디자인 느낌 | "더 밝게", "고급스럽게" (`design_concept.is_style_request`) | `style` |
-| 7 | 사실 칸 | "전화번호 02-123-4567", "영업시간 10시부터 9시" | `prd_engine.extract` → 가게 이름·전화·영업시간·위치·소개·연락 방법 칸만 `set_field` (근거 검사는 extract가 이미 함) |
+규칙에서 부르는 함수는 전부 LLM을 부르지 않아야 한다. `prd_engine.extract`는 LLM을 부르므로(`extract_detail` → `llm.chat_json`) **규칙에 쓰지 않는다**. `design_concept.adjust`도 LLM을 먼저 부르므로 규칙 단계에서는 `is_style_request`(순수 규칙)만 쓰고, `adjust`는 적용 단계에서 부른다.
 
-규칙이 여러 개 걸리면(예: "후기 넣고 더 밝게") 모두 명령으로 모은다. 3·4·6이 애매하면 LLM으로 넘긴다.
+| 순서 | 규칙 | 예 | 명령 | 잘못 읽지 않게 |
+|---|---|---|---|---|
+| 1 | 되돌리기 말 | "되돌려", "방금 거 취소" | `undo` | 말 전체가 짧을 때만(정규화 12자 이하) |
+| 2 | 공개 말 | "공개해 줘", "사이트 열어" | 없음, 답 "위 **공개하기**를 눌러 주세요" | `chat_flow._is_publish_request` **그리고** 정규화 8자 이하 ("공개 전에 메뉴 바꿔"는 공개 아님 → 다음 규칙·LLM) |
+| 3 | 칩 이름 + 켜기/끄기 말 | "후기 넣어 줘", "사진첩 빼", "공간 보여 줘" | `section` | 칩 라벨·구역 id와 켜기(넣/추가/보여/켜)·끄기(빼/숨/지워/없애/꺼) 말을 뺀 **나머지가 조사·어미뿐**일 때만(남는 글자 4자 이하, 숫자 없음). "메뉴에 빙수 추가"는 '빙수'가 남으므로 규칙 아님 → LLM(`item add`) |
+| 4 | 안 바꾸기 | "2안으로", "앱처럼", "앱형으로" | `variant` | **"N안"·"앱형/앱처럼"만.** "사진 크게 보이는 걸로" 같은 말은 사진 고치기와 헷갈리므로 LLM으로 |
+| 5 | 품목 번호 고치기 | "2번 가격 1만원" | `item` {name, price} | 카드 **복사본**에 `prd_engine.correct_item_row`를 불러 바뀐 `price_pairs`(가격)·`duration_pairs`(시간)를 비교해 명령으로 만든다. 원본 카드는 건드리지 않는다. 시간이 바뀐 경우는 `item` {name, note: 없음, duration: "1시간 반"} 대신 **적용 단계에서 같은 함수를 한 번 더 부르는** `item_row` {text} 명령(내부용, LLM 목록에 없음) |
+| 6 | 디자인 느낌 | "더 밝게", "고급스럽게" | `style` {text} | `design_concept.is_style_request`. 적용 단계에서 `adjust`(여기서 LLM이 불릴 수 있음) |
+| 7 | 전화번호 | "전화번호 02-123-4567", "번호 바꿔 010 1234 5678" | `set_field` {phone} | "전화·번호·연락처" 낱말 + 전화 모양 숫자(9~11자리, `prd_engine._spoken_phone`로 정리)일 때만. 영업시간·위치·이름·소개는 규칙으로 읽지 않는다 → LLM |
+
+규칙이 여러 개 걸리면(예: "후기 넣고 더 밝게") 모두 모은다. 한 규칙이라도 "잘못 읽지 않게" 조건에 걸리면 **그 말 전체를 LLM으로** 보낸다(반쪽만 규칙으로 처리하지 않음).
+
+## 2.5 판단 함수 (`builder_agent.plan(card: dict, text: str, ctx: dict | None = None) -> dict`)
+
+- 반환 `{"ops": [...], "source": "rule"|"llm"|"none", "rejected": [str], "reply": str}`. **DB·파일을 쓰지 않는다**(카드는 복사본으로만 다룬다).
+- `ctx`가 없으면 카드로 만든다(업종·이 안 구역 목록·더할 수 있는 구역·품목·공지·지금 안). 평가(S3)는 `plan(card, text)`만 부른다.
+- 순서: `rules` → 없으면 `ask_llm` → `validate`. `source`는 명령을 만든 쪽(규칙 6번 `style`은 적용 때 LLM을 불러도 `rule`).
+- `say(room_id, member_id, text)`가 `plan` → 방 잠금 안에서 `validate` 다시 → 적용 → 후속을 한다.
 
 ## 3. LLM 명령 (`builder_agent.ask_llm(ctx, text) -> dict`)
 
@@ -113,7 +122,7 @@ sequenceDiagram
 
 | 묶음 | 담당 파일 | 선행 |
 |---|---|---|
-| S1 서버 | `app/services/builder_agent.py`(신규: rules·ask_llm·validate·apply·undo), `app/api/start.py`(`/say`·`/undo` 2개 경로), `app/services/funnel.py`(사건 1개), `tests/unit/test_builder_say.py`(신규, LLM은 가짜) | B1 커밋 |
+| S1 서버 | `app/services/builder_agent.py`(신규: rules·plan·ask_llm·validate·apply·undo·say), `app/api/start.py`(`/say`·`/undo` 2개 경로), `app/services/funnel.py`(사건 1개), `tests/unit/test_builder_say.py`(신규, LLM은 가짜) | B1 커밋 |
 | S2 화면 | `frontend/src/builder/*`(입력줄·말풍선·되돌리기), `frontend/src/editor/cardApi.ts`(say·undo), 테스트 | B2 커밋, §6 모양만 |
 | S3 평가 세트 | `evals/builder_say/cases.jsonl`, `evals/run_builder_say.py` | S1 함수 이름만 |
 | S4 평가 실행·조정 | Claude: 실제 LLM으로 돌리고 실패 사례로 규칙·시스템 글 조정, 합격 기준 확인 | S1~S3 |
@@ -124,8 +133,8 @@ sequenceDiagram
 
 | 번호 | 테스트 |
 |---|---|
-| 1 | 규칙: "후기 넣어 줘" → section add, LLM 부르지 않음(가짜 LLM이 불리면 실패) |
-| 2 | 규칙: "2번 가격 1만원" → 품목 가격, "앱처럼" → v3, "더 밝게" → style |
+| 1 | 규칙: "후기 넣어 줘" → section add, LLM 부르지 않음(가짜 LLM이 불리면 실패). "메뉴에 빙수 6천원 추가" → 규칙 아님(LLM으로), "공개 전에 메뉴 바꿔" → 공개 안내 아님, "사진 크게 보이는 걸로" → variant 아님 |
+| 2 | 규칙: "2번 가격 1만원" → `item` {name, price} 이고 **원본 카드 그대로**(plan은 복사본만), "앱처럼" → v3, "더 밝게" → style, "전화번호 010 1234 5678" → set_field phone. 규칙 경로 전체에서 `llm.chat_json` 호출 0번 |
 | 3 | LLM 명령 적용: 가짜 LLM이 `item add 빙수 6000원` → 말에 "빙수 6천원"이 있으면 적용, 없으면 버리고 rejected |
 | 4 | 지어낸 값: 가짜 LLM이 `set_field phone 02-999-9999`(말에 없음) → 버림, 카드 그대로 |
 | 5 | 잠긴 구역: `section hide inquiry` → 버림 |
@@ -133,9 +142,11 @@ sequenceDiagram
 | 7 | 방장 아님 403, 출처 다름 403, 300자 넘음 400, LLM 실패·시간 초과 → 되묻기 답(500 아님) |
 | 8 | 공개 말 → 적용 없음 + "공개하기를 눌러 주세요", 스탬프 → 안내만 |
 | 9 | 공개본이 있으면 적용 뒤 공개본에도 반영(후속 처리), 편집 표시 0 |
+| 10 | `plan()`은 DB·파일을 쓰지 않는다: 호출 전후 카드(원본)·세션·DB 행 수 같음 |
 
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-30 | 처음 작성 |
+| 2026-09-30 | 재확인: `prd_engine.extract`·`design_concept.adjust`는 LLM을 불러 규칙에서 뺌(전화만 정규식 규칙), `plan()` 추가(S3가 부름·DB 안 씀), 칩 이름 규칙이 '메뉴에 빙수 추가'를 구역 켜기로 읽던 것·안 바꾸기가 '사진 크게'를 잡던 것·'공개 전에…'를 공개로 읽던 것 막음, 품목 번호 고치기는 복사본 비교로 명령화 |
