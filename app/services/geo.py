@@ -67,30 +67,34 @@ def _from_keyword(docs: list) -> list:
     return out
 
 
-def search(query: str) -> list:
-    """카카오 로컬 주소 검색 → 0개면 키워드 검색. 최대 5개. 실패하면 빈 목록(예외 없음)."""
+def _search(query: str) -> Optional[list]:
+    """검색 결과. 키가 없거나 통신이 실패하면 None('못 찾음'과 '확인 못 함'을 가른다)."""
     q = (query or "").strip()
     if not q:
         return []
     key = (keystore.get("kakao_rest_api_key") or "").strip()
     if not key:
-        return []
+        return None
     headers = _headers(key)
     try:
         r = httpx.get(_ADDR_URL, headers=headers, params={"query": q}, timeout=_TIMEOUT)
         if r.status_code != 200:
-            return []
-        docs = r.json().get("documents") or []
-        found = _from_address(docs)
+            return None
+        found = _from_address(r.json().get("documents") or [])
         if found:
             return found
         r = httpx.get(_KEYWORD_URL, headers=headers, params={"query": q}, timeout=_TIMEOUT)
         if r.status_code != 200:
-            return []
+            return None
         return _from_keyword(r.json().get("documents") or [])
     except Exception:
         log.warning("주소 검색 실패(통신)")
-        return []
+        return None
+
+
+def search(query: str) -> list:
+    """카카오 로컬 주소 검색 → 0개면 키워드 검색. 최대 5개. 실패하면 빈 목록(예외 없음)."""
+    return _search(query) or []
 
 
 # 시청 주소표 (시 17개). 좌표는 시청 위치다.
@@ -163,3 +167,60 @@ def placeholder(query: str) -> dict:
     if city is not None:
         return out(*city)
     return out(*_CITIES[0][1:])
+
+
+# ── 말·채팅으로 바뀐 주소 맞추기 (MAP_CONTRACT §2-5) ──
+
+def _loc_text(card: dict) -> str:
+    slot = (card.get("slots") or {}).get("location") or {}
+    if slot.get("status") not in ("filled", "assumed"):
+        return ""
+    value = slot.get("value")
+    return (", ".join(map(str, value)) if isinstance(value, list) else str(value or "")).strip()
+
+
+def _resolved_for(card: dict) -> str:
+    """이미 확인한 주소 글(좌표를 저장했거나 되물었던 글)."""
+    geo = card.get("location_geo") if isinstance(card.get("location_geo"), dict) else {}
+    done = geo.get("for") or " ".join(x for x in (geo.get("road"), geo.get("detail")) if x).strip()
+    return str(card.get("location_geo_asked") or done or "")
+
+
+def after_location_change(card: dict, text: str) -> Optional[str]:
+    """바뀐 주소 확인. 1개 → 좌표 저장(None), 여러 개 → 되묻는 한 줄, 0개 → 임시 주소 + 안내 한 줄.
+    검색을 못 했으면(키 없음·통신 실패) 아무것도 바꾸지 않는다(멀쩡한 주소를 임시 주소로 덮지 않게)."""
+    found = _search(text)
+    if found is None:
+        return None
+    roads = list(dict.fromkeys(f["road"] for f in found))
+    if len(roads) == 1:
+        one = found[0]
+        card["location_geo"] = {"road": one["road"], "jibun": one.get("jibun", ""), "detail": "",
+                                "x": one["x"], "y": one["y"], "src": "search", "for": text}
+        card.pop("location_geo_asked", None)
+        return None
+    if roads:
+        card["location_geo_asked"] = text
+        return f"주소가 {', '.join(roads[:3])} 중 어디인가요? '주소 검색'에서 골라 주세요."
+    ph = placeholder(text)
+    card["location_geo"] = {**ph, "for": text}
+    card.pop("location_geo_asked", None)
+    slot = (card.get("slots") or {}).get("location")
+    if isinstance(slot, dict):
+        slot["status"] = "placeholder"  # 공개 전 빈칸 확인(D23)에 걸려 그대로 공개되지 않는다
+    return (f"주소를 찾지 못해서 지도는 임시로 {ph['road']}에 두었어요. "
+            "'주소 검색'에서 정확한 주소를 골라 주세요.")
+
+
+def sync_location(card: dict) -> Optional[str]:
+    """주소 칸이 마지막으로 확인한 글과 다를 때만 확인한다. 주소를 지우면 좌표도 지운다."""
+    if not isinstance(card, dict):
+        return None
+    loc = _loc_text(card)
+    if not loc:
+        if card.get("location_geo") and card["location_geo"].get("src") != "placeholder":
+            card.pop("location_geo", None)
+        return None
+    if loc == _resolved_for(card):
+        return None
+    return after_location_change(card, loc)

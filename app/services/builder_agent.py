@@ -663,6 +663,7 @@ def apply(room: dict, session: dict, safe: str, ops: list) -> dict:
     ctx = _build_ctx(card)
     changed: list = []
     labels: list = []
+    notes: list = []  # 답 끝에 붙일 한 줄(주소 되묻기 등)
     focus = None
     kinds: list = []
     for op in ops or []:
@@ -680,6 +681,11 @@ def apply(room: dict, session: dict, safe: str, ops: list) -> dict:
             changed.append(key)
             labels.append(_FIELD_LABEL.get(key, key))
             kinds.append("set_field")
+            if key == "location":
+                from app.services import geo  # 바뀐 주소를 카카오로 확인 (MAP_CONTRACT §2-5)
+                note = geo.sync_location(card)
+                if note:
+                    notes.append(note)
         elif kind == "item":
             item = card_api.ItemIn(name=op.get("name") or "",
                                    rename=op.get("rename"),
@@ -744,7 +750,7 @@ def apply(room: dict, session: dict, safe: str, ops: list) -> dict:
             kinds.append("variant")
         elif kind in ("feature", "ask", "undo"):
             kinds.append(kind)
-    return {"changed": changed, "focus": focus, "labels": labels, "kinds": kinds}
+    return {"changed": changed, "focus": focus, "labels": labels, "kinds": kinds, "notes": notes}
 
 
 def _same(a, b) -> bool:
@@ -872,6 +878,8 @@ def say(room: dict, session: dict, safe: str, text: str) -> dict:
     labels = result.get("labels") or []
     kinds = result.get("kinds") or []
     message = "말로 고쳤어요: " + ", ".join(labels) if labels else "말로 고쳤어요."
+    if result.get("notes"):
+        message += " " + " ".join(result["notes"])
     try:
         card_api.post_change_followup(room, session, safe, changed or ["say"], message)
     except Exception:

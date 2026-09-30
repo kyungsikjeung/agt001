@@ -232,15 +232,20 @@ def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional
         return None
     ind = prd_engine.industry_of(card)
     labels = ", ".join(dict.fromkeys(prd_engine.S.label_for(ind, k) for k in applied))
+    geo_note = ""
+    if "location" in applied:
+        from app.services import geo  # 바뀐 주소를 카카오로 확인 (MAP_CONTRACT §2-5)
+        geo_note = geo.sync_location(card) or ""
+    tail = f"\n{geo_note}" if geo_note else ""
     if card.get("published"):
         from app.services.publish_check import PublishBlockedError
         try:
             design.publish_choice(session["requirement_id"], card, card["published"])
         except PublishBlockedError as e:
             return (f"반영했어요({labels}). 그런데 공개 전에 걸렀어요: " + "; ".join(e.reasons) + ". "
-                    "공개 사이트는 그대로 뒀어요.")
-        return f"반영했어요({labels}). 사이트에도 바로 바꿨어요: {session.get('deploy_url')}"
-    return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요."
+                    "공개 사이트는 그대로 뒀어요." + tail)
+        return f"반영했어요({labels}). 사이트에도 바로 바꿨어요: {session.get('deploy_url')}" + tail
+    return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요." + tail
 
 
 _KAKAO_CHANNEL = re.compile(
@@ -651,6 +656,11 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
     # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
     amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
     card = session.get("prd")
+    geo_note = ""
+    if card and card.get("slots"):
+        from app.services import geo  # 말한 주소를 카카오로 확인해 지도 좌표를 둔다 (MAP_CONTRACT §2-5)
+        geo_note = (geo.sync_location(card) or "")
+        geo_note = geo_note + "\n" if geo_note else ""
     if card and card.get("slots") and not card.get("copy") and _time_left():
         # 방안 3: 빈 소개·첫 화면 문구를 AI 초안으로(사실은 지어내지 않음). 실패하면 초안 없이 만든다.
         from app.services import copywriter
@@ -714,7 +724,7 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
         ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
         ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
            if (card or {}).get("copy") else "") +
-        _photo_later_reminder(card) +
+        _photo_later_reminder(card) + geo_note +
         # 예전 코드생성이 꺼져 있으면(운영 기본) 파일을 만들지 않으니 만든다고 말하지 않는다.
         ("뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
          "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."

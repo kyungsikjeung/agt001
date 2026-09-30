@@ -135,3 +135,72 @@ def test_3_placeholder_needs_confirm_on_publish(client, monkeypatch):
     session = store.read_session(store.read_room(sanitize_token(rid))["session_id"])
     assert session["prd"]["slots"]["location"]["status"] == "placeholder"
     assert session["prd"]["location_geo"]["src"] == "placeholder"
+
+
+# ── 말·채팅으로 바뀐 주소 맞추기 (§6의 4) ──
+
+def _card_with(loc):
+    return {"slots": {"location": {"value": loc, "status": "filled", "turn": 1}}}
+
+
+def test_4_one_result_saves_geo(fake_kakao):
+    calls, answers = fake_kakao
+    answers["address"] = (200, [_addr_doc("서울 마포구 연남로 12", "연남동 1", 126.92, 37.56)])
+    card = _card_with("연남로 12")
+    assert geo.sync_location(card) is None
+    assert card["location_geo"]["x"] == 126.92 and card["location_geo"]["src"] == "search"
+    n = len(calls)
+    assert geo.sync_location(card) is None and len(calls) == n  # 같은 주소면 다시 부르지 않는다
+
+
+def test_4_many_results_ask_once(fake_kakao):
+    calls, answers = fake_kakao
+    answers["address"] = (200, [])
+    answers["keyword"] = (200, [{"road_address_name": f"서울 강남구 테헤란로 {i}", "address_name": "", "x": "127.0", "y": "37.5"}
+                                for i in range(4)])
+    card = _card_with("테헤란로 스타벅스")
+    note = geo.sync_location(card)
+    assert note and "테헤란로 0" in note and "테헤란로 3" not in note  # 최대 3개만 묻는다
+    assert "location_geo" not in card
+    n = len(calls)
+    assert geo.sync_location(card) is None and len(calls) == n  # 한 번만 묻는다
+
+
+def test_4_no_result_placeholder(fake_kakao):
+    calls, answers = fake_kakao
+    answers["address"] = (200, [])
+    answers["keyword"] = (200, [])
+    card = _card_with("마포구 어딘가 골목")
+    note = geo.sync_location(card)
+    assert "임시로" in note and "마포구" in note
+    assert card["location_geo"]["src"] == "placeholder"
+    assert card["slots"]["location"]["status"] == "placeholder"
+
+
+def test_4_search_unavailable_changes_nothing(fake_kakao, monkeypatch):
+    monkeypatch.setattr(geo.keystore, "get", lambda name: None)
+    card = _card_with("연남로 12")
+    assert geo.sync_location(card) is None
+    assert "location_geo" not in card and card["slots"]["location"]["status"] == "filled"
+
+
+def test_4_cleared_location_drops_geo():
+    card = {"slots": {}, "location_geo": {"road": "x", "x": 127.0, "y": 37.5, "src": "search"}}
+    assert geo.sync_location(card) is None and "location_geo" not in card
+
+
+def test_4_builder_say_apply_saves_geo_and_note(client, fake_kakao):
+    calls, answers = fake_kakao
+    answers["address"] = (200, [])
+    answers["keyword"] = (200, [])
+    rid, owner = _start(client)
+    from app import store
+    from app.security import sanitize_token
+    from app.services import builder_agent
+    safe = sanitize_token(rid)
+    with store.room_tx(safe) as (room, session):
+        out = builder_agent.apply(room, session, safe,
+                                  [{"op": "set_field", "key": "location", "value": "마포구 연남동 골목 안쪽"}])
+    assert out["notes"] and "임시로" in out["notes"][0]
+    card = store.read_session(store.read_room(safe)["session_id"])["prd"]
+    assert card["location_geo"]["src"] == "placeholder"
