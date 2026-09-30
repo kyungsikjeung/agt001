@@ -14,6 +14,7 @@
     --border: #e5e7eb;
     --text: #1f2328;
     --text-muted: #52525b;
+    --warn: #c62828; /* 사장님이 챙겨야 할 곳(미정·입력 필요) */
   }
   * { box-sizing: border-box; }
   body {
@@ -311,6 +312,9 @@
     #memberPanel { width: 100%; }
     .photo-thumb { max-width: 200px; }
   }
+  /* 답장 강조: 챙길 곳은 빨간 굵은 글씨, 흐름의 핵심 낱말(시안·공개)은 굵은 강조색 */
+  .t-warn { color: var(--warn); font-weight: 700; }
+  .t-key { color: var(--accent-dark); font-weight: 800; }
 </style>
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
@@ -731,6 +735,23 @@ function ownLink(shown) {
   if (!url.pathname.startsWith('/auth/')) { link.target = '_blank'; link.rel = 'noopener'; }  // 로그인은 이 창에서, 시안·사이트는 새 창
   return link;
 }
+// 답장 글자에 강조를 입힌다 (글자 노드·span만, innerHTML 없음).
+// 챙길 곳: [… 입력 필요]·가격 미정·미정·입력 필요 → 빨강. 핵심 낱말: 시안·공개본·공개 → 굵은 강조색.
+const MARK_RE = /(\[[^\]\n]{1,20}입력 필요\]|가격 미정|미정|입력 필요)|(시안|공개본|공개)/g;
+function appendMarked(box, s) {
+  let last = 0;
+  let mm = null;
+  MARK_RE.lastIndex = 0;
+  while ((mm = MARK_RE.exec(s)) !== null) {
+    if (mm.index > last) box.appendChild(document.createTextNode(s.slice(last, mm.index)));
+    const span = document.createElement('span');
+    span.className = mm[1] ? 't-warn' : 't-key';
+    span.textContent = mm[0];
+    box.appendChild(span);
+    last = mm.index + mm[0].length;
+  }
+  if (last < s.length) box.appendChild(document.createTextNode(s.slice(last)));
+}
 function appendPhoneLinkedText(box, raw) {
   const s = raw || '';
   const re = /https?:\/\/[^\s]+|(?<!\S)\/(?:design|editor|site)\/[^\s]+|\d{2,4}-\d{3,4}-\d{4}|\d{10,11}/g;
@@ -749,15 +770,16 @@ function appendPhoneLinkedText(box, raw) {
     }
     if (!link) continue;
     found = true;
-    if (mm.index > last) box.appendChild(document.createTextNode(s.slice(last, mm.index)));
+    if (mm.index > last) appendMarked(box, s.slice(last, mm.index));
     box.appendChild(link);
     last = mm.index + shown.length;
   }
   if (!found) {
-    box.textContent = s;
+    box.textContent = '';
+    appendMarked(box, s);
     return;
   }
-  if (last < s.length) box.appendChild(document.createTextNode(s.slice(last)));
+  if (last < s.length) appendMarked(box, s.slice(last));
 }
 // 공개 답장 아래: 주소 복사·공유하기 (EDIT_PUBLISH_PLAN §3-2). 공유는 휴대폰 공유 창(카톡·문자 등)이 있을 때만.
 function buildSiteShare(bubble, url) {
