@@ -25,6 +25,12 @@ def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
 
 
+def paused() -> bool:
+    """비상 스위치 켜짐 여부. 켜지면 새 주문·결제 시작만 막는다 (WAVE5_CONTRACT §2.1)."""
+    from app.config import settings
+    return bool(settings.commerce_paused)
+
+
 def _kst_day(dt: datetime.datetime) -> datetime.date:
     # DB 시각은 timestamptz. naive면 UTC로 본다.
     if dt.tzinfo is None:

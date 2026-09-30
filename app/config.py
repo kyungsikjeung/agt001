@@ -137,6 +137,9 @@ class Settings(BaseSettings):
     # 이번 물결에서는 늘 False. True 경로는 만들지 않는다.
     portone_live: bool = False
 
+    # 비상 스위치: true면 새 주문·결제 시작을 멈춤. 바꾸면 재시작 필요 (WAVE5_CONTRACT §2.1).
+    commerce_paused: bool = False
+
     # compose에서는 db 서비스를 가리킨다. 로컬 개발은 .env에서 덮어쓴다.
     database_url: str = "postgresql+psycopg://agt001:agt001@localhost:5432/agt001"
     # 기동 시 alembic upgrade head를 실행한다. 테스트는 픽스처가 직접 실행하므로 끈다.

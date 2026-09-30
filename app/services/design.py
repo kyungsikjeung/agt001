@@ -51,7 +51,9 @@ def _section_name(sec: dict, offerings_label: str) -> str:
 def _order_form_action(requirement_id: str) -> Optional[str]:
     """주문 폼 주소. order_on + 결제 준비일 때만. 실패해도 시안은 그냥 그린다."""
     try:
-        from app.services import payments, shop_settings
+        from app.services import orders, payments, shop_settings
+        if orders.paused():  # 비상 스위치: 공개본은 전화 주문 시트로 (WAVE5_CONTRACT §2.2)
+            return None
         if shop_settings.get(requirement_id).get("order_on") and payments.ready():
             return f"/api/orders/{requirement_id}"
     except Exception:
@@ -62,7 +64,9 @@ def _order_form_action(requirement_id: str) -> Optional[str]:
 def _stamps_on(requirement_id: str) -> bool:
     """스탬프 규칙이 켜져 있으면 True. 실패해도 시안은 그냥 그린다."""
     try:
-        from app.services import stamps
+        from app.services import orders, stamps
+        if orders.paused():  # 비상 스위치: 공개본에서 스탬프 링크를 뺀다 (WAVE5_CONTRACT §2.2)
+            return False
         return stamps.rule(requirement_id) is not None
     except Exception:
         log.exception("스탬프 규칙 확인 실패, 표시 없이 그림 %s", requirement_id)
