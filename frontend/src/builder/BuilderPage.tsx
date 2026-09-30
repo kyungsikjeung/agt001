@@ -14,7 +14,10 @@ import {
   type RoomCard,
 } from '../editor/cardApi';
 import FeatureChips from './FeatureChips';
+import PhotoSheet, { type PhotoSheetPick } from './PhotoSheet';
 import PublishBar from './PublishBar';
+import SayBar from './SayBar';
+import type { SayResponse, UndoResponse } from '../editor/cardApi';
 
 const CHOICES = ['v1', 'v2', 'v3'] as const;
 const TOP_KEYS = ['shop_name', 'phone', 'location'] as const;
@@ -51,6 +54,8 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   const [pubBusy, setPubBusy] = useState(false);
   const [pubResult, setPubResult] = useState<PublishResult | null>(null);
   const [siteUrl, setSiteUrl] = useState<string | null>(null);
+  const [changeSeq, setChangeSeq] = useState(0);
+  const [photoPick, setPhotoPick] = useState<PhotoSheetPick | null>(null);
   const control = useRef<BuilderControl | null>(null);
 
   useEffect(() => {
@@ -92,6 +97,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     try {
       const updated = await saveCard(roomId, readMemberId(), fields);
       handleSaved(updated);
+      setChangeSeq((n) => n + 1);
       setTopMsg('저장했어요.');
     } catch {
       setTopMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
@@ -107,6 +113,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     try {
       const updated = await saveCard(roomId, readMemberId(), {}, undefined, { choice: v });
       handleSaved(updated);
+      setChangeSeq((n) => n + 1);
       control.current?.setVariant(v);
     } catch {
       setTopMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
@@ -123,6 +130,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       setFeatures(r.features);
       setNoticeKey(null);
       setNoticeText('');
+      setChangeSeq((n) => n + 1);
       control.current?.reload(r.focus);
     } catch {
       setChipMsg('바꾸지 못했어요. 잠시 뒤 다시 눌러 주세요.');
@@ -144,6 +152,25 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       return;
     }
     void sendChip(chip.key, !chip.on);
+  }
+
+  // 말로 고치기 답 뒤: 칩을 새 목록으로 바꾸고 미리보기를 다시 그린다.
+  function handleSayApplied(r: SayResponse) {
+    setFeatures(r.features);
+    control.current?.reload(r.focus);
+  }
+
+  // 되돌리기 뒤: 칩을 새 목록으로 바꾸고 미리보기를 다시 그린다.
+  function handleSayUndone(r: UndoResponse) {
+    setFeatures(r.features);
+    control.current?.reload(null);
+  }
+
+  // 사진 시트에서 "이걸로 쓰기"·되돌리기 뒤: 누른 구역으로 미리보기를 다시 그리고 반짝인다.
+  function handlePhotoApplied(_target: string, _url: string) {
+    const focus = photoPick?.section ?? null;
+    setChangeSeq((n) => n + 1);
+    control.current?.reload(focus);
   }
 
   async function publish(force: boolean) {
@@ -234,10 +261,29 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       </header>
 
       <main className="bd-main">
-        <SiteEditor roomId={roomId} card={card} onSaved={handleSaved} builderMode controlRef={control} />
+        <SiteEditor
+          roomId={roomId}
+          card={card}
+          onSaved={handleSaved}
+          builderMode
+          controlRef={control}
+          onPhotoPick={setPhotoPick}
+        />
+        <PhotoSheet
+          roomId={roomId}
+          pick={photoPick}
+          onClose={() => setPhotoPick(null)}
+          onApplied={handlePhotoApplied}
+        />
       </main>
 
       <footer className="bd-bottom">
+        <SayBar
+          roomId={roomId}
+          clearUndoOn={changeSeq}
+          onApplied={handleSayApplied}
+          onUndone={handleSayUndone}
+        />
         <FeatureChips features={features} busyKey={chipBusy} onToggle={toggleChip} />
         {noticeChip ? (
           <div className="bd-notice-sheet" role="dialog" aria-label="공지 글 적기">
@@ -270,7 +316,6 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
         ) : null}
         {chipMsg ? <p className="bd-msg" role="status">{chipMsg}</p> : null}
         <div className="bd-voice-line">
-          <input type="text" disabled placeholder="곧 말로 고칠 수 있어요" aria-label="말로 고치기 (준비 중)" />
           <a className="bd-chat-link" href={`/room.html?room=${encodeURIComponent(roomId)}`}>
             채팅으로 설명하기
           </a>

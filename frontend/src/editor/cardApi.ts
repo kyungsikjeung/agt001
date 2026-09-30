@@ -303,6 +303,54 @@ export async function publishRoom(
   return data;
 }
 
+/** 말로 고치기 답 (SAY_CONTRACT §6). focus는 바뀐 구역 id(없으면 null). */
+export interface SayResponse {
+  reply: string;
+  focus: string | null;
+  features: FeatureChip[];
+  undo: boolean;
+  rejected: string[];
+  source: 'rule' | 'llm' | 'none';
+}
+
+/** 빌더에서 말로 고친다. text는 1~300자. 실패하면 예외를 던진다. */
+export async function say(roomId: string, memberId: string | null, text: string): Promise<SayResponse> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/say`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
+    body: JSON.stringify({ text }),
+  });
+  if (!res.ok) throw new Error(`말을 전하지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as SayResponse;
+  if (!data || typeof data.reply !== 'string' || !Array.isArray(data.features)) {
+    throw new Error('말하기 모양이 맞지 않아요.');
+  }
+  return data;
+}
+
+/** 되돌리기 답 (SAY_CONTRACT §6). */
+export interface UndoResponse {
+  reply: string;
+  features: FeatureChip[];
+  undo: false;
+}
+
+/** 말로 고친 것을 한 단계 되돌린다. 실패하면 예외를 던진다. */
+export async function undoSay(roomId: string, memberId: string | null): Promise<UndoResponse> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/undo`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { ...memberHeaders(memberId) },
+  });
+  if (!res.ok) throw new Error(`되돌리지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as UndoResponse;
+  if (!data || typeof data.reply !== 'string' || !Array.isArray(data.features)) {
+    throw new Error('되돌리기 모양이 맞지 않아요.');
+  }
+  return data;
+}
+
 /** 사진을 올린다. 채팅방과 같은 호출(POST /room/{id}/photos, FormData file+tag). */
 export async function uploadPhoto(
   roomId: string,

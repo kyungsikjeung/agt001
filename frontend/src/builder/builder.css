@@ -162,6 +162,72 @@
   color: var(--ed-note, #33413c);
 }
 
+/* 말로 고치기 (SAY_CONTRACT §7). 입력 글자는 16px 이상(iOS 자동 확대 방지), 버튼은 44px 이상. */
+.bd-say {
+  display: grid;
+  gap: 8px;
+}
+
+.bd-say-bubble {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
+  border-radius: 12px;
+  background: #f0f6f1;
+  color: var(--ed-ink, #1f2622);
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: left;
+  transition: opacity 0.5s ease;
+}
+
+.bd-say-bubble--faded {
+  opacity: 0.45;
+}
+
+.bd-say-rejected {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--ed-note, #33413c);
+}
+
+.bd-say-rejected li {
+  margin: 2px 0;
+}
+
+.bd-say-undo {
+  justify-self: start;
+  min-height: 44px;
+}
+
+.bd-say-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.bd-say-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ed-ink, #1f2622);
+}
+
+.bd-say-send,
+.bd-say-mic {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 44px;
+}
+
 .bd-chat-link {
   display: inline-flex;
   align-items: center;

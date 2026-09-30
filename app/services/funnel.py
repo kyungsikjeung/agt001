@@ -35,6 +35,8 @@ SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generat
                             "photo_answered", "photo_uploaded",
                             # AI 예시 이미지 생성(업종·칸만, 개인정보 없음)
                             "ai_image_made",
+                            # 빌더에서 사진 고치기 AI 편집(업종·칸·예시/AI 출처만)
+                            "ai_image_edited",
                             # 빌더 시작·기능 칩(B1, 업종·칩 종류·켜기/끄기만)
                             "builder_start", "builder_feature",
                             # 온라인 결제 운영 신호(W5-B, 금액·결제 번호·전화 없음)

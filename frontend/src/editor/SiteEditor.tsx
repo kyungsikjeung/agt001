@@ -15,6 +15,9 @@ interface AgtEditMessage {
   type?: unknown;
   section?: unknown;
   text?: unknown;
+  img?: unknown;
+  src?: unknown;
+  index?: unknown;
 }
 
 /** 빌더 화면이 미리보기를 다루는 손잡이 (BUILDER_CONTRACT §3).
@@ -31,6 +34,7 @@ export default function SiteEditor({
   onSaved,
   builderMode,
   controlRef,
+  onPhotoPick,
 }: {
   roomId: string;
   card: RoomCard;
@@ -39,6 +43,8 @@ export default function SiteEditor({
   builderMode?: boolean;
   /** 부모가 미리보기를 다시 그리게 하는 손잡이. */
   controlRef?: { current: BuilderControl | null };
+  /** 미리보기에서 사진을 누르면 구역 패널 대신 사진 시트를 연다(PHOTO_EDIT_CONTRACT §5). */
+  onPhotoPick?: (pick: { section: string; src: string; index: number }) => void;
 }) {
   const [variant, setVariant] = useState(() => startVariant(card.choice));
   const [preview, setPreview] = useState<CardPreview | null>(null);
@@ -111,12 +117,21 @@ export default function SiteEditor({
       if (!frame || e.source !== frame.contentWindow) return;
       const data = (e.data ?? {}) as AgtEditMessage;
       if (data.type !== 'agt-edit' || typeof data.section !== 'string' || !data.section) return;
+      // 사진을 누르면 구역 패널 대신 사진 시트를 연다.
+      if (data.img === true && typeof data.src === 'string' && data.src !== '') {
+        onPhotoPick?.({
+          section: data.section,
+          src: data.src,
+          index: typeof data.index === 'number' ? data.index : 0,
+        });
+        return;
+      }
       // 한 번에 갱신한다 (두 번 나누면 패널이 접힌 채로 먼저 그려진다).
       setPick({ id: data.section, text: typeof data.text === 'string' ? data.text : '' });
     }
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
-  }, []);
+  }, [onPhotoPick]);
 
   // 저장 뒤 미리보기를 다시 불러오고, 누른 구역으로 스크롤한다.
   function handleSaved(updated: RoomCard, section: string) {
