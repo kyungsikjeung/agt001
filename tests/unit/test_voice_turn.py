@@ -17,7 +17,15 @@ def test_multi_select_and_bullets():
 
 def test_hours_phone_url_and_emoji():
     s = speech_text("영업은 10~21시예요 ☕ 전화 010-0000-1234\n링크: https://example.com/a?b=1")
-    assert "10~21시" in s and "010-0000-1234" in s and "https" not in s and "☕" not in s
+    assert "10~21시" in s and "https" not in s and "☕" not in s
+    assert "전화 공일공, 공공공공, 일이삼사" in s  # 전화번호는 한 자리씩
+
+
+def test_phone_read_digit_by_digit():
+    """10/1 사장님: 01096567830을 '일억…'으로 읽었다 → 한 자리씩."""
+    assert speech_text("번호는 01096567830이에요") == "번호는 공일공, 구육오육, 칠팔삼공이에요."
+    assert "공이, 일이삼, 사오육칠" in speech_text("02-123-4567")
+    assert "3000원" in speech_text("아메리카노 3000원")  # 가격은 그대로
 
 
 def test_real_engine_question_has_no_symbols():
