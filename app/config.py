@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     rag_top_k: int = 1
     # nemotron-3-embed-1b, 기능 사례집 51개 자료 실측(2026-09-26): 관련 0.76~0.80, 무관 0.61~0.757(지도).
     rag_sim_threshold: float = 0.76
+    # 하루에 생성할 art-lib 사진 상한 (0=제한없음, D58 ③)
+    art_lib_daily_cap: int = 0
     precompute_embeddings: bool = True
 
     design_screenshot_timeout_ms: int = 60000
