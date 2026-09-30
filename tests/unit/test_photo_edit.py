@@ -557,3 +557,27 @@ def test_edit_script_sends_src_and_index():
     from app.services import site_render as SR
     assert "getAttribute('src')" in SR._EDIT_SCRIPT
     assert "index" in SR._EDIT_SCRIPT
+
+
+def test_13_forged_kind_cannot_ai_edit_owner_photo(room_iso, fake_gemini):
+    """검토 9/30: kind를 example로 속여도 사장님 사진이면 보정만 (D57)."""
+    card = _cafe_card()
+    url = _put_upload(room_iso, "p1", _jpeg_bytes())
+    card["photos"] = [{"id": "p1", "url": url, "tag": "hero"}]
+    forged = {"target": "hero", "kind": "example", "current_url": url}
+    with pytest.raises(ValueError, match="실제 사진은"):
+        PE.make_candidate(room_iso, _session(card), forged, instruction="배경 바꿔 줘")
+    assert "json" not in fake_gemini
+
+
+def test_14_owner_undo_finds_the_edited_photo(room_iso):
+    """검토 9/30: 되돌리기가 칸 위치를 추측하지 않고 고친 그 사진을 되돌린다."""
+    card = _cafe_card()
+    u1 = _put_upload(room_iso, "p1", _jpeg_bytes())
+    u2 = _put_upload(room_iso, "p2", _jpeg_bytes(color=(10, 90, 200)))
+    card["photos"] = [{"id": "p1", "url": u1, "tag": "space"}, {"id": "p2", "url": u2, "tag": "hero"}]
+    session = _session(card)
+    got = PE.make_candidate(room_iso, session, {"target": "hero", "current_url": u2}, action="brighter")
+    PE.apply_candidate(session, got["candidate_id"])
+    assert PE.undo(session, "hero")["url"] == u2
+    assert card["photos"][0]["url"] == u1 and card["photos"][1]["url"] == u2

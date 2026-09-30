@@ -72,6 +72,13 @@
   opacity: 0.4;
 }
 
+.ph-upload {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 .ph-btn--primary {
   background: var(--ed-primary, #2f5d50);
   color: var(--ed-on-primary, #fff);

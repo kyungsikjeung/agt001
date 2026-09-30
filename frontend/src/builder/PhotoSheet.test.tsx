@@ -87,6 +87,24 @@ describe('PhotoSheet', () => {
     await waitFor(() => expect(callsTo('/photo-edit/undo', 'POST')).toHaveLength(1));
   });
 
+  it('내 사진 올리기 → 칸 태그로 올리고 미리보기 다시 그림·닫기', async () => {
+    const onApplied = vi.fn();
+    const onClose = vi.fn();
+    stubFetch(async (url) => {
+      if (url.includes('/photo-edit/target')) return okJson({ ...AI_TARGET, target: 'item:라떼' });
+      if (url.includes('/photos')) return okJson({});
+      throw new Error(`몰라요: ${url}`);
+    });
+    render(<PhotoSheet roomId="r1" pick={PICK} onClose={onClose} onApplied={onApplied} />);
+    await screen.findByAltText('지금 사진');
+    const input = screen.getByLabelText('내 사진 올리기') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [new File(['x'], 'a.jpg', { type: 'image/jpeg' })] } });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    const form = callsTo('/room/r1/photos', 'POST')[0][1]?.body as FormData;
+    expect(form.get('tag')).toBe('item:라떼');
+    expect(onApplied).toHaveBeenCalledWith('item:라떼', '');
+  });
+
   it('사장님 사진은 안내만 보이고 입력은 없다', async () => {
     stubFetch(async (url) => {
       if (url.includes('/photo-edit/target')) return okJson(OWNER_TARGET);

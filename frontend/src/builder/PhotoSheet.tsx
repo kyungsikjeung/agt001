@@ -1,6 +1,7 @@
 // 사진 시트 (PHOTO_EDIT_CONTRACT §5).
 // 미리보기에서 사진을 누르면 열린다. 후보를 보고 "이걸로 쓰기"를 눌러야 바뀐다.
 import { useEffect, useRef, useState } from 'react';
+import { readMemberId, uploadPhoto } from '../editor/cardApi';
 import {
   applyPhotoEdit,
   getPhotoTarget,
@@ -36,6 +37,12 @@ function actionLabel(action: string): string {
 
 /** AI 말 예시. */
 const EXAMPLES = ['여름 느낌으로', '배경 흐리게', '더 따뜻한 조명'];
+
+/** 칸 → 올리기 태그 (photo_needs.valid_tag: hero·space·item:<이름>). */
+export function uploadTag(target: string): string {
+  if (target === 'hero' || target.startsWith('item:')) return target;
+  return 'space';
+}
 
 function errMsg(e: unknown): string {
   return e instanceof Error ? e.message : '고치지 못했어요.';
@@ -144,6 +151,21 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
     }
   }
 
+  /** 내 사진으로 바꾸기: 기존 사진 올리기에 칸 태그를 붙인다. 사장님 사진이 항상 먼저 쓰인다(D51). */
+  async function runUpload(file: File | undefined) {
+    if (!info || !file) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await uploadPhoto(roomId, readMemberId(), file, uploadTag(info.target));
+      onApplied(info.target, '');
+      onClose();
+    } catch (e) {
+      setErr(errMsg(e));
+      setBusy(false);
+    }
+  }
+
   const aiOn = info !== null && info.kind !== 'owner' && info.ai_allowed;
 
   return (
@@ -164,6 +186,16 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
         {info && (
           <>
             {nowUrl !== '' && <img className="ph-photo" src={nowUrl} alt="지금 사진" />}
+            <label className="ph-btn ph-btn--primary ph-upload">
+              내 사진 올리기
+              <input
+                type="file"
+                accept="image/*"
+                hidden
+                disabled={busy || applyBusy}
+                onChange={(e) => void runUpload(e.target.files?.[0])}
+              />
+            </label>
             <div className="ph-actions" role="group" aria-label="보정">
               {info.actions.map((a) => (
                 <button
