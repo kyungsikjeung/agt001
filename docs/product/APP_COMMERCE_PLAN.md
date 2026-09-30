@@ -51,6 +51,7 @@ flowchart LR
 | 2 편집 | 10/2~10/8 | 시안을 실제 모양 그대로 보며 글자·가격·사진을 눌러 고치기 + 구역 순서·숨기기·추가(부품 목록에서) | 고친 것이 새로고침·공개 뒤에도 남음, 편집 표시는 공개본에 0건. 계약 [EDIT_WAVE2_CONTRACT](EDIT_WAVE2_CONTRACT.md) |
 | 3 결제 | 10/5~10/10 | 장바구니·주문·`/pay` 결제 페이지·완료·웹훅(포트원 테스트), `/owner` 주문 목록·환불 | 테스트 카드로 결제→`paid`, 금액 위조 거절, 웹훅 두 번 와도 한 번. 계약 [PAY_WAVE3_CONTRACT](PAY_WAVE3_CONTRACT.md) |
 | 4 스탬프·쿠폰 | 10/8~10/13 | 표 `stamps`·`coupons`(0018), 결제 확정 시 적립, 쿠폰 발급·바코드 SVG·사용 처리·결제 할인 | 적립·회수·발급·사용 1회 제한 테스트, 실기기 바코드 읽기 1회. 계약 [STAMP_WAVE4_CONTRACT](STAMP_WAVE4_CONTRACT.md) |
+| 5 통합·동결 | 10/13~10/16 | 새 기능 없음. 통합 테스트, 보안 점검, 비상 스위치, 운영 신호, 고지·안내문, 배포 리허설, 10/15 동결 배포. 계획 [COMMERCE_WAVE5_PLAN](COMMERCE_WAVE5_PLAN.md) | 막는 보안 문제 0, 품질 점검 나빠진 항목 0, 되돌리기 리허설 성공 |
 
 ## 3. 데이터 (0018 — 0017은 물결 3 `shop_settings.order_on`)
 
@@ -75,6 +76,7 @@ flowchart LR
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-29 | 처음 작성 (대표 결정 ①~④) |
+| 2026-09-30 | 물결 5 계획 [COMMERCE_WAVE5_PLAN](COMMERCE_WAVE5_PLAN.md): 동결 전 통합·베타 준비, 대표 결정 Q1~Q5 |
 | 2026-09-30 | 물결 4 계약서 [STAMP_WAVE4_CONTRACT](STAMP_WAVE4_CONTRACT.md): 적립은 결제 확정·회수는 전액 환불, 도장 수는 이벤트 합, 쿠폰 held 15분(cron 없음), Code128-C SVG 직접 |
 | 2026-09-30 | 물결 3 계약서 [PAY_WAVE3_CONTRACT](PAY_WAVE3_CONTRACT.md): 포장 주문 가게만, JS 없는 수량 폼, httpx 직접 호출, 마이그레이션 0017=order_on·스탬프는 0018 |
 | 2026-09-30 | 물결 2 계약서 [EDIT_WAVE2_CONTRACT](EDIT_WAVE2_CONTRACT.md) |
