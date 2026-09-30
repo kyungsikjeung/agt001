@@ -10,6 +10,9 @@ _PAREN_LINE = re.compile(r"^\s*\(.*\)\s*$")
 # 선택지 "1) 예약 문의 늘리기  2) 가게 알리기"
 _OPTION = re.compile(r"(?:(?<=\s)|^)([1-9])\)\s*")
 _URL = re.compile(r"https?://\S+")
+# 전화번호는 수량("일억 구천…")이 아니라 한 자리씩 끊어 읽는다 (010-9656-7830 → 공일공, 구육오육, 칠팔삼공)
+_PHONE = re.compile(r"(?<!\d)(02|0\d{2})-?(\d{3,4})-?(\d{4})(?!\d)")
+_DIGITS = "공일이삼사오육칠팔구"
 # 한글·영숫자·기본 문장부호·물결(10~21시)·쉼표 말고는 소리 내지 않는다 (이모지·장식 기호)
 _NOISE = re.compile(r"[^\w\s가-힣.,?!~%:/\-]")
 
@@ -21,6 +24,7 @@ def speech_text(text: str) -> str:
         if not line.strip() or _PAREN_LINE.match(line):
             continue
         s = _URL.sub("링크", line)
+        s = _PHONE.sub(lambda m: ", ".join("".join(_DIGITS[int(c)] for c in g) for g in m.groups()), s)
         s = re.sub(r"^\s*[•\-*]\s*", "", s)                # 글머리 기호
         s = s.replace("→", ", ").replace(" · ", ", ").replace("·", ", ")
         s = re.sub(r"['\"‘’“”「」\[\]]", "", s)            # 따옴표·대괄호는 떼고 안의 말은 둔다
