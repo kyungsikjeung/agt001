@@ -143,6 +143,7 @@ flowchart LR
 | 날짜 | 내용 |
 |---|---|
 | 2026-09-30 | 처음 작성 (결정 Q1~Q5 대기) |
+| 2026-09-30 | B6 계약 [PHOTO_EDIT_CONTRACT](PHOTO_EDIT_CONTRACT.md) (베타 뒤 10/20~10/24) |
 | 2026-09-30 | B5 계약 [SAY_CONTRACT](SAY_CONTRACT.md) (베타 뒤 10/18~10/22) |
 | 2026-09-30 | Q2~Q6 추천대로 결정(D57): 빌더 B1~B3는 10/15 동결 전, B5·B6는 베타 뒤. 계약 [BUILDER_CONTRACT](BUILDER_CONTRACT.md) |
 | 2026-09-30 | 대표 결정: 템플릿은 빌더로 시작(계획대로), 화면은 LLM·사진은 AI 이미지로 → §1.6 사진 고치기, B6, Q6 추가 |
