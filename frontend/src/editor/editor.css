@@ -672,3 +672,18 @@
 .ed-file input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
 .ed-file:focus-within { outline: 2px solid var(--ed-primary); outline-offset: 2px; }
 .ed-btn--block { display: block; width: 100%; min-height: 48px; margin-top: 12px; }
+
+/* 휴대폰에서 저장 버튼을 패널 아래에 고정 (좁은 화면만, 동작은 그대로) */
+@media (max-width: 759px) {
+  .ed-site-save {
+    position: sticky;
+    bottom: 0;
+    background: var(--ed-card);
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -4px 12px rgba(31, 38, 34, 0.12);
+    z-index: 5;
+  }
+  .ed-site-save .ed-btn--block {
+    margin-top: 0;
+  }
+}

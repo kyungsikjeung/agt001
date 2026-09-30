@@ -468,9 +468,11 @@ export default function SectionPanel({
         ) : null}
 
         {kind === 'hero' || kind === 'catalog' || kind === 'location' || kind === 'contact' ? (
-          <button type="button" className="ed-btn ed-btn--primary ed-btn--block" disabled={saving} onClick={() => void saveContent()}>
-            {saving ? '저장 중…' : '저장'}
-          </button>
+          <div className="ed-site-save">
+            <button type="button" className="ed-btn ed-btn--primary ed-btn--block" disabled={saving} onClick={() => void saveContent()}>
+              {saving ? '저장 중…' : '저장'}
+            </button>
+          </div>
         ) : null}
 
         {selected.locked ? null : (

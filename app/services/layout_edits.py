@@ -79,7 +79,12 @@ def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
     # added: pool에 있고 이 안에 없는 id만, 최대 3
     added = [i for i in _str_list(edits.get("added")) if i in pool_ids and i not in base_set][:MAX_ADDED]
 
-    effective = base + added
+    # 더한 구역은 inquiry 바로 앞에 (없으면 맨 뒤)
+    if "inquiry" in base:
+        idx = base.index("inquiry")
+        effective = base[:idx] + added + base[idx:]
+    else:
+        effective = base + added
     effective_set = set(effective)
 
     # hidden: 이 안(+added)에 있는 id만, LOCKED 제외

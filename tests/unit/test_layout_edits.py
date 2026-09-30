@@ -98,7 +98,7 @@ def test_apply_keeps_hero_first_drops_hidden_and_shapes_added():
     assert "space" not in ids  # 숨긴 구역 없음
     assert "sign" in ids  # 추가 구역 들어감
     assert ids.index("around") < ids.index("menu")  # 순서 반영
-    assert ids == ["hero", "around", "menu", "inquiry", "sign"]  # inquiry 원래 자리 유지, 추가분은 뒤에
+    assert ids == ["hero", "around", "menu", "sign", "inquiry"]  # 더한 구역은 inquiry 바로 앞
     # 추가 구역이 skeleton 모양
     sign = next(s for s in got["sections"] if s["id"] == "sign")
     assert sign["content"] == {}
@@ -164,3 +164,15 @@ def test_old_edits_on_new_blueprint_do_not_raise():
         LE.addable(bp, pos, old)
     vs = DV.variants(academy)
     assert len(vs) == 3
+
+
+def test_added_goes_right_before_inquiry():
+    """더한 구역은 inquiry 바로 앞에 (A-dinein v1 + sign)."""
+    card = _cafe_card()
+    bp = _blueprint(card)
+    cleaned = LE.normalize({"added": ["sign"]}, bp, 0)
+    assert cleaned is not None
+    assert cleaned["order"].index("sign") + 1 == cleaned["order"].index("inquiry")
+    secs = LE.sections(bp, 0, {"added": ["sign"]})
+    ids = [s["id"] for s in secs]
+    assert ids.index("sign") + 1 == ids.index("inquiry")

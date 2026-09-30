@@ -45,6 +45,7 @@ def test_prompt_has_no_personal_data():
 
 
 def test_generate_bytes_success_and_failures(monkeypatch):
+    monkeypatch.setattr("app.services.keystore.get", lambda name: "k")
     monkeypatch.setattr(AI.httpx, "post", lambda *a, **k: _ok_resp(_png_bytes()))
     out = AI._generate_bytes("a cafe", timeout_sec=5)
     assert out[:8] == _png_bytes()[:8]
