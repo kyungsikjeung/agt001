@@ -368,3 +368,23 @@ export async function uploadPhoto(
   });
   if (!res.ok) throw new Error(`사진을 올리지 못했습니다 (${res.status})`);
 }
+
+/** 고칠 곳 목록 1개 (FIX_TAGS_CONTRACT §2). 모양 검사는 여기서만 한다. */
+export async function getFixTargets(
+  roomId: string,
+  memberId: string | null,
+): Promise<import('../builder/fixTags').FixTarget[]> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/fix-targets`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`고칠 곳을 불러오지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as { targets?: unknown };
+  if (!data || !Array.isArray(data.targets)) throw new Error('고칠 곳 모양이 맞지 않아요.');
+  for (const t of data.targets) {
+    const v = t as { key?: unknown; label?: unknown; current?: unknown; parts?: unknown };
+    if (typeof v.key !== 'string' || typeof v.label !== 'string') throw new Error('고칠 곳 모양이 맞지 않아요.');
+    if (typeof v.current !== 'string' || !Array.isArray(v.parts)) throw new Error('고칠 곳 모양이 맞지 않아요.');
+  }
+  return data.targets as import('../builder/fixTags').FixTarget[];
+}

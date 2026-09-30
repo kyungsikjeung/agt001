@@ -239,3 +239,118 @@ describe('말로 고치기', () => {
     expect(callsTo('/say', 'POST')).toHaveLength(0);
   });
 });
+
+const FIX_TARGETS = {
+  targets: [
+    { key: 'shop_name', label: '가게 이름', current: '우리 가게', parts: [] },
+    {
+      key: 'items',
+      label: '메뉴·가격',
+      current: '',
+      parts: [{ key: '아메리카노', label: '아메리카노 4,500원' }],
+    },
+    { key: 'hours', label: '영업시간', current: '매일 9시~8시', parts: [] },
+    { key: 'photo', label: '사진', current: '', parts: [] },
+  ],
+};
+
+function fixStub(says: unknown[], failFix = false) {
+  baseStub(async (url, init) => {
+    if (url.includes('/fix-targets')) {
+      if (failFix) return { ok: false, status: 500, json: async () => ({}) } as Response;
+      return okJson(FIX_TARGETS);
+    }
+    if (url.includes('/say')) {
+      says.push(JSON.parse(String(init?.body)));
+      return okJson({ reply: '고쳤어요.', focus: null, features: FEATURES, undo: false, rejected: [], source: 'rule' });
+    }
+    return null;
+  });
+}
+
+describe('고칠 곳', () => {
+  it('고칠 곳 → 칩 → 고른 곳 표시·예시 글 → 보내기 본문은 compose 결과', async () => {
+    const says: unknown[] = [];
+    fixStub(says);
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '고칠 곳' }));
+    fireEvent.click(await screen.findByRole('button', { name: '영업시간' }));
+    expect(screen.getByText(/고칠 곳: 영업시간/)).toBeInTheDocument();
+    expect(screen.getByLabelText('말로 고치기')).toHaveAttribute('placeholder', '매일 9시~8시');
+    fireEvent.change(screen.getByLabelText('말로 고치기'), { target: { value: '매일 10시~9시' } });
+    fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(says).toHaveLength(1));
+    expect(says[0]).toEqual({ text: '영업시간 매일 10시~9시' });
+    // 보낸 뒤 칩 줄을 닫고 고른 곳을 비운다.
+    await waitFor(() => expect(screen.queryByRole('group', { name: '고칠 곳' })).not.toBeInTheDocument());
+    expect(screen.queryByText(/고칠 곳:/)).not.toBeInTheDocument();
+  });
+
+  it('항목 칩 → "항목 + 입력", 새 항목 칩 → "칸에 입력 추가"', async () => {
+    const says: unknown[] = [];
+    fixStub(says);
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '고칠 곳' }));
+    fireEvent.click(await screen.findByRole('button', { name: '메뉴·가격' }));
+    fireEvent.click(await screen.findByRole('button', { name: '아메리카노 4,500원' }));
+    fireEvent.change(screen.getByLabelText('말로 고치기'), { target: { value: '5,000원으로' } });
+    fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(says).toHaveLength(1));
+    expect(says[0]).toEqual({ text: '아메리카노 5,000원으로' });
+  });
+
+  it('새 항목 칩은 "칸에 입력 추가"로 보낸다', async () => {
+    const says: unknown[] = [];
+    fixStub(says);
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '고칠 곳' }));
+    fireEvent.click(await screen.findByRole('button', { name: '메뉴·가격' }));
+    fireEvent.click(await screen.findByRole('button', { name: '+ 새 항목' }));
+    fireEvent.change(screen.getByLabelText('말로 고치기'), { target: { value: '바닐라라떼 5,500원' } });
+    fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(says).toHaveLength(1));
+    expect(says[0]).toEqual({ text: '메뉴·가격에 바닐라라떼 5,500원 추가' });
+  });
+
+  it('✕를 누르면 고르기를 취소하고 그대로 보낸다', async () => {
+    const says: unknown[] = [];
+    fixStub(says);
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '고칠 곳' }));
+    fireEvent.click(await screen.findByRole('button', { name: '영업시간' }));
+    fireEvent.click(screen.getByRole('button', { name: '고른 곳 취소' }));
+    expect(screen.queryByText(/고칠 곳:/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText('말로 고치기')).toHaveAttribute('placeholder', '예: 메뉴에 빙수 넣어 줘');
+    fireEvent.change(screen.getByLabelText('말로 고치기'), { target: { value: '매일 10시~9시' } });
+    fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+    await waitFor(() => expect(says).toHaveLength(1));
+    expect(says[0]).toEqual({ text: '매일 10시~9시' });
+  });
+
+  it('사진 칩은 안내 한 줄을 보이고 칩 줄을 닫는다', async () => {
+    const says: unknown[] = [];
+    fixStub(says);
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '고칠 곳' }));
+    fireEvent.click(await screen.findByRole('button', { name: '사진' }));
+    expect(await screen.findByText('미리보기에서 바꿀 사진을 눌러 주세요')).toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: '고칠 곳' })).not.toBeInTheDocument();
+    expect(callsTo('/say', 'POST')).toHaveLength(0);
+  });
+
+  it('목록 실패 땐 칩 없이 입력줄만 둔다', async () => {
+    const says: unknown[] = [];
+    fixStub(says, true);
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    fireEvent.click(screen.getByRole('button', { name: '고칠 곳' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: '고칠 곳' })).not.toBeDisabled());
+    expect(screen.queryByRole('group', { name: '고칠 곳' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('말로 고치기')).toBeInTheDocument();
+  });
+});

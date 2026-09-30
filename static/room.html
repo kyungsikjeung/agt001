@@ -171,6 +171,11 @@
   #choiceBar button.on { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
   #choiceBar button.done { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); font-weight: 600; }
   #choiceBar .hint { margin: 0 0 8px; font-size: 0.8125rem; color: var(--muted, #666); }
+  /* 고칠 곳 한 줄 (입력칸 위, 고른 곳 표시) */
+  #fixBar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--surface); border-top: 1px solid var(--border); font-size: 0.875rem; }
+  #fixBar[hidden] { display: none; }
+  #fixText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #fixCancel { flex: none; min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 0.9375rem; cursor: pointer; }
   #voteBar button, #proceedBar button {
     border: 1px solid var(--border); background: var(--bg); border-radius: 8px;
     padding: 8px 14px; font-size: 0.875rem; cursor: pointer;
@@ -333,7 +338,7 @@
   <div id="voteBar">
     <span id="voteText">이 내용으로 시안을 만들까요?</span>
     <button class="approve" id="voteYesBtn" onclick="vote('승인')">👍 동의</button>
-    <button onclick="vote('거절')">고칠 게 있어요</button>
+    <button onclick="openFixTags()">고칠 게 있어요</button>
   </div>
   <div id="proceedBar">
     <span>이대로 시안을 만들까요?</span>
@@ -345,6 +350,10 @@
     <span>보낼 곳</span>
     <button type="button" id="talkAiBtn" aria-pressed="true" onclick="setTalkMode(true)">AI에게</button>
     <button type="button" id="talkUsBtn" aria-pressed="false" onclick="setTalkMode(false)">우리끼리</button>
+  </div>
+  <div id="fixBar" hidden>
+    <span id="fixText" role="status"></span>
+    <button id="fixCancel" type="button" aria-label="고른 곳 취소">✕</button>
   </div>
   <div id="row">
     <button id="photoBtn" type="button" aria-label="사진 올리기">사진</button>
@@ -1131,6 +1140,11 @@ const choicesEl = document.getElementById('choices');
 const choiceHint = document.getElementById('choiceHint');
 let choiceKey = '';
 function renderChoices(q) {
+  // 고칠 곳 칩을 보는 동안 새 질문이 오면 질문을 먼저 보인다. 질문이 없으면 칩을 둔다.
+  if (fixTagsActive || fixTarget) {
+    if (!q) return;
+    clearFix();
+  }
   const key = q ? JSON.stringify(q) : '';
   if (key === choiceKey) return;
   choiceKey = key;
@@ -1402,12 +1416,162 @@ function send() {
   const input = document.getElementById('input');
   const text = input.value.trim();
   if (!text) return;
+  // 고칠 곳을 골랐으면 한 문장으로 합쳐서 보낸다.
+  if (fixTarget) {
+    const msg = compose(fixTarget, fixPart, text);
+    if (!msg) return;
+    input.value = '';
+    const toAi = sendToAi;
+    clearFix();
+    sendRoomMessage(msg, toAi);
+    return;
+  }
   input.value = '';
   sendRoomMessage(text, sendToAi);
 }
 
 function vote(choice) { sendRoomMessage(choice); }
 function proceed(choice) { sendRoomMessage(choice); }
+
+// 고칠 곳 태그 (계약서 §2~§4.1). 목록 1개만 새로 받고 보내기는 기존 고치기 경로로 합친다.
+let fixTarget = null;
+let fixPart = null;
+let fixTagsActive = false;
+let fixDefaultPlaceholder = '';
+// 한 문장 만들기 (채팅방·빌더 같은 규칙)
+function compose(target, part, text) {
+  const t = (text || '').trim();
+  if (!t) return '';
+  const label = (target && target.label || '').trim();
+  // 새 항목: "{label}에 {text} 추가"
+  if (part && part.isNew) {
+    if (label && t.indexOf(label) === 0) return t;
+    return label ? label + '에 ' + t + ' 추가' : t;
+  }
+  // 항목 고치기: "{part.key} {text}"
+  if (part && part.key) {
+    const pk = String(part.key).trim();
+    if (pk && t.indexOf(pk) === 0) return t;
+    if (label && t.indexOf(label) === 0) return t;
+    return pk ? pk + ' ' + t : t;
+  }
+  // 일반 칸: "{label} {text}" (이름 중복 방지)
+  if (label && t.indexOf(label) === 0) return t;
+  return label ? label + ' ' + t : t;
+}
+// 칩 한 개 만들기 (기존 #choiceBar 모양 그대로)
+function makeFixChip(label, aria, onclick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = label;
+  if (aria) b.setAttribute('aria-label', aria);
+  b.onclick = onclick;
+  return b;
+}
+function closeFixChips() {
+  fixTagsActive = false;
+  choiceBar.classList.remove('show');
+}
+function clearFix() {
+  fixTarget = null;
+  fixPart = null;
+  fixTagsActive = false;
+  const bar = document.getElementById('fixBar');
+  if (bar) bar.hidden = true;
+  const inp = document.getElementById('input');
+  if (inp) {
+    if (fixDefaultPlaceholder) inp.placeholder = fixDefaultPlaceholder;
+    updateFixSendBtn();
+  }
+  choiceBar.classList.remove('show');
+}
+// 고른 곳 표시 + 예시 글 + 보내기 단추 상태
+function enterFixInput(target, part) {
+  fixTarget = target;
+  fixPart = part || null;
+  fixTagsActive = false;
+  choiceBar.classList.remove('show');
+  const bar = document.getElementById('fixBar');
+  const txt = document.getElementById('fixText');
+  const inp = document.getElementById('input');
+  if (!bar || !txt || !inp) return;
+  let name = target.label || '';
+  if (part && part.isNew) name = (target.label || '') + ' 새 항목';
+  else if (part && (part.label || part.key)) name = part.label || part.key;
+  txt.textContent = '고칠 곳: ' + name;
+  if (!fixDefaultPlaceholder) fixDefaultPlaceholder = inp.placeholder || '메시지를 입력하세요...';
+  let hint = '';
+  if (part && !part.isNew) hint = part.label || part.key || '';
+  else if (target.current) hint = target.current;
+  inp.placeholder = hint || fixDefaultPlaceholder;
+  bar.hidden = false;
+  updateFixSendBtn();
+  inp.focus();
+}
+// 빈 입력은 보내지 않는다 (보내기 단추 꺼짐)
+function updateFixSendBtn() {
+  const inp = document.getElementById('input');
+  const btn = document.getElementById('sendBtn');
+  if (!inp || !btn) return;
+  if (!fixTarget) { btn.disabled = false; return; }
+  btn.disabled = !inp.value.trim();
+}
+// 항목 칩 + 새 항목 칩
+function renderFixParts(target) {
+  const parts = (target && target.parts) || [];
+  choicesEl.innerHTML = '';
+  const oldExtra = document.getElementById('choiceExtraWrap');
+  if (oldExtra) oldExtra.remove();
+  choiceHint.textContent = '고칠 항목을 골라 주세요';
+  for (const p of parts) {
+    const b = makeFixChip(p.label || p.key, (p.label || p.key) + ' 고치기', () => enterFixInput(target, p));
+    choicesEl.appendChild(b);
+  }
+  if (target.key === 'items') {
+    choicesEl.appendChild(makeFixChip('+ 새 항목', '새 항목 추가하기', () => enterFixInput(target, { isNew: true })));
+  }
+  choicesEl.appendChild(makeFixChip('직접 말하기', '직접 말하기', () => { clearFix(); vote('거절'); }));
+  choiceBar.classList.add('show');
+  fixTagsActive = true;
+}
+// 고칠 곳 칩 그리기 (끝에 직접 말하기)
+function renderFixTargets(targets) {
+  choicesEl.innerHTML = '';
+  const oldExtra = document.getElementById('choiceExtraWrap');
+  if (oldExtra) oldExtra.remove();
+  choiceHint.textContent = '고칠 곳을 골라 주세요';
+  for (const t of targets) {
+    const b = makeFixChip(t.label, t.label + ' 고치기', () => selectFixTarget(t));
+    choicesEl.appendChild(b);
+  }
+  choicesEl.appendChild(makeFixChip('직접 말하기', '직접 말하기', () => { clearFix(); vote('거절'); }));
+  choiceBar.classList.add('show');
+  fixTagsActive = true;
+}
+// 칩 하나 고르기 (사진은 올리기 단추와 같게)
+function selectFixTarget(t) {
+  if (!t) return;
+  if (t.key === 'photo') {
+    clearFix();
+    const btn = document.getElementById('photoBtn');
+    if (btn) btn.click();
+    return;
+  }
+  const parts = (t && t.parts) || [];
+  if (parts.length) { renderFixParts(t); return; }
+  enterFixInput(t, null);
+}
+// "고칠 게 있어요" → 목록을 받아 칩으로. 실패하면 예전처럼 거절로 간다.
+async function openFixTags() {
+  if (!roomId) { vote('거절'); return; }
+  try {
+    const res = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/fix-targets', { headers: { 'X-Member-Id': memberId } });
+    if (!res.ok) { vote('거절'); return; }
+    const data = await res.json();
+    const targets = (data && data.targets) || [];
+    renderFixTargets(targets);
+  } catch (e) { vote('거절'); }
+}
 
 function shareInviteUrl(absUrl) {
   if (!window.Kakao || !Kakao.isInitialized()) {
@@ -2075,6 +2239,11 @@ function showOnboarding() {
 }
 
 document.getElementById('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+document.getElementById('input').addEventListener('input', updateFixSendBtn);
+document.getElementById('fixCancel').addEventListener('click', () => {
+  clearFix();
+  document.getElementById('input').focus();
+});
 
 // 입력줄 아래 1줄 정리: 초대 대화상자·더보기 펼침 (window.confirm/alert 사용 금지).
 let inviteReturnFocus = null;

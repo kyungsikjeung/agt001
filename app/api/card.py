@@ -244,6 +244,73 @@ def get_card(room_id: str, request: Request, x_member_id: Optional[str] = Header
     return _view(room, store.read_session(room["session_id"]) or {}, member_id)
 
 
+# 고칠 곳 칩 목록 (FIX_TAGS_CONTRACT §2: 채움·항목·이름표는 요약 화면 함수 재사용)
+_FIX_ORDER = ("shop_name", "items", "hours", "location", "phone", "detail",
+              "contact_method", "notice", "photo")
+_FIX_SLOT = {"shop_name": "shop_name", "items": "offerings", "hours": "hours",
+             "location": "location", "phone": "phone", "detail": "detail",
+             "contact_method": "contact_method"}
+
+
+def _fix_current(value) -> str:
+    """지금 값 한 줄·40자까지 (전화번호도 그대로)."""
+    text = " ".join(str(value or "").split())
+    return text[:40]
+
+
+def _fix_filled(card: dict, slot_key: str) -> bool:
+    """채움 여부 (요약 화면과 같은 기준: FILLED·ASSUMED + 값 있음)."""
+    slot = (card.get("slots") or {}).get(slot_key) or {}
+    if slot.get("status") not in (S.FILLED, S.ASSUMED):
+        return False
+    value = slot.get("value")
+    if isinstance(value, list):
+        return any(str(v).strip() for v in value)
+    return bool(str(value or "").strip())
+
+
+@router.get("/api/rooms/{room_id}/fix-targets")
+def fix_targets(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """고칠 곳 칩 목록 (§2). 방 참여자만, 카드 없으면 빈 목록."""
+    from fastapi.responses import JSONResponse
+
+    safe, _member = _member_room(room_id, x_member_id, request)
+    session = store.read_session(store.read_room(safe)["session_id"]) or {}
+    card = session.get("prd")
+    if not card:
+        return JSONResponse(content={"targets": []}, headers={"Cache-Control": "no-store"})
+    ind = prd_engine.industry_of(card)
+    out = []
+    for key in _FIX_ORDER:
+        if key == "photo":
+            out.append({"key": "photo", "label": "사진", "current": "", "parts": []})
+        elif key == "notice":
+            text = str((card.get("notice") or {}).get("text") or "").strip()
+            if not text:
+                continue
+            out.append({"key": "notice", "label": "공지", "current": _fix_current(text), "parts": []})
+        elif key == "items":
+            if not _fix_filled(card, "offerings"):
+                continue
+            parts = []
+            for row in prd_engine.item_rows(card)[:30]:
+                name = str(row.get("name") or "")
+                if not name:
+                    continue
+                price = row.get("price") or row.get("fee") or ""
+                parts.append({"key": name, "label": f"{name} {price}".strip() if price else name})
+            out.append({"key": "items", "label": S.label_for(ind, "offerings"), "current": "", "parts": parts})
+        else:
+            slot_key = _FIX_SLOT[key]
+            if not _fix_filled(card, slot_key):
+                continue
+            value = ((card.get("slots") or {}).get(slot_key) or {}).get("value")
+            text = ", ".join(map(str, value)) if isinstance(value, list) else str(value or "")
+            out.append({"key": key, "label": S.label_for(ind, slot_key),
+                        "current": _fix_current(text), "parts": []})
+    return JSONResponse(content={"targets": out}, headers={"Cache-Control": "no-store"})
+
+
 @router.put("/api/rooms/{room_id}/card")
 def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional[str] = Header(default=None)):
     safe, member_id = _member_room(room_id, x_member_id, request)
