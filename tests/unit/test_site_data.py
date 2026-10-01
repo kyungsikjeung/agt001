@@ -428,3 +428,14 @@ def test_category_cover_uses_library_photo_of_first_item():
     cats = {c["name"]: c for c in _section(spec, "catalog")["content"]["categories"]}
     assert cats["커피"]["image"] == "/art-lib/coffee-americano.webp" and cats["커피"]["image_example"] is True
     assert cats["음료"]["image"].startswith("/art/ex/")
+
+
+def test_library_photo_survives_rendering():
+    """그리기가 /art-lib/ 주소를 버리지 않는다(허용 앞부분에 없어 예시로 바뀌던 것)."""
+    from app.config import settings
+    lib = settings.generated_dir / "art-lib"
+    lib.mkdir(parents=True, exist_ok=True)
+    (lib / "coffee-americano.webp").write_bytes(b"x")
+    spec = site_data.resolve(site_data.skeleton(CAFE_BP, 0), _cafe_card(), archetype="A")
+    for public in (False, True):
+        assert 'src="/art-lib/coffee-americano.webp"' in SR.render_site(spec, public=public)

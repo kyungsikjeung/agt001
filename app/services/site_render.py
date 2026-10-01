@@ -29,7 +29,7 @@ class SiteSpecError(ValueError):
 # "/uploads/"는 우리 사진 주소 전용 (contracts/ROOM_FEATURES_API.md §4).
 # "/art/"는 기본 제공 그림 주소 전용 (templates/art/, 외부 주소 아님).
 # 그 외 상대경로는 계속 막는다.
-_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/", "/art/")
+_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/", "/art/", "/art-lib/")  # /art-lib/: 태그 사진 창고(ART_LIB)
 
 # 업종별 예시 그림 키 (작업 A1, design_variants._SAMPLE_FOR 업종 키와 같음).
 KIND_KEYS = ("pension", "cafe", "restaurant", "salon", "workshop",
