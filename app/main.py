@@ -15,6 +15,7 @@ from app.services import funnel, ops_alert, rag
 
 # 서버 파이썬에 webp가 없어 예시 사진이 application/octet-stream으로 나갔다(카톡 미리보기가 그림으로 못 읽음)
 mimetypes.add_type("image/webp", ".webp")
+from app.services import accounts as accounts_svc
 from app.services import bookings as bookings_svc
 from app.services import chat_agent as chat_agent_svc
 from app.services import guest_chat as guest_chat_svc
@@ -39,6 +40,7 @@ def _purge_all() -> None:
     phone_verify_svc.purge()
     chat_agent_svc.purge()
     guest_chat_svc.purge()
+    accounts_svc.purge()
 
 
 async def _purge_daily() -> None:

@@ -43,7 +43,7 @@
 | L-2 | R-5 벡터 도입 (pgvector+trgm, R-0 실측 뒤) | RAG_REVIEW Q1·Q2, §7.3 | Claude | L-1 | 반나절씩 |
 | L-3 | ✅ 스크립트 완료·사용자 설치 대기 U-6 백업 외부화 E-1 (`scripts/pull_backups.sh` + `scripts/install_backup_pull.sh`, Mac 예약 등록은 사용자 실행 필요) | USER_DB_PLAN U-6, DELIVERY §5.2 | Claude + 사용자 | 사용자 실행 | 반나절 2개 |
 | L-4 | U-7 복구 연습 1회(도구 `scripts/restore_drill.sh` 준비됨, 실제 덤프로 1회 실행 남음)·U-8 시드·모니터 | USER_DB_PLAN U-7·U-8 | OpenCode | L-3 | 반나절 |
-| L-5 | U-9 탈퇴 익명화·유출 대응 1쪽 | USER_DB_PLAN U-9, §A-2 | Claude | UQ-3 | 반나절 2개 |
+| L-5 | U-9 탈퇴 익명화·유출 대응 1쪽 — 코드·문서 완료(`app/services/accounts.py`, `/settings` 탈퇴, BREACH_RESPONSE.md). UQ-3은 추천 답으로 진행 | USER_DB_PLAN U-9, §A-2 | Claude | UQ-3 | 반나절 2개 |
 | L-6 | ✅ 일부 완료 R-2 초대 링크 관리(기간·목록·폐기, 새 방은 초대로만 입장, `c47f887`) · R-3 기록·R-4 점검·R-5 푸시는 남음 | ROOM_POLICY §7 R-2~R-5 | Claude | R-1 | 반나절씩 |
 | L-7 | P-6 탭해서 말하기·P-7 확정·P-8 제작 연결 | DESIGN §13.6 P-6~P-8 | Claude | M-1 | 반나절씩 |
 | L-8 | ✅ 일부 완료 P-10 직접 편집 화면(`/editor?room=`, 실제 카드·바뀐 칸만 저장·방장만 편집, `c47f887`) · P-9 참고 사이트·P-SSE 전환은 남음 | DESIGN §13.6, DECISIONS D27 | Claude | M-1 | 반나절씩 |
