@@ -42,8 +42,8 @@ flowchart TD
 
 | 번호 | 무엇 |
 |---|---|
-| 1 | `menu_categories` 칸: 그룹 이름 목록(순서). 편집기가 쓰면 `FILLED`, 출처 `editor`(`prd_engine._put`). 이름 1~12자(앞뒤 공백 뺌), 최대 10개, 같은 이름 없음 |
-| 2 | `card["item_groups"]`: `{항목 이름: 그룹 이름}`. 그룹이 목록에 없으면 읽을 때 무시한다(낱말표로) |
+| 1 | `menu_categories` 칸: 그룹 이름 목록(순서). 편집기가 쓰면 `FILLED`, 출처 `editor`(`prd_engine._put`). 이름 1~12자(앞뒤 공백 뺌), 쉼표·가운뎃점·빗금 없음(칸을 읽을 때 이것으로 나눈다), 최대 10개, 같은 이름 없음 |
+| 2 | `card["item_groups"]`: `{항목 이름: 그룹 이름}`. 그룹이 목록에 없으면 읽을 때 무시한다(낱말표로). 그룹을 한 번이라도 고치면 모든 항목을 지금 보이는 그룹에 적어 둔다(§2-2, 보이는 그대로) |
 | 3 | `card["item_photo_off"]`: "사진 없음"을 고른 항목 이름 목록(순서 상관없음, 중복 없음) |
 | 4 | 항목 이름 바꾸기·빼기는 `price_pairs`·`item_notes`처럼 `item_groups`·`item_photo_off`도 옮기고 지운다(`_apply_items`) |
 
@@ -51,11 +51,11 @@ flowchart TD
 
 | 번호 | 무엇 | 파일 |
 |---|---|---|
-| 1 | `ItemIn`에 `group: Optional[str]`(최대 12자)와 `photo: Optional[Literal["auto", "none"]]`. `group`이 그룹 목록에 없으면 400 "없는 그룹이에요". `add`와 함께 오면 새 항목을 그 그룹에 넣는다. `photo="none"`은 `item_photo_off`에 넣고 `"auto"`는 뺀다 | `app/api/card.py` |
-| 2 | `CardIn.groups: Optional[GroupsIn]`, `GroupsIn = {order: list[str], rename: dict[str, str] = {}}`. 순서대로 `menu_categories`를 통째로 쓴다. `rename`은 `item_groups` 값도 바꾼다. `order`에서 빠진 그룹을 가리키던 `item_groups`는 지운다(→ 첫 그룹). `order`가 빈 목록이면 칸을 비우고 `item_groups`를 지운다(→ 낱말표). 이름 규칙(§1-1)을 어기면 400 | 같은 파일 |
+| 1 | `ItemIn`에 `group: Optional[str]`(최대 12자)와 `photo: Optional[Literal["auto", "none"]]`. `group`이 그룹 목록에 없으면 400 "없는 그룹이에요". `add`와 함께 오면 새 항목을 그 그룹에 넣는다. 그룹 목록이 아직 없으면(낱말표 분류만 보일 때) 먼저 지금 보이는 분류를 그룹 목록으로 만들고(§2-2와 같게) 넣는다. `photo="none"`은 `item_photo_off`에 넣고 `"auto"`는 뺀다 | `app/api/card.py` |
+| 2 | `CardIn.groups: Optional[GroupsIn]`, `GroupsIn = {order: list[str], rename: dict[str, str] = {}}`. 순서대로 `menu_categories`를 통째로 쓴다. `rename`은 `item_groups` 값도 바꾼다. `order`에서 빠진 그룹을 가리키던 `item_groups`는 지운다(→ 첫 그룹). `order`가 빈 목록이면 칸을 `rejected`(다시 묻지 않음)로 두고 `item_groups`를 지운다(→ 낱말표). 이름 규칙(§1-1)을 어기면 400, `rename`의 옛 이름이 지금 그룹에 없거나 새 이름이 `order`에 없으면 400. 적용할 때 모든 항목을 **지금 보이는 그룹**(이름 바꾼 것 반영)에 적어 둔다. 그 그룹이 `order`에서 빠졌으면 적지 않는다(→ 첫 그룹) | 같은 파일 |
 | 3 | 한 요청 안에서는 `groups`를 먼저, `items`를 다음에 적용한다(새 그룹에 새 항목을 한 번에 넣을 수 있게). 바뀐 게 없으면 저장·다시 그리기를 안 한다(지금과 같음) | 같은 파일 |
 | 4 | `card_data._catalog`: 항목의 그룹 = `item_groups`에 있고 그룹 목록에 있으면 그것, 아니면 지금 규칙. 그룹 순서 = 그룹 목록 순서, 그다음 나머지(낱말표 분류, 처음 나온 순서) | `app/services/card_data.py` |
-| 5 | `site_data._item_image`: 이름이 `item_photo_off`에 있으면 `{}`(그림 없음). 분류 대표 사진은 그 분류에서 **사진이 있는 첫 항목**을 쓰고, 모든 항목이 사진 없음이면 대표 사진도 없다(예시 팩도 안 씀). 사진 없음 항목이 하나도 없으면 지금과 같다 | `app/services/site_data.py` |
+| 5 | `site_data._item_image`: 이름이 `item_photo_off`에 있으면 `{}`(그림 없음). 분류 대표 사진은 **사진 없음이 아닌 첫 항목**으로 지금 규칙(그 항목 사진 → 예시 팩)을 쓰고, 모든 항목이 사진 없음이면 대표 사진도 없다(예시 팩도 안 씀). 사진 없음 항목이 하나도 없으면 지금과 같다 | `app/services/site_data.py` |
 | 6 | `GET /card/preview`의 `items` 줄마다 `group`(지금 보이는 분류)과 `photo`(`"own"` 내 사진 있음 / `"auto"` / `"none"`)를 더하고, 응답에 `groups`(지금 보이는 분류 이름 순서)를 더한다. 처음 열 때 이것이 사이트와 같아야 한다 | `app/api/card.py` |
 | 7 | 그대로 둘 것: 항목 20개 상한, 마지막 항목 빼기 400, `fix-targets`, 말로 고치기·빌더 에이전트(새 항목은 지금처럼 낱말표로 나뉜다) | - |
 
@@ -97,3 +97,4 @@ flowchart TD
 | 날짜 | 내용 |
 |---|---|
 | 2026-10-01 | 처음 작성 (D58: 베타 뒤) |
+| 2026-10-01 | 구현 전 보강: 이름에 쉼표·가운뎃점·빗금 금지, 그룹을 고치면 모든 항목을 보이는 그룹에 적어 둠, 그룹 비우기는 `rejected`, 분류 대표는 사진 없음이 아닌 첫 항목 |

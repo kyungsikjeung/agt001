@@ -1,4 +1,5 @@
 """직접 편집 (contracts/ROOM_FEATURES_API.md §5, D27: 내용은 직접, 구조는 채팅)."""
+import re
 import threading
 import time
 from collections import deque
@@ -10,7 +11,7 @@ from pydantic import BaseModel, Field
 from app import store
 from app.api.auth import _check_origin
 from app.security import sanitize_token
-from app.services import design, prd_engine, rooms
+from app.services import card_data, design, prd_engine, rooms
 from app.services import photos as photos_svc
 
 router = APIRouter()
@@ -20,6 +21,10 @@ EDITABLE = ("shop_name", "phone", "hours", "location", "price", "offerings", "de
 
 # 미리보기 안 id (EDIT_WAVE2_CONTRACT §2.1)
 VARIANTS = ("v1", "v2", "v3")
+
+# 그룹 (GROUP_CARDS_CONTRACT §1-1): 칸을 읽을 때 쉼표·가운뎃점·빗금으로 나누므로 이름에 못 쓴다
+GROUP_MAX, GROUP_NAME_MAX = 10, 12
+_GROUP_BAD = re.compile(r"[,·/]")
 
 
 class NoticeIn(BaseModel):
@@ -36,6 +41,14 @@ class ItemIn(BaseModel):
     note: Optional[str] = Field(default=None, max_length=80)
     remove: bool = False
     add: bool = False
+    group: Optional[str] = Field(default=None, max_length=GROUP_NAME_MAX)  # 그룹 (GROUP_CARDS_CONTRACT §2-1)
+    photo: Optional[Literal["auto", "none"]] = None  # none = 사진 없음(글만 카드)
+
+
+class GroupsIn(BaseModel):
+    """그룹 목록 통째로 (GROUP_CARDS_CONTRACT §2-2). rename = 옛 이름 → 새 이름."""
+    order: list[str] = Field(default=[], max_length=30)
+    rename: dict[str, str] = {}
 
 
 class LayoutIn(BaseModel):
@@ -53,6 +66,7 @@ class CardIn(BaseModel):
     items: list[ItemIn] = Field(default=[], max_length=30)  # 한 요청에 최대 30줄
     layout: Optional[LayoutIn] = None
     choice: Optional[Literal["v1", "v2", "v3"]] = None  # 빌더 모양 바꾸기 (B1)
+    groups: Optional[GroupsIn] = None  # 그룹 목록 (GROUP_CARDS_CONTRACT §2-2), items보다 먼저 적용
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -105,6 +119,44 @@ def _section_label(node: dict, offerings_label: str) -> str:
     return node.get("id", "") if isinstance(node, dict) else ""
 
 
+def _pin_all(card: dict, order: list, rename: dict) -> dict:
+    """모든 항목을 지금 보이는 그룹(이름 바꾼 것 반영)에 적는다. 빠진 그룹의 항목은 첫 그룹 (§2-2)."""
+    _, shown = card_data.group_view(card)
+    pins = {}
+    for item, group in shown.items():
+        group = rename.get(group, group)
+        pins[item] = group if group in order else order[0]
+    return pins
+
+
+def _apply_groups(card: dict, body: GroupsIn, turn) -> bool:
+    """그룹 목록 통째로 쓰기 (GROUP_CARDS_CONTRACT §2-2). 바뀌면 True. 규칙을 어기면 400."""
+    order = [str(n or "").strip() for n in body.order]
+    if len(order) > GROUP_MAX:
+        raise HTTPException(status_code=400, detail=f"그룹은 {GROUP_MAX}개까지예요")
+    if any(not n or len(n) > GROUP_NAME_MAX or _GROUP_BAD.search(n) for n in order):
+        raise HTTPException(status_code=400, detail="그룹 이름은 1~12자로, 쉼표·가운뎃점·빗금 없이 적어 주세요")
+    if len(set(order)) != len(order):
+        raise HTTPException(status_code=400, detail="같은 이름의 그룹이 있어요")
+    current, _ = card_data.group_view(card)
+    rename = {str(k).strip(): str(v).strip() for k, v in (body.rename or {}).items()}
+    rename = {k: v for k, v in rename.items() if k != v}
+    if len(rename) > GROUP_MAX or any(k not in current or v not in order for k, v in rename.items()):
+        raise HTTPException(status_code=400, detail="바꿀 그룹을 찾지 못했어요")
+    if not order:  # 그룹을 다 지우면 낱말표로, 다시 묻지 않는다
+        if not card_data._custom_categories(card) and not card.get("item_groups"):
+            return False
+        prd_engine._put(card, "menu_categories", None, S.REJECTED, turn, "editor")
+        card.pop("item_groups", None)
+        return True
+    pins = _pin_all(card, order, rename)
+    if order == card_data._custom_categories(card) and pins == card.get("item_groups"):
+        return False
+    prd_engine._put(card, "menu_categories", order, S.FILLED, turn, "editor")
+    card["item_groups"] = pins
+    return True
+
+
 def _apply_items(card: dict, items: list, turn) -> bool:
     """항목 고치기 (§2.2). 바뀐 게 있으면 True. 마지막 1개 빼기는 400."""
     slot = (card.get("slots") or {}).get("offerings") or {}
@@ -116,8 +168,41 @@ def _apply_items(card: dict, items: list, turn) -> bool:
     notes = card.setdefault("item_notes", {})
     if not isinstance(notes, dict):
         notes = card["item_notes"] = {}
+    if any(line.group is not None for line in items or []) and not card_data._custom_categories(card):
+        # 낱말표 분류만 보일 때 그룹을 고르면 지금 보이는 분류를 그룹 목록으로 만든다 (§2-1)
+        current, _ = card_data.group_view(card)
+        if current:
+            card["item_groups"] = _pin_all(card, current, {})
+            prd_engine._put(card, "menu_categories", current, S.FILLED, turn, "editor")
+    groups = card.get("item_groups")
+    if not isinstance(groups, dict):
+        groups = card["item_groups"] = {}
+    off = card.get("item_photo_off")
+    if not isinstance(off, list):
+        off = card["item_photo_off"] = []
+    order = card_data._custom_categories(card)
     dirty = False
     listed = False
+
+    def _group(name: str, group: Optional[str]) -> None:
+        nonlocal dirty
+        if group is None:
+            return
+        group = group.strip()
+        if group not in order:
+            raise HTTPException(status_code=400, detail="없는 그룹이에요")
+        if groups.get(name) != group:
+            groups[name] = group
+            dirty = True
+
+    def _photo(name: str, mode: Optional[str]) -> None:
+        nonlocal dirty
+        if mode == "none" and name not in off:
+            off.append(name)
+            dirty = True
+        elif mode == "auto" and name in off:
+            off.remove(name)
+            dirty = True
 
     def _set(key: dict, name: str, text: str) -> None:
         nonlocal dirty
@@ -142,6 +227,8 @@ def _apply_items(card: dict, items: list, turn) -> bool:
                 _set(pairs, name, (line.price or "").strip())
             if line.note is not None:
                 _set(notes, name, (line.note or "").strip())
+            _group(name, line.group)
+            _photo(name, line.photo)
             continue
         if line.remove:
             if name not in names:
@@ -151,6 +238,9 @@ def _apply_items(card: dict, items: list, turn) -> bool:
             names.remove(name)
             pairs.pop(name, None)
             notes.pop(name, None)
+            groups.pop(name, None)
+            if name in off:
+                off.remove(name)
             listed = True
             dirty = True
             continue
@@ -160,9 +250,11 @@ def _apply_items(card: dict, items: list, turn) -> bool:
         new = (line.rename or "").strip()
         if new and new != name and new not in names:
             names[names.index(name)] = new
-            for key in (pairs, notes):
+            for key in (pairs, notes, groups):
                 if name in key:
                     key[new] = key.pop(name)
+            if name in off:
+                off[off.index(name)] = new
             for photo in card.get("photos") or []:
                 if isinstance(photo, dict) and photo.get("tag") == "item:" + name:
                     photo["tag"] = "item:" + new
@@ -173,6 +265,11 @@ def _apply_items(card: dict, items: list, turn) -> bool:
             _set(pairs, target, (line.price or "").strip())
         if line.note is not None:
             _set(notes, target, (line.note or "").strip())
+        _group(target, line.group)
+        _photo(target, line.photo)
+    for key in ("item_groups", "item_photo_off"):  # 빈 것은 남기지 않는다
+        if not card.get(key):
+            card.pop(key, None)
     if listed:
         prd_engine._put(card, "offerings", names, S.FILLED, turn, "editor")
         dirty = True
@@ -426,8 +523,11 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
         if body.notice is not None:
             if save_notice(card, body.notice.text, body.notice.popup, body.notice.photos):
                 changed.append("notice")
+        if body.groups is not None:
+            if _apply_groups(card, body.groups, turn):
+                changed.append("items")
         if body.items:
-            if _apply_items(card, body.items, turn):
+            if _apply_items(card, body.items, turn) and "items" not in changed:
                 changed.append("items")
         if body.layout is not None:
             if _apply_layout(card, body.layout):
@@ -551,7 +651,10 @@ def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = He
     raw = ((card.get("slots") or {}).get("offerings") or {}).get("value")
     pairs, notes = card.get("price_pairs") or {}, card.get("item_notes") or {}
     # 편집기가 지금 값에서 시작하게: 항목 가격·설명과 이 안의 구역 편집(더한 구역이 다음 저장에서 빠지지 않게)
-    items = [{"name": n, "price": pairs.get(n) or "", "note": notes.get(n) or ""}
+    order, shown = card_data.group_view(card)  # 그룹은 지금 보이는 그대로 (GROUP_CARDS_CONTRACT §2-6)
+    off = card.get("item_photo_off") if isinstance(card.get("item_photo_off"), list) else []
+    items = [{"name": n, "price": pairs.get(n) or "", "note": notes.get(n) or "", "group": shown.get(n, ""),
+              "photo": "none" if n in off else ("own" if card_data.item_photo(card, n) else "auto")}
              for n in (raw if isinstance(raw, list) else []) if isinstance(n, str) and n]
     if blueprint is None:
         sections, addable = [], []
@@ -566,7 +669,7 @@ def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = He
                     "bind": n.get("bind", "none")}
                    for n in LE.addable(blueprint, pos, edits) if isinstance(n, dict)]
     return JSONResponse(content={"variant": vid, "html": page, "sections": sections, "addable": addable,
-                                 "layout": edits, "items": items},
+                                 "layout": edits, "items": items, "groups": order},
                         headers={"Cache-Control": "no-store"})
 
 
