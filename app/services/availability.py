@@ -259,14 +259,11 @@ def _chat_url(site_key: str) -> str:
             return ""
     except Exception:
         return ""
-    base = (settings.public_base_url or "").rstrip("/")
-    if base.startswith("https://"):
-        return f"{base}/chat/{site_key}"
-    if settings.preview_host:
-        # 미리보기 주소는 /chat/을 열지 않는다. 앱 주소(PUBLIC_BASE_URL)를 모르면 링크를 빼서 404를 막는다.
+    from app.services.site_render import app_link  # 손님 채팅 링크와 같은 규칙
+    url = app_link(f"/chat/{site_key}")
+    if not url:
         log.warning("PUBLIC_BASE_URL이 없어 채팅 예약 링크를 넣지 않아요 site=%s", site_key)
-        return ""
-    return f"/chat/{site_key}"
+    return url
 
 
 def _card_for_site(site_key: str):

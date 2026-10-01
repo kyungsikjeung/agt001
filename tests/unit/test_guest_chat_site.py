@@ -4,6 +4,7 @@ import secrets
 import pytest
 
 from app import store
+from app.config import settings
 from app.db.models import UserRoomRow, UserRow
 from app.db.session import get_sessionmaker
 from app.services import auth as auth_svc
@@ -116,3 +117,17 @@ def test_first_publish_already_has_chat_button(client, monkeypatch):
     key = store.read_session(store.read_room(rid)["session_id"])["requirement_id"]
     page = (settings.generated_dir / key / "published" / "index.html").read_text(encoding="utf-8")
     assert f'href="/chat/{key}"' in page and "채팅하기" in page
+
+
+def test_6_link_goes_to_app_host_when_hosts_split(client, monkeypatch):
+    """공개 사이트는 미리보기 주소에서 열리고 거기서 /chat/은 404다(운영 10/1).
+    앱 주소로 절대 링크를 걸고, 앱 주소를 모르면 링크를 뺀다(예약 봇 링크와 같은 규칙)."""
+    _, key, _ = _published_site(client)
+    monkeypatch.setattr(settings, "preview_host", "pv.example")
+    monkeypatch.setattr(settings, "public_base_url", "https://app.example/")
+    html = site_render.render_site(_spec("call-first"), site_key=key, public=True, title="모퉁이 커피")
+    assert f'href="https://app.example/chat/{key}"' in html
+    assert publish_check.check_html(html) == []
+    monkeypatch.setattr(settings, "public_base_url", None)
+    html = site_render.render_site(_spec("call-first"), site_key=key, public=True, title="모퉁이 커피")
+    assert "채팅하기" not in html
