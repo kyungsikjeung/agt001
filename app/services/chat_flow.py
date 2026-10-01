@@ -566,6 +566,13 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
         return ("공개 전에 확인해 주세요. 아직 비어 있는 곳이 있어요: " + ", ".join(missing) + "\n"
                 "사이트에는 빈 곳을 빼고 보여 드려요. 빼려면 '○○은 빼주세요', "
                 "그대로 열려면 '그대로 공개'라고 보내 주세요.")
+    try:
+        from app.services import shops
+        # 가게 행을 공개 페이지보다 먼저 만든다: 첫 공개본부터 손님 채팅 단추가 붙는다(GUEST_CHAT G4 관찰).
+        # 예전 shop_settings._shop_name_of는 없어져 공개 때마다 실패하고 있었다(가게 행이 사장님 화면을 열 때야 생김)
+        shops.ensure(session["requirement_id"], shops._shop_name(session) or None, _publish_room_id(session))
+    except Exception:
+        log.exception("가게 행 만들기 실패 site=%s", session["requirement_id"])
     from app.services.publish_check import PublishBlockedError
     try:
         design.publish_choice(session["requirement_id"], card, choice)
@@ -580,11 +587,6 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     reply = (f"사이트를 열었어요: {url}\n"
              f"{choice[1]}안({_variant_name(card, choice)}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
     room_id = _publish_room_id(session)
-    try:
-        from app.services import shop_settings, shops
-        shops.ensure(session["requirement_id"], shop_settings._shop_name_of(session), room_id)
-    except Exception:
-        log.exception("가게 행 만들기 실패 site=%s", session["requirement_id"])
     if room_id is not None:
         base = (base_url or "").rstrip("/")
         reply += (f"\n사이트 고치기: {base}/editor?room={room_id}\n"

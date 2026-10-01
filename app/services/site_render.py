@@ -375,6 +375,19 @@ def _chat_url(content: dict, site_key: str) -> str:
     return ""
 
 
+def _guest_chat_url(site_key: str) -> str:
+    """손님 채팅 링크 (GUEST_CHAT_CONTRACT §2의 8). 공개된 가게+켜짐일 때만. 실패해도 렌더는 계속."""
+    if not site_key:
+        return ""
+    try:
+        from app.services import guest_chat
+        if guest_chat.enabled(site_key):
+            return f"/chat/{site_key}"
+    except Exception:
+        pass
+    return ""
+
+
 def _clean_url(value) -> str:
     """허용 앞부분이 아니면 빈 값으로 돌린다 (자리 표시·예시 그림 분기용).
 
@@ -991,6 +1004,11 @@ def _section_context(
     """
     key = f"{section_type}--{variant}"
     ctx: dict = {"id": section_id}
+    if section_type == "contact":
+        # 손님 채팅 링크 (GUEST_CHAT_CONTRACT §2의 8): 모든 연락 부품에 단추 하나.
+        url = _guest_chat_url(site_key)
+        if url:
+            ctx["guest_chat_url"] = url
     if section_type == "hero":
         ctx.update(_hero_context(content))
     elif section_type == "intro" and variant == "short":

@@ -1,5 +1,6 @@
 <section class="s-contact s-contact--kakao-channel" data-section-id="{{id}}" aria-labelledby="contact-title-{{id}}">
   <h2 id="contact-title-{{id}}">카카오톡 문의</h2>
   {{#kakao_channel_url}}<p class="s-contact__first"><a class="s-btn" href="{{kakao_channel_url}}" target="_blank" rel="noopener noreferrer">카카오톡으로 문의하기</a></p>{{/kakao_channel_url}}
+  {{#guest_chat_url}}<p class="s-contact__first"><a class="s-btn s-btn--ghost" href="{{guest_chat_url}}" target="_blank" rel="noopener">채팅하기</a></p>{{/guest_chat_url}}
   {{^kakao_channel_url}}<p><span class="is-placeholder" aria-label="카카오톡 채널 주소: 아직 입력되지 않음">[카카오톡 채널 주소 입력]</span></p>{{/kakao_channel_url}}
 </section>

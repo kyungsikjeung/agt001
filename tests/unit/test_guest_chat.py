@@ -171,3 +171,24 @@ def test_unpublished_site_keeps_old_answer(client):
     key = store.read_session(store.read_room(room_id)["session_id"])["requirement_id"]
     assert "채팅 예약을 받지 않아요" in Guest(client, key).say(text="주차 돼요?")["reply"]
     assert _thread(key) is None
+
+
+def test_publish_creates_shop_row_so_chat_opens(client, monkeypatch):
+    """공개하자마자 가게 행이 생겨 손님 채팅이 열린다 (없는 함수를 부르던 공개 경로 고침)."""
+    from app.config import settings
+    from app.db.models import ShopRow
+    monkeypatch.setattr(settings, "publish_login_required", False)
+    from app.api import inquiries as inquiries_api
+    with inquiries_api._lock:
+        inquiries_api._hits.clear()
+    body = client.post("/api/start", json={"template": "cafe"}).json()
+    rid, headers = body["room_id"], {"X-Member-Id": body["member_id"]}
+    client.put(f"/api/rooms/{rid}/card", json={"fields": {"shop_name": "모퉁이 커피"}}, headers=headers)
+    r = client.post(f"/api/rooms/{rid}/publish", json={"force": True}, headers=headers)
+    assert r.status_code == 200 and r.json().get("ok"), r.text
+    key = store.read_session(store.read_room(rid)["session_id"])["requirement_id"]
+    with get_sessionmaker()() as db:
+        row = db.get(ShopRow, key)
+    assert row is not None and row.name == "모퉁이 커피"
+    assert guest_chat.enabled(key) is True
+    assert "여쭤볼게요" in Guest(client, key).say(text="강아지 데려가도 돼요?")["reply"]

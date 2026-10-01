@@ -1,6 +1,7 @@
 <section class="s-contact s-contact--chat-first" data-section-id="{{id}}" aria-labelledby="contact-title-{{id}}">
   <h2 id="contact-title-{{id}}">영업시간·연락</h2>
   {{#channel_url}}<p class="s-contact__first"><a class="s-btn" href="{{channel_url}}" target="_blank" rel="noopener noreferrer">채널로 문의하기</a></p>{{/channel_url}}
+  {{#guest_chat_url}}<p class="s-contact__first"><a class="s-btn s-btn--ghost" href="{{guest_chat_url}}" target="_blank" rel="noopener">채팅하기</a></p>{{/guest_chat_url}}
   {{^channel_url}}<p><span class="is-placeholder" aria-label="채널 주소: 아직 입력되지 않음">[채널 주소 입력]</span></p>{{/channel_url}}
   <dl class="s-contact__list">
     <div class="s-contact__row">

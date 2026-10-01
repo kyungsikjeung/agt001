@@ -159,6 +159,10 @@ def _features(session: dict, card: dict, variant: str) -> list:
     from app.services import stamps
     out.append({"key": "stamps", "label": "스탬프", "kind": "shop",
                 "on": stamps.rule(req) is not None, "after_publish": True})
+    from app.services import guest_chat
+    # 채팅 칩 (GUEST_CHAT_CONTRACT §3의 3): 공개한 뒤 사장님 화면에서 켜고 끈다(기본 켜짐).
+    out.append({"key": "chat", "label": "채팅", "kind": "shop",
+                "on": guest_chat.enabled(req), "after_publish": True})
     if _is_pickup(card):
         from app.services import shop_settings
         out.append({"key": "order", "label": "온라인 주문", "kind": "shop",
@@ -306,7 +310,7 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                     room, session, safe, ["notice"], f"빌더에서 바꿨어요: 공지 {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
                               props={"kind": "notice", "ref": "notice", "choice": "on" if body.on else "off"})
-        elif key in ("stamps", "order"):
+        elif key in ("stamps", "order", "chat"):
             raise HTTPException(status_code=400, detail="공개한 뒤 사장님 화면에서 켤 수 있어요")
         else:
             raise HTTPException(status_code=400, detail="없는 기능이에요")
