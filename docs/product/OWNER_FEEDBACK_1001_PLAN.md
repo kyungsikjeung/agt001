@@ -179,20 +179,19 @@ sequenceDiagram
 | 7 | §6 손님 채팅 | - |
 | - | §2 그룹 카드 | 베타 뒤 |
 
-## 10. 진행 (10/1 오후 기준, 브랜치 `owner-feedback-1001`)
+## 10. 진행 (10/1 저녁 기준)
 
 | 묶음 | 계약서 | 상태 |
 |---|---|---|
-| §1 고칠 곳 태그 | [FIX_TAGS_CONTRACT](FIX_TAGS_CONTRACT.md) | ✅ 구현·검토, 빌더 390px 확인 |
-| §4 주소 검색·카카오 지도 | [MAP_CONTRACT](MAP_CONTRACT.md) | ✅ 서버·지도·주소 검색 화면·말/채팅 주소 확인. 카카오 설정(도메인·카카오맵 ON) 끝 |
-| §3 공지 사진 | [NOTICE_PHOTO_CONTRACT](NOTICE_PHOTO_CONTRACT.md) | ✅ 그리기·화면, 🔄 서버(N1) |
-| §5 메뉴 태그 사진 | [ART_LIB_CONTRACT](ART_LIB_CONTRACT.md) | ✅ 창고·공간 예시 24장, ⏳ 연결(A2, N1 뒤) |
-| §6 손님 채팅 | [GUEST_CHAT_CONTRACT](GUEST_CHAT_CONTRACT.md) | ✅ 서버(0019)·손님 페이지·사장님 탭, ⏳ 사이트 "채팅하기" 단추(G4, N1 뒤) |
+| §1 고칠 곳 태그 | [FIX_TAGS_CONTRACT](FIX_TAGS_CONTRACT.md) | ✅ 운영(PR #3) |
+| §4 주소 검색·카카오 지도 | [MAP_CONTRACT](MAP_CONTRACT.md) | ✅ 운영(PR #3). 카카오 설정 끝(JS SDK 도메인 4개·카카오맵 ON), 운영 REST 키 있음 확인 |
+| §3 공지 사진 | [NOTICE_PHOTO_CONTRACT](NOTICE_PHOTO_CONTRACT.md) | ✅ 운영(PR #3) |
+| §5 메뉴 태그 사진 | [ART_LIB_CONTRACT](ART_LIB_CONTRACT.md) | ✅ 운영(PR #3): 메뉴를 넣으면 뒤에서 태그 사진을 만든다. 미리 채우기는 [PREBETA_RUNBOOK](PREBETA_RUNBOOK.md) §2 |
+| §6 손님 채팅 | [GUEST_CHAT_CONTRACT](GUEST_CHAT_CONTRACT.md) | ✅ 운영(PR #3, 0019 적용 확인): 손님 페이지·사장님 탭·사이트 "채팅하기" |
 | §2 그룹 카드 | - | 베타 뒤 |
 | #12 "스파게티" | - | 그 방 링크·캡처 필요 |
 
-- 운영 반영 전 남은 확인: 로컬 끝에서 끝(지도 표시·주소 검색·공지 사진 팝업·손님 질문→사장님 답) 390px·노트북 캡처, 전체 테스트, PR → 병합 → 배포(대표 확인).
-- 운영 배포 뒤: 0019 마이그레이션이 서버 시작 때 올라가는지 확인, 카카오 REST 키가 운영 키 저장소에 있는지(주소 검색) 확인.
+- 남은 것(대표, 서버에서): [PREBETA_RUNBOOK](PREBETA_RUNBOOK.md) — 이미 공개된 가게 다시 공개, 태그 사진 창고 미리 채우기, 실제 가게로 주소 검색→지도·손님 채팅→답 확인.
 
 ## 변경 이력
 
@@ -201,3 +200,4 @@ sequenceDiagram
 | 2026-10-01 | 처음 작성 |
 | 2026-10-01 | §10 진행 표 추가 |
 | 2026-10-01 | 대표 결정 D58 반영: 지도·손님 채팅 베타 전, 메뉴 사진 상한 없음(태그로 저장), 그룹 카드는 베타 뒤. #1~#4 운영 배포(`51f14c6`) |
+| 2026-10-01 | §10 저녁 기준으로 갱신: D58 베타 전 묶음 모두 운영(PR #3), 남은 것은 PREBETA_RUNBOOK |
