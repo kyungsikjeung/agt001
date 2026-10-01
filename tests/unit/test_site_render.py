@@ -396,3 +396,16 @@ def test_public_quality_fixes_2026_09_26():
     assert "li:has(> .is-placeholder:not(.s-media__empty))" in css
     # D36: 예시 그림 배지는 방문자에게도 보이고(숨기는 규칙 없음), 사장님용 사진첩 안내만 숨긴다
     assert ".is-public .s-illu-badge" not in css and ".is-public .s-gallery__notice" in css
+
+
+@pytest.mark.parametrize("variant", ["cards", "photo-grid"])
+def test_카드형_메뉴_예시사진은_그림위에_예시표시(variant):
+    """태그 사진·예시 팩 사진(image_example)은 공개본에도 "예시 이미지"를 그 그림 위에 붙인다 (D51 ③)."""
+    items = [{"name": "아메리카노", "price": "4,500원", "image": "/art-lib/coffee-americano.webp",
+              "image_alt": "아메리카노 사진 (예시)", "image_example": True},
+             {"name": "라떼", "price": "5,000원", "image": "https://사진.example.com/라떼.jpg"}]
+    sec = {"id": "menu", "type": "offerings", "variant": variant, "content": {"label": "메뉴", "items": items}}
+    out = render_site(_bare_spec([sec]), kind="cafe")
+    assert out.count('<figure class="s-card__media">') == 2
+    assert out.count("예시 이미지") == 1  # 사장님 사진에는 붙이지 않는다
+    assert re.search(r'coffee-americano\.webp"[^>]*><span class="s-illu-badge">예시 이미지</span></figure>', out)

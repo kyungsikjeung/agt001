@@ -255,6 +255,7 @@ button:focus-visible,
   color: var(--c-ground);
   background: var(--c-ink);
   border-radius: var(--radius-btn);
+  pointer-events: none;  /* 표시를 눌러도 그림을 누른 것으로 */
 }
 
 /* 사진첩 예시 그림 아래 안내 문구 */
@@ -324,6 +325,9 @@ button:focus-visible,
   padding: var(--space-card);
   overflow: hidden;
 }
+
+/* 카드 그림 틀: 예시 표시가 이 그림 위에 붙는다 (D51 ③) */
+.s-card__media { position: relative; margin: 0; }
 
 .s-card img {
   width: 100%;

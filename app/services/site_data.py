@@ -701,7 +701,7 @@ def _fill_signature(sec: dict, card: dict, data: dict, pack: dict) -> None:
                 card_item["price"] = guess
                 card_item["price_example"] = True
         photo = pack["photos"].get(f"category:{group.get('name')}")
-        example = {"image": photo, "image_alt": f"{name} 사진 (예시)"} if photo else {}
+        example = {"image": photo, "image_alt": f"{name} 사진 (예시)", "image_example": True} if photo else {}
         card_item.update(_item_image(card, name, pack, example))
         if item.get("example") is True:
             card_item["example"] = True

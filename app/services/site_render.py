@@ -883,6 +883,7 @@ def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
             alt_raw = entry.get("image_alt", "")
             one["image_alt"] = alt_raw if isinstance(alt_raw, str) and alt_raw else "상품 사진"
             one["image_ai"] = entry.get("image_ai") is True
+            one["image_example"] = bool(one["image_src"]) and entry.get("image_example") is True  # D51 ③
         if with_index:
             one["index"] = pos
         items.append(one)
