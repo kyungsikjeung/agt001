@@ -1,6 +1,6 @@
 # 계약서: 그룹 + 카드 추가 (GROUP_CARDS_CONTRACT)
 
-> 2026-10-01 (KST) / Claude 작성, 구현, Claude 검토. 계획 [OWNER_FEEDBACK_1001_PLAN](OWNER_FEEDBACK_1001_PLAN.md) §2(#6·#7), 결정 D58: **베타 뒤**. 베타(10/17) 전에는 main에 합치지 않는다(대표가 따로 정하면 예외).
+> 2026-10-01 (KST) / Claude 작성, 구현, Claude 검토. 계획 [OWNER_FEEDBACK_1001_PLAN](OWNER_FEEDBACK_1001_PLAN.md) §2(#6·#7), 결정 D58은 "베타 뒤"였으나 **D59(베타 구분 없이 개발)로 바로 넣는다**.
 > 재사용: 항목 고치기 `_apply_items`(`app/api/card.py`, 짝값 `price_pairs`·`item_notes`), 분류 `card_data._catalog`(`menu_categories` 칸), 사장님 항목 사진 `card_data.item_photo`(태그 `item:<이름>`), 항목 사진 순서 `site_data._item_image`(사장님 → AI → 태그 사진 → 예시 팩), 보며 고치기 구역 패널 `SectionPanel`.
 
 ## 0. 결론
@@ -99,3 +99,4 @@ flowchart TD
 | 2026-10-01 | 처음 작성 (D58: 베타 뒤) |
 | 2026-10-01 | GC1·GC2 구현: 항목 패널을 `ItemList.tsx`로, 그룹 머리 `h4`, 그룹 안 순서는 항목 목록 순서 |
 | 2026-10-01 | 구현 전 보강: 이름에 쉼표·가운뎃점·빗금 금지, 그룹을 고치면 모든 항목을 보이는 그룹에 적어 둠, 그룹 비우기는 `rejected`, 분류 대표는 사진 없음이 아닌 첫 항목 |
+| 2026-10-01 | D59로 베타 전에 넣음: 최신 main(10/1 운영분)과 합쳐 다시 시험 |
