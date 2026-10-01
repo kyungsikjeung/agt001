@@ -166,6 +166,7 @@ export default function Landing() {
     <div className="page">
       <header className={scrolled ? 'topbar topbar--solid' : 'topbar'}>
         <a className="brand" href="/">
+          <img className="brand-mark" src="/icons/kkachi.svg" alt="" width={30} height={30} />
           한마디
         </a>
         <div className="login-wrap">
