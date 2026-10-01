@@ -99,7 +99,9 @@ def _ask_llm(name: str, industry: str, known: list) -> Optional[tuple]:
     from app import llm
     system = ("You map a Korean shop menu/service item name to a photo tag. Reply JSON only: "
               '{"tag": "<lowercase-words-with-hyphens>", "prompt": "<one English line describing an appetizing '
-              'photo of the item alone, no people, no text>"}. Prefer an existing tag if it clearly fits.')
+              'photo of the item alone, no people, no text>"}. Reuse an existing tag ONLY if it is the same item '
+              "(e.g. 'iced americano' -> coffee-americano). If it is a different item, even a similar one "
+              "(salt bread is not a scone), make a new specific tag like category-item.")
     user = json.dumps({"item": name, "industry": industry, "existing_tags": known[:200]}, ensure_ascii=False)
     try:
         raw = llm.chat_json(system, user, timeout_sec=15.0, max_tokens=200)

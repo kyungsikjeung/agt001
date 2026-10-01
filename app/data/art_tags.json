@@ -1071,5 +1071,69 @@
       "restaurant"
     ],
     "prompt": "creamy tomato-based rosé pasta, bacon and onion, pink sauce"
+  },
+  "bread-salt": {
+    "words": [
+      "소금빵",
+      "시오빵",
+      "salt bread"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "golden Korean salt bread rolls with flaky sea salt on a wooden board"
+  },
+  "bread-croissant": {
+    "words": [
+      "크루아상",
+      "크로와상",
+      "croissant"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "buttery flaky croissants on a ceramic plate"
+  },
+  "bread-bagel": {
+    "words": [
+      "베이글",
+      "bagel"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "fresh sesame bagels on a wooden board with cream cheese"
+  },
+  "bread-loaf": {
+    "words": [
+      "식빵",
+      "우유식빵",
+      "loaf bread"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a soft milk bread loaf sliced on a wooden board"
+  },
+  "bread-financier": {
+    "words": [
+      "휘낭시에",
+      "피낭시에",
+      "financier"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "small golden financier cakes on a white plate"
+  },
+  "bread-madeleine": {
+    "words": [
+      "마들렌",
+      "madeleine"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "shell-shaped madeleines on a linen napkin"
   }
 }

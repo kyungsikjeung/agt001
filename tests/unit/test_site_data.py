@@ -416,3 +416,15 @@ def test_signature_picks_first_per_category_max_three():
     assert [i["name"] for i in content["items"]] == ["아메리카노", "유자에이드", "바스크치즈케이크"]
     assert all(i.get("image", "").startswith("/art/ex/") for i in content["items"])
     SR.render_site(spec)
+
+
+def test_category_cover_uses_library_photo_of_first_item():
+    """분류 대표 사진: 첫 메뉴의 태그 사진이 창고에 있으면 그것(예시 표시), 없으면 업종 예시 (ART_LIB)."""
+    from app.config import settings
+    lib = settings.generated_dir / "art-lib"
+    lib.mkdir(parents=True, exist_ok=True)
+    (lib / "coffee-americano.webp").write_bytes(b"x")
+    spec = site_data.resolve(site_data.skeleton(CAFE_BP, 0), _cafe_card(), archetype="A")
+    cats = {c["name"]: c for c in _section(spec, "catalog")["content"]["categories"]}
+    assert cats["커피"]["image"] == "/art-lib/coffee-americano.webp" and cats["커피"]["image_example"] is True
+    assert cats["음료"]["image"].startswith("/art/ex/")

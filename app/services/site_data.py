@@ -311,7 +311,7 @@ def _order_action(card: dict) -> str | None:
 
 
 def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool,
-                  order_action: str | None = None) -> None:
+                  order_action: str | None = None, card: dict | None = None) -> None:
     """catalog bind → offerings--categories. order_action이 있으면 주문 폼(order_form·순서·주문 가능)도 넣는다."""
     if sec.get("variant") == "list-price":
         content = {"label": sec.get("label") or ("시술·가격" if archetype == "B" else "메뉴"),
@@ -346,8 +346,16 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
         if not items:
             continue
         cat = {"name": str(group.get("name") or "")}
+        # 분류 대표 사진: 첫 메뉴의 사장님 사진 → AI 그림 → 태그 사진 창고(ART_LIB) → 업종 예시 팩
+        own = _item_image(card, items[0]["name"], pack, {}) if card and items[0].get("name") else {}
         photo = pack["photos"].get(f"category:{cat['name']}")
-        if photo:
+        if own.get("image"):
+            cat["image"] = own["image"]
+            cat["image_alt"] = f"{cat['name']} 사진" + (" (예시 이미지)" if own.get("image_example") else "")
+            for flag in ("image_example", "image_ai"):
+                if own.get(flag):
+                    cat[flag] = True
+        elif photo:
             cat["image"] = photo
             cat["image_alt"] = f"{cat['name']} 사진 (예시 이미지)"
             cat["image_example"] = True
@@ -803,7 +811,7 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_hero(sec, card, pack, shop, detail, tagline, hours, address, primary, secondary,
                        archetype=archetype)
         elif bind == "catalog":
-            _fill_catalog(sec, data, pack, archetype, order, order_action)
+            _fill_catalog(sec, data, pack, archetype, order, order_action, card)
         elif bind == "staff":
             _fill_staff(sec, data, pack, booking_href)
         elif bind == "booking":
