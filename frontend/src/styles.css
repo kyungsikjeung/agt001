@@ -1,30 +1,17 @@
 :root {
-  --ground: #fbfaf7;
-  --surface: #ffffff;
-  --ink: #16191d;
-  --muted: #5f6670;
-  --line: #e6e3dc;
-  --accent: #0f7a5c;
-  --accent-ink: #ffffff;
-  --accent-soft: #e4f2ec;
-  --glow: rgba(15, 122, 92, 0.14);
+  /* 기본 다크 (대표 결정 10/2: 휴대폰에서도 랜딩·빌더를 어둡게). 빌더 작업대(#17181a)와 같은 숯색 바탕 */
+  --ground: #17181a;
+  --surface: #232427;
+  --ink: #ecebe6;
+  --muted: #a3a8ad;
+  --line: #2f3236;
+  --accent: #3fbf95;
+  --accent-ink: #0b1511;
+  --accent-soft: #17302a;
+  --glow: rgba(63, 191, 149, 0.16);
   --kakao: #fee500;
   --radius: 18px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #111315;
-    --surface: #1a1d20;
-    --ink: #eceef0;
-    --muted: #9aa2ab;
-    --line: #2b3035;
-    --accent: #3fbf95;
-    --accent-ink: #0b1511;
-    --accent-soft: #17302a;
-    --glow: rgba(63, 191, 149, 0.16);
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
