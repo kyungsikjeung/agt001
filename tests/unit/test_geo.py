@@ -204,3 +204,19 @@ def test_4_builder_say_apply_saves_geo_and_note(client, fake_kakao):
     assert out["notes"] and "임시로" in out["notes"][0]
     card = store.read_session(store.read_room(safe)["session_id"])["prd"]
     assert card["location_geo"]["src"] == "placeholder"
+
+
+def test_4_editor_location_edit_syncs_geo(client, fake_kakao):
+    """편집기·빌더 가게 정보(PUT /card)로 주소를 고쳐도 카카오로 확인해 좌표를 맞춘다."""
+    calls, answers = fake_kakao
+    answers["address"] = (200, [_addr_doc("서울 마포구 연남로 12", "연남동 1", 126.92, 37.56)])
+    rid, owner = _start(client)
+    r = client.put(f"/api/rooms/{rid}/card", json={"fields": {"location": "연남로 12"}}, headers=owner)
+    assert r.status_code == 200
+    from app import store
+    from app.security import sanitize_token
+    card = store.read_session(store.read_room(sanitize_token(rid))["session_id"])["prd"]
+    assert card["location_geo"]["x"] == 126.92 and card["location_geo"]["src"] == "search"
+    n = len(calls)
+    client.put(f"/api/rooms/{rid}/card", json={"fields": {"phone": "010-1234-5678"}}, headers=owner)
+    assert len(calls) == n  # 주소가 안 바뀌면 다시 부르지 않는다

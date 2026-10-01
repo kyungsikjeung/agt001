@@ -492,6 +492,11 @@ def post_change_followup(room: dict, session: dict, safe: str, changed: list, me
 
     공개본이 있으면 다시 공개하고, 없으면 시안 파일 뒤에서 갱신한 뒤 시스템 메시지 한 줄."""
     card = session.get("prd") or {}
+    if changed and "location" in changed:
+        from app.services import geo  # 고친 주소를 카카오로 확인해 지도 좌표를 맞춘다 (MAP_CONTRACT §2-5)
+        note = geo.sync_location(card)
+        if note:
+            message = f"{message} {note}"
     if changed and ({"items", "offerings"} & set(changed)) and session.get("requirement_id"):
         from app.services import art_lib  # 새 항목의 태그 사진을 뒤에서 만든다 (ART_LIB_CONTRACT §2-4)
         rid_, req_ = safe, session["requirement_id"]
