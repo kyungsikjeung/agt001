@@ -208,6 +208,12 @@ def prefetch(card: dict, room_id: str = "", requirement_id: str = "") -> None:
     if not isinstance(card, dict):
         return
     try:
+        from app.services import keystore
+        if not (keystore.get("gemini_api_key") or "").strip():
+            return  # 사진을 만들 수 없으면 태그 정하기(LLM)도 하지 않는다
+    except Exception:
+        return
+    try:
         from app.services import photo_needs, prd_engine
         names = [i["name"] for i in photo_needs.items(card) if i.get("name")]
         industry = prd_engine.industry_of(card).key
@@ -226,7 +232,8 @@ def prefetch(card: dict, room_id: str = "", requirement_id: str = "") -> None:
                     made = True
         if made and room_id and requirement_id:
             from app.services import photos
-            photos._refresh_designs_async(room_id, requirement_id)
+            photos._refresh_designs_async(room_id, requirement_id,
+                                          "메뉴 예시 사진을 넣었어요(예시 표시가 붙어요). 사진을 올리면 그 사진이 먼저예요.")
 
     threading.Thread(target=run, daemon=True, name="art-lib-prefetch").start()
 

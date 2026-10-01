@@ -116,6 +116,13 @@ def _item_image(card: dict, name: str, pack: dict, example: dict) -> dict:
     ai = _ai_url(card, "item:" + name)
     if ai:
         return {"image": ai, "image_alt": f"{name} 사진 (AI 예시)", "image_ai": True}
+    try:
+        from app.services import art_lib  # 태그 사진 창고 (ART_LIB_CONTRACT §2-5, 그리기 중 생성·LLM 없음)
+        lib = art_lib.pick(card, name)
+    except Exception:
+        lib = {}
+    if lib:
+        return lib
     return dict(example)
 
 

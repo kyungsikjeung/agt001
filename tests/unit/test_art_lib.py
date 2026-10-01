@@ -133,7 +133,9 @@ def test_5_prefetch_runs_in_background(lib, monkeypatch):
     monkeypatch.setattr(photo_needs, "items", lambda card: [{"name": "아메리카노", "kind": "menu"},
                                                             {"name": "라떼", "kind": "menu"}])
     refreshed = []
-    monkeypatch.setattr(photos, "_refresh_designs_async", lambda *a, **k: refreshed.append(a))
+    monkeypatch.setattr(photos, "_refresh_designs_async", lambda *a, **k: refreshed.append(a[:2]))
+    from app.services import keystore
+    monkeypatch.setattr(keystore, "get", lambda name: "k" if name == "gemini_api_key" else None)
     card = {"industry": "cafe", "slots": {}}
     t0 = time.monotonic()
     art_lib.prefetch(card, "room1", "req1")
@@ -144,3 +146,23 @@ def test_5_prefetch_runs_in_background(lib, monkeypatch):
         time.sleep(0.02)
     assert art_lib.url("coffee-americano") and art_lib.url("coffee-latte")
     assert refreshed == [("room1", "req1")]
+
+
+def test_5_prefetch_skips_without_image_key(lib, monkeypatch):
+    """이미지 키가 없으면 사진을 못 만드니 태그 정하기(LLM)도 하지 않는다."""
+    from app.services import keystore, photo_needs
+    monkeypatch.setattr(keystore, "get", lambda name: None)
+    monkeypatch.setattr(photo_needs, "items", lambda card: [{"name": "처음 보는 메뉴", "kind": "menu"}])
+    art_lib.prefetch({"industry": "cafe", "slots": {}}, "room1", "req1")
+    time.sleep(0.1)
+    assert lib["llm"] == [] and lib["gen"] == []
+
+
+def test_3_item_image_order_uses_library_before_pack(lib):
+    """사장님 사진 > AI > 창고 > 팩: 창고에 있으면 예시 팩 대신 창고 사진(예시 표시)."""
+    from app.services import site_data
+    art_lib.ensure("coffee-americano", "cafe")
+    card = {"slots": {}, "photos": [], "ai_images": {}}
+    got = site_data._item_image(card, "아메리카노", {}, {"image": "/art/ex/cafe-coffee.webp"})
+    assert got["image"] == "/art-lib/coffee-americano.webp" and got["image_example"] is True
+    assert site_data._item_image(card, "처음 보는 메뉴", {}, {"image": "/art/ex/x.webp"}) == {"image": "/art/ex/x.webp"}

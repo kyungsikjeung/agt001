@@ -656,6 +656,9 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
     # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
     amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
     card = session.get("prd")
+    if card and card.get("slots") and room:
+        from app.services import art_lib  # 항목의 태그 사진을 뒤에서 (ART_LIB_CONTRACT §2-4)
+        art_lib.prefetch(card, room["room_id"], session.get("requirement_id") or "")
     geo_note = ""
     if card and card.get("slots"):
         from app.services import geo  # 말한 주소를 카카오로 확인해 지도 좌표를 둔다 (MAP_CONTRACT §2-5)

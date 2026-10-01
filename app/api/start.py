@@ -247,6 +247,8 @@ def post_start(body: StartIn, request: Request):
         snapshot = copy.deepcopy(card)
         store.after_commit(lambda: threading.Thread(
             target=_render_drafts, args=(req, snapshot), daemon=True).start())
+        from app.services import art_lib  # 템플릿 항목의 태그 사진 (ART_LIB_CONTRACT §2-4)
+        store.after_commit(lambda: art_lib.prefetch(snapshot, rid, req))
     funnel.record("builder_start", props={"industry": template})
     return JSONResponse(content={"room_id": rid, "member_id": member_id,
                                  "builder_url": f"/start?room={rid}"}, headers=_NO_STORE)
