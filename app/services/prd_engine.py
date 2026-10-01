@@ -1490,6 +1490,8 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     if reason:
         # §2 ④: 금지 요청은 카드에 넣지 않고 이유를 밝혀 거절한다. 질문 예산도 쓰지 않는다.
         trace.update(blocked=True, done=False, asked=card["asked"])
+        from app.services import ops_alert  # 막힌 대화는 운영자에게 (D33, OPS_ALERT_CONTRACT)
+        ops_alert.send("blocked", f"[대화] 금지 요청을 막았어요 · {reason}")
         return {"done": False, "question": card.get("pending"), "applied": [], "trace": trace, "blocked": reason}
     wants_skip = bool(n) and any(p in n for p in SKIP_NORMS)
     trace["skip"] = wants_skip

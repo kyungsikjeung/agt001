@@ -10,7 +10,7 @@ from app import store
 from app.db import migrate as db_migrate
 from app.api import auth, bookings, callbot, card, chat, chat_agent, events, inquiries, orders, owner, projects, public, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
-from app.services import funnel, rag
+from app.services import funnel, ops_alert, rag
 
 # 서버 파이썬에 webp가 없어 예시 사진이 application/octet-stream으로 나갔다(카톡 미리보기가 그림으로 못 읽음)
 mimetypes.add_type("image/webp", ".webp")
@@ -26,6 +26,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    ops_alert.install()  # ERROR 로그를 운영자 텔레그램으로 (OPS_ALERT_CONTRACT, 켜져 있을 때만)
     if settings.run_migrations_on_startup:
         db_migrate.upgrade_head()
     store.recover_on_startup()
