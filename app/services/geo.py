@@ -224,3 +224,21 @@ def sync_location(card: dict) -> Optional[str]:
     if loc == _resolved_for(card):
         return None
     return after_location_change(card, loc)
+
+
+def fill_if_sure(card: dict) -> bool:
+    """일괄 작업용: 주소 검색 결과가 딱 하나일 때만 좌표를 채운다. 못 찾거나 여러 개면 아무것도 바꾸지 않는다
+    (이미 공개된 주소를 빈칸·임시 주소로 바꾸지 않게, scripts/republish_all.py --geo)."""
+    if not isinstance(card, dict):
+        return False
+    loc = _loc_text(card)
+    if not loc or loc == _resolved_for(card):
+        return False
+    found = _search(loc)
+    roads = list(dict.fromkeys(f["road"] for f in found or []))
+    if len(roads) != 1:
+        return False
+    one = found[0]
+    card["location_geo"] = {"road": one["road"], "jibun": one.get("jibun", ""), "detail": "",
+                            "x": one["x"], "y": one["y"], "src": "search", "for": loc}
+    return True
