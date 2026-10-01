@@ -60,6 +60,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   const [changeSeq, setChangeSeq] = useState(0);
   const [photoPick, setPhotoPick] = useState<PhotoSheetPick | null>(null);
   const control = useRef<BuilderControl | null>(null);
+  const bottomRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -298,6 +299,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
           builderMode
           controlRef={control}
           onPhotoPick={setPhotoPick}
+          bottomRef={bottomRef}
         />
         <PhotoSheet
           roomId={roomId}
@@ -307,7 +309,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
         />
       </main>
 
-      <footer className="bd-bottom">
+      <footer ref={bottomRef} className="bd-bottom">
         <SayBar
           roomId={roomId}
           clearUndoOn={changeSeq}

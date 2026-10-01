@@ -49,9 +49,15 @@ export interface BuilderControl {
 }
 
 const DEVICE_KEY = 'agt001_preview_device';
-/** 노트북 미리보기: 사이트를 이 크기로 그린 뒤 칸 폭에 맞게 통째로 줄인다. */
-const LAPTOP_W = 1280;
-const LAPTOP_H = 800;
+/** 넓은 화면 미리보기: 실제 기기 크기로 그린 뒤 남는 칸에 맞게 통째로 줄여 기기 테두리 안에 띄운다.
+ * chromeW·chromeH는 줄이지 않는 테두리(휴대폰 베젤+상태줄, 브라우저 창 머리줄) 크기다(editor.css와 맞춘다). */
+const DEVICES = {
+  mobile: { w: 390, h: 844, chromeW: 24, chromeH: 24 + 28 },
+  desktop: { w: 1280, h: 800, chromeW: 2, chromeH: 2 + 36 },
+} as const;
+/** 기기 아래로 남겨 둘 여백. */
+const STAGE_GAP = 16;
+const WIDE = '(min-width: 760px)';
 
 export default function SiteEditor({
   roomId,
@@ -60,6 +66,7 @@ export default function SiteEditor({
   builderMode,
   controlRef,
   onPhotoPick,
+  bottomRef,
 }: {
   roomId: string;
   card: RoomCard;
@@ -70,6 +77,8 @@ export default function SiteEditor({
   controlRef?: { current: BuilderControl | null };
   /** 미리보기에서 사진을 누르면 구역 패널 대신 사진 시트를 연다(PHOTO_EDIT_CONTRACT §5). */
   onPhotoPick?: (pick: { section: string; src: string; index: number }) => void;
+  /** 화면 아래 고정 띠(빌더 칩 줄). 기기 미리보기가 그 뒤로 숨지 않게 높이만큼 비운다. */
+  bottomRef?: { current: HTMLElement | null };
 }) {
   const [variant, setVariant] = useState(() => startVariant(card.choice));
   const [preview, setPreview] = useState<CardPreview | null>(null);
@@ -92,19 +101,61 @@ export default function SiteEditor({
       /* 저장이 막혀도 이번 화면에선 바뀐다 */
     }
   }
-  // 노트북 미리보기의 줄임 비율 = 칸 폭 / 1280. 칸 폭이 바뀌면 다시 잰다.
-  useEffect(() => {
-    const el = viewRef.current;
-    if (device !== 'desktop' || !el || typeof ResizeObserver === 'undefined') return;
-    const measure = () => setLaptopScale(Math.min(1, el.clientWidth / LAPTOP_W) || 1);
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
+  // 넓은 화면에서만 기기 테두리를 쓴다. 휴대폰으로 열면 미리보기가 곧 휴대폰 화면이다.
+  const [wide, setWide] = useState(() => {
+    try {
+      return window.matchMedia(WIDE).matches;
+    } catch {
+      return false;
+    }
   });
+  useEffect(() => {
+    let mq: MediaQueryList;
+    try {
+      mq = window.matchMedia(WIDE);
+    } catch {
+      return;
+    }
+    const on = () => setWide(mq.matches);
+    mq.addEventListener?.('change', on);
+    return () => mq.removeEventListener?.('change', on);
+  }, []);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const viewRef = useRef<HTMLDivElement | null>(null);
-  const [laptopScale, setLaptopScale] = useState(1);
+  // 기기를 띄울 수 있는 칸: 폭은 미리보기 칸, 높이는 창 높이에서 아래 고정 띠와 여백을 뺀 것.
+  const [room, setRoom] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = viewRef.current;
+    if (!wide || !el) return;
+    // 높이는 스크롤하지 않은 첫 화면에서 기기가 통째로 보이게: 기기 칸이 시작하는 곳부터 아래 띠까지.
+    const measure = () => {
+      const top = Math.max(12, el.getBoundingClientRect().top + window.scrollY);
+      const bottom = bottomRef?.current?.offsetHeight ?? 0;
+      setRoom({ w: el.clientWidth, h: window.innerHeight - top - bottom - STAGE_GAP });
+    };
+    measure();
+    // ponytail: 아래 띠 높이는 칸·창 크기가 바뀔 때만 다시 잰다. 공지 시트처럼 띠가 잠깐 커지는 건 따라가지 않는다.
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    ro?.observe(el);
+    window.addEventListener('resize', measure);
+    return () => {
+      ro?.disconnect();
+      window.removeEventListener('resize', measure);
+    };
+  }, [wide, device, preview, bottomRef]);
+  // 줄임 비율. 휴대폰은 칸이 기기 폭에 맞춰지므로 높이로만, 데스크톱은 폭·높이 둘 다로 맞춘다.
+  const dev = DEVICES[device];
+  const scale =
+    wide && room.h > 0
+      ? Math.max(
+          0.3,
+          Math.min(
+            1,
+            (room.h - dev.chromeH) / dev.h,
+            device === 'desktop' && room.w > 0 ? (room.w - dev.chromeW) / dev.w : 1,
+          ),
+        )
+      : 0;
   const pendingScroll = useRef<string | null>(null);
   const pendingFlash = useRef<string | null>(null);
   const variantRef = useRef(variant);
@@ -247,35 +298,49 @@ export default function SiteEditor({
               </button>
               <button
                 type="button"
-                aria-label="노트북"
-                title="노트북 미리보기"
+                aria-label="데스크톱"
+                title="데스크톱 미리보기"
                 aria-pressed={device === 'desktop'}
                 onClick={() => pickDevice('desktop')}
               >
                 <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="4" y="4" width="16" height="11" rx="1.5" />
-                  <path d="M2 19h20" />
+                  <rect x="3" y="4" width="18" height="12" rx="1.5" />
+                  <path d="M9 20h6M12 16v4" />
                 </svg>
               </button>
             </div>
-            <div
-              ref={viewRef}
-              className="ed-site-screen"
-              style={device === 'desktop' ? { height: LAPTOP_H * laptopScale } : undefined}
-            >
-              <iframe
-                ref={frameRef}
-                className="ed-site-frame"
-                title="사이트 미리보기"
-                sandbox="allow-scripts"
-                srcDoc={preview.html}
-                onLoad={onFrameLoad}
-                style={
-                  device === 'desktop'
-                    ? { width: LAPTOP_W, height: LAPTOP_H, transform: `scale(${laptopScale})`, transformOrigin: '0 0' }
-                    : undefined
-                }
-              />
+            <div ref={viewRef} className="ed-site-screen">
+              {/* 넓은 화면: 실제 기기 크기로 그린 사이트를 줄여 휴대폰 베젤·브라우저 창 안에 띄운다 */}
+              <div className={`ed-dev ed-dev--${device}`}>
+                {device === 'desktop' ? (
+                  <div className="ed-dev-bar" aria-hidden="true">
+                    <i />
+                    <i />
+                    <i />
+                    <span>{card.fields.find((f) => f.key === 'shop_name')?.value || card.title}</span>
+                  </div>
+                ) : (
+                  <div className="ed-dev-status" aria-hidden="true">
+                    <span>9:41</span>
+                    <b />
+                  </div>
+                )}
+                <div className="ed-dev-glass" style={scale ? { width: dev.w * scale, height: dev.h * scale } : undefined}>
+                  <iframe
+                    ref={frameRef}
+                    className="ed-site-frame"
+                    title="사이트 미리보기"
+                    sandbox="allow-scripts"
+                    srcDoc={preview.html}
+                    onLoad={onFrameLoad}
+                    style={
+                      scale
+                        ? { width: dev.w, height: dev.h, transform: `scale(${scale})`, transformOrigin: '0 0' }
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
             </div>
           </div>
           <SectionPanel
