@@ -1342,17 +1342,33 @@ _FOLLOWUP_V0 = (
 )
 
 
-def _maybe_followup(card: dict, applied: list[str]) -> None:
+# 이 말이 든 질문은 이미 가격을 물은 것이다 (메뉴와 가격을 한 번에 묻는 업종 질문)
+_PRICE_ASK_WORDS = ("가격", "수강료", "요금")
+
+
+def _asked_price_already(prev_q: Optional[dict], trigger: str, ask_slot: str) -> bool:
+    """방금 질문이 상품과 가격을 함께 물었으면, 상품만 답해도 가격을 또 묻지 않는다.
+    같은 것을 두 번 묻는 셈이라 질문 수만 늘었다(T3 질문 수 평균 5.9회, salon-terse 9회)."""
+    return (ask_slot == "price" and bool(prev_q) and prev_q.get("kind") == "single"
+            and prev_q.get("slot") == trigger
+            and any(w in (prev_q.get("text") or "") for w in _PRICE_ASK_WORDS))
+
+
+def _maybe_followup(card: dict, applied: list[str], prev_q: Optional[dict] = None) -> None:
     """V2-1: 방금 채워진 칸이 심화 규칙을 밟으면 물음표를 예약한다 (1칸당 1회).
     한 칸만 채워진 턴은 다음에 바로 묻고(card['followup']), 여러 칸이 한꺼번에
     들어온 턴은 큐에 쌓아 필수·숨은 질문이 끝난 뒤 묻는다(card['followup_queue']).
-    기존 흐름(필수 순서·숨은 항목)을 가로채지 않기 위해서다."""
+    기존 흐름(필수 순서·숨은 항목)을 가로채지 않기 위해서다.
+    prev_q: 이번 답이 대답한 질문. 그 질문이 이미 물은 것은 다시 묻지 않는다."""
     if not applied:
         return
     asked = card.setdefault("followup_asked", [])
     ind_key = industry_of(card).key
     for trigger, ask_slot, industries, need_words, text in _FOLLOWUP_V0:
         if trigger not in applied or ask_slot in asked or _satisfied(card, ask_slot):
+            continue
+        if _asked_price_already(prev_q, trigger, ask_slot):
+            asked.append(ask_slot)
             continue
         if industries and ind_key not in industries:
             continue
@@ -1569,12 +1585,15 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
                     and _slot(card, prev_owner_slot)["status"] == S.FILLED and is_owner):
                 card["slots"][prev_owner_slot]["status"] = S.PENDING_OWNER
             card["pending"] = None if applied else card.get("pending")
-        progress = bool(answered) or bool(applied)
+        # 숫자 없는 시간 답("매일 같아요")은 칸을 채우지 않지만, 이어 묻기를 예약했으면 그걸 바로 묻는다.
+        hours_followup = (card.get("followup") or {}).get("slot") == "hours" == (prev_pending or {}).get("slot")
+        progress = bool(answered) or bool(applied) or hours_followup
         if progress:
             card["stuck"] = {"slot": None, "count": 0}
             card["chatter"] = 0
-            _maybe_followup(card, applied)  # V2-1: 심화 질문이 있으면 다음에 먼저 묻는다
-            return _ask_next(card, applied, trace)
+            _maybe_followup(card, applied, prev_pending)  # V2-1: 심화 질문이 있으면 다음에 먼저 묻는다
+            # 질문에 답하지 않고 다른 말(도중 변경 등)만 했으면, 같은 질문을 다시 보여도 새 질문이 아니다.
+            return _ask_next(card, applied, trace, reshow_of=None if answered else prev_pending)
         # 진전 없음: 같은 칸 반복이면 stuck을 셈다 (INTAKE_GATE_DESIGN §5).
         key = _stuck_key(card.get("pending"))
         stuck = card.get("stuck") or {"slot": None, "count": 0}
@@ -1629,11 +1648,18 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     return {"done": False, "question": q, "applied": applied, "trace": trace}
 
 
-def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool = False) -> dict:
+def _same_question(a: Optional[dict], b: Optional[dict]) -> bool:
+    return bool(a and b) and all(a.get(k) == b.get(k) for k in ("slot", "kind", "text"))
+
+
+def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool = False,
+              reshow_of: Optional[dict] = None) -> dict:
     """다음 질문을 등록한다. 확인·이어묻기는 예산을 쓰지 않는다.
 
     same_question(짧은 실패 답)은 같은 질문을 예산 없이 다시 보인다.
     이전에는 예산을 써서 질문수가 불어났다(T3 r5 cafe-group 10질문).
+    reshow_of: 답하지 않고 넘어간 직전 질문. 다음 질문이 그것과 같으면 다시 보이기라서 세지 않는다
+    (T3 changes_mind: 질문 도중 "라떼 가격 바꿔주세요" 뒤 같은 영업시간 질문이 한 번 더 세어졌다).
     """
     trace["applied"] = applied
     if card["asked"] >= budget(card):
@@ -1656,7 +1682,9 @@ def _ask_next(card: dict, applied: list[str], trace: dict, same_question: bool =
         finalize(card)
         trace.update(next_slot=None, next_kind=None, done=True, asked=card["asked"])
         return {"done": True, "question": None, "applied": applied, "trace": trace}
-    if _counts_toward_budget(q):
+    if _same_question(q, reshow_of) and reshow_of.get("counted") is not False:
+        pass  # 다시 보이기: 예산도 확인 카운터도 쓰지 않는다
+    elif _counts_toward_budget(q):
         card["asked"] += 1
     else:
         # 확인·이어묻기는 예산 밖. 별도 카운터로 남발을 막는다.
