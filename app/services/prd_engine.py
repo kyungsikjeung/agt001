@@ -178,7 +178,10 @@ def _system_prompt() -> str:
         "규칙: 사장님이 실제로 말한 것만 뽑는다. 말하지 않은 전화번호·주소·가격·영업시간은 절대 만들지 않는다. "
         "해당하는 말이 없으면 그 칸은 넣지 않는다. 값이 여러 개인 칸은 항목마다 한 줄씩 따로 넣는다. "
         "메뉴와 가격이 붙어 있으면('아메리카노 5천원') 반드시 메뉴와 가격으로 나눠서 넣는다. "
-        "직전 질문에 대한 짧은 대답(예: '전화요')은 그 질문의 칸으로 해석한다. JSON만 출력한다.\n"
+        "직전 질문에 대한 짧은 대답(예: '전화요')은 그 질문의 칸으로 해석한다. "
+        "쉬는 날도 영업시간에 함께 넣는다('월요일 휴무, 10시~20시'). "
+        "'X가 많이 와요'·'X도 돼요'의 X는 target, 'X 잘해요'·'X이 주력'·'X부터 가르쳐요'의 X는 offerings다. "
+        "긴 메시지는 위치·가게 이름·목적·연락 방법을 빠뜨리지 않았는지 한 번 더 본다. JSON만 출력한다.\n"
         f"칸 정의:\n{lines}\n출력 형식(JSON 스키마):\n{json.dumps(_SCHEMA, ensure_ascii=False)}"
     )
 
@@ -226,6 +229,7 @@ def extract_detail(text: str, last_question: Optional[str]) -> tuple[list[dict],
                     log.warning("추출 값에 한국어가 아닌 말이 있어 버림: %s", u.get("slot"))
                     continue
                 kept.append(u)
+            kept = backfill_from_text(text, kept)
             return kept, True, int((time.monotonic() - started) * 1000), attempt + 1
         log.warning("요구사항 추출 형식 오류 (시도 %d)", attempt + 1)
     return [], False, int((time.monotonic() - started) * 1000), 2
@@ -234,6 +238,214 @@ def extract_detail(text: str, last_question: Optional[str]) -> tuple[list[dict],
 def extract(text: str, last_question: Optional[str]) -> list[dict]:
     """형식이 틀리면 한 번 다시 시도하고, 그래도 틀리거나 시간이 넘으면 빈 목록(대화는 계속된다)."""
     return extract_detail(text, last_question)[0]
+
+
+# ── 추출 보충 (규칙) ──────────────────────────────────────────────────
+# T2 추출 평가(9/26 1~3차)에서 AI가 되풀이해 놓친 칸들: 긴 첫 메시지의 위치·가게 이름,
+# "X가 많이 와요"의 대상 손님, "X 잘해요"·"X이 주력"의 품목, "월요일 쉬고"의 휴무일, "커피요." 같은 업종 한마디.
+# 말 모양이 뚜렷한 것만 사장님 말 조각 그대로 더한다(지어낸 값이 생길 수 없다). AI가 낸 값은 바꾸지 않는다.
+
+_BF_CLAUSE_SPLIT = re.compile(r"[.!?\n]+|,\s*|(?<=[가-힣])(?:이고|고)\s+(?=[가-힣])")
+_BF_PLACE_STOP = frozenset(("집", "카톡", "카카오", "카카오톡", "인스타", "인스타그램", "네이버", "온라인", "유튜브",
+                            "블로그", "사이트", "여기", "거기", "동네", "저희", "우리", "매장", "가게", "앱", "전화"))
+# "강남에서 미용실 빛나헤어 해요" / "부산 해운대구 우동에서 할매손 칼국수 해요"
+_BF_RUN_RE = re.compile(r"^\s*(?:저는\s+|저희는\s+)?(?P<place>[가-힣0-9]+(?:\s[가-힣0-9]+){0,2}?)에서\s+"
+                        r"(?P<biz>[^,.]+?)\s*(?:을|를)?\s*(?:해요|하고\s*있어요|합니다|하는데요?|운영해요|운영합니다)")
+_BF_PLACE_RE = re.compile(r"(?:위치는|위치가|주소는)\s*(?P<place>[가-힣0-9]+?(?:\s[가-힣0-9-]+?){0,3}?)\s*"
+                          r"(?:이고요|이고|이에요|예요|에요|입니다|이요|요)(?![가-힣])")
+_BF_NAME_RE = re.compile(r"(?:가게\s*)?(?:이름은|이름이|상호는)\s*(?:뭐\s*)?(?:있어요\s*,?\s*)?"
+                         r"(?P<name>[가-힣A-Za-z0-9]+?(?:\s[가-힣A-Za-z0-9]+?)?)\s*"
+                         r"(?:이라고|라고|이에요|예요|에요|입니다|(?=\s*[,.]|\s*$))(?![가-힣])")
+# "직장인들이 많이 와요", "20대 여성 손님이 많아요", "중년 아주머니들이 많이 오셔요"
+_BF_TARGET_RE = re.compile(r"(?P<who>[가-힣0-9]+(?:\s[가-힣0-9]+){0,2}?)(?:들)?(?:이|가)\s*"
+                           r"(?:많이\s*(?:와요|오셔요|오세요|옵니다|오십니다|찾아요|찾으세요)|많아요|많습니다)")
+_BF_TARGET_LIST_RE = re.compile(r"(?:오는\s*)?손님은\s*(?:주로\s*)?(?P<who>[^.!?]+?)(?:이에요|예요|에요|입니다|이요)(?![가-힣])")
+_BF_TARGET_LEAD = frozenset(("특히", "주로", "요즘", "보통", "대부분", "많이", "그리고", "또"))
+_BF_WHO_HINT = re.compile(r"손님|님|객|생|족|인|층|민|부모|아이|어르신|아주머니|아저씨|여성|남성|커플|부부|가족|친구|학부모|초보|직장")
+# "파마 잘해요", "염색이랑 클리닉이 주력이고", "파닉스부터 가르쳐요"
+_BF_OFFER_RES = (
+    re.compile(r"(?P<what>[가-힣A-Za-z]+(?:\s[가-힣A-Za-z]+)?)\s*(?:을|를)?\s*잘\s*(?:해요|합니다|하고|하는)"),
+    re.compile(r"(?P<what>[가-힣A-Za-z ]+?)(?:이|가)\s*(?:주력|일품|전문)"),
+    re.compile(r"(?P<what>[가-힣A-Za-z]+)부터\s*가르쳐요"),
+)
+_BF_OFFER_STOP = frozenset(("그냥", "진짜", "정말", "다", "뭐든", "요리", "음식", "장사", "운영", "설명", "상담"))
+_BF_DAY = r"[월화수목금토일](?:요일)?"
+_BF_CLOSED_RE = re.compile(r"(?:매주\s*)?(?P<days>" + _BF_DAY + r"(?:\s*(?:,|랑|이랑|하고|와|과)?\s*" + _BF_DAY + r")*)"
+                           r"\s*(?:은|는|에는|엔)?\s*(?:쉬|휴무|정기\s*휴무|문\s*닫|안\s*해)")
+_BF_GOAL_RE = re.compile(r"(?P<what>[가-힣]+(?:\s[가-힣]+)?)\s*(?:을|를)?\s*(?:더\s*)?늘리고\s*싶")
+# "영어 학원" → 품목 영어
+_BF_SUBJECT_RE = re.compile(r"^(?P<subj>[가-힣A-Za-z]{1,6})\s*(?:학원|교습소|공부방|과외|레슨)$")
+# "초보도 된다", "초보자도 환영"
+_BF_WELCOME_RE = re.compile(r"(?P<who>초보자?|입문자|왕초보|어르신|아이들?|외국인)(?:도|만)\s*(?:돼요|되요|된다|됩니다|가능|환영|오셔도|와도)")
+# "전화로 받아요", "카톡으로 해주세요"
+_BF_CONTACT_RE = re.compile(r"(?P<how>전화|카톡|카카오톡|문자|네이버\s*예약|인스타\s*디엠|DM)\s*(?:으로|로)\s*"
+                            r"(?:예약\s*|문의\s*|상담\s*|신청\s*|연락\s*)?(?:받아요|받습니다|받고|해\s*주세요|하세요|해요|주세요|돼요)")
+_BF_PHONE_RE = re.compile(r"(?<!\d)0\d{1,2}-?\d{3,4}-?\d{4}(?!\d)")
+_BF_LEAD_RE = re.compile(r"^\s*(?P<what>[가-힣]{2,6}?)(?:이)?요\s*[.!,]")
+_BF_PRICE_HEAD_STOP = re.compile(r"(료|비|가격|요금|금액|값|정도|부터|에|엔|은|는|도|고|요)$")
+
+
+def _bf_trim_particle(word: str) -> str:
+    w = re.sub(r"(들)?(이랑|랑|하고|이|가|은|는|을|를|도)$", "", word.strip())
+    return re.sub(r"들$", "", w) if len(w) > 2 else w
+
+
+def _bf_items(phrase: str) -> list[str]:
+    """'동네 주민들이랑 학생들' → ['동네 주민', '학생']."""
+    out = []
+    for part in re.split(r"\s*(?:,|이랑|랑|하고|그리고|과|와|및)\s+|(?<=[가-힣])(?:이랑|랑|하고)\s*", phrase or ""):
+        words = [w for w in part.split() if w not in _BF_TARGET_LEAD]
+        item = _bf_trim_particle(" ".join(words))
+        if len(_norm(item)) >= 2 and item not in out:
+            out.append(item)
+    return out
+
+
+def _bf_covered(item: str, values: list[str]) -> bool:
+    n = _norm(item)
+    return any(n in _norm(v) or (_norm(v) and _norm(v) in n) for v in values)
+
+
+def backfill_from_text(text: str, updates: list[dict]) -> list[dict]:
+    """AI 추출이 놓친 칸을 사장님 말의 뚜렷한 모양에서 더한다. 값은 모두 원문 조각이다."""
+    t = unicodedata.normalize("NFKC", text or "")
+    out = list(updates or [])
+    have: dict[str, list[str]] = {}
+    for u in out:
+        have.setdefault(u["slot"], []).append(u["value"])
+
+    def add(slot: str, value: str) -> None:
+        value = (value or "").strip(" ,.")
+        if len(_norm(value)) < 2 or _is_control(value):
+            return
+        out.append({"slot": slot, "value": value})
+        have.setdefault(slot, []).append(value)
+
+    clauses = [c.strip() for c in _BF_CLAUSE_SPLIT.split(t) if c and c.strip()]
+
+    # 위치·가게 이름: "강남에서 미용실 빛나헤어 해요"
+    for c in clauses:
+        m = _BF_RUN_RE.match(c)
+        if not m:
+            continue
+        place = m.group("place").strip()
+        if "location" not in have and place not in _BF_PLACE_STOP and not any(w in _BF_PLACE_STOP for w in place.split()):
+            add("location", place)
+        biz = m.group("biz").strip()
+        bt = next((v for v in have.get("business_type", []) if v and biz.startswith(v) and biz != v), None)
+        if "shop_name" not in have and bt:
+            name = biz[len(bt):].strip()
+            if 2 <= len(_norm(name)) <= 12 and len(name.split()) <= 2:
+                add("shop_name", name)
+    if "location" not in have:
+        m = _BF_PLACE_RE.search(t)
+        if m and m.group("place") not in _BF_PLACE_STOP:
+            add("location", m.group("place"))
+    if "shop_name" not in have:
+        m = _BF_NAME_RE.search(t)
+        if m:
+            add("shop_name", m.group("name"))
+
+    # 대상 손님
+    found: list[str] = []
+    m = _BF_TARGET_LIST_RE.search(t)
+    if m:
+        found += _bf_items(m.group("who"))
+    for c in clauses:
+        for m in _BF_TARGET_RE.finditer(c):
+            # 앞의 때·꾸밈말("점심에", "데리고 오는")은 뗀다: "점심에 직장인들이" → 직장인
+            words = [w for w in m.group("who").split()
+                     if w not in _BF_TARGET_LEAD and not re.search(r"(에|에는|엔|때|는|고|랑|하고)$", w)]
+            item = _bf_trim_particle(" ".join(words[-3:]))
+            if item and _BF_WHO_HINT.search(item) and item not in found:
+                found.append(item)
+    found = [f for f in found if _BF_WHO_HINT.search(f)]
+    new = [f for f in found if not _bf_covered(f, have.get("target", []))]
+    if new:
+        # target은 한 칸이라 마지막 값이 남는다. AI 값과 새 항목을 한 줄로 합친다.
+        merged = [*have.get("target", []), *new]
+        out = [u for u in out if u["slot"] != "target"]
+        have.pop("target", None)
+        add("target", ", ".join(merged))
+
+    # 품목: "파마 잘해요", "염색이랑 클리닉이 주력", "파닉스부터 가르쳐요"
+    for rx in _BF_OFFER_RES:
+        for m in rx.finditer(t):
+            for item in _bf_items(m.group("what")):
+                if item in _BF_OFFER_STOP or _norm(item) in VAGUE_OFFERINGS:
+                    continue
+                if not _bf_covered(item, have.get("offerings", [])):
+                    add("offerings", item)
+
+    # 과목 학원: 업종 "영어 학원"만 있고 품목이 없으면 과목을 품목으로 ("초등 영어" 실측 오분류 e002)
+    if not have.get("offerings"):
+        for v in have.get("business_type", []):
+            m = _BF_SUBJECT_RE.match(v.strip())
+            if m and m.group("subj") in t:
+                add("offerings", m.group("subj"))
+
+    # 목적: "예약 문의를 늘리고 싶어요"
+    if not have.get("goal"):
+        m = _BF_GOAL_RE.search(t)
+        if m:
+            add("goal", f"{m.group('what')} 늘리기")
+
+    # 메뉴·가격 짝: "칼국수 8천원, 수육 2만원" ("아메리카노 5천원"처럼 붙여 넘기면 apply_updates가 나눈다)
+    price_nums = set().union(*[numbers.numbers_in(v) for v in have.get("price", [])]) if have.get("price") else set()
+    for c in clauses:
+        for m in _PRICE_RE.finditer(c):
+            price = m.group(0).strip()
+            head = c[:m.start()].strip()
+            words = head.split()
+            item = ""
+            if words:
+                last = _bf_trim_particle(words[-1])
+                if last and not _BF_PRICE_HEAD_STOP.search(last) and len(_norm(last)) >= 1:
+                    prev = words[-2] if len(words) >= 2 else ""
+                    two = bool(prev) and not re.search(r"(은|는|에|엔|도|고|요|서|을|를)$", prev) and len(words) <= 2
+                    item = f"{prev} {last}" if two else last
+            if item and (len(_norm(item)) >= 2 or item in _ONE_SYLLABLE_ITEMS):
+                if not _bf_covered(item, have.get("offerings", [])) or not numbers.numbers_in(price) <= price_nums:
+                    add("offerings", f"{item} {price}")
+                    price_nums |= numbers.numbers_in(price)
+            elif not have.get("price"):
+                add("price", price)
+                price_nums |= numbers.numbers_in(price)
+
+    # 휴무일: "매주 월요일 쉬고" (영업시간 값이 있을 때만 붙인다. 숫자 없는 시간만으로는 저장하지 않는다)
+    m = _BF_CLOSED_RE.search(t)
+    if m and have.get("hours"):
+        days = re.findall(_BF_DAY, m.group("days"))
+        cur = have["hours"][-1]
+        missing = [d for d in days if d[0] not in cur]
+        if missing:
+            joined = f"{'·'.join(d if d.endswith('요일') else d + '요일' for d in days)} 휴무, {cur}"
+            out = [u for u in out if u["slot"] != "hours"]
+            have.pop("hours", None)
+            add("hours", joined)
+
+    if not have.get("target"):
+        m = _BF_WELCOME_RE.search(t)
+        if m:
+            add("target", m.group("who"))
+    if not have.get("contact_method"):
+        m = _BF_CONTACT_RE.search(t)
+        if m:
+            add("contact_method", m.group("how"))
+    if not have.get("phone"):
+        # "공일공에 0000에 3456번"처럼 말로 한 번호도 숫자로 읽는다 (값은 원문 숫자 그대로)
+        for c in clauses:
+            m = _BF_PHONE_RE.search(_spoken_phone(_norm_text(c)).replace("에 ", "-").replace("에", "-"))
+            if m:
+                add("phone", m.group(0))
+                break
+
+    # 업종 한마디: "커피요.", "네일이요."
+    if "business_type" not in have:
+        m = _BF_LEAD_RE.match(t)
+        if m and S.industry_for(m.group("what")).key != "other":
+            add("business_type", m.group("what"))
+    return out
 
 
 # ── 규칙 ──────────────────────────────────────────────────────────────
@@ -317,8 +529,9 @@ def grounded(slot: str, value: str, text: str) -> bool:
     if slot == "phone":
         d = _digits(_spoken_phone(norm_value))
         return bool(d) and d in _digits(_spoken_phone(norm_text))
-    if d:
+    if d or numbers.value_numbers(norm_value):
         # 시간·가격·주소 번지: 숫자 값으로 비교한다("오후 세 시" ↔ "15:00", "3만5천원" ↔ "35,000원").
+        # 숫자 글자가 없는 말 시각("열 시")도 숫자로 비교한다. 낱말 비교는 한 글자 낱말을 못 봐서 버리던 것(T2 재생).
         return numbers.grounded_numbers(norm_value, norm_text)
     # 숫자 없는 사실(예: 지역명)은 두 글자 이상 낱말 하나 이상이 메시지에 있어야 한다.
     words = [w for w in re.split(r"[\s,·/]+", norm_value) if len(w) >= 2]

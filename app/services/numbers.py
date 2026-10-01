@@ -95,6 +95,12 @@ def numbers_in(text: str) -> set:
     return found
 
 
+def native_hours_to_digits(text: str) -> str:
+    """고유어 시각을 숫자 시각으로 ('오후 세 시' → '오후 3시'). '한 시간'처럼 길이를 뜻하는 말은 두고, 나머지 글자는 그대로 둔다."""
+    return re.sub(r"(열한|열두|다섯|여섯|일곱|여덟|아홉|한|두|세|네|열)\s*시(?!간)",
+                  lambda m: f"{_NATIVE_HOURS[m.group(1)]}시", text or "")
+
+
 def value_numbers(value: str) -> set:
     """AI가 적은 값의 숫자들. '15:00'의 00, '35,000원'의 쉼표 등은 값 하나로 본다."""
     v = re.sub(r"(\d{1,2}):00\b", r"\1시", value or "")
