@@ -55,6 +55,13 @@
   font-weight: 600;
 }
 
+/* 무료 디자인 남은 횟수 (USAGE_QUOTA_CONTRACT §3) */
+.bd-quota {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ed-note, #33413c);
+}
+
 .bd-choice {
   display: flex;
   gap: 8px;

@@ -281,6 +281,13 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
             </button>
           ))}
         </div>
+        {card?.quota ? (
+          <p className="bd-quota">
+            {card.quota.restyle.left > 0
+              ? `무료 디자인 고치기 ${card.quota.restyle.left}번 남음 · ${card.quota.resets}에 다시 채워져요`
+              : `이번 달 무료 디자인 고치기를 다 썼어요 · ${card.quota.resets}에 다시 채워져요`}
+          </p>
+        ) : null}
       </header>
 
       <main className="bd-main">

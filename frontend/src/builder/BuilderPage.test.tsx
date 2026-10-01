@@ -121,6 +121,17 @@ describe('BuilderPage', () => {
     expect(post).toHaveBeenCalledWith({ type: 'agt-flash', section: 'space' }, '*');
   });
 
+  it('무료 디자인 고치기 남은 횟수를 보인다 (USAGE_QUOTA_CONTRACT §3)', async () => {
+    const withQuota = { ...CARD, quota: { design: { left: 3, total: 3 }, restyle: { left: 18, total: 20 }, resets: '11월 1일' } };
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(withQuota);
+    });
+    render(<BuilderPage roomId="r1" />);
+    expect(await screen.findByText('무료 디자인 고치기 18번 남음 · 11월 1일에 다시 채워져요')).toBeInTheDocument();
+  });
+
   it('빌더 모드에서는 구역 목록을 접는다', async () => {
     stubFetch(async (url) => {
       if (url.includes('/card/preview')) return okJson(PREVIEW);

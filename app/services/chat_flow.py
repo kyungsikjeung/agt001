@@ -519,6 +519,9 @@ def _restyle(session: dict, text: str) -> str:
     card["concept"] = new
     design_log.restyled(session["requirement_id"], card, current, new)  # D45
     design.render_variants(session["requirement_id"], card)
+    from app.services import usage  # 무료 디자인 고치기 장부 (D40)
+    quota = usage.note(usage.safe_use(session["requirement_id"], "restyle"), "restyle")
+    said = f"{said}\n{quota}" if quota else said
     if card.get("published"):
         from app.services.publish_check import PublishBlockedError
         try:
@@ -684,6 +687,8 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
             log.exception("원형 판정 실패(규칙 원형 유지)")
     d = design.render_design(session["requirement_id"], "web", [session.get("last_request", "")], amount, basis,
                              card=card)
+    from app.services import usage  # 무료 시안 만들기 장부 (D40). 안내는 시안 답에 붙인다
+    quota_note = usage.note(usage.safe_use(session["requirement_id"], "design"), "design")
     session["design_url"] = d["design_url"]
     session["design_preview_url"] = d["preview_url"]
     session["design_url_unsent"] = True
@@ -729,7 +734,7 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
         ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
         ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
            if (card or {}).get("copy") else "") +
-        _photo_later_reminder(card) + geo_note +
+        _photo_later_reminder(card) + geo_note + (quota_note + "\n" if quota_note else "") +
         # 예전 코드생성이 꺼져 있으면(운영 기본) 파일을 만들지 않으니 만든다고 말하지 않는다.
         ("뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
          "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."
