@@ -28,6 +28,8 @@ _lock = threading.Lock()
 
 # 사장님 답 받아 가기(4초마다)는 따로 센다: 10분 150번이 보통이라 넉넉히 300번
 POLL_LIMIT = 300
+# 즉시 반영 연결 열기(§7): 연결 하나가 5분이라 10분에 몇 번이면 된다. 끊겨 다시 붙는 것까지 넉넉히
+STREAM_LIMIT = 60
 
 
 def _allow(key: str, limit: int = RATE_LIMIT) -> bool:
@@ -73,6 +75,33 @@ def chat(site_key: str, body: ChatIn, request: Request, response: Response):
     response.set_cookie(name, token, max_age=COOKIE_DAYS * 86400, path="/", secure=True, httponly=True,
                         samesite="lax")
     return chat_agent.respond(key, token, text=body.text, action=body.action)
+
+
+@router.get("/api/chat/{site_key}/stream")
+def chat_stream(site_key: str, request: Request, after: int = 0):
+    """손님 화면 즉시 반영 (GUEST_CHAT_CONTRACT §7): 이 브라우저 쿠키 대화의 새 글·상태를 SSE로 보낸다."""
+    from app.services import guest_chat, sse
+    key = sanitize_token(site_key or "")
+    if not key:
+        raise HTTPException(status_code=404)
+    if not _allow("stream:" + (request.client.host if request.client else "?"), STREAM_LIMIT):
+        raise HTTPException(status_code=429, detail="잠시 뒤에 다시 보내 주세요.")
+    token = request.cookies.get(cookie_name(key))
+    th = chat_agent.token_hash(token) if token and len(token) <= 100 else None
+    state = {"after": max(0, int(after or 0), sse.last_event_id(request)), "status": None}
+
+    def step():
+        data = guest_chat.messages_after(key, th, state["after"])
+        out = []
+        for m in data["messages"]:
+            out.append(sse.event("message", m, m["id"]))
+            state["after"] = m["id"]
+        if data["status"] != state["status"]:
+            state["status"] = data["status"]
+            out.append(sse.event("status", {"status": data["status"]}))
+        return out, data["status"] in guest_chat.CLOSED_STATES
+
+    return sse.response(request, step)
 
 
 @router.get("/api/chat/{site_key}/messages")

@@ -489,6 +489,23 @@ def list_chats(site_key: str, request: Request):
     return {"chats": guest_chat.owner_list(shop_id)}
 
 
+@router.get("/api/owner/shops/{site_key}/chat-stream")
+def chats_stream(site_key: str, request: Request):
+    """사장님 채팅 탭 즉시 반영 (GUEST_CHAT_CONTRACT §7): 대화 목록이 바뀌면 changed를 보낸다(처음 한 번 포함)."""
+    from app.services import guest_chat, sse
+    _, shop_id = _shop(request, site_key)
+    state = {"sig": None}
+
+    def step():
+        sig = guest_chat.shop_signature(shop_id)
+        if sig == state["sig"]:
+            return [], False
+        state["sig"] = sig
+        return [sse.event("changed", {"sig": sig})], False
+
+    return sse.response(request, step)
+
+
 @router.get("/api/owner/shops/{site_key}/chats/{thread_id}")
 def view_chat(site_key: str, thread_id: int, request: Request):
     from app.services import guest_chat
