@@ -165,23 +165,71 @@ def _call_line(card: dict) -> str:
 
 # ── 흐름 ──
 
+OWNER_BTN = {"label": "사장님께 직접 물어보기", "action": "owner"}
+
+
 def respond(site_key: str, token: Optional[str], *, text: Optional[str] = None, action: Optional[str] = None,
             now: Optional[datetime.datetime] = None) -> dict:
+    from app.services import guest_chat
     now = now or _now()
     got = E.active_spec(site_key)
     card = _card(site_key)
     name = _slot_value(card, "shop_name") or "가게"
-    if got is None:
-        return _r(f"{name}은(는) 아직 채팅 예약을 받지 않아요. {_call_line(card)}")
-    shop_id, spec = got
     th = token_hash(token)
-    draft = _load(th, shop_id, now) if th else {}
-    try:
-        out = _step(site_key, spec, card, name, draft, th, (text or "").strip(), action, now)
-    except E.EngineError as e:
-        out = _r(str(e), [{"label": "처음으로", "action": "menu"}])
-    if th:
-        _save(th, shop_id, draft, now)
+    said = (text or "").strip()
+    open_chat = guest_chat.enabled(site_key)  # 공개된 가게 + 손님 채팅 켜짐 (GUEST_CHAT_CONTRACT)
+    if got is None and not open_chat:
+        return _r(f"{name}은(는) 아직 채팅 예약을 받지 않아요. {_call_line(card)}")
+    if open_chat and th:
+        state = guest_chat.status(site_key, th)
+        if state in guest_chat.CLOSED_STATES and (said or action == "owner"):
+            return _r(f"지금은 이 대화에 글을 보낼 수 없어요. {_call_line(card)}")
+        if action == "owner":
+            guest_chat.to_owner(site_key, th)
+            hours = _slot_value(card, "hours")
+            return _r("무엇이든 적어 주세요. 사장님이 확인하면 여기로 답해요"
+                      + (f" · 영업시간 {hours}" if hours else "") + ".", mode="owner")
+        if state == guest_chat.TO_OWNER and said and not action:
+            # 사장님 대기: AI를 거치지 않고 저장. 연달아 보내면 두 번째부터는 답하지 않는다.
+            first = guest_chat.last_sender(site_key, th) != "guest"
+            reply = "사장님께 전했어요. 답이 오면 여기에 보여요." if first else ""
+            guest_chat.log_turn(site_key, th, said, "", to_owner=True)  # 접수 안내는 대화 기록에 넣지 않는다
+            return _r(reply, mode="owner")
+    if got is None:
+        out = _no_bot_step(site_key, card, name, said, action)
+    else:
+        shop_id, spec = got
+        draft = _load(th, shop_id, now) if th else {}
+        try:
+            out = _step(site_key, spec, card, name, draft, th, said, action, now)
+        except E.EngineError as e:
+            out = _r(str(e), [{"label": "처음으로", "action": "menu"}])
+        if th:
+            _save(th, shop_id, draft, now)
+    to_owner = bool(out.pop("to_owner", False))
+    if open_chat:
+        if th and said:
+            guest_chat.log_turn(site_key, th, said, out.get("reply") or "", to_owner=to_owner)
+        if out.get("buttons") and OWNER_BTN not in out["buttons"] and any(
+                b.get("action") == "ask" for b in out["buttons"]):
+            out["buttons"] = [*out["buttons"], OWNER_BTN]
+        if to_owner:
+            out["mode"] = "owner"
+    return out
+
+
+def _no_bot_step(site_key: str, card: dict, shop_name: str, text: str, action: Optional[str]) -> dict:
+    """예약 봇이 없는 공개 가게: 가게 정보로 답하고, 모르면 사장님께. 예약은 전화로 안내."""
+    buttons = [{"label": "문의하기", "action": "ask"}, OWNER_BTN]
+    if action == "ask":
+        return _r("궁금한 것을 적어 주세요. 가게 정보로 바로 답하고, 모르면 사장님께 전해 드려요.")
+    if not text or action in ("menu", "book", "mine") or action:
+        return _r(f"안녕하세요, {shop_name}입니다. 무엇이 궁금하세요?", buttons)
+    if intent_of(text) in ("book", "mine", "change", "cancel"):
+        return _r(f"채팅 예약은 아직 받지 않아요. {_call_line(card)}", [OWNER_BTN])
+    out = _answer(site_key, card, text)
+    if out.get("buttons") == MENU:
+        out["buttons"] = buttons  # 예약 봇이 없으니 예약 단추 대신 문의·사장님
     return out
 
 
@@ -396,6 +444,10 @@ def _answer(site_key, card, text, force_owner=False) -> dict:
                 value = _slot_value(card, key)
                 if value:
                     return _r(value, MENU)
+    from app.services import guest_chat
+    if guest_chat.enabled(site_key):
+        # 손님 채팅이 켜진 가게: 대화를 사장님 대기로(알림은 guest_chat이 한 번 보낸다), 답은 이 창으로
+        return _r("그건 사장님께 여쭤볼게요. 사장님이 확인하면 여기로 답해요.", MENU, to_owner=True)
     _ask_owner(site_key, text)
     return _r("그건 사장님께 여쭤볼게요. 전해 드렸어요. 답을 받으려면 연락처도 함께 남겨 주세요.", MENU)
 

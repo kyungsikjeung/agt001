@@ -47,12 +47,23 @@
   .bk strong { font-size: 0.9375rem; }
   .pill { display: inline-block; font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border); color: var(--muted); }
   .pill.requested { color: var(--warn); border-color: #fcd34d; background: var(--warn-soft); }
+  .chatbadge { margin-left: 4px; min-width: 20px; text-align: center; color: #fff; background: var(--bad); border-color: var(--bad); }
   .pill.confirmed { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
   .day { font-size: 0.8125rem; font-weight: 700; color: var(--muted); margin: 6px 0 0; }
   #botlog { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
   .msg { padding: 10px 12px; border-radius: 12px; white-space: pre-line; font-size: 0.9375rem; max-width: 92%; }
   .msg.bot { background: var(--bg); border: 1px solid var(--border); align-self: flex-start; }
   .msg.me { background: var(--accent-dark); color: #fff; align-self: flex-end; }
+  .msg.guest { background: var(--bg); border: 1px solid var(--border); align-self: flex-start; }
+  .msg.ai { background: var(--accent-soft); border: 1px solid var(--accent); align-self: flex-start; }
+  .msg.owner { background: var(--accent-dark); color: #fff; align-self: flex-end; }
+  .msg .who { display: block; font-size: 0.75rem; font-weight: 700; opacity: 0.75; margin-bottom: 2px; }
+  #ch-msgs { display: flex; flex-direction: column; gap: 8px; max-height: 55vh; overflow-y: auto; }
+  #ch-list { display: flex; flex-direction: column; gap: 8px; }
+  .thread {
+    display: flex; flex-direction: column; align-items: stretch; gap: 4px; width: 100%; text-align: left;
+    background: var(--surface); padding: 10px 12px;
+  }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chips button { border-radius: 999px; border-color: var(--accent); background: var(--accent-soft); color: var(--accent-dark); }
   .bar { height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
@@ -76,6 +87,7 @@
 <nav id="tabs" role="tablist" hidden>
   <button role="tab" data-tab="bookings" aria-selected="true">예약</button>
   <button role="tab" data-tab="orders" aria-selected="false">주문 <span class="pill">테스트 결제</span></button>
+  <button role="tab" data-tab="chats" aria-selected="false">채팅 <span class="pill chatbadge" id="chats-badge" hidden>0</span></button>
   <button role="tab" data-tab="stamps" aria-selected="false">스탬프·쿠폰</button>
   <button role="tab" data-tab="bot" aria-selected="false">예약 봇</button>
   <button role="tab" data-tab="closures" aria-selected="false">휴무·막기</button>
@@ -122,6 +134,35 @@
       <div class="row"><h2 style="flex:1">주문 <span class="pill">테스트 결제</span></h2><button id="oreload">새로고침</button></div>
       <div class="row"><label class="f">날짜<input type="date" id="o-date"></label></div>
       <div id="olist"><p class="sub">불러오는 중…</p></div>
+    </section>
+  </div>
+
+  <div id="p-chats" hidden>
+    <section class="card">
+      <div class="row">
+        <h2 style="flex:1">손님 채팅</h2>
+        <label class="f">받기<select id="ch-on"><option value="on">켜짐</option><option value="off">꺼짐</option></select></label>
+        <button id="ch-reload">새로고침</button>
+      </div>
+      <p class="sub">손님이 채팅을 남기면 여기에 다 보여요. 끄면 손님 채팅이 열리지 않아요.</p>
+      <p class="err" id="ch-err" hidden></p>
+      <div id="ch-list"><p class="sub">불러오는 중…</p></div>
+    </section>
+    <section class="card" id="ch-thread" hidden>
+      <div class="row">
+        <h2 style="flex:1">대화 <span class="pill" id="ch-status"></span></h2>
+        <button id="ch-back">목록</button>
+      </div>
+      <div id="ch-msgs" role="log" aria-live="polite"></div>
+      <form id="ch-form" class="row">
+        <input id="ch-text" maxlength="500" style="flex:1;min-width:0" placeholder="손님께 답할 글">
+        <button class="primary" type="submit">보내기</button>
+      </form>
+      <div class="row">
+        <button id="ch-close">대화 닫기</button>
+        <button id="ch-block" class="danger">손님 차단</button>
+      </div>
+      <p class="err" id="ch-t-err" hidden></p>
     </section>
   </div>
 
@@ -254,14 +295,23 @@
   // ── 탭 ──
   function tab(name) {
     for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
-    for (const p of ["bookings", "orders", "stamps", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
+    for (const p of ["bookings", "orders", "chats", "stamps", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
+    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
     if (name === "bookings") loadBookings();
     if (name === "orders") loadOrders();
+    if (name === "chats") { loadChatOn(); loadChats(); }
     if (name === "stamps") loadStamps();
     if (name === "bot") loadBot();
     if (name === "closures") loadClosures();
   }
-  $("tabs").addEventListener("click", e => { if (e.target.dataset.tab) tab(e.target.dataset.tab); });
+  $("tabs").addEventListener("click", e => {
+    const b = e.target.closest("button[data-tab]");
+    if (b) tab(b.dataset.tab);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) { if (chatTimer) { clearInterval(chatTimer); chatTimer = null; } }
+    else if (isChatTab()) loadChats();
+  });
 
   // ── 예약 ──
   const STATUS = { requested: "확인 필요", confirmed: "확정", declined: "거절", cancelled: "취소", no_show: "노쇼" };
@@ -362,6 +412,116 @@
   $("oreload").addEventListener("click", loadOrders);
   $("o-date").addEventListener("change", loadOrders);
 
+  // ── 손님 채팅 ──
+  const CHSTATUS = { ai: "AI 답함", owner: "사장님 대기", closed: "닫힘", blocked: "차단됨" };
+  let chatTimer = null, curChat = null;
+  const isChatTab = () => { const t = $("tabs").querySelector('button[data-tab="chats"]'); return !!t && t.getAttribute("aria-selected") === "true"; };
+  function chBadge(n) {
+    const b = $("chats-badge");
+    b.textContent = String(n);
+    b.hidden = !n;
+  }
+  const chDay = iso => {
+    try { return new Date(iso).toLocaleDateString("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }); }
+    catch (e) { return ""; }
+  };
+  function chMsg(text, who) {
+    const m = el("div", null, "msg " + who);
+    m.append(el("span", who === "owner" ? "사장님" : who === "ai" ? "AI" : "손님", "who"), el("span", text));
+    $("ch-msgs").append(m);
+    $("ch-msgs").scrollTop = $("ch-msgs").scrollHeight;
+  }
+  async function loadChats() {
+    const box = $("ch-list");
+    try {
+      const { chats } = await api(base() + "/chats");
+      const ordered = [...chats].sort((a, b) => (b.status === "owner") - (a.status === "owner") || String(b.last_at || "").localeCompare(String(a.last_at || "")));
+      chBadge(ordered.reduce((s, c) => s + (Number(c.owner_unread) || 0), 0));
+      box.replaceChildren();
+      if (!ordered.length) { box.append(el("p", "아직 손님 채팅이 없어요.", "sub")); return; }
+      for (const c of ordered) {
+        const row = el("div", null, "bk");
+        const head = el("div", null, "row");
+        head.append(el("strong", `${chDay(c.last_at)} ${fmtTime(c.last_at)}`.trim()),
+          el("span", CHSTATUS[c.status] || c.status, "pill" + (c.status === "owner" ? " requested" : "")));
+        if (c.owner_unread) head.append(el("span", "안 읽음 " + c.owner_unread, "pill requested"));
+        row.append(head, el("p", c.last_text || "글 없음", "sub"));
+        const open = el("button", "열기", "primary");
+        open.addEventListener("click", () => openChat(c.id));
+        const acts = el("div", null, "row");
+        acts.append(open);
+        row.append(acts);
+        box.append(row);
+      }
+    } catch (e) { if (e.message !== "login") box.replaceChildren(el("p", e.message, "err")); }
+    chatPoll();
+  }
+  // 켜기·끄기 상태 읽기(서버가 GET을 안 주면 기본값 유지)
+  async function loadChatOn() {
+    try {
+      const d = await api(base() + "/chat-settings");
+      if (d && typeof d.guest_chat_on === "boolean") $("ch-on").value = d.guest_chat_on ? "on" : "off";
+    } catch (e) { /* 없으면 그대로 */ }
+  }
+  function chatPoll() {
+    if (chatTimer || !isChatTab() || document.hidden) return;
+    chatTimer = setInterval(loadChats, 10000);
+  }
+  async function openChat(id) {
+    curChat = id;
+    $("ch-list").closest(".card").hidden = true;
+    $("ch-thread").hidden = false;
+    $("ch-t-err").hidden = true;
+    $("ch-msgs").replaceChildren();
+    try {
+      const d = await api(base() + "/chats/" + encodeURIComponent(id));
+      $("ch-status").textContent = CHSTATUS[d.status] || d.status;
+      for (const m of d.messages || []) chMsg(m.text, m.sender);
+      $("ch-text").value = "";
+      if (d.status === "blocked" || d.status === "closed") { $("ch-text").disabled = true; $("ch-form").querySelector("button").disabled = true; }
+      else { $("ch-text").disabled = false; $("ch-form").querySelector("button").disabled = false; }
+    } catch (e) { $("ch-t-err").textContent = e.message; $("ch-t-err").hidden = false; }
+  }
+  function closeChatView() {
+    curChat = null;
+    $("ch-thread").hidden = true;
+    $("ch-list").closest(".card").hidden = false;
+  }
+  $("ch-back").addEventListener("click", closeChatView);
+  $("ch-reload").addEventListener("click", loadChats);
+  $("ch-form").addEventListener("submit", async e => {
+    e.preventDefault();
+    const t = $("ch-text").value.trim();
+    if (!t || curChat == null) return;
+    $("ch-t-err").hidden = true;
+    try {
+      const sent = await post(base() + "/chats/" + encodeURIComponent(curChat), { text: t });
+      $("ch-text").value = "";
+      if (sent && sent.text) chMsg(sent.text, "owner"); else chMsg(t, "owner");
+      loadChats();
+    } catch (err) { $("ch-t-err").textContent = err.message; $("ch-t-err").hidden = false; }
+  });
+  for (const a of ["close", "block"]) {
+    $("ch-" + a).addEventListener("click", async () => {
+      if (curChat == null) return;
+      if (!confirm(a === "close" ? "이 대화를 닫을까요? 손님은 더 이상 쓸 수 없어요." : "이 손님을 차단할까요?")) return;
+      $("ch-t-err").hidden = true;
+      try { await post(base() + "/chats/" + encodeURIComponent(curChat) + "/" + a); closeChatView(); loadChats(); }
+      catch (e) { $("ch-t-err").textContent = e.message; $("ch-t-err").hidden = false; }
+    });
+  }
+  $("ch-on").addEventListener("change", async () => {
+    const on = $("ch-on").value === "on";
+    $("ch-err").hidden = true;
+    try {
+      const out = await post(base() + "/chat-settings", { guest_chat_on: on });
+      $("ch-on").value = (out && typeof out.guest_chat_on === "boolean" ? out.guest_chat_on : on) ? "on" : "off";
+    } catch (e) {
+      $("ch-on").value = on ? "off" : "on";
+      $("ch-err").textContent = e.message;
+      $("ch-err").hidden = false;
+    }
+  });
   function fillPhoneBox() {
     const s = spec;
     $("phonebox").hidden = !s;
@@ -598,7 +758,7 @@
     $("tabs").hidden = false;
     return true;
   }
-  $("shop").addEventListener("change", () => { cur = shops.find(s => s.site_key === $("shop").value); tab("bookings"); });
+  $("shop").addEventListener("change", () => { cur = shops.find(s => s.site_key === $("shop").value); closeChatView(); tab("bookings"); });
 
   (async () => {
     try {
