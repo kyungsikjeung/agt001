@@ -110,6 +110,8 @@ def record(event: str, *, visitor_id=None, session_id=None, source=None, campaig
     )
     with store._transaction() as tx:
         tx.db.add(row)
+    from app.services import ops_alert  # 운영자가 알아야 할 사건은 텔레그램으로 (OPS_ALERT_CONTRACT)
+    ops_alert.on_event(event, row.props)
     return True
 
 

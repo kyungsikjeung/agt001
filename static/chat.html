@@ -80,7 +80,8 @@
   const input = document.getElementById("t");
   let busy = false;
   let lastId = 0;        // 화면에 반영한 마지막 글 번호(서버 기준)
-  let timer = null;      // 사장님 답 확인(4초)
+  let timer = null;      // 사장님 답 확인(4초, SSE가 안 될 때만)
+  let es = null;         // 사장님 답 즉시 받기(SSE, GUEST_CHAT_CONTRACT §7)
   let ownerMode = false;
   let noted = false;     // 개인정보 안내는 처음 보낼 때 한 번
 
@@ -116,6 +117,7 @@
       if (!r.ok) return;
       const data = await r.json();
       for (const m of data.messages || []) {
+        if (m.id <= lastId) continue;  // 즉시 받기로 이미 그린 글
         if (showAll || m.sender === "owner") bubble(m.text, m.sender === "guest" ? "me" : m.sender === "owner" ? "owner" : "bot");
         lastId = Math.max(lastId, m.id);
       }
@@ -123,13 +125,36 @@
       if (data.status === "blocked" || data.status === "closed") stopPoll();
     } catch (e) { /* 다음 차례에 다시 */ }
   }
+  // 사장님 답 기다리기: SSE로 바로 받고, 안 되면(오래된 브라우저·연결 거절) 4초마다 묻는다.
   function startPoll() {
     ownerMode = true;
-    if (timer || document.hidden) return;
+    if (timer || es || document.hidden) return;
+    if (window.EventSource) {
+      es = new EventSource("/api/chat/" + encodeURIComponent(key) + "/stream?after=" + lastId);
+      es.addEventListener("message", e => {
+        try {
+          const m = JSON.parse(e.data);
+          if (m.id <= lastId) return;
+          if (m.sender === "owner") bubble(m.text, "owner");
+          lastId = m.id;
+        } catch (err) { /* 다음 글에서 */ }
+      });
+      es.addEventListener("status", e => {
+        try {
+          const st = JSON.parse(e.data).status;
+          if (st === "blocked" || st === "closed") stopPoll();
+        } catch (err) { /* 무시 */ }
+      });
+      es.onerror = () => {
+        if (es && es.readyState === EventSource.CLOSED) { es = null; timer = setInterval(() => poll(false), 4000); }
+      };
+      return;
+    }
     timer = setInterval(() => poll(false), 4000);
   }
   function stopPoll() {
     if (timer) { clearInterval(timer); timer = null; }
+    if (es) { es.close(); es = null; }
   }
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) stopPoll();
