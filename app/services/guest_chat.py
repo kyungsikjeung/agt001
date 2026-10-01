@@ -28,7 +28,9 @@ def _now() -> datetime.datetime:
 
 def enabled(site_key: str) -> bool:
     """공개된 가게이고 '손님 채팅 받기'가 켜져 있으면 True."""
-    from app.services import shop_settings
+    from app.services import shop_settings, takedown
+    if takedown.is_down(site_key):
+        return False
     with get_sessionmaker()() as db:
         if db.get(ShopRow, site_key) is None:
             return False

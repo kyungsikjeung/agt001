@@ -7,7 +7,10 @@ import datetime
 import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from pydantic import BaseModel, Field
 from sqlalchemy import func, select
+
+from app.api.auth import _check_origin
 
 from app.db.models import (
     BookingRow,
@@ -20,7 +23,7 @@ from app.db.models import (
     UserRoomRow,
 )
 from app.db.session import get_sessionmaker
-from app.services import admin, prd_engine
+from app.services import admin, prd_engine, takedown
 from app.services import rooms as rooms_svc
 from evals import live_metrics as M
 
@@ -121,7 +124,7 @@ def _item(room_id, created, session_id, state, site_key, card: dict) -> dict:
     """목록 한 줄의 가벼운 값 (카드만 본다)."""
     return {"room_id": room_id, "session_id": session_id, "site_key": site_key or "", "created_at": _iso(created),
             "shop_name": M.mask_pii(_shop_name(card)), "industry": _industry(card), "state": state or "",
-            "published": bool(card.get("published"))}
+            "published": bool(card.get("published")), "taken_down": takedown.info(site_key) if site_key else None}
 
 
 def _fill(items: list) -> None:
@@ -183,6 +186,43 @@ def room_detail(room_id: str, user: dict = Depends(_admin)):
             "turns": [{**_mask({k: t[k] for k in ("user_text", "ai_text", "meta")}), "ts": _iso(t["ts"]),
                        "state_before": t["state_before"], "state_after": t["state_after"]} for t in turns],
             "metrics": _mask(M.session_metrics(sess.id, turns))}
+
+
+class TakedownIn(BaseModel):
+    reason: str = Field(default="", max_length=takedown.REASON_MAX)
+
+
+def _site_key_of(request: Request, room_id: str) -> str:
+    """바꾸는 요청 공통(키 API와 같다): 우리 출처, 최근 로그인. 방의 사이트 키를 돌려준다."""
+    _check_origin(request)
+    admin.require_recent_login(request)
+    with get_sessionmaker()() as db:
+        room = db.get(RoomRow, room_id)
+        sess = db.get(SessionRow, room.session_id) if room is not None else None
+        if room is None or sess is None or not sess.requirement_id:
+            raise HTTPException(status_code=404)
+        return sess.requirement_id
+
+
+@router.post("/api/admin/rooms/{room_id}/takedown")
+def take_down_site(room_id: str, body: TakedownIn, request: Request, user: dict = Depends(_admin)):
+    """공개 사이트 내리기(P2-4). 이유는 필수, 기록·운영 알림에 남는다."""
+    key = _site_key_of(request, room_id)
+    try:
+        return {"taken_down": takedown.take_down(key, user["id"], body.reason)}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.post("/api/admin/rooms/{room_id}/restore")
+def restore_site(room_id: str, request: Request, user: dict = Depends(_admin)):
+    """내린 사이트 다시 열기."""
+    key = _site_key_of(request, room_id)
+    try:
+        takedown.restore(key, user["id"])
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"taken_down": None}
 
 
 @router.get("/api/admin/signals")

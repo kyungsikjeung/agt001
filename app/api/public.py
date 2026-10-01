@@ -33,6 +33,13 @@ _DESIGN_HEADERS = {
     "X-Robots-Tag": "noindex",
 }
 
+_TAKEN_DOWN_PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">
+<title>지금은 볼 수 없는 사이트예요</title></head>
+<body style="font-family:sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.6">
+<h1 style="font-size:1.3rem">지금은 볼 수 없는 사이트예요</h1>
+<p>이 사이트는 운영 정책에 따라 잠시 내려가 있어요.</p></body></html>"""
+
 
 def _project_dir(requirement_id: str, sub: str):
     safe_id = sanitize_token(requirement_id)
@@ -171,6 +178,10 @@ def site_root_redirect(requirement_id: str):
 @router.get("/site/{requirement_id}/")
 @router.get("/site/{requirement_id}/{filename:path}")
 def serve_site(requirement_id: str, filename: str = ""):
+    from app.services import takedown
+    if takedown.is_down(requirement_id):
+        # 관리자가 내린 사이트 (P2-4). 파일은 남아 있지만 아무것도 보여 주지 않는다.
+        return HTMLResponse(_TAKEN_DOWN_PAGE, status_code=410, headers={**_SITE_HEADERS, "X-Robots-Tag": "noindex"})
     # 사장님이 고른 시안을 공개했으면 그것을, 아니면 코드생성 결과를 연다.
     web_dir = _project_dir(requirement_id, "published")
     if web_dir.is_dir() and (not filename or filename == "index.html"):

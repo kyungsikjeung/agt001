@@ -208,6 +208,7 @@
     b.append(el("span", [r.industry || "업종 모름", r.state, `대화 ${r.turns}`, `문의 ${r.inquiries}`, `예약 ${r.bookings}`, when(r.created_at)].join(" · "), "sub"));
     const pills = flagPills(r.flags);
     if (r.published) pills.prepend(el("span", "공개", "pill ok"));
+    if (r.taken_down) pills.prepend(el("span", "내림", "pill warn"));
     if (r.owner_logged_in) pills.prepend(el("span", "사장님 로그인", "pill"));
     b.append(pills);
     b.addEventListener("click", () => openRoom(r.room_id));
@@ -260,6 +261,7 @@
       ["대화·문의·예약", `${r.turns} · ${r.inquiries} · ${r.bookings}`],
     ]));
     if ((r.flags || []).length) head.append(flagPills(r.flags));
+    if (r.site_key) head.append(takedownBox(id, r.taken_down));
     box.append(head);
 
     const card = el("div", null, "card");
@@ -368,6 +370,59 @@
     box.append(head);
     box.append(topList("못 담은 요구 상위", g.unmet_top), topList("말로 고친 것 상위", g.restyle_changes),
       topList("마지막에 고른 안", g.chosen_variant), topList("퍼널 사건 수", d.funnel));
+  }
+
+  // ── 사이트 내리기 (P2-4) ──
+  function takedownBox(roomId, down) {
+    const wrap = el("div");
+    const status = el("p", "", "sub");
+    status.setAttribute("role", "status");
+    const act = async (path, body) => {
+      status.replaceChildren(el("span", "처리하는 중…"));
+      try {
+        await api(path, { method: "POST", body: JSON.stringify(body || {}) });
+        openRoom(roomId);
+      } catch (e) {
+        if (e.status === 403 && e.detail === "reauth") {
+          status.replaceChildren(el("span", "보안을 위해 다시 로그인해 주세요. "), loginLinks("다시 로그인"));
+          return;
+        }
+        if (e.status === 401) return showGate(e.status);
+        status.replaceChildren(el("span", e.detail || "처리하지 못했어요."));
+      }
+    };
+    const base = `/api/admin/rooms/${encodeURIComponent(roomId)}`;
+    if (down) {
+      wrap.append(el("p", `내린 사이트예요 · ${when(down.at)} · 이유: ${down.reason || "—"}`, "sub"));
+      const back = el("button", "사이트 다시 열기");
+      back.type = "button";
+      back.addEventListener("click", () => act(`${base}/restore`));
+      wrap.append(back);
+    } else {
+      const form = el("form", null, "row");
+      const input = el("input");
+      input.maxLength = 200;
+      input.placeholder = "내리는 이유 (기록에 남아요)";
+      input.setAttribute("aria-label", "내리는 이유");
+      const go = el("button", "사이트 내리기", "danger");
+      go.type = "submit";
+      form.append(input, go);
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (!input.value.trim()) { status.textContent = "내리는 이유를 적어 주세요."; return; }
+        status.replaceChildren(el("span", "손님에게 사이트가 안 보이고 문의·예약·주문도 막혀요. 내릴까요? "));
+        const yes = el("button", "내리기", "danger");
+        yes.type = "button";
+        yes.addEventListener("click", () => act(`${base}/takedown`, { reason: input.value.trim() }));
+        const no = el("button", "그만두기");
+        no.type = "button";
+        no.addEventListener("click", () => status.replaceChildren());
+        status.append(yes, no);
+      });
+      wrap.append(form);
+    }
+    wrap.append(status);
+    return wrap;
   }
 
   // ── 키 ──
