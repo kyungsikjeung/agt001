@@ -244,7 +244,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
           <PublishBar view={{ busy: pubBusy, result: pubResult, siteUrl }} onPublish={(force) => void publish(force)} />
         </div>
         <button type="button" className="ed-btn" aria-expanded={topOpen} onClick={() => setTopOpen((v) => !v)}>
-          {topOpen ? '가게 정보 접기' : '가게 정보 펼치기'}
+          {topOpen ? '가게 정보 닫기' : '가게 정보 입력'}
         </button>
         {topOpen ? (
           <div className="bd-top-fields">
