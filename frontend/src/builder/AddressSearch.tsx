@@ -1,6 +1,7 @@
 // 주소 검색 시트 (MAP_CONTRACT §3).
 // 우편번호 스크립트는 단추를 누를 때만 한 번 불러온다. 가게 이름·전화는 어디에도 보내지 않는다.
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { geoSearch, readMemberId, saveCard, saveGeo, type RoomCard } from '../editor/cardApi';
 
 const POSTCODE_SRC = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
@@ -143,7 +144,8 @@ export default function AddressSearch({ roomId, onSaved }: AddressSearchProps) {
       <button type="button" className="bd-addr-open" onClick={() => { setOpen(true); setMsg(''); }}>
         주소 검색
       </button>
-      {open ? (
+      {/* 시트는 body로 꺼내 그린다: 헤더 안에 두면 fixed가 헤더 기준이 되어 잘리고 하단 줄 뒤로 깔린다 */}
+      {open ? createPortal(
         <div className="bd-addr-scrim">
           <div className="bd-addr-sheet" role="dialog" aria-label="주소 검색">
             <div className="bd-addr-top">
@@ -181,7 +183,8 @@ export default function AddressSearch({ roomId, onSaved }: AddressSearchProps) {
             ) : null}
             {msg !== '' ? <p className="bd-msg" role="status">{msg}</p> : null}
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </>
   );
