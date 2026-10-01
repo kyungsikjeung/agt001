@@ -233,3 +233,75 @@ def test_messy_split_page_has_price_table():
     assert "[요금 입력]" not in html
     assert ">성수기 1박<" not in html
     assert "25만원" in html
+
+
+# ---- 대화 단계에서 요금 이름표 모으기 (F2) ----
+
+_SEASON_SAID = ("객실 4개고요, 성수기 1박 25만원, 비수기 1박 15만원이에요. "
+                "성수기는 7월 15일부터 8월 20일까지예요")
+
+
+def _apply(text, updates, card=None):
+    card = card or E.new_card("pension")
+    card["turn"] = card.get("turn", 0) + 1
+    card.setdefault("said", []).append(text)
+    applied = E.apply_updates(card, updates, text)
+    return card, applied
+
+
+def test_messy_extraction_folds_into_price():
+    card, applied = _apply(_SEASON_SAID, [
+        {"slot": "offerings", "value": ["객실 4개", "성수기 1박", "비수기 1박"]},
+        {"slot": "price", "value": "25만원, 15만원"},
+        {"slot": "features", "value": ["성수기 기간: 7월 15일 ~ 8월 20일"]}])
+    assert card["slots"]["offerings"]["value"] == ["객실 4개"]
+    assert card["slots"]["price"]["value"] == "성수기(7/15~8/20) 1박 25만원, 비수기 1박 15만원"
+    assert "features" not in card["slots"]
+    assert not card.get("features_judged")
+    assert not (card.get("notes") or {}).get("items")
+    assert "price" in applied
+    summary = E.summary_text(card)
+    assert "객실 구성: 객실 4개\n" in summary
+    assert "성수기 기간" not in summary
+    assert card_data.season_prices(card)[0] == {
+        "label": "성수기", "price": "1박 25만원", "period": "7/15~8/20"}
+
+
+def test_messy_extraction_without_pairs_uses_price_order():
+    card, _ = _apply("객실 3개, 성수기 1박 20만원 비수기 1박 12만원", [
+        {"slot": "offerings", "value": ["객실 3개", "성수기 1박", "비수기 1박"]},
+        {"slot": "price", "value": "20만원, 12만원"}])
+    card.pop("price_pairs", None)
+    card["slots"]["offerings"]["value"] = ["객실 3개", "성수기 1박", "비수기 1박"]
+    card["slots"]["price"]["value"] = "20만원, 12만원"
+    assert E._fold_season_rates(card, 2, None)
+    assert card["slots"]["price"]["value"] == "성수기 1박 20만원, 비수기 1박 12만원"
+    assert card["slots"]["offerings"]["value"] == ["객실 3개"]
+
+
+def test_labeled_price_kept_and_offering_label_dropped():
+    card, _ = _apply("객실 2개, 성수기 1박 25만원, 비수기 1박 15만원", [
+        {"slot": "offerings", "value": ["객실 2개", "성수기"]},
+        {"slot": "price", "value": "성수기 1박 25만원, 비수기 1박 15만원"}])
+    assert card["slots"]["offerings"]["value"] == ["객실 2개"]
+    assert card["slots"]["price"]["value"] == "성수기 1박 25만원, 비수기 1박 15만원"
+
+
+def test_season_period_later_turn():
+    card, _ = _apply("객실 4개, 성수기 1박 25만원, 비수기 1박 15만원", [
+        {"slot": "offerings", "value": ["객실 4개"]},
+        {"slot": "price", "value": "성수기 1박 25만원, 비수기 1박 15만원"}])
+    card, _ = _apply("성수기는 7월 1일부터 8월 31일까지예요", [
+        {"slot": "features", "value": ["성수기 기간: 7월 1일 ~ 8월 31일"]}], card)
+    assert card["slots"]["price"]["value"] == "성수기(7/1~8/31) 1박 25만원, 비수기 1박 15만원"
+    assert "features" not in card["slots"]
+
+
+def test_named_room_and_other_industry_untouched():
+    card, _ = _apply("101호 주말특가 있어요, 1박 15만원", [
+        {"slot": "offerings", "value": ["101호 주말특가"]},
+        {"slot": "price", "value": "1박 15만원"}])
+    assert "101호 주말특가" in card["slots"]["offerings"]["value"]
+    cafe = E.new_card("cafe")
+    cafe["slots"]["offerings"] = {"value": ["주말 브런치"], "status": S.FILLED, "evidence": [1], "by": None}
+    assert not E._fold_season_rates(cafe, 1, None)
