@@ -125,11 +125,11 @@ def _notify(shop_id: str, text: str) -> None:
         with store.room_tx(room_id) as (room, _session):
             if room is not None:
                 rooms._append(room, "system", "손님 문의(채팅)",
-                              f"{text[:300]}\n(내 가게 > 채팅에서 답할 수 있어요)", kind="inquiry")
+                              f"{text[:300]}\n(사장님 화면 > 채팅에서 답할 수 있어요)", kind="inquiry")
     except Exception:
         log.exception("손님 채팅 채팅방 알림 실패")
     try:
-        notify.owner_kakao(room_id, f"새 채팅이 왔어요. 내 가게 > 채팅에서 답해 주세요.\n{link}")
+        notify.owner_kakao(room_id, f"새 채팅이 왔어요. 사장님 화면 > 채팅에서 답해 주세요.\n{link}")
     except Exception:
         log.exception("손님 채팅 카톡 알림 실패")
 

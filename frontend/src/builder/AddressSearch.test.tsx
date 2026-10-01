@@ -174,4 +174,16 @@ describe('AddressSearch', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog', { name: '주소 검색' })).toBeNull();
   });
+
+  it('바깥(어두운 곳)을 누르면 닫히고, 시트 안을 누르면 그대로다', async () => {
+    stubPostcode();
+    stubFetch(async () => okJson(CARD));
+    render(<AddressSearch roomId="r1" onSaved={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: '주소 검색' }));
+    const dialog = await screen.findByRole('dialog', { name: '주소 검색' });
+    fireEvent.click(dialog);
+    expect(screen.getByRole('dialog', { name: '주소 검색' })).toBeInTheDocument();
+    fireEvent.click(document.querySelector('.bd-addr-scrim') as Element);
+    expect(screen.queryByRole('dialog', { name: '주소 검색' })).toBeNull();
+  });
 });

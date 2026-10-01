@@ -88,7 +88,15 @@ describe('말로 고치기', () => {
   it('보내기 → POST /say, 말풍선, 미리보기 다시, agt-scroll+flash(focus), 칩 갱신', async () => {
     const says: unknown[] = [];
     const onFeatures = FEATURES.map((f) => (f.key === 'section:space' ? { ...f, on: true } : f));
+    // 다시 그리면 iframe이 새로 붙는다. 어느 iframe이든 같은 가짜 창으로 받는다.
+    const post = vi.fn();
+    vi.spyOn(HTMLIFrameElement.prototype, 'contentWindow', 'get').mockReturnValue({ postMessage: post } as unknown as Window);
+    let previews = 0;
     baseStub(async (url, init) => {
+      if (url.includes('/card/preview')) {
+        previews += 1;
+        return okJson({ ...PREVIEW, html: `${PREVIEW.html}<!--p${previews}-->` });
+      }
       if (url.includes('/say')) {
         says.push(JSON.parse(String(init?.body)));
         return okJson({
@@ -115,12 +123,13 @@ describe('말로 고치기', () => {
     expect(screen.getByRole('button', { name: '공간' })).toHaveAttribute('aria-pressed', 'true');
     // 미리보기를 다시 요청한다.
     await waitFor(() => expect(callsTo('/card/preview')).toHaveLength(2));
-    // 다 그린 뒤 바뀐 구역으로 스크롤·반짝한다.
-    const frame = (await screen.findByTitle('사이트 미리보기')) as HTMLIFrameElement;
-    const post = vi.fn();
-    Object.defineProperty(frame, 'contentWindow', { value: { postMessage: post }, configurable: true });
-    fireEvent.load(frame);
-    await waitFor(() => expect(post).toHaveBeenCalledWith({ type: 'agt-scroll', section: 'space' }, '*'));
+    // 다시 그린 iframe이 뜬 뒤 load → 바뀐 구역으로 스크롤·반짝한다 (옛 iframe을 잡으면 CI에서 가끔 놓친다).
+    await waitFor(() => {
+      const frame = screen.getByTitle('사이트 미리보기');
+      expect(frame.getAttribute('srcdoc')).toContain('<!--p2-->');
+      fireEvent.load(frame);
+      expect(post).toHaveBeenCalledWith({ type: 'agt-scroll', section: 'space' }, '*');
+    });
     expect(post).toHaveBeenCalledWith({ type: 'agt-flash', section: 'space' }, '*');
   });
 

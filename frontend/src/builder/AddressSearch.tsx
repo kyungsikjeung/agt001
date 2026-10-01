@@ -149,7 +149,12 @@ export default function AddressSearch({ roomId, onSaved }: AddressSearchProps) {
       </button>
       {/* 시트는 body로 꺼내 그린다: 헤더 안에 두면 fixed가 헤더 기준이 되어 잘리고 하단 줄 뒤로 깔린다 */}
       {open ? createPortal(
-        <div className="bd-addr-scrim">
+        <div
+          className="bd-addr-scrim"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) close(); // 바깥(어두운 곳)을 누르면 닫는다(우편번호 창 안에서는 Esc가 안 먹는다)
+          }}
+        >
           <div className="bd-addr-sheet" role="dialog" aria-label="주소 검색">
             <div className="bd-addr-top">
               <h2 className="bd-addr-title">주소 검색</h2>
