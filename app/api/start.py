@@ -19,6 +19,7 @@ from app.api import card as card_api
 from app.api import inquiries as inquiries_api
 from app.security import sanitize_token
 from app.services import chat_flow, design, funnel, prd_engine, rooms
+from app.services import photos as photos_svc
 
 router = APIRouter()
 S = prd_engine.S
@@ -35,6 +36,7 @@ class FeaturesIn(BaseModel):
     key: str = Field(default="", max_length=64)
     on: bool = False
     text: Optional[str] = Field(default=None, max_length=500)
+    photos: list[str] = Field(default=[], max_length=5)  # 공지 사진 주소 (NOTICE_PHOTO_CONTRACT §1-5)
 
 
 class PublishIn(BaseModel):
@@ -150,11 +152,17 @@ def _features(session: dict, card: dict, variant: str) -> list:
             out.append({"key": f"section:{node['id']}", "label": card_api._section_label(node, offer_label),
                         "kind": "section", "on": False, "locked": node["id"] in LE.LOCKED})
     req = session.get("requirement_id") or ""
+    notice = photos_svc.notice_of(card)
     out.append({"key": "notice", "label": "공지", "kind": "shop",
-                "on": bool((card.get("notice") or {}).get("text")), "needs_text": True})
+                # 글 또는 사진이 있으면 켜진 것으로 본다 (NOTICE_PHOTO_CONTRACT §1-5).
+                "on": bool(notice["text"] or notice["photos"]), "needs_text": True})
     from app.services import stamps
     out.append({"key": "stamps", "label": "스탬프", "kind": "shop",
                 "on": stamps.rule(req) is not None, "after_publish": True})
+    from app.services import guest_chat
+    # 채팅 칩 (GUEST_CHAT_CONTRACT §3의 3): 공개한 뒤 사장님 화면에서 켜고 끈다(기본 켜짐).
+    out.append({"key": "chat", "label": "채팅", "kind": "shop",
+                "on": guest_chat.enabled(req), "after_publish": True})
     if _is_pickup(card):
         from app.services import shop_settings
         out.append({"key": "order", "label": "온라인 주문", "kind": "shop",
@@ -243,6 +251,8 @@ def post_start(body: StartIn, request: Request):
         snapshot = copy.deepcopy(card)
         store.after_commit(lambda: threading.Thread(
             target=_render_drafts, args=(req, snapshot), daemon=True).start())
+        from app.services import art_lib  # 템플릿 항목의 태그 사진 (ART_LIB_CONTRACT §2-4)
+        store.after_commit(lambda: art_lib.prefetch(snapshot, rid, req))
     funnel.record("builder_start", props={"industry": template})
     return JSONResponse(content={"room_id": rid, "member_id": member_id,
                                  "builder_url": f"/start?room={rid}"}, headers=_NO_STORE)
@@ -287,10 +297,12 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                 focus = key[len("section:"):]
         elif key == "notice":
             if body.on:
+                # 글과 사진 중 하나는 있어야 한다 (NOTICE_PHOTO_CONTRACT §1-5).
                 text = (body.text or "").strip()
-                if not text:
-                    raise HTTPException(status_code=400, detail="공지 글을 적어 주세요")
-                changed = card_api.save_notice(card, text)
+                photos = [u for u in (body.photos or []) if str(u or "").strip()]
+                if not text and not photos:
+                    raise HTTPException(status_code=400, detail="공지 글이나 사진을 넣어 주세요")
+                changed = card_api.save_notice(card, text, photos=photos)
             else:
                 changed = card_api.save_notice(card, "")
             if changed:
@@ -298,7 +310,7 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                     room, session, safe, ["notice"], f"빌더에서 바꿨어요: 공지 {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
                               props={"kind": "notice", "ref": "notice", "choice": "on" if body.on else "off"})
-        elif key in ("stamps", "order"):
+        elif key in ("stamps", "order", "chat"):
             raise HTTPException(status_code=400, detail="공개한 뒤 사장님 화면에서 켤 수 있어요")
         else:
             raise HTTPException(status_code=400, detail="없는 기능이에요")

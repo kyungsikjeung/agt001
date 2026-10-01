@@ -86,6 +86,13 @@ def _db_schema():
 
 
 @pytest.fixture(autouse=True)
+def _isolated_generated_dir(tmp_path, monkeypatch):
+    # 모든 테스트가 빈 생성 폴더를 쓴다(client를 안 쓰는 테스트도). 개발 PC의 진짜 태그 사진 창고
+    # (generated/art-lib) 같은 파일이 그리기 결과를 바꾸지 않게 한다.
+    monkeypatch.setattr(settings, "generated_dir", tmp_path)
+
+
+@pytest.fixture(autouse=True)
 def _quote_enabled_by_default(monkeypatch):
     # 기존 흐름 테스트는 견적 단계를 거친다. 베타(견적 없음)는 test_beta_flow.py가 본다.
     monkeypatch.setattr(settings, "quote_enabled", True)
@@ -108,7 +115,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "ui_agent_enabled", False)
     # 사진을 올리면 뒤에서 시안을 다시 만드는데, 테스트 사이 DB 정리와 겹치지 않게 끈다(직접 부르는 테스트는 따로).
     from app.services import photos as photos_svc
-    monkeypatch.setattr(photos_svc, "_refresh_designs_async", lambda room_id, requirement_id: None)
+    monkeypatch.setattr(photos_svc, "_refresh_designs_async", lambda *a, **k: None)
     monkeypatch.setattr(codegen_svc, "start", fake_codegen_done)
     with TestClient(create_app()) as c:
         yield c

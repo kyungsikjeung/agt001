@@ -460,3 +460,76 @@ def coupon_list(site_key: str, request: Request, status: Optional[str] = None):
                         "used_at": r.used_at.isoformat() if r.used_at else None,
                         "expires_at": r.expires_at.isoformat() if r.expires_at else None})
         return {"coupons": out}
+
+
+# ── 손님 채팅 (GUEST_CHAT_CONTRACT §2-6) ──
+
+class ChatReplyIn(BaseModel):
+    text: str = Field(min_length=1, max_length=500)
+
+
+class ChatSettingsIn(BaseModel):
+    guest_chat_on: bool
+
+
+def _chat_call(fn, *args):
+    from app.services import guest_chat  # noqa: F401  (LookupError·ValueError만 바꾼다)
+    try:
+        return fn(*args)
+    except LookupError:
+        raise HTTPException(status_code=404)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/api/owner/shops/{site_key}/chats")
+def list_chats(site_key: str, request: Request):
+    from app.services import guest_chat
+    _, shop_id = _shop(request, site_key)
+    return {"chats": guest_chat.owner_list(shop_id)}
+
+
+@router.get("/api/owner/shops/{site_key}/chats/{thread_id}")
+def view_chat(site_key: str, thread_id: int, request: Request):
+    from app.services import guest_chat
+    _, shop_id = _shop(request, site_key)
+    return _chat_call(guest_chat.owner_view, shop_id, thread_id)
+
+
+@router.post("/api/owner/shops/{site_key}/chats/{thread_id}")
+def reply_chat(site_key: str, thread_id: int, body: ChatReplyIn, request: Request):
+    from app.services import guest_chat
+    _check_origin(request)
+    _, shop_id = _shop(request, site_key)
+    return _chat_call(guest_chat.owner_reply, shop_id, thread_id, body.text)
+
+
+@router.post("/api/owner/shops/{site_key}/chats/{thread_id}/{action}")
+def close_chat(site_key: str, thread_id: int, action: str, request: Request):
+    from app.services import guest_chat
+    _check_origin(request)
+    _, shop_id = _shop(request, site_key)
+    if action not in ("close", "block"):
+        raise HTTPException(status_code=404)
+    return _chat_call(guest_chat.owner_set_status, shop_id, thread_id, "closed" if action == "close" else "blocked")
+
+
+@router.get("/api/owner/shops/{site_key}/chat-settings")
+def get_chat_settings(site_key: str, request: Request):
+    from app.services import shop_settings
+    _shop(request, site_key)
+    return {"guest_chat_on": bool(shop_settings.get(site_key).get("guest_chat_on", True))}
+
+
+@router.post("/api/owner/shops/{site_key}/chat-settings")
+def set_chat_settings(site_key: str, body: ChatSettingsIn, request: Request):
+    """켜고 끄기는 가게 주인만(shop_settings.update가 확인한다)."""
+    from app.services import shop_settings
+    _check_origin(request)
+    user, _ = _shop(request, site_key)
+    try:
+        out = shop_settings.update(user["id"], site_key, guest_chat_on=body.guest_chat_on)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="가게 주인만 바꿀 수 있어요.")
+    return {"guest_chat_on": bool(out.get("guest_chat_on", True))}
+

@@ -3,19 +3,21 @@
 // D23 자리 표시는 "입력 필요" 배지, D24 사실 확인은 "확인 대기" 배지와 사실 표시로 보여준다.
 import { useEffect, useMemo, useState } from 'react';
 import { fetchCard, readMemberId, saveCard, statusLabel, type RoomCard } from './cardApi';
+import NoticePhotos from './NoticePhotos';
 import SiteEditor from './SiteEditor';
 
 /** 공지 띠·팝업 (D56): 사이트 맨 위 한 줄, 켜면 들어올 때 팝업(닫기)도. */
 function NoticeBox({ roomId, card, onSaved }: { roomId: string; card: RoomCard; onSaved: (c: RoomCard) => void }) {
   const [text, setText] = useState(card.notice?.text ?? '');
   const [popup, setPopup] = useState(card.notice?.popup ?? false);
+  const [photos, setPhotos] = useState<string[]>(card.notice?.photos ?? []);
   const [msg, setMsg] = useState('');
   async function save() {
     setMsg('');
     try {
-      const updated = await saveCard(roomId, readMemberId(), {}, { text, popup });
+      const updated = await saveCard(roomId, readMemberId(), {}, { text, popup, photos });
       onSaved(updated);
-      setMsg(text.trim() ? '공지를 저장했어요.' : '공지를 껐어요.');
+      setMsg(text.trim() || photos.length ? '공지를 저장했어요.' : '공지를 껐어요.');
     } catch {
       setMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
     }
@@ -23,8 +25,10 @@ function NoticeBox({ roomId, card, onSaved }: { roomId: string; card: RoomCard; 
   return (
     <section aria-label="공지">
       <h2>공지</h2>
-      <label htmlFor="ed-notice">사이트 맨 위에 보일 한 줄 (비우면 공지 없음)</label>
+      <p className="ed-hint">글이나 사진 중 하나는 넣어 주세요. 둘 다 비우면 공지가 꺼져요.</p>
+      <label htmlFor="ed-notice">사이트 맨 위에 보일 한 줄</label>
       <input id="ed-notice" className="ed-input" value={text} maxLength={200} placeholder="예: 10월 3일은 쉬어요" onChange={(e) => setText(e.target.value)} />
+      <NoticePhotos roomId={roomId} photos={photos} onChange={setPhotos} />
       <label className="ed-check">
         <input type="checkbox" checked={popup} onChange={(e) => setPopup(e.target.checked)} /> 들어올 때 팝업으로도 띄우기
       </label>

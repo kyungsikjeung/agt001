@@ -146,7 +146,7 @@ def test_put_notice_and_after_publish_chips(client):
     rid, headers = body["room_id"], _owner(body)
     r = client.put(f"/api/rooms/{rid}/features", json={"key": "notice", "on": True}, headers=headers)
     assert r.status_code == 400
-    assert r.json()["detail"] == "공지 글을 적어 주세요"
+    assert r.json()["detail"] == "공지 글이나 사진을 넣어 주세요"
     r = client.put(f"/api/rooms/{rid}/features",
                    json={"key": "notice", "on": True, "text": "10월 3일은 쉬어요"}, headers=headers)
     assert r.status_code == 200

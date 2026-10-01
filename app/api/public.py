@@ -1,4 +1,6 @@
 """헬스체크, 시안 페이지, 생성 사이트 서빙."""
+import re
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
@@ -6,6 +8,8 @@ from app.config import settings
 from app.security import sanitize_token
 
 router = APIRouter()
+
+_ART_TAG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+){0,3}$")
 
 
 # AI가 만든 페이지는 앱과 같은 주소에서 열리므로, 브라우저가 이 페이지를 "출처 없는 문서"로
@@ -138,6 +142,19 @@ def uploaded_photo(room_id: str, filename: str):
         raise HTTPException(status_code=404)
     return FileResponse(path, media_type="image/jpeg",
                         headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"})
+
+
+@router.get("/art-lib/{tag}.webp")
+def art_lib_image(tag: str):
+    # 태그 모양 검증: ^[a-z0-9]+(-[a-z0-9]+){0,3}$
+    if not _ART_TAG_PATTERN.match(tag):
+        raise HTTPException(status_code=404)
+    # art-lib 디렉터리에서 파일 확인
+    tag_file = settings.generated_dir / "art-lib" / f"{tag}.webp"
+    if not tag_file.is_file():
+        raise HTTPException(status_code=404)
+    return FileResponse(tag_file, media_type="image/webp",
+                        headers={"Cache-Control": "public, max-age=86400"})
 
 
 @router.get("/site/{requirement_id}")

@@ -71,7 +71,7 @@ def test_notice_set_and_clear(client):
     rid = _room(client)
     h = {"X-Member-Id": "owner"}
     r = client.put(f"/api/rooms/{rid}/card", json={"notice": {"text": "10월 3일은 쉬어요", "popup": True}}, headers=h)
-    assert r.json()["notice"] == {"text": "10월 3일은 쉬어요", "popup": True}
+    assert r.json()["notice"] == {"text": "10월 3일은 쉬어요", "photos": [], "popup": True}
     r = client.put(f"/api/rooms/{rid}/card", json={"notice": {"text": "", "popup": True}}, headers=h)
     assert r.json()["notice"] == {"text": "", "popup": False}
 

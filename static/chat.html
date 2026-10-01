@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>채팅 예약</title>
+<title>가게 채팅</title>
 <style>
   :root {
     --accent: #4338ca; --accent-soft: #eef2ff; --bg: #f7f7f8; --surface: #fff;
@@ -31,6 +31,9 @@
   .msg { max-width: 85%; padding: 10px 14px; border-radius: 16px; white-space: pre-line; font-size: 0.9375rem; }
   .bot { background: var(--surface); border: 1px solid var(--border); align-self: flex-start; border-bottom-left-radius: 4px; }
   .me { background: var(--accent); color: #fff; align-self: flex-end; border-bottom-right-radius: 4px; }
+  /* 사장님 답 (GUEST_CHAT_CONTRACT §3-1): 다른 색 + 이름표 */
+  .owner { background: #fff7ed; border: 1px solid #fdba74; align-self: flex-start; border-bottom-left-radius: 4px; }
+  .owner .who { display: block; font-size: 0.75rem; font-weight: 700; color: #9a3412; margin-bottom: 2px; }
   .chips { display: flex; flex-wrap: wrap; gap: 8px; align-self: flex-start; max-width: 100%; }
   .chips button {
     min-height: 44px; padding: 0 16px; border-radius: 999px; font-size: 0.9375rem; font-weight: 600;
@@ -60,8 +63,8 @@
 </head>
 <body>
 <header>
-  <h1 id="title">채팅 예약</h1>
-  <p>빈 시간은 실시간으로 계산해요. 예약 확정은 가게에서 알려 드려요.</p>
+  <h1 id="title">가게 채팅</h1>
+  <p>궁금한 것을 물어보세요. 모르는 것은 사장님이 직접 답해요.</p>
 </header>
 <div id="log" role="log" aria-live="polite"></div>
 <form id="f" autocomplete="off">
@@ -76,14 +79,62 @@
   const log = document.getElementById("log");
   const input = document.getElementById("t");
   let busy = false;
+  let lastId = 0;        // 화면에 반영한 마지막 글 번호(서버 기준)
+  let timer = null;      // 사장님 답 확인(4초)
+  let ownerMode = false;
+  let noted = false;     // 개인정보 안내는 처음 보낼 때 한 번
 
   function bubble(text, who) {
+    if (!text) return;   // 빈 답(연달아 보낸 글)은 말풍선을 만들지 않는다
     const d = document.createElement("div");
     d.className = "msg " + who;
-    d.textContent = text;
+    if (who === "owner") {
+      const w = document.createElement("span");
+      w.className = "who";
+      w.textContent = "사장님";
+      d.appendChild(w);
+      d.appendChild(document.createTextNode(text));
+    } else {
+      d.textContent = text;
+    }
     log.appendChild(d);
     log.scrollTop = log.scrollHeight;
   }
+
+  function note(text) {
+    const p = document.createElement("p");
+    p.className = "note";
+    p.textContent = text;
+    log.appendChild(p);
+  }
+
+  // 사장님 답 받아 오기: 내가 쓴 글·AI 답은 이미 보였으니 사장님 글만 새로 그린다.
+  async function poll(showAll) {
+    try {
+      const r = await fetch("/api/chat/" + encodeURIComponent(key) + "/messages?after=" + lastId,
+                            { credentials: "same-origin" });
+      if (!r.ok) return;
+      const data = await r.json();
+      for (const m of data.messages || []) {
+        if (showAll || m.sender === "owner") bubble(m.text, m.sender === "guest" ? "me" : m.sender === "owner" ? "owner" : "bot");
+        lastId = Math.max(lastId, m.id);
+      }
+      if (data.status === "owner") startPoll();
+      if (data.status === "blocked" || data.status === "closed") stopPoll();
+    } catch (e) { /* 다음 차례에 다시 */ }
+  }
+  function startPoll() {
+    ownerMode = true;
+    if (timer || document.hidden) return;
+    timer = setInterval(() => poll(false), 4000);
+  }
+  function stopPoll() {
+    if (timer) { clearInterval(timer); timer = null; }
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopPoll();
+    else if (ownerMode) { poll(false); startPoll(); }
+  });
 
   function chips(buttons) {
     log.querySelectorAll(".chips button").forEach(b => { b.disabled = true; });
@@ -105,6 +156,7 @@
     if (busy) return;
     busy = true;
     if (shown) bubble(shown, "me");
+    if (body.text && !noted) { noted = true; note("적어 주신 글은 가게에 전달되고 30일 뒤 지워져요."); }
     try {
       const r = await fetch("/api/chat/" + encodeURIComponent(key), {
         method: "POST", credentials: "same-origin",
@@ -115,6 +167,7 @@
       const data = await r.json();
       bubble(data.reply, "bot");
       chips(data.buttons);
+      if (data.mode === "owner") { await poll(false); startPoll(); }
     } catch (e) {
       bubble("연결이 잠시 끊겼어요. 다시 눌러 주세요.", "bot");
     } finally {
@@ -130,7 +183,8 @@
     send({ text }, text);
   });
 
-  send({}, null);
+  // 다시 열면 지난 대화를 먼저 보이고(사장님 답 포함), 인사·단추를 붙인다.
+  poll(true).finally(() => send({}, null));
 })();
 </script>
 </body>

@@ -1,13 +1,17 @@
-// 말로 고치기 입력줄 (SAY_CONTRACT §7).
+// 말로 고치기 입력줄 (SAY_CONTRACT §7, FIX_TAGS_CONTRACT §4.2).
 // 글 입력 + 보내기 + 마이크(voice.ts, 알아들은 글은 입력에만 넣고 자동 전송 없음).
 // 답은 칩 줄 위 말풍선(4초 뒤 흐려지고 누르면 다시), rejected는 말풍선 아래 작은 글,
 // undo:true면 다음 변경 전까지 되돌리기 버튼, 보내는 중엔 입력 잠금.
+// "고칠 곳" 단추 → 칩 줄(FixTags) → 고른 곳 표시 + 예시 글 → compose로 한 문장 보내기.
 import { useEffect, useRef, useState } from 'react';
-import { readMemberId, say, undoSay, type SayResponse, type UndoResponse } from '../editor/cardApi';
+import { getFixTargets, readMemberId, say, undoSay, type SayResponse, type UndoResponse } from '../editor/cardApi';
 import { useVoiceInput } from '../voice';
+import { FIX_NEW_KEY, FixTags, compose, type FixPart, type FixTarget } from './fixTags';
 
 export const SAY_MAX_LEN = 300;
 const FADE_MS = 4000;
+const DEFAULT_PH = '예: 메뉴에 빙수 넣어 줘';
+const PHOTO_NOTE = '미리보기에서 바꿀 사진을 눌러 주세요';
 
 export default function SayBar({
   roomId,
@@ -33,6 +37,16 @@ export default function SayBar({
   const [failed, setFailed] = useState('');
   const fadeTimer = useRef(0);
   const firstClear = useRef(true);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  // 고칠 곳 고르기 상태.
+  const [fixOpen, setFixOpen] = useState(false);
+  const [fixBusy, setFixBusy] = useState(false);
+  const [targets, setTargets] = useState<FixTarget[] | null>(null);
+  const [stage, setStage] = useState<FixTarget | null>(null);
+  const [selTarget, setSelTarget] = useState<FixTarget | null>(null);
+  const [selPart, setSelPart] = useState<FixPart | null>(null);
+  const [photoNote, setPhotoNote] = useState(false);
 
   const voice = useVoiceInput((text) => {
     setInput((prev) => (prev ? `${prev} ${text}` : text).slice(0, SAY_MAX_LEN));
@@ -60,17 +74,99 @@ export default function SayBar({
     showReply(reply);
   }
 
+  /** 고른 곳 표시. 새 항목이면 "칸 새 항목"이다. */
+  function selLabel(): string {
+    if (!selTarget) return '';
+    if (!selPart) return selTarget.label;
+    if (selPart.key === FIX_NEW_KEY) return `${selTarget.label} 새 항목`;
+    return selPart.label;
+  }
+
+  /** 예시 글은 그 칸의 지금 값이다. 없으면 기본 글이다. */
+  function placeholder(): string {
+    if (selTarget && selPart && selPart.key !== FIX_NEW_KEY) return selPart.label;
+    if (selTarget && selTarget.current) return selTarget.current;
+    return DEFAULT_PH;
+  }
+
+  function clearSel() {
+    setSelTarget(null);
+    setSelPart(null);
+  }
+
+  async function openFix() {
+    if (fixOpen || fixBusy) return;
+    setPhotoNote(false);
+    // 목록이 있으면 바로 연다.
+    if (targets) {
+      setStage(null);
+      setFixOpen(true);
+      return;
+    }
+    setFixBusy(true);
+    try {
+      const list = await getFixTargets(roomId, readMemberId());
+      setTargets(list);
+      setStage(null);
+      setFixOpen(true);
+    } catch {
+      // 목록 실패 땐 칩 없이 입력줄만 둔다.
+      setFixOpen(false);
+      inputRef.current?.focus();
+    } finally {
+      setFixBusy(false);
+    }
+  }
+
+  function pickTarget(t: FixTarget) {
+    if (t.key === 'photo') {
+      clearSel();
+      setFixOpen(false);
+      setStage(null);
+      setPhotoNote(true);
+      return;
+    }
+    if (t.parts.length > 0) {
+      setStage(t);
+      return;
+    }
+    setSelTarget(t);
+    setSelPart(null);
+    setStage(null);
+    setFixOpen(false);
+    inputRef.current?.focus();
+  }
+
+  function pickPart(t: FixTarget, p: FixPart | null) {
+    setSelTarget(t);
+    setSelPart(p ?? { key: FIX_NEW_KEY, label: '+ 새 항목' });
+    setStage(null);
+    setFixOpen(false);
+    inputRef.current?.focus();
+  }
+
+  function direct() {
+    setFixOpen(false);
+    setStage(null);
+    inputRef.current?.focus();
+  }
+
   async function send() {
     const text = input.trim().slice(0, SAY_MAX_LEN);
     if (!text || sending) return;
+    const body = selTarget ? compose(selTarget, selPart, text) : text;
+    if (!body) return;
     setSending(true);
     setFailed('');
     try {
-      const r = await say(roomId, readMemberId(), text);
+      const r = await say(roomId, readMemberId(), body);
       setRejected(r.rejected ?? []);
       setCanUndo(r.undo);
       showReply(r.reply);
       setInput('');
+      clearSel();
+      setFixOpen(false);
+      setStage(null);
       onApplied(r);
     } catch {
       setFailed('보내지 못했어요. 잠시 뒤 다시 말해 주세요.');
@@ -130,14 +226,51 @@ export default function SayBar({
           {failed}
         </p>
       ) : null}
+      {selTarget ? (
+        <p className="bd-fixsel">
+          고칠 곳: {selLabel()}{' '}
+          <button
+            type="button"
+            className="bd-fixsel-x"
+            aria-label="고른 곳 취소"
+            onClick={clearSel}
+          >
+            ✕
+          </button>
+        </p>
+      ) : null}
+      {photoNote && !selTarget ? (
+        <p className="bd-msg" role="status">
+          {PHOTO_NOTE}
+        </p>
+      ) : null}
+      {fixOpen && targets ? (
+        <FixTags
+          targets={targets}
+          active={stage}
+          onTarget={pickTarget}
+          onPart={pickPart}
+          onDirect={direct}
+        />
+      ) : null}
       <div className="bd-say-row">
+        <button
+          type="button"
+          className="ed-btn bd-say-fix"
+          aria-expanded={fixOpen}
+          disabled={fixBusy}
+          onClick={() => void openFix()}
+        >
+          고칠 곳
+        </button>
         <input
+          ref={inputRef}
           className="bd-say-input"
           type="text"
           value={input}
           maxLength={SAY_MAX_LEN}
           disabled={sending}
-          placeholder="예: 메뉴에 빙수 넣어 줘"
+          placeholder={placeholder()}
           aria-label="말로 고치기"
           onChange={(e) => setInput(e.target.value.slice(0, SAY_MAX_LEN))}
           onKeyDown={(e) => {

@@ -1,0 +1,1139 @@
+{
+  "coffee-americano": {
+    "words": [
+      "아메리카노",
+      "americano"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a cup of americano coffee on a wooden table, morning sunlight, shallow depth of field"
+  },
+  "coffee-latte": {
+    "words": [
+      "라떼",
+      "latte"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a latte with pouring milk art on a ceramic cup, cozy cafe atmosphere"
+  },
+  "coffee-espresso": {
+    "words": [
+      "에스프레소",
+      "espresso"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a shot of espresso in a small glass, dark crema, minimalist table"
+  },
+  "coffee-cappuccino": {
+    "words": [
+      "카푸치노",
+      "cappuccino"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a cappuccino with foam art, cinnamon on top, wooden table"
+  },
+  "coffee-mocha": {
+    "words": [
+      "모카",
+      "mocha"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a mocha in a clear glass, chocolate swirl, whipped cream on top"
+  },
+  "cake-shortcake": {
+    "words": [
+      "쇼트케이크",
+      "shortcake"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a strawberry shortcake on a white plate, fresh strawberries, afternoon tea"
+  },
+  "cake-chocolate": {
+    "words": [
+      "초코케이크",
+      "chocolate-cake"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a chocolate cake with chocolate glaze, on a wooden counter"
+  },
+  "pastry-croissant": {
+    "words": [
+      "크로와상",
+      "croissant"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a golden croissant on a wicker basket, French bakery style"
+  },
+  "pastry-muffin": {
+    "words": [
+      "머핀",
+      "muffin"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a blueberry muffin cut in half, moist interior, coffee side"
+  },
+  "pastry-donut": {
+    "words": [
+      "도넛",
+      "donut"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "glazed donut with sprinkles on a paper plate, coffee next to it"
+  },
+  "pasta-spaghetti": {
+    "words": [
+      "스파게티",
+      "spaghetti"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "a plate of spaghetti with tomato sauce and basil, Italian restaurant"
+  },
+  "pasta-oil": {
+    "words": [
+      "알리오올리오",
+      "aglio-olie",
+      "파스타오일"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "pasta aglio e olio with chili flakes, garlic and olive oil, white plate"
+  },
+  "pasta-carbonara": {
+    "words": [
+      "카본ara",
+      "carbonara"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "creamy carbonara with pancetta, grated pecorino, black pepper"
+  },
+  "pasta-cream": {
+    "words": [
+      "크림파스타",
+      "cream-pasta"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "fettuccine Alfredo with Parmesan cheese, white sauce"
+  },
+  "pizza-margherita": {
+    "words": [
+      "마르게리타피자",
+      "margherita-pizza"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "pizza margherita with fresh mozzarella, basil leaves, tomato sauce"
+  },
+  "pizza-pepperoni": {
+    "words": [
+      "페퍼로니피자",
+      "pepperoni-pizza"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "pepperoni pizza with extra cheese, hot from wood-fired oven"
+  },
+  "pizza-hawaiian": {
+    "words": [
+      "하와이피자",
+      "hawaiian-pizza"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "pizza with ham and pineapple, sweet and savory, wood-fired oven"
+  },
+  "salon-shampoo": {
+    "words": [
+      "샴푸",
+      "shampoo"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "shampoo bowl and mirror row, hairdresser working, bright salon"
+  },
+  "salon-cut": {
+    "words": [
+      "컷트",
+      "haircut"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "scissors cutting hair, client looking at mirror, salon chair"
+  },
+  "salon-color": {
+    "words": [
+      "컬러",
+      "color"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "hair color tube and brush, color wheel on wall, salon interior"
+  },
+  "salon-dry": {
+    "words": [
+      "드라이",
+      "blow-dry"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "blow dryer in action, concentrator nozzle, stylist hand"
+  },
+  "salon-perm": {
+    "words": [
+      "퍼머",
+      "perm"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "perm rods on head, woman reading magazine, salon station"
+  },
+  "workshop-tools": {
+    "words": [
+      "도구들",
+      "tools"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "wooden workbench with assorted tools, hammers and screwdrivers"
+  },
+  "workshop-pottery": {
+    "words": [
+      "도자기",
+      "pottery"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "pottery wheel in progress, clay on table, artisan's hands"
+  },
+  "workshop-wood": {
+    "words": [
+      "목공예",
+      "woodworking"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "wood pieces on workbench, hand plane, measuring tape"
+  },
+  "workshop-resin": {
+    "words": [
+      "레진공예",
+      "resin-art"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "resin molds and pigments, glitter, silicone forms on table"
+  },
+  "workshop-metal": {
+    "words": [
+      "금속가공",
+      "metal-work"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "metal table with welding tools, sparks, safety goggles"
+  },
+  "academy-class": {
+    "words": [
+      "수업",
+      "class"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "classroom with desks in rows, teacher at front, whiteboard visible"
+  },
+  "academy-study": {
+    "words": [
+      "자습",
+      "study"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "students studying at round tables, quiet atmosphere, books scattered"
+  },
+  "academy-library": {
+    "words": [
+      "학습관",
+      "library"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "study room with bookshelves, lamp, student sitting at desk"
+  },
+  "academy-computer": {
+    "words": [
+      "컴퓨터실",
+      "computer-room"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "computer lab with iMacs in row, students typing, large monitors"
+  },
+  "pension-room": {
+    "words": [
+      "펜션방",
+      "room"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "guest room with wooden bed, window view of mountains, cozy bedding"
+  },
+  "pension-exterior": {
+    "words": [
+      "펜션건물",
+      "exterior"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "pension building with red tile roof, green mountains background, dusk"
+  },
+  "pension-garden": {
+    "words": [
+      "정원",
+      "garden"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "small garden with benches, stone path, flower pots around pension"
+  },
+  "pension-terrace": {
+    "words": [
+      "테라스",
+      "terrace"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "wooden terrace table with city view, sunset, outdoor chairs"
+  },
+  "pension-balcony": {
+    "words": [
+      "발코니",
+      "balcony"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "balcony with railing, potted plants, view of sea or city"
+  },
+  "sign-hang": {
+    "words": [
+      "간판",
+      "sign",
+      "현수막"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "wooden signboard with cafe name, hung on wall, warm lighting"
+  },
+  "sign-logo": {
+    "words": [
+      "로고",
+      "logo"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "minimalist cafe logo on canvas, monochrome, simple typography"
+  },
+  "menu-set": {
+    "words": [
+      "세트메뉴",
+      "set-menu"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "set menu with soup salad drink and main dish, plated nicely"
+  },
+  "menu-course": {
+    "words": [
+      "코스메뉴",
+      "course-menu"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "multi-course dinner service, each plate artistic, candle light"
+  },
+  "room-single": {
+    "words": [
+      "원룸",
+      "studio"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "small studio room with single bed, desk by window, simple decor"
+  },
+  "room-double": {
+    "words": [
+      "더블룸",
+      "double-room"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "double bed room with window view, soft lighting, two nightstands"
+  },
+  "room-family": {
+    "words": [
+      "패밀리룸",
+      "family-room"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "family room with bunk beds, children playing, spacious layout"
+  },
+  "room-suite": {
+    "words": [
+      "스위트룸",
+      "suite"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "luxury suite with living area, king bed, panoramic window view"
+  },
+  "class-group": {
+    "words": [
+      "그룹수업",
+      "group-class"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "group learning session, students discussing around table, teacher guiding"
+  },
+  "class-oneone": {
+    "words": [
+      "1대1",
+      "one-on-one"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "one-on-one tutoring session, tutor and student, focused atmosphere"
+  },
+  "class-online": {
+    "words": [
+      "온라인수업",
+      "online-class"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "virtual class on video conference, screen sharing, remote students"
+  },
+  "style-cut": {
+    "words": [
+      "헤어스타일",
+      "hairstyle"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "fashionable haircut result, model looking at mirror, stylish salon interior"
+  },
+  "style-color": {
+    "words": [
+      "헤어컬러",
+      "hair-color"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "hair color result, vibrant color, model posing, salon lighting"
+  },
+  "style-perm": {
+    "words": [
+      "디지털펌",
+      "digital-perm"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "perm result on hair, bouncy curls, model looking away, soft light"
+  },
+  "style-set": {
+    "words": [
+      "헤어세팅",
+      "hair-set"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "updo hairstyle for event, hair accessories, elegant lighting, bride preparing"
+  },
+  "workshop-craft": {
+    "words": [
+      "공예품",
+      "craft"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "handmade ceramic vase on workbench, tools around, natural light"
+  },
+  "workshop-finish": {
+    "words": [
+      "완성품",
+      "finished"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "finished wooden chair, smooth surface, artisan signature on side"
+  },
+  "workshop-toolclose": {
+    "words": [
+      "도구근접",
+      "tool-closeup"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "close-up of hammer head and handle, wood grain detail, metallic shine"
+  },
+  "academy-exam": {
+    "words": [
+      "시험",
+      "exam"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "students taking exam at desks, quiet room, clock on wall, number 2 pencils"
+  },
+  "academy-ceremony": {
+    "words": [
+      "졸업식",
+      "graduation"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "graduation ceremony on stage, cap and diploma, family audience seated"
+  },
+  "pension-breakfast": {
+    "words": [
+      "조식",
+      "breakfast"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "breakfast table with Korean dishes, rice soup, kimchi, orange juice, sunny"
+  },
+  "pension-living": {
+    "words": [
+      "거실",
+      "living-room"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "living room with sofa and TV, large window, view of garden or sea"
+  },
+  "cafe-open": {
+    "words": [
+      "오픈",
+      "opening"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "new cafe opening ribbon cutting, people holding scissors, banner nearby"
+  },
+  "cafe-full": {
+    "words": [
+      "full-house",
+      "full-house"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "packed cafe, people sitting at all tables, busy atmosphere, steam from cups"
+  },
+  "coffee-brown": {
+    "words": [
+      "브라운",
+      "brown"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "brown latte in a brown cup, minimalist setup, warm tones"
+  },
+  "coffee-ice": {
+    "words": [
+      "아이스커피",
+      "iced-coffee"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "iced coffee with ice cubes, clear glass, summer vibe"
+  },
+  "coffee-frappe": {
+    "words": [
+      "프라페",
+      "frappe"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "blended frappe with whipped cream, chocolate drizzle, tall glass"
+  },
+  "coffee-pour": {
+    "words": [
+      "핸드드립",
+      "pour-over"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "hand pouring hot water over coffee grounds, dripper and server, ritual style"
+  },
+  "cake-cheese": {
+    "words": [
+      "치즈케이크",
+      "cheesecake"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "New York style cheesecake on a plate, graham crust, fresh berries"
+  },
+  "cake-mocha": {
+    "words": [
+      "모카케이크",
+      "mocha-cake"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "mocha flavored cake, chocolate drizzle, coffee bean garnish"
+  },
+  "pastry-baguette": {
+    "words": [
+      "바게트",
+      "baguette"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "french baguette on wooden board, sliced, olive oil and sea salt"
+  },
+  "pastry-ciabatta": {
+    "words": [
+      "치아바타",
+      "ciabatta"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "ciabatta bread with dimples, olive oil rosemary, rustic look"
+  },
+  "pasta-bolognese": {
+    "words": [
+      "볼로네즈",
+      "bolognese"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "spaghetti with meat bolognese sauce, tomato and minced meat"
+  },
+  "pasta-pepper": {
+    "words": [
+      "페페로니",
+      "peperoncino"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "spaghetti with spicy chili and garlic, olive oil base"
+  },
+  "pasta-seafood": {
+    "words": [
+      "해산물파스타",
+      "seafood-pasta"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "pasta with shrimp, mussels, clams, white wine sauce"
+  },
+  "pizza-veggie": {
+    "words": [
+      "채식피자",
+      "veggie-pizza"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "vegetable pizza with bell peppers, mushroom, olive, tomato sauce"
+  },
+  "pizza-quad": {
+    "words": [
+      "사각피자",
+      "sicilian"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "thick square-cut pizza, lots of cheese, tomato sauce inside"
+  },
+  "soup-tomato": {
+    "words": [
+      "토마토수프",
+      "tomato-soup"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "hot tomato soup in a bowl, basil leaf on top, cream swirl"
+  },
+  "soup-cream": {
+    "words": [
+      "크림수프",
+      "cream-soup"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "cream of mushroom soup, served in a cup, swirled cream"
+  },
+  "style-updo": {
+    "words": [
+      "업두",
+      "updo"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "elegant updo hairstyle for wedding, hairpins, soft romantic light"
+  },
+  "style-bob": {
+    "words": [
+      "보브",
+      "bob"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "short bob cut, sleek hair, model turning head, studio lighting"
+  },
+  "style-long": {
+    "words": [
+      "장발",
+      "long-hair"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "long flowing hair, woman brushing hair, beach background, soft light"
+  },
+  "workshop-jig": {
+    "words": [
+      "지게",
+      "jig"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "custom jig on workbench, metal piece clamped, drill guide ready"
+  },
+  "workshop-sand": {
+    "words": [
+      "샌딩",
+      "sanding"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "wooden board being sanded, dust particles in air, orbital sander"
+  },
+  "academy-debate": {
+    "words": [
+      "토론",
+      "debate"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "students in debate, hands raised, moderator at front, classroom style"
+  },
+  "academy-present": {
+    "words": [
+      "발표",
+      "presentation"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "student presenting on screen, audience, projector light, confident pose"
+  },
+  "pension-spa": {
+    "words": [
+      "스파",
+      "spa"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "indoor hot spring spa, tiled floor, steam, relaxing atmosphere"
+  },
+  "pension-kitchen": {
+    "words": [
+      "주방",
+      "kitchen"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "small kitchen area, coffee maker, refrigerator, table with food"
+  },
+  "sign-entrance": {
+    "words": [
+      "입구간판",
+      "entrance-sign"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "entrance signboard with arrow and cafe name, wooden, warm light"
+  },
+  "coffee-tea": {
+    "words": [
+      "티",
+      "tea"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "english tea set on saucer, teapot and lemon slice, afternoon tea"
+  },
+  "coffee-hot": {
+    "words": [
+      "핫초코",
+      "hot-chocolate"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "hot chocolate with marshmallows on a ceramic cup, cozy winter vibe"
+  },
+  "cake-roll": {
+    "words": [
+      "롤케이크",
+      "roll-cake"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "swiss roll cake with cream, sliced, on a stand, pastel color"
+  },
+  "pastry-scone": {
+    "words": [
+      "스콘",
+      "scone"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "plain scone with clotted cream and jam, tea plate, British style"
+  },
+  "pastry-eclair": {
+    "words": [
+      "에clair",
+      " éclair"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "chocolate eclair on a plate, glossy glaze, finger food"
+  },
+  "pasta-pesto": {
+    "words": [
+      "페스토",
+      "pesto"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "pasta with basil pesto sauce, pine nuts, parmesan, green vibrant"
+  },
+  "pizza-quattro": {
+    "words": [
+      "쿼attro",
+      "quattro-formaggi"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "four cheese pizza, mozzarella gorgonzola parmesan ricotta, white yellow"
+  },
+  "pizza-bianca": {
+    "words": [
+      "비앙카",
+      "pizza-bianca"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "white pizza with garlic olive oil mozzarella, no tomato, minimalist"
+  },
+  "steak-rare": {
+    "words": [
+      "스테이크 rare",
+      "steak-rare"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "steak rare on plate, juices running, garlic butter, black pepper"
+  },
+  "steak-well": {
+    "words": [
+      "스테이크 웰던",
+      "steak-well"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "steak well-done sliced, on wooden board, red wine reduction"
+  },
+  "soup-special": {
+    "words": [
+      "오늘의수프",
+      "soup-special"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "chef's special soup of the day, bowl, ladle, daily special board"
+  },
+  "style-upper": {
+    "words": [
+      "단발",
+      "bob-cut"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "short upper hair cut, neat contour, stylist holding mirror"
+  },
+  "style-trend": {
+    "words": [
+      "트렌드",
+      "trend-hair"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "trendy hair color pastel pink, model stylish, salon interior trendy"
+  },
+  "perm-curl": {
+    "words": [
+      "펌커브",
+      "perm-curl"
+    ],
+    "industry": [
+      "salon"
+    ],
+    "prompt": "curly perm result, bouncy curls, model laughing, soft light"
+  },
+  "workshop-drill": {
+    "words": [
+      "드릴",
+      "drill"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "power drill drilling wood, wood chips flying, corded or cordless"
+  },
+  "workshop-saw": {
+    "words": [
+      "톱",
+      "saw"
+    ],
+    "industry": [
+      "workshop"
+    ],
+    "prompt": "hand saw cutting wooden board, sawdust, carpenter's grip"
+  },
+  "academy-field": {
+    "words": [
+      "현장체험",
+      "field-trip"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "students on field trip, museum outside, guide explaining, backpacks"
+  },
+  "academy-group": {
+    "words": [
+      "소 그룹",
+      "small-group"
+    ],
+    "industry": [
+      "academy"
+    ],
+    "prompt": "small group discussion at round table, 3-4 students, focused"
+  },
+  "pension-view": {
+    "words": [
+      "뷰",
+      "view"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "room with large window view of sea, horizon, blue water, sunlight"
+  },
+  "pension-night": {
+    "words": [
+      "밤",
+      "night"
+    ],
+    "industry": [
+      "pension"
+    ],
+    "prompt": "pension at night, outdoor lights, stars visible, cozy atmosphere"
+  },
+  "pasta-arrabbiata": {
+    "words": [
+      "아라비아따",
+      "arrabbiata"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "spicy tomato sauce with chili garlic, spaghetti, hot and red"
+  },
+  "pasta-rose": {
+    "words": [
+      "로제파스타",
+      "로제 파스타",
+      "rose pasta"
+    ],
+    "industry": [
+      "restaurant"
+    ],
+    "prompt": "creamy tomato-based rosé pasta, bacon and onion, pink sauce"
+  },
+  "bread-salt": {
+    "words": [
+      "소금빵",
+      "시오빵",
+      "salt bread"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "golden Korean salt bread rolls with flaky sea salt on a wooden board"
+  },
+  "bread-croissant": {
+    "words": [
+      "크루아상",
+      "크로와상",
+      "croissant"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "buttery flaky croissants on a ceramic plate"
+  },
+  "bread-bagel": {
+    "words": [
+      "베이글",
+      "bagel"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "fresh sesame bagels on a wooden board with cream cheese"
+  },
+  "bread-loaf": {
+    "words": [
+      "식빵",
+      "우유식빵",
+      "loaf bread"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "a soft milk bread loaf sliced on a wooden board"
+  },
+  "bread-financier": {
+    "words": [
+      "휘낭시에",
+      "피낭시에",
+      "financier"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "small golden financier cakes on a white plate"
+  },
+  "bread-madeleine": {
+    "words": [
+      "마들렌",
+      "madeleine"
+    ],
+    "industry": [
+      "cafe"
+    ],
+    "prompt": "shell-shaped madeleines on a linen napkin"
+  }
+}

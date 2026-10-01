@@ -356,6 +356,8 @@ class ShopSettingsRow(Base):
     phone_verify: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     # 온라인 주문 받기 (PAY_WAVE3_CONTRACT §2.1). 켜기는 결제 준비가 돼 있을 때만.
     order_on: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # 손님 채팅 받기 (GUEST_CHAT_CONTRACT §1). 기본 켜짐.
+    guest_chat_on: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     solapi_key_enc: Mapped[Optional[str]] = mapped_column(Text)
     solapi_secret_enc: Mapped[Optional[str]] = mapped_column(Text)
     sms_sender: Mapped[Optional[str]] = mapped_column(Text)  # 숫자만
@@ -577,6 +579,43 @@ class AgentThreadRow(Base):
     shop_id: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), nullable=False)  # = site_key
     draft: Mapped[Optional[dict]] = mapped_column(JSONB)
     updated_at: Mapped[datetime.datetime] = _now_col()
+
+
+class GuestChatThreadRow(Base):
+    """손님 ↔ 사장님 대화 (GUEST_CHAT_CONTRACT §1). 손님은 쿠키 토큰의 해시로만 찾는다."""
+
+    __tablename__ = "guest_chat_threads"
+    __table_args__ = (
+        CheckConstraint("status IN ('ai', 'owner', 'closed', 'blocked')", name="ck_guest_chat_threads_status"),
+        UniqueConstraint("shop_id", "token_hash", name="uq_guest_chat_threads_shop_token"),
+        Index("ix_guest_chat_threads_shop_last", "shop_id", text("last_at DESC")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    shop_id: Mapped[str] = mapped_column(ForeignKey("shops.site_key", ondelete="CASCADE"), nullable=False)
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(Text, nullable=False, server_default="ai")  # ai·owner·closed·blocked
+    owner_unread: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    last_at: Mapped[datetime.datetime] = _now_col()
+    notified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class GuestChatMessageRow(Base):
+    """대화 한 줄. sender = guest·ai·owner, 글은 500자까지."""
+
+    __tablename__ = "guest_chat_messages"
+    __table_args__ = (
+        CheckConstraint("sender IN ('guest', 'ai', 'owner')", name="ck_guest_chat_messages_sender"),
+        CheckConstraint("char_length(text) BETWEEN 1 AND 500", name="ck_guest_chat_messages_text"),
+        Index("ix_guest_chat_messages_thread", "thread_id", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    thread_id: Mapped[int] = mapped_column(ForeignKey("guest_chat_threads.id", ondelete="CASCADE"), nullable=False)
+    sender: Mapped[str] = mapped_column(Text, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()
 
 
 class StampRuleRow(Base):

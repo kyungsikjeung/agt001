@@ -17,10 +17,11 @@ export interface CardPhoto {
   caption?: string | null;
 }
 
-/** 공지 띠·팝업 (D56). 빈 글이면 공지 없음. */
+/** 공지 띠·팝업 (D56) + 사진 (NOTICE_PHOTO_CONTRACT). 글·사진이 둘 다 비면 공지 없음. */
 export interface CardNotice {
   text: string;
   popup: boolean;
+  photos?: string[];
 }
 
 export interface RoomCard {
@@ -257,9 +258,11 @@ export async function putFeature(
   key: string,
   on: boolean,
   text?: string,
+  photos?: string[],
 ): Promise<FeatureUpdate> {
   const body: Record<string, unknown> = { key, on };
   if (text !== undefined) body.text = text;
+  if (photos && photos.length) body.photos = photos;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/features`, {
     method: 'PUT',
     credentials: 'same-origin',
@@ -357,7 +360,7 @@ export async function uploadPhoto(
   memberId: string | null,
   file: File,
   tag?: string,
-): Promise<void> {
+): Promise<{ id: string; url: string }> {
   const form = new FormData();
   form.append('file', file);
   if (tag) form.append('tag', tag);
@@ -367,4 +370,78 @@ export async function uploadPhoto(
     body: form,
   });
   if (!res.ok) throw new Error(`사진을 올리지 못했습니다 (${res.status})`);
+  const data = (await res.json().catch(() => ({}))) as { id?: unknown; url?: unknown };
+  return { id: String(data.id ?? ''), url: String(data.url ?? '') };
+}
+
+/** 주소 후보 1개 (MAP_CONTRACT §1). x는 경도, y는 위도. */
+export interface GeoCandidate {
+  road: string;
+  jibun: string;
+  x: number;
+  y: number;
+}
+
+/** 고른 도로명으로 좌표 후보를 찾는다. 주소 말만 보낸다(이름·전화 금지). */
+export async function geoSearch(
+  roomId: string,
+  memberId: string | null,
+  query: string,
+): Promise<GeoCandidate[]> {
+  const res = await fetch(
+    `/api/rooms/${encodeURIComponent(roomId)}/geo/search?q=${encodeURIComponent(query)}`,
+    { credentials: 'same-origin', headers: memberHeaders(memberId) },
+  );
+  if (!res.ok) throw new Error(`주소를 찾지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as { candidates?: unknown };
+  if (!data || !Array.isArray(data.candidates)) throw new Error('주소 모양이 맞지 않아요.');
+  return data.candidates as GeoCandidate[];
+}
+
+/** 주소 저장 본문 (MAP_CONTRACT §1). */
+export interface GeoSaveBody {
+  road: string;
+  jibun?: string;
+  detail?: string;
+  x?: number;
+  y?: number;
+  src: string;
+}
+
+/** 고른 주소를 저장한다. 답은 PUT /card와 같은 카드다. */
+export async function saveGeo(
+  roomId: string,
+  memberId: string | null,
+  body: GeoSaveBody,
+): Promise<RoomCard> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/geo`, {
+    method: 'PUT',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`저장하지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as RoomCard;
+  if (!data || !Array.isArray(data.fields)) throw new Error('카드 모양이 맞지 않아요.');
+  return data;
+}
+
+/** 고칠 곳 목록 1개 (FIX_TAGS_CONTRACT §2). 모양 검사는 여기서만 한다. */
+export async function getFixTargets(
+  roomId: string,
+  memberId: string | null,
+): Promise<import('../builder/fixTags').FixTarget[]> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/fix-targets`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`고칠 곳을 불러오지 못했습니다 (${res.status})`);
+  const data = (await res.json()) as { targets?: unknown };
+  if (!data || !Array.isArray(data.targets)) throw new Error('고칠 곳 모양이 맞지 않아요.');
+  for (const t of data.targets) {
+    const v = t as { key?: unknown; label?: unknown; current?: unknown; parts?: unknown };
+    if (typeof v.key !== 'string' || typeof v.label !== 'string') throw new Error('고칠 곳 모양이 맞지 않아요.');
+    if (typeof v.current !== 'string' || !Array.isArray(v.parts)) throw new Error('고칠 곳 모양이 맞지 않아요.');
+  }
+  return data.targets as import('../builder/fixTags').FixTarget[];
 }

@@ -36,6 +36,8 @@ class Settings(BaseSettings):
     rag_top_k: int = 1
     # nemotron-3-embed-1b, 기능 사례집 51개 자료 실측(2026-09-26): 관련 0.76~0.80, 무관 0.61~0.757(지도).
     rag_sim_threshold: float = 0.76
+    # 하루에 생성할 art-lib 사진 상한 (0=제한없음, D58 ③)
+    art_lib_daily_cap: int = 0
     precompute_embeddings: bool = True
 
     design_screenshot_timeout_ms: int = 60000
@@ -71,6 +73,8 @@ class Settings(BaseSettings):
 
     # 카카오·구글 로그인 (1-2). 값은 scripts/set_oauth_secrets.sh로 서버 .env에만 넣는다 (D10).
     kakao_rest_api_key: Optional[str] = None
+    # 공개 사이트·미리보기 지도 JS 키 (MAP_CONTRACT §4, REST 키와 다름, 화면에 그대로 나간다).
+    kakao_js_key: str = "db5e5247ff48a792df0cc393b4453c6d"
     kakao_client_secret: Optional[str] = None
     google_client_id: Optional[str] = None
     google_client_secret: Optional[str] = None

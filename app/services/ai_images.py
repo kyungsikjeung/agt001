@@ -16,6 +16,7 @@ import httpx
 from app import store
 from app.config import settings
 from app.services import funnel
+from app.services import photos
 
 log = logging.getLogger(__name__)
 
@@ -297,8 +298,8 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
     made, skipped = [], {}
     kind = E.industry_of(card).key
     wants = _wants(slot, card)
-    if card.get("photos"):
-        # 사장님 사진이 있으면 대표·사진첩 칸은 건너뛴다. 항목 그림은 계속 만든다.
+    if photos.site_photos(card):
+        # 사장님 사진이 있으면 대표·사진첩 칸은 건너뛴다(공지 사진은 대상 아님). 항목 그림은 계속 만든다.
         for s in wants:
             if s in SLOTS:
                 skipped[s] = "사장님 사진이 있어서 AI 이미지가 필요 없어요."
@@ -326,7 +327,6 @@ def ensure(room_id: str, slot: str, *, by_owner: bool = True) -> dict:
                       props={"industry": kind, "kind": s})
 
     if made and session.get("design_url"):
-        from app.services import photos
         photos.refresh_designs(room_id, session["requirement_id"])
 
     if made:

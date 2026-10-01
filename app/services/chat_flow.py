@@ -232,15 +232,20 @@ def _edit_after_design(session: dict, text: str, by, is_owner: bool) -> Optional
         return None
     ind = prd_engine.industry_of(card)
     labels = ", ".join(dict.fromkeys(prd_engine.S.label_for(ind, k) for k in applied))
+    geo_note = ""
+    if "location" in applied:
+        from app.services import geo  # 바뀐 주소를 카카오로 확인 (MAP_CONTRACT §2-5)
+        geo_note = geo.sync_location(card) or ""
+    tail = f"\n{geo_note}" if geo_note else ""
     if card.get("published"):
         from app.services.publish_check import PublishBlockedError
         try:
             design.publish_choice(session["requirement_id"], card, card["published"])
         except PublishBlockedError as e:
             return (f"반영했어요({labels}). 그런데 공개 전에 걸렀어요: " + "; ".join(e.reasons) + ". "
-                    "공개 사이트는 그대로 뒀어요.")
-        return f"반영했어요({labels}). 사이트에도 바로 바꿨어요: {session.get('deploy_url')}"
-    return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요."
+                    "공개 사이트는 그대로 뒀어요." + tail)
+        return f"반영했어요({labels}). 사이트에도 바로 바꿨어요: {session.get('deploy_url')}" + tail
+    return f"반영했어요({labels}). 공개할 때 이 내용으로 열게요." + tail
 
 
 _KAKAO_CHANNEL = re.compile(
@@ -561,6 +566,13 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
         return ("공개 전에 확인해 주세요. 아직 비어 있는 곳이 있어요: " + ", ".join(missing) + "\n"
                 "사이트에는 빈 곳을 빼고 보여 드려요. 빼려면 '○○은 빼주세요', "
                 "그대로 열려면 '그대로 공개'라고 보내 주세요.")
+    try:
+        from app.services import shops
+        # 가게 행을 공개 페이지보다 먼저 만든다: 첫 공개본부터 손님 채팅 단추가 붙는다(GUEST_CHAT G4 관찰).
+        # 예전 shop_settings._shop_name_of는 없어져 공개 때마다 실패하고 있었다(가게 행이 사장님 화면을 열 때야 생김)
+        shops.ensure(session["requirement_id"], shops._shop_name(session) or None, _publish_room_id(session))
+    except Exception:
+        log.exception("가게 행 만들기 실패 site=%s", session["requirement_id"])
     from app.services.publish_check import PublishBlockedError
     try:
         design.publish_choice(session["requirement_id"], card, choice)
@@ -575,11 +587,6 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
     reply = (f"사이트를 열었어요: {url}\n"
              f"{choice[1]}안({_variant_name(card, choice)}) 그대로예요. 문의 양식으로 온 글은 이 채팅방에 알려 드릴게요.")
     room_id = _publish_room_id(session)
-    try:
-        from app.services import shop_settings, shops
-        shops.ensure(session["requirement_id"], shop_settings._shop_name_of(session), room_id)
-    except Exception:
-        log.exception("가게 행 만들기 실패 site=%s", session["requirement_id"])
     if room_id is not None:
         base = (base_url or "").rstrip("/")
         reply += (f"\n사이트 고치기: {base}/editor?room={room_id}\n"
@@ -651,6 +658,14 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
     # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
     amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
     card = session.get("prd")
+    if card and card.get("slots") and room:
+        from app.services import art_lib  # 항목의 태그 사진을 뒤에서 (ART_LIB_CONTRACT §2-4)
+        art_lib.prefetch(card, room["room_id"], session.get("requirement_id") or "")
+    geo_note = ""
+    if card and card.get("slots"):
+        from app.services import geo  # 말한 주소를 카카오로 확인해 지도 좌표를 둔다 (MAP_CONTRACT §2-5)
+        geo_note = (geo.sync_location(card) or "")
+        geo_note = geo_note + "\n" if geo_note else ""
     if card and card.get("slots") and not card.get("copy") and _time_left():
         # 방안 3: 빈 소개·첫 화면 문구를 AI 초안으로(사실은 지어내지 않음). 실패하면 초안 없이 만든다.
         from app.services import copywriter
@@ -714,7 +729,7 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
         ("'더 고급스럽게'처럼 말로 디자인을 고칠 수도 있어요.\n" if card and card.get("concept") else "") +
         ("소개·첫 화면 문구는 AI 초안이에요. 방장은 '직접 고치기'에서 바꿀 수 있어요.\n"
            if (card or {}).get("copy") else "") +
-        _photo_later_reminder(card) +
+        _photo_later_reminder(card) + geo_note +
         # 예전 코드생성이 꺼져 있으면(운영 기본) 파일을 만들지 않으니 만든다고 말하지 않는다.
         ("뒤에서 사이트 파일도 함께 만들고 있어요(선택). "
          "다 되면 알려 드릴게요. 잠시 후 아무 말이나 보내 주시면 진행 상황을 알려 드려요."

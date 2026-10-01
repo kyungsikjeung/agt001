@@ -241,7 +241,7 @@ def test_published_booking_section_links_to_chat(client, monkeypatch):
 
 def test_pages_served(client):
     assert "예약 관리" in client.get("/owner").text
-    assert "채팅 예약" in client.get("/chat/abc123").text
+    assert "가게 채팅" in client.get("/chat/abc123").text
 
 
 def test_thread_purge(client):

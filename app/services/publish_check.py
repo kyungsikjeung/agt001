@@ -8,6 +8,10 @@
 import re
 
 _EXTERNAL_SCRIPT = re.compile(r"<script[^>]*\bsrc\s*=\s*[\"']https?://", re.I)
+# MAP_CONTRACT §4: 공개 지도 SDK 한 주소만 예외. 다른 외부 스크립트는 그대로 막는다.
+_MAP_SDK_SCRIPT = re.compile(
+    r"<script[^>]*\bsrc\s*=\s*([\"'])https://dapi\.kakao\.com/v2/maps/sdk\.js"
+    r"\?appkey=[A-Za-z0-9]+&autoload=false\1[^>]*>", re.I)
 _EXTERNAL_FORM = re.compile(r"<form[^>]*\baction\s*=\s*[\"']https?://", re.I)
 _META_REFRESH = re.compile(r"<meta[^>]*\bhttp-equiv\s*=\s*[\"']?refresh", re.I)
 _LOCATION_OUT = re.compile(
@@ -35,7 +39,7 @@ class PublishBlockedError(ValueError):
 
 def check_html(html_text: str) -> list[str]:
     """위반 사유 목록. 비어 있으면 게시해도 된다."""
-    text = html_text or ""
+    text = _MAP_SDK_SCRIPT.sub("", html_text or "")
     reasons = []
     if _EXTERNAL_SCRIPT.search(text):
         reasons.append("외부 스크립트가 들어 있어요")

@@ -171,6 +171,6 @@ describe('NoticeBox', () => {
     fireEvent.click(screen.getByRole('checkbox', { name: /팝업으로도 띄우기/ }));
     fireEvent.click(screen.getByRole('button', { name: '공지 저장' }));
     expect(await screen.findByText('공지를 저장했어요.')).toBeInTheDocument();
-    expect(sent[0]).toEqual({ fields: {}, notice: { text: '10월 3일은 쉬어요', popup: true } });
+    expect(sent[0]).toEqual({ fields: {}, notice: { text: '10월 3일은 쉬어요', popup: true, photos: [] } });
   });
 });

@@ -29,7 +29,7 @@ class SiteSpecError(ValueError):
 # "/uploads/"는 우리 사진 주소 전용 (contracts/ROOM_FEATURES_API.md §4).
 # "/art/"는 기본 제공 그림 주소 전용 (templates/art/, 외부 주소 아님).
 # 그 외 상대경로는 계속 막는다.
-_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/", "/art/")
+_URL_OK_PREFIXES = ("https://", "tel:", "sms:", "mailto:", "#", "/uploads/", "/art/", "/art-lib/")  # /art-lib/: 태그 사진 창고(ART_LIB)
 
 # 업종별 예시 그림 키 (작업 A1, design_variants._SAMPLE_FOR 업종 키와 같음).
 KIND_KEYS = ("pension", "cafe", "restaurant", "salon", "workshop",
@@ -293,16 +293,54 @@ def _app_tabs(nav: dict, bar: dict, body_ids: set) -> list:
     return [{"label": l, "href": h, "icon": _tab_icon(l)} for l, h in tabs] if len(tabs) >= 2 else []
 
 
-def _notice_popup(text: str) -> str:
-    """공지 팝업 (D56). 닫기만: 공개 사이트는 CSP sandbox(출처 없음)라 기기 저장소를 못 써
+_BELL = ('<svg class="s-notice__bell" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" '
+         'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+         '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>')
+
+
+def _notice_photos(notice: dict) -> list:
+    """공지 사진 주소 (NOTICE_PHOTO_CONTRACT §2): 이 사이트 올린 사진(/uploads/)만, 5장까지."""
+    raw = notice.get("photos") if isinstance(notice.get("photos"), list) else []
+    return [p for p in raw if isinstance(p, str) and p.startswith("/uploads/")][:5]
+
+
+def _notice_band(text: str, photos: list, can_open: bool) -> str:
+    """공지 띠: 종 아이콘 + (사진이면 첫 장 작은 그림) + 글. 팝업이 있으면 띠 전체가 여는 단추."""
+    thumb = (f'<img class="s-notice__thumb" src="{html.escape(photos[0], quote=True)}" alt="" '
+             'width="32" height="32" loading="lazy">' if photos else "")
+    label = html.escape(text) if text else f"사진 공지 {len(photos)}장"
+    inner = f'{_BELL}<span class="s-notice__label">공지</span>{thumb}<span class="s-notice__text">{label}</span>'
+    if can_open:
+        inner = f'<button type="button" class="s-notice__open" data-popup="open" aria-haspopup="dialog">{inner}</button>'
+    return f'<div class="s-notice" role="note">{inner}</div>'
+
+
+def _notice_popup(text: str, photos: list | None = None, auto_open: bool = True) -> str:
+    """공지 팝업 (D56 + 사진 넘기기). 닫기만: 공개 사이트는 CSP sandbox(출처 없음)라 기기 저장소를 못 써
     '오늘 하루 보지 않기'가 저장되지 않는다. 스크립트가 없으면 hidden 그대로라 띠만 보인다."""
+    photos = photos or []
+    body = f'<p class="s-popup__text">{html.escape(text)}</p>' if text else ""
+    if photos:
+        items = "".join(f'<li><img src="{html.escape(u, quote=True)}" alt="공지 사진 {i}" loading="lazy"></li>'
+                        for i, u in enumerate(photos, start=1))
+        body += f'<ul class="s-notice__photos">{items}</ul>'
+        if len(photos) > 1:
+            body += ('<ol class="s-notice__dots" aria-hidden="true">'
+                     + "".join('<li class="on"></li>' if i == 0 else "<li></li>" for i in range(len(photos))) + "</ol>")
+    auto = "1" if auto_open else "0"
     return (
-        '<div class="s-popup" id="s-popup" role="dialog" aria-modal="true" aria-labelledby="s-popup-title" hidden>'
-        '<div class="s-popup__panel"><p class="s-popup__kicker" id="s-popup-title">공지</p>'
-        f'<p class="s-popup__text">{html.escape(text)}</p>'
+        f'<div class="s-popup" id="s-popup" role="dialog" aria-modal="true" aria-labelledby="s-popup-title" '
+        f'data-auto="{auto}" hidden>'
+        f'<div class="s-popup__panel"><p class="s-popup__kicker" id="s-popup-title">공지</p>{body}'
         '<div class="s-popup__row"><button type="button" data-popup="close">닫기</button></div></div></div>'
-        "<script>(function(){var p=document.getElementById('s-popup');if(!p)return;p.hidden=false;"
-        "p.addEventListener('click',function(e){if(e.target===p||e.target.hasAttribute('data-popup'))p.hidden=true;});})();</script>"
+        "<script>(function(){var p=document.getElementById('s-popup');if(!p)return;"
+        "if(p.getAttribute('data-auto')==='1')p.hidden=false;"
+        "document.addEventListener('click',function(e){var t=e.target;"
+        "if(t&&t.closest&&t.closest('[data-popup=\"open\"]')){p.hidden=false;return;}"
+        "if(t===p||(t&&t.getAttribute&&t.getAttribute('data-popup')==='close'))p.hidden=true;});"
+        "var ul=p.querySelector('.s-notice__photos'),d=p.querySelectorAll('.s-notice__dots li');"
+        "if(ul&&d.length){ul.addEventListener('scroll',function(){var i=Math.round(ul.scrollLeft/Math.max(1,ul.clientWidth));"
+        "for(var k=0;k<d.length;k++)d[k].className=(k===i?'on':'');},{passive:true});}})();</script>"
     )
 
 
@@ -334,6 +372,19 @@ def _chat_url(content: dict, site_key: str) -> str:
     raw = raw.strip()
     if raw == f"/chat/{site_key}" or (raw.startswith("https://") and raw.endswith(f"/chat/{site_key}")):
         return raw
+    return ""
+
+
+def _guest_chat_url(site_key: str) -> str:
+    """손님 채팅 링크 (GUEST_CHAT_CONTRACT §2의 8). 공개된 가게+켜짐일 때만. 실패해도 렌더는 계속."""
+    if not site_key:
+        return ""
+    try:
+        from app.services import guest_chat
+        if guest_chat.enabled(site_key):
+            return f"/chat/{site_key}"
+    except Exception:
+        pass
     return ""
 
 
@@ -593,8 +644,27 @@ def _drop_examples(value):
     return value
 
 
-def _map_links(address: str) -> list:
-    """지도 앱 검색 링크 (키 필요 없음, D53②: 지도 그림은 아직 예시)."""
+def _geo_pair(geo) -> tuple | None:
+    """공개 지도 좌표 (MAP_CONTRACT §4). 숫자로 안 읽히면 없음."""
+    if not isinstance(geo, dict):
+        return None
+    try:
+        return (float(geo.get("x")), float(geo.get("y")))
+    except (TypeError, ValueError):
+        return None
+
+
+def _map_links(address: str, geo: tuple | None = None) -> list:
+    """지도 앱 검색 링크 (키 필요 없음, D53②: 지도 그림은 아직 예시).
+
+    좌표가 있으면 카카오맵 크게 보기 깊은 링크 한 개 (MAP_CONTRACT §4).
+    """
+    if geo is not None:
+        x, y = geo
+        # 이름에 쉼표가 있으면 링크 형식(이름,위도,경도)이 깨지므로 통째로 인코딩한다
+        name = quote(address.strip() or "가게", safe="")
+        return [{"label": "카카오맵에서 크게 보기",
+                 "href": f"https://map.kakao.com/link/map/{name},{y},{x}"}]
     if not address.strip():
         return []
     q = quote(address.strip())
@@ -934,6 +1004,11 @@ def _section_context(
     """
     key = f"{section_type}--{variant}"
     ctx: dict = {"id": section_id}
+    if section_type == "contact":
+        # 손님 채팅 링크 (GUEST_CHAT_CONTRACT §2의 8): 모든 연락 부품에 단추 하나.
+        url = _guest_chat_url(site_key)
+        if url:
+            ctx["guest_chat_url"] = url
     if section_type == "hero":
         ctx.update(_hero_context(content))
     elif section_type == "intro" and variant == "short":
@@ -990,7 +1065,14 @@ def _section_context(
         ctx["has_items"] = has_items
         if variant == "map":
             ctx["label"] = _text(content, "label")
-            ctx["links"] = _map_links(ctx["address"])
+            geo = _geo_pair(content.get("geo"))  # site_data가 location_geo에서 채운 좌표
+            if geo is not None:
+                ctx["has_geo"] = True
+                ctx["geo_x"], ctx["geo_y"] = (str(geo[0]), str(geo[1]))
+                ctx["map_key"] = settings.kakao_js_key
+                ctx["links"] = _map_links(ctx["address"], geo)
+            else:
+                ctx["links"] = _map_links(ctx["address"])
             ctx["has_links"] = bool(ctx["links"])
     elif section_type == "contact" and variant == "call-first":
         phone, digits = _phone_pair(content)
@@ -1439,13 +1521,16 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             rendered_parts.insert(0, chevron.render(ntemplate, _safe(nctx)))
 
     notice = spec.get("notice") if isinstance(spec.get("notice"), dict) else {}
-    notice_text = notice.get("text") if isinstance(notice.get("text"), str) else ""
-    if notice_text.strip():
-        # 공지 띠는 맨 위(내비 다음). 팝업은 켰을 때만, 스크립트가 없으면 띠만 보인다.
+    notice_text = (notice.get("text") if isinstance(notice.get("text"), str) else "").strip()
+    notice_photos = _notice_photos(notice)
+    if notice_text or notice_photos:
+        # 공지 띠는 맨 위(내비 다음). 팝업은 사진이 있거나 켰을 때만(편집 미리보기는 없음),
+        # 켰으면 들어올 때 한 번 열고, 사진만 있으면 띠를 누를 때 연다. 스크립트가 없으면 띠만 보인다.
+        with_popup = (notice.get("popup") is True or bool(notice_photos)) and not edit
         at = 1 if rendered_parts and rendered_parts[0].lstrip().startswith('<nav class="s-navbar"') else 0
-        rendered_parts.insert(at, f'<p class="s-notice" role="note"><strong>공지</strong> {html.escape(notice_text.strip())}</p>')
-        if notice.get("popup") is True and not edit:
-            rendered_parts.append(_notice_popup(notice_text.strip()))
+        rendered_parts.insert(at, _notice_band(notice_text, notice_photos, with_popup))
+        if with_popup:
+            rendered_parts.append(_notice_popup(notice_text, notice_photos, auto_open=notice.get("popup") is True))
     app_layout = spec.get("layout") == "app"
     bar = spec.get("actionbar")
     if app_layout:

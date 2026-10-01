@@ -87,9 +87,10 @@ def _kind_words(card: dict) -> str:
 
 
 def _owner_photos(card: dict) -> list:
-    """사장님 사진 (/uploads/로 시작하는 것만)."""
+    """사장님 사진 (/uploads/로 시작하는 것만). 공지 사진은 뺀다 (NOTICE_PHOTO_CONTRACT §1-2)."""
+    from app.services import photos as PH
     out = []
-    for photo in card.get("photos") or []:
+    for photo in PH.site_photos(card):
         if isinstance(photo, dict) and str(photo.get("url") or "").startswith("/uploads/"):
             out.append(photo)
     return out
@@ -115,6 +116,13 @@ def _item_image(card: dict, name: str, pack: dict, example: dict) -> dict:
     ai = _ai_url(card, "item:" + name)
     if ai:
         return {"image": ai, "image_alt": f"{name} 사진 (AI 예시)", "image_ai": True}
+    try:
+        from app.services import art_lib  # 태그 사진 창고 (ART_LIB_CONTRACT §2-5, 그리기 중 생성·LLM 없음)
+        lib = art_lib.pick(card, name)
+    except Exception:
+        lib = {}
+    if lib:
+        return lib
     return dict(example)
 
 
@@ -303,7 +311,7 @@ def _order_action(card: dict) -> str | None:
 
 
 def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool,
-                  order_action: str | None = None) -> None:
+                  order_action: str | None = None, card: dict | None = None) -> None:
     """catalog bind → offerings--categories. order_action이 있으면 주문 폼(order_form·순서·주문 가능)도 넣는다."""
     if sec.get("variant") == "list-price":
         content = {"label": sec.get("label") or ("시술·가격" if archetype == "B" else "메뉴"),
@@ -338,8 +346,16 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
         if not items:
             continue
         cat = {"name": str(group.get("name") or "")}
+        # 분류 대표 사진: 첫 메뉴의 사장님 사진 → AI 그림 → 태그 사진 창고(ART_LIB) → 업종 예시 팩
+        own = _item_image(card, items[0]["name"], pack, {}) if card and items[0].get("name") else {}
         photo = pack["photos"].get(f"category:{cat['name']}")
-        if photo:
+        if own.get("image"):
+            cat["image"] = own["image"]
+            cat["image_alt"] = f"{cat['name']} 사진" + (" (예시 이미지)" if own.get("image_example") else "")
+            for flag in ("image_example", "image_ai"):
+                if own.get(flag):
+                    cat[flag] = True
+        elif photo:
             cat["image"] = photo
             cat["image_alt"] = f"{cat['name']} 사진 (예시 이미지)"
             cat["image_example"] = True
@@ -739,6 +755,17 @@ def _fill_menu_photos(sec: dict, card: dict, data: dict, pack: dict) -> None:
     sec["content"] = {"label": sec.get("label") or "", "items": items}
 
 
+def _location_geo(card: dict) -> dict | None:
+    """공개 지도 좌표 (MAP_CONTRACT §1). placeholder면 없음."""
+    geo = card.get("location_geo")
+    if not isinstance(geo, dict) or geo.get("src") == "placeholder":
+        return None
+    try:
+        return {"x": float(geo.get("x")), "y": float(geo.get("y"))}
+    except (TypeError, ValueError):
+        return None
+
+
 def _location_items(phone: str, hours: str, archetype: str = "") -> list:
     """around--map에 붙는 전화·영업시간 (FILLED만, 없는 값은 뺀다)."""
     items = []
@@ -784,7 +811,7 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_hero(sec, card, pack, shop, detail, tagline, hours, address, primary, secondary,
                        archetype=archetype)
         elif bind == "catalog":
-            _fill_catalog(sec, data, pack, archetype, order, order_action)
+            _fill_catalog(sec, data, pack, archetype, order, order_action, card)
         elif bind == "staff":
             _fill_staff(sec, data, pack, booking_href)
         elif bind == "booking":
@@ -803,6 +830,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_signature(sec, card, data, pack)
         elif bind == "location":
             sec["content"] = {"address": address, "items": _location_items(phone, hours, archetype=archetype)}
+            geo = _location_geo(card)  # 좌표 있을 때만 공개 지도용으로 더한다
+            if geo is not None:
+                sec["content"]["geo"] = geo
         elif bind == "contact":
             sec["content"] = {"phone": phone, "hours": hours, "address": address}
         elif bind in ("space_photos", "style_photos"):
@@ -848,9 +878,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             actionbar["secondary"] = _action("오시는 길", _anchor(sections, around["id"]))
     if actionbar:
         out["actionbar"] = actionbar
-    notice = card.get("notice") if isinstance(card.get("notice"), dict) else {}
-    text = str(notice.get("text") or "").strip()
-    if text:
-        # 공지 띠·팝업 (D56, 사례집 notice_banner): 사장님이 쓴 글만. 팝업은 켰을 때만.
-        out["notice"] = {"text": text[:200], "popup": notice.get("popup") is True}
+    # 공지 글·사진. 사진 주소는 그대로 (NOTICE_PHOTO_CONTRACT §1-7).
+    from app.services import photos as PH
+    notice = PH.notice_of(card)
+    if notice["text"] or notice["photos"]:
+        out["notice"] = notice
     return out

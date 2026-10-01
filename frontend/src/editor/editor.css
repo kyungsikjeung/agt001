@@ -754,3 +754,12 @@
     margin-top: 0;
   }
 }
+
+/* 공지 사진 고르기 (NOTICE_PHOTO_CONTRACT §3) */
+.ed-notice-photos { display: grid; gap: 8px; margin: 8px 0; }
+.ed-notice-photos__list { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ed-notice-photos__list li { display: grid; gap: 4px; justify-items: center; }
+.ed-notice-photos__list img { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; border: 1px solid var(--ed-line); }
+.ed-notice-photos__list .ed-btn { min-height: 44px; padding: 6px 12px; }
+.ed-hint { margin: 4px 0; font-size: 14px; color: var(--ed-muted, #52525b); }
+

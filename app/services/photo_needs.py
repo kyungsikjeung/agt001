@@ -178,8 +178,8 @@ def photo_tags(card: dict) -> list[dict]:
 def valid_tag(card: dict, tag) -> bool:
     """올리기 태그가 지금 카드에 맞는지. 아니면 버린다."""
     try:
-        if tag in ("hero", "space"):
-            return True
+        if tag in ("hero", "space", "notice"):
+            return True  # notice 태그는 공지 사진용(D58)
         if isinstance(tag, str) and tag.startswith("item:"):
             return tag[5:] in [i["name"] for i in items(card)]
         return False

@@ -16,6 +16,7 @@ from app.services import funnel, rag
 mimetypes.add_type("image/webp", ".webp")
 from app.services import bookings as bookings_svc
 from app.services import chat_agent as chat_agent_svc
+from app.services import guest_chat as guest_chat_svc
 from app.services import customers as customers_svc
 from app.services import inquiries as inquiries_svc
 from app.services import phone_verify as phone_verify_svc
@@ -35,14 +36,15 @@ async def lifespan(_app: FastAPI):
     customers_svc.purge_orphans()
     phone_verify_svc.purge()
     chat_agent_svc.purge()
+    guest_chat_svc.purge()
     if settings.precompute_embeddings:
         rag.precompute()
     yield
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/api/inquiries/", "/api/bookings/", "/api/orders/", "/health")
-_GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/bookings/", "/api/orders/", "/health")
+_GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/")
 
 
 async def _split_hosts(request: Request, call_next):
