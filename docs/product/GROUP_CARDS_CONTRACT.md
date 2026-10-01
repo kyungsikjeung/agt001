@@ -35,7 +35,7 @@ flowchart TD
 | 4 | + 그룹 추가 | 목록 끝. 그룹은 10개까지 |
 | 5 | 새 그룹 이름 | 1~12자, 같은 이름 안 됨. 목록 끝에 붙는다 |
 | 6 | 사진 | 기본은 예시 사진. "사진 올리기"는 지금 업로드. "사진 없음"을 고르면 글만 카드 |
-| 7 | 그룹 옮기기 | 카드 안 "그룹" 고르기. 옮긴 그룹의 끝에 붙는다 |
+| 7 | 그룹 옮기기 | 카드 안 "그룹" 고르기. 그룹 안 순서는 항목 목록 순서를 따른다(새 항목은 끝) |
 | 8 | 그룹 이름 누름 | 이름 바꾸기(안의 항목이 따라간다), 위로·아래로, 지우기(안의 항목은 첫 그룹으로 간다고 확인) |
 
 ## 1. 데이터
@@ -63,18 +63,18 @@ flowchart TD
 
 | 번호 | 무엇 | 파일 |
 |---|---|---|
-| 1 | 항목 패널을 그룹 묶음으로 그린다. 그룹 머리(누르면 메뉴 열림) 아래 카드들, 그룹 끝 "+ 추가", 목록 끝 "+ 그룹 추가". 그룹이 하나도 없으면 지금처럼 한 목록 + "+ 그룹 추가" | `frontend/src/editor/SectionPanel.tsx` |
+| 1 | 항목 패널을 그룹 묶음으로 그린다(분류 구역 `catalog`만, 다른 항목 구역은 한 목록). 그룹 머리(누르면 메뉴 열림) 아래 카드들, 그룹 끝 "<그룹>에 새 항목", 목록 끝 "+ 그룹 추가". 그룹이 하나도 없으면 한 목록 + "+ 그룹 추가". 항목 목록은 `ItemList.tsx`로 옮겨 그리고 상태·저장은 SectionPanel이 갖는다 | `frontend/src/editor/ItemList.tsx`(신규), `SectionPanel.tsx` |
 | 2 | 카드: 이름·가격·설명(지금 칸), "그룹" 고르기(`select`), 사진 줄 = 작은 그림(내 사진·예시 사진) 또는 "사진 없음" 글 + "사진 올리기"(지금 업로드) + "예시 사진"/"사진 없음" 고르기(내 사진이 있으면 "사진 없음"만) | 같은 파일 |
 | 3 | 그룹 메뉴: 이름 바꾸기(같은 칸에서 바로), 위로·아래로, 지우기("안의 항목은 첫 그룹으로 가요. 지울까요?" 한 번 더 누름, `window.confirm` 안 씀) | 같은 파일 |
 | 4 | 저장 한 번에 `groups`(바뀌었을 때만, 이름 바꾼 것은 `rename`)와 `items` 바뀐 줄(지금 `buildItemOps`에 `group`·`photo` 더함)을 보낸다 | 같은 파일, `frontend/src/editor/cardApi.ts`(타입) |
-| 5 | 390px에서 넘침 없음, 누름 칸 44px, 그룹 머리는 제목 단계(`h3`) 안 단추, 사진 고르기는 `role="radiogroup"` | `frontend/src/editor/editor.css` |
+| 5 | 390px에서 넘침 없음, 누름 칸 44px, 그룹 머리는 "항목"(`h3`) 아래 `h4` 안 단추, 사진 고르기는 `fieldset`+`legend`+라디오 | `frontend/src/editor/editor.css` |
 
 ## 4. 작업 묶음
 
 | 묶음 | 파일(소유) |
 |---|---|
 | GC1 서버 | `app/api/card.py`(`ItemIn`·`GroupsIn`·`_apply_items`·`_apply_groups`·미리보기 `items`/`groups`), `app/services/card_data.py`(`_catalog`), `app/services/site_data.py`(`_item_image`·분류 대표), `tests/unit/test_group_cards.py`(신규) |
-| GC2 화면 | `frontend/src/editor/SectionPanel.tsx`(항목 패널), `frontend/src/editor/cardApi.ts`, `frontend/src/editor/editor.css`, `frontend/src/editor/SectionPanel.test.tsx` |
+| GC2 화면 | `frontend/src/editor/ItemList.tsx`(신규, 항목 패널), `SectionPanel.tsx`, `SiteEditor.tsx`(`groups` 넘기기), `cardApi.ts`, `editor.css`, `ItemList.test.tsx`(신규) |
 
 - GC2는 GC1의 API 모양(§2-1·2·6)만 알면 된다. 파일이 겹치지 않아 병렬로 할 수 있다.
 
@@ -97,4 +97,5 @@ flowchart TD
 | 날짜 | 내용 |
 |---|---|
 | 2026-10-01 | 처음 작성 (D58: 베타 뒤) |
+| 2026-10-01 | GC1·GC2 구현: 항목 패널을 `ItemList.tsx`로, 그룹 머리 `h4`, 그룹 안 순서는 항목 목록 순서 |
 | 2026-10-01 | 구현 전 보강: 이름에 쉼표·가운뎃점·빗금 금지, 그룹을 고치면 모든 항목을 보이는 그룹에 적어 둠, 그룹 비우기는 `rejected`, 분류 대표는 사진 없음이 아닌 첫 항목 |
