@@ -81,6 +81,12 @@ def old_landing():
     return RedirectResponse("/", status_code=308)
 
 
+@router.get("/admin", include_in_schema=False)
+def admin_page():
+    # 슈퍼 관리자 페이지 (ADMIN_PLAN §1.5). 권한은 페이지가 부르는 /api/admin/*에서 확인한다.
+    return FileResponse(settings.static_dir / "admin.html")
+
+
 @router.get("/settings", include_in_schema=False)
 def settings_page():
     # 사장님 가게 설정 페이지 (OWNER_SETTINGS_PLAN §1.5). 로그인은 페이지 안에서 확인한다.
