@@ -98,6 +98,9 @@ _EVENTS = {
     "site_published": lambda p: f"[공개] 새 사이트 {p.get('site', '')} · {p.get('industry', '')} · {p.get('variant', '')}안",
     "payment_mismatch": lambda p: f"[결제] 금액 불일치로 실패 처리 · 가게 {p.get('site', '')} · {p.get('reason', '')}",
     "webhook_bad_signature": lambda p: f"[결제] 웹훅 서명 실패 · {p.get('reason', '')}",
+    "quota_exceeded": lambda p: (f"[한도] 가게 {p.get('site', '')} · "
+                                 f"{ {'design': '시안 만들기', 'restyle': '디자인 고치기'}.get(p.get('kind'), p.get('kind', '')) } "
+                                 f"무료 횟수 넘김 {p.get('over', '')}회 (지불 의사 신호)"),
 }
 
 

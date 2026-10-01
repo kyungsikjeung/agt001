@@ -35,6 +35,15 @@ export interface RoomCard {
   site_url: string | null;
   can_edit: boolean;
   layout?: Record<string, { order?: string[]; hidden?: string[]; added?: string[] }>;
+  /** 무료 디자인 남은 횟수 (USAGE_QUOTA_CONTRACT §2-6). 예전 서버는 없다 */
+  quota?: CardQuota | null;
+}
+
+export interface CardQuota {
+  design: { left: number; total: number };
+  restyle: { left: number; total: number };
+  /** 다시 채워지는 날, 예: "11월 1일" */
+  resets: string;
 }
 
 /** 미리보기 구역 1개 (EDIT_WAVE2_CONTRACT §2.1). 숨긴 것까지 순서대로 온다. */

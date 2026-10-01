@@ -97,7 +97,17 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "layout": card.get("layout_edits") or {},
         "published": card.get("published"), "site_url": session.get("deploy_url") if card.get("published") else None,
         "can_edit": rooms.owner_id(room) == member_id,
+        "quota": _quota(session),
     }
+
+
+def _quota(session: dict):
+    """무료 디자인 남은 횟수 (USAGE_QUOTA_CONTRACT §2-6). 읽다 실패하면 빼고 보낸다."""
+    try:
+        from app.services import usage
+        return usage.left(session.get("requirement_id") or "") if session.get("requirement_id") else None
+    except Exception:
+        return None
 
 
 def _section_label(node: dict, offerings_label: str) -> str:

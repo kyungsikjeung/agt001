@@ -741,6 +741,10 @@ def apply(room: dict, session: dict, safe: str, ops: list) -> dict:
             changed.append("style")
             labels.append(said or "느낌 바꿈")
             kinds.append("style")
+            from app.services import usage  # 무료 디자인 고치기 장부 (D40)
+            quota = usage.note(usage.safe_use(session.get("requirement_id"), "restyle"), "restyle")
+            if quota:
+                notes.append(quota)
         elif kind == "variant":
             if op.get("variant") in VARIANTS and card.get("design_choice") != op["variant"]:
                 card["design_choice"] = op["variant"]

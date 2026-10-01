@@ -42,7 +42,9 @@ SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generat
                             # 빌더 말로 고치기(B5, 종류·출처만)
                             "builder_say",
                             # 온라인 결제 운영 신호(W5-B, 금액·결제 번호·전화 없음)
-                            "payment_mismatch", "webhook_bad_signature"})
+                            "payment_mismatch", "webhook_bad_signature",
+                            # 무료 한도를 넘긴 요청(D40 지불 의사 신호, 사이트 키·종류·넘친 수만)
+                            "quota_exceeded"})
 
 _TOKEN = re.compile(r"[^A-Za-z0-9_.:-]")
 _MAX_LEN = 64
@@ -50,7 +52,9 @@ _MAX_LEN = 64
 PROP_KEYS = frozenset({"site", "industry", "variant", "v1", "v2", "v3", "palette", "font_pair", "density", "radius",
                        "lead", "hero", "source", "kind", "ref", "verdict", "label", "choice",
                        # 음성 인식 카운터 전용: 실패 사유·숫자 포함 여부만(원문·IP 금지)
-                       "reason", "has_number"})
+                       "reason", "has_number",
+                       # 무료 한도 넘김(D40): 넘친 횟수(숫자)만
+                       "over"})
 # label만 한글을 받는다(못 담은 섹션 이름 등, D44). 숫자는 지운다(전화·주소·가격이 섞여 들어오지 않게).
 _LABEL = re.compile(r"[^A-Za-z가-힣 ]")
 _LABEL_MAX = 20

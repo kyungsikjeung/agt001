@@ -698,3 +698,24 @@ class StampEventRow(Base):
     coupon_id: Mapped[Optional[int]] = mapped_column(BigInteger, ForeignKey("coupons.id", ondelete="SET NULL"))
     by_user_id: Mapped[Optional[str]] = mapped_column(Text)
     created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class UsageLedgerRow(Base):
+    """무료 사용 한도 장부 (USAGE_QUOTA_CONTRACT §1, D40): 지급·사용·충전."""
+
+    __tablename__ = "usage_ledger"
+    __table_args__ = (
+        CheckConstraint("action IN ('design', 'restyle')", name="ck_usage_ledger_action"),
+        CheckConstraint("kind IN ('grant', 'use', 'topup')", name="ck_usage_ledger_kind"),
+        Index("ix_usage_ledger_site_month", "site_key", "month", "action"),
+        Index("uq_usage_ledger_grant", "site_key", "month", "action", unique=True,
+              postgresql_where=text("kind = 'grant'")),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)
+    month: Mapped[str] = mapped_column(Text, nullable=False)  # KST YYYY-MM
+    action: Mapped[str] = mapped_column(Text, nullable=False)  # design·restyle
+    kind: Mapped[str] = mapped_column(Text, nullable=False)  # grant·use·topup
+    amount: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()
