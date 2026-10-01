@@ -98,3 +98,23 @@ scripts/install_backup_pull.sh --uninstall
 
 로컬 덤프에서 복원할 때는 파일을 서버로 올린 뒤 §4와 같은 순서로 복원한다.
 복구 연습(분기 1회, 스테이징에만 복원)은 USER_DB_PLAN.md §A-3 절차를 따른다.
+
+## 7. 복구 연습 (`scripts/restore_drill.sh`, 로드맵 P2-6)
+
+덤프 하나를 **버리는 임시 컨테이너**(`agt001-restore-drill`, 127.0.0.1에만 열림)에 복원해 보고 1쪽 기록을 낸다.
+운영 compose·볼륨에는 닿지 않고, 끝나면 컨테이너를 지운다.
+
+```bash
+# Mac(오프사이트 사본) 또는 서버(DOCKER="sudo docker")에서
+scripts/restore_drill.sh ~/agt001-backups-offsite/agt001-<타임스탬프>.dump --migrate \
+  -o docs/product/evals/restore-drill-<날짜>.md
+```
+
+| 확인 | 합격 기준 |
+|---|---|
+| 덤프 읽힘 | `pg_restore --list` 항목 1개 이상 |
+| 복원 | `pg_restore` 오류 0, 걸린 시간 기록 |
+| 스키마 버전 | 덤프의 `alembic_version`과 저장소 최신을 비교(다르면 `--migrate`가 통과해야 함) |
+| 데이터 | 핵심 테이블 행 수 합이 0보다 큼, 마지막 채팅 시각으로 덤프 신선도 확인 |
+
+기록에는 행 수·시각·버전만 들어가고 사용자 데이터는 들어가지 않는다. 불합격이면 종료 코드 1.
