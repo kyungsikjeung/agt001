@@ -40,16 +40,16 @@ main { flex: 1; width: 100%; max-width: 980px; margin: 0 auto; }
   /* 위에 붙는 띠: 맨 위에선 투명(첫 화면에 녹아듦), 내려가면 진한 반투명 + 흐림 (GitHub 랜딩처럼).
      바탕은 ::before로 980px 칸 밖 화면 끝까지 칠한다(띠 아래로 열리는 로그인 메뉴는 안 잘린다). */
   position: sticky; top: 0; z-index: 30;
-  transition: padding 0.25s ease;
+  transition: padding 0.12s ease-out;
 }
 .topbar::before {
   content: ''; position: absolute; z-index: -1; inset: 0 -100vmax;
   background: transparent; border-bottom: 1px solid transparent;
-  transition: background-color 0.25s ease, border-color 0.25s ease;
+  transition: background-color 0.12s ease-out, border-color 0.12s ease-out;
 }
 .topbar--solid { padding-block: calc(10px + env(safe-area-inset-top, 0px)) 10px; }
 .topbar--solid::before {
-  background: rgba(10, 11, 12, 0.86); border-bottom-color: var(--line);
+  background: rgba(17, 18, 20, 0.94); border-bottom-color: var(--line);
   -webkit-backdrop-filter: saturate(140%) blur(14px);
   backdrop-filter: saturate(140%) blur(14px);
 }
