@@ -16,6 +16,7 @@ import {
 import AddressSearch from './AddressSearch';
 import FeatureChips from './FeatureChips';
 import PhotoSheet, { type PhotoSheetPick } from './PhotoSheet';
+import NoticePhotos from '../editor/NoticePhotos';
 import PublishBar from './PublishBar';
 import SayBar from './SayBar';
 import type { SayResponse, UndoResponse } from '../editor/cardApi';
@@ -52,6 +53,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   const [chipMsg, setChipMsg] = useState('');
   const [noticeKey, setNoticeKey] = useState<string | null>(null);
   const [noticeText, setNoticeText] = useState('');
+  const [noticePhotos, setNoticePhotos] = useState<string[]>([]);
   const [pubBusy, setPubBusy] = useState(false);
   const [pubResult, setPubResult] = useState<PublishResult | null>(null);
   const [siteUrl, setSiteUrl] = useState<string | null>(null);
@@ -130,14 +132,15 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     }
   }
 
-  async function sendChip(key: string, on: boolean, text?: string) {
+  async function sendChip(key: string, on: boolean, text?: string, photos?: string[]) {
     setChipBusy(key);
     setChipMsg('');
     try {
-      const r = await putFeature(roomId, readMemberId(), key, on, text);
+      const r = await putFeature(roomId, readMemberId(), key, on, text, photos);
       setFeatures(r.features);
       setNoticeKey(null);
       setNoticeText('');
+      setNoticePhotos([]);
       setChangeSeq((n) => n + 1);
       control.current?.reload(r.focus);
     } catch {
@@ -306,7 +309,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
         />
         <FeatureChips features={features} busyKey={chipBusy} onToggle={toggleChip} />
         {noticeChip ? (
-          <div className="bd-notice-sheet" role="dialog" aria-label="공지 글 적기">
+          <div className="bd-notice-sheet" role="dialog" aria-label="공지 적기">
             <label htmlFor="bd-notice-text">
               {noticeChip.label} 글
               <input
@@ -319,6 +322,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
                 onChange={(e) => setNoticeText(e.target.value)}
               />
             </label>
+            <NoticePhotos roomId={roomId} photos={noticePhotos} onChange={setNoticePhotos} />
             <div className="ed-sheet-row">
               <button type="button" className="ed-btn" onClick={() => setNoticeKey(null)}>
                 닫기
@@ -326,8 +330,8 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
               <button
                 type="button"
                 className="ed-btn ed-btn--primary"
-                disabled={chipBusy !== null || !noticeText.trim()}
-                onClick={() => void sendChip(noticeChip.key, true, noticeText.trim())}
+                disabled={chipBusy !== null || (!noticeText.trim() && noticePhotos.length === 0)}
+                onClick={() => void sendChip(noticeChip.key, true, noticeText.trim(), noticePhotos)}
               >
                 켜기
               </button>

@@ -17,10 +17,11 @@ export interface CardPhoto {
   caption?: string | null;
 }
 
-/** 공지 띠·팝업 (D56). 빈 글이면 공지 없음. */
+/** 공지 띠·팝업 (D56) + 사진 (NOTICE_PHOTO_CONTRACT). 글·사진이 둘 다 비면 공지 없음. */
 export interface CardNotice {
   text: string;
   popup: boolean;
+  photos?: string[];
 }
 
 export interface RoomCard {
@@ -257,9 +258,11 @@ export async function putFeature(
   key: string,
   on: boolean,
   text?: string,
+  photos?: string[],
 ): Promise<FeatureUpdate> {
   const body: Record<string, unknown> = { key, on };
   if (text !== undefined) body.text = text;
+  if (photos && photos.length) body.photos = photos;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/features`, {
     method: 'PUT',
     credentials: 'same-origin',
@@ -357,7 +360,7 @@ export async function uploadPhoto(
   memberId: string | null,
   file: File,
   tag?: string,
-): Promise<void> {
+): Promise<{ id: string; url: string }> {
   const form = new FormData();
   form.append('file', file);
   if (tag) form.append('tag', tag);
@@ -367,6 +370,8 @@ export async function uploadPhoto(
     body: form,
   });
   if (!res.ok) throw new Error(`사진을 올리지 못했습니다 (${res.status})`);
+  const data = (await res.json().catch(() => ({}))) as { id?: unknown; url?: unknown };
+  return { id: String(data.id ?? ''), url: String(data.url ?? '') };
 }
 
 /** 주소 후보 1개 (MAP_CONTRACT §1). x는 경도, y는 위도. */
