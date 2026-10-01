@@ -1,0 +1,19 @@
+# 저장소 공개 전 비밀값 검사 설정 (docs/product/REPO_PUBLIC_CHECK.md).
+# 기본 규칙에 아래 오탐만 뺀다. 새 예외는 이유를 적고 경로·값을 좁게 건다.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "확인된 오탐"
+paths = [
+  # 가짜 값으로 쓰는 테스트 (SOLAPIKEY1234, sk-abcdefgh12345678 등)
+  '''tests/unit/test_settings_api\.py''',
+  '''tests/unit/test_shop_settings\.py''',
+  '''tests/unit/test_publish_check\.py''',
+]
+regexes = [
+  # 카카오 JavaScript 키: 브라우저에 그대로 나가는 공개 키(카카오 콘솔에 등록된 도메인에서만 동작)
+  '''db5e5247ff48a792df0cc393b4453c6d''',
+  # 방 주인 표시용 브라우저 저장소 이름
+  '''agt001_claimed_''',
+]
