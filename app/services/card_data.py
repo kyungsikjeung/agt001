@@ -7,6 +7,7 @@ import re
 from typing import Optional
 
 from app.services import prd_engine as E
+from app.services import photos as PH
 from app.services import prd_schema as S
 from app.services.archetype import INDUSTRY_ARCHETYPE
 
@@ -245,7 +246,7 @@ def item_photo(card: dict, name: str):
     if not want:
         return None
     flat = want.replace(" ", "")
-    for photo in card.get("photos") or []:
+    for photo in PH.site_photos(card):  # 공지 사진은 항목 사진 후보에서 뺀다 (NOTICE_PHOTO_CONTRACT §1-2)
         if not isinstance(photo, dict):
             continue
         if not str(photo.get("url") or "").startswith("/uploads/"):

@@ -11,6 +11,7 @@ from app import store
 from app.api.auth import _check_origin
 from app.security import sanitize_token
 from app.services import design, prd_engine, rooms
+from app.services import photos as photos_svc
 
 router = APIRouter()
 S = prd_engine.S
@@ -24,6 +25,7 @@ VARIANTS = ("v1", "v2", "v3")
 class NoticeIn(BaseModel):
     text: str = ""
     popup: bool = False
+    photos: list[str] = Field(default=[], max_length=photos_svc.MAX_NOTICE)  # 공지 사진 주소, 최대 5장
 
 
 class ItemIn(BaseModel):
@@ -76,6 +78,7 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "title": DV.title_for(card) if card.get("slots") else "새 프로젝트", "industry": ind.name,
         "fields": fields, "photos": card.get("photos") or [], "photo_tags": photo_tags,
         "choice": card.get("design_choice"),
+        # 예전 {text, popup} 모양은 photos=[]로 읽는다 (NOTICE_PHOTO_CONTRACT §0).
         "notice": card.get("notice") or {"text": "", "popup": False},
         "layout": card.get("layout_edits") or {},
         "published": card.get("published"), "site_url": session.get("deploy_url") if card.get("published") else None,
@@ -367,10 +370,12 @@ def fix_targets(room_id: str, request: Request, x_member_id: Optional[str] = Hea
         if key == "photo":
             out.append({"key": "photo", "label": "사진", "current": "", "parts": []})
         elif key == "notice":
-            text = str((card.get("notice") or {}).get("text") or "").strip()
-            if not text:
+            # 글 또는 사진이 있으면 보인다. 지금 값은 글, 글이 없으면 사진 장수 (NOTICE_PHOTO_CONTRACT §1-6).
+            notice = photos_svc.notice_of(card)
+            shown = notice["text"] if notice["text"] else f"사진 {len(notice['photos'])}장"
+            if not notice["text"] and not notice["photos"]:
                 continue
-            out.append({"key": "notice", "label": "공지", "current": _fix_current(text), "parts": []})
+            out.append({"key": "notice", "label": "공지", "current": _fix_current(shown), "parts": []})
         elif key == "items":
             if not _fix_filled(card, "offerings"):
                 continue
@@ -419,7 +424,7 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                 prd_engine._put(card, key, value, S.FILLED, turn, "editor")
             changed.append(key)
         if body.notice is not None:
-            if save_notice(card, body.notice.text, body.notice.popup):
+            if save_notice(card, body.notice.text, body.notice.popup, body.notice.photos):
                 changed.append("notice")
         if body.items:
             if _apply_items(card, body.items, turn):
@@ -451,17 +456,35 @@ def _changed_label(ind, key: str) -> str:
     return S.label_for(ind, key)
 
 
-def save_notice(card: dict, text: str, popup: bool = False) -> bool:
-    """공지 저장 (W2 PUT /card와 빌더 PUT /features가 함께 쓴다). 바뀌면 True."""
+def save_notice(card: dict, text: str, popup: bool = False, photos=None) -> bool:
+    """공지 저장 (W2 PUT /card와 빌더 PUT /features가 함께 쓴다). 바뀌면 True.
+
+    사진은 이 카드에서 notice 태그로 올린 주소만 남기고 순서를 지키며 5장까지
+    (NOTICE_PHOTO_CONTRACT §1-3). 글과 사진이 둘 다 비면 공지를 끈다.
+    """
     clean = (text or "").strip()[:200]
-    new = {"text": clean, "popup": bool(popup and clean)} if clean else None
-    if new != card.get("notice"):
-        if new:
-            card["notice"] = new
-        else:
-            card.pop("notice", None)
-        return True
-    return False
+    allowed = set(photos_svc.notice_urls(card))
+    if photos is None and clean:
+        # photos를 안 준 글-only 고침은 지금 공지 사진을 그대로 둔다(말로 고치는 길).
+        photos = ((card.get("notice") or {}).get("photos")
+                  if isinstance(card.get("notice"), dict) else None) or []
+    kept = []
+    for url in (photos or []):  # 주어진 주소 중 이 카드의 notice 사진만, 순서 그대로 5장까지
+        value = str(url or "").strip()
+        if value and value in allowed and value not in kept:
+            kept.append(value)
+        if len(kept) >= photos_svc.MAX_NOTICE:
+            break
+    # 글과 사진이 둘 다 비면 공지를 끈다. 결과가 같으면 False.
+    new = {"text": clean, "photos": kept,
+           "popup": bool(popup and (clean or kept))} if (clean or kept) else None
+    if new == card.get("notice"):
+        return False
+    if new:
+        card["notice"] = new
+    else:
+        card.pop("notice", None)
+    return True
 
 
 def post_change_followup(room: dict, session: dict, safe: str, changed: list, message: str) -> None:

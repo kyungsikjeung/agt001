@@ -87,9 +87,10 @@ def _kind_words(card: dict) -> str:
 
 
 def _owner_photos(card: dict) -> list:
-    """사장님 사진 (/uploads/로 시작하는 것만)."""
+    """사장님 사진 (/uploads/로 시작하는 것만). 공지 사진은 뺀다 (NOTICE_PHOTO_CONTRACT §1-2)."""
+    from app.services import photos as PH
     out = []
-    for photo in card.get("photos") or []:
+    for photo in PH.site_photos(card):
         if isinstance(photo, dict) and str(photo.get("url") or "").startswith("/uploads/"):
             out.append(photo)
     return out
@@ -862,9 +863,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             actionbar["secondary"] = _action("오시는 길", _anchor(sections, around["id"]))
     if actionbar:
         out["actionbar"] = actionbar
-    notice = card.get("notice") if isinstance(card.get("notice"), dict) else {}
-    text = str(notice.get("text") or "").strip()
-    if text:
-        # 공지 띠·팝업 (D56, 사례집 notice_banner): 사장님이 쓴 글만. 팝업은 켰을 때만.
-        out["notice"] = {"text": text[:200], "popup": notice.get("popup") is True}
+    # 공지 글·사진. 사진 주소는 그대로 (NOTICE_PHOTO_CONTRACT §1-7).
+    from app.services import photos as PH
+    notice = PH.notice_of(card)
+    if notice["text"] or notice["photos"]:
+        out["notice"] = notice
     return out

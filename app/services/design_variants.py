@@ -15,6 +15,7 @@ from app.services import intake
 from app.services import layout_edits as LE
 from app.services import prd_engine as E
 from app.services import prd_schema as S
+from app.services import photos as PH
 
 # 종류별 출발 샘플. 가게 6업종은 같은 이름의 샘플, 나머지는 구성이 가장 가까운 것.
 _SAMPLE_FOR = {"individual": "workshop", "group": "academy", "webservice": "cafe", "other": "cafe"}
@@ -188,7 +189,8 @@ def _build_spec(card: dict, concept: dict) -> dict:
     detail = _fact(card, "detail")
     draft = card.get("copy") or {}  # AI 문구 초안(app/services/copywriter.py). 사장님이 말한 소개가 우선
     excluded = " ".join(_values(card, "exclude"))
-    photos = [p for p in card.get("photos") or [] if str(p.get("url", "")).startswith("/uploads/")]
+    # 공지 사진은 공지에서만 쓰고 첫 화면·사진첩에는 넣지 않는다 (NOTICE_PHOTO_CONTRACT §1-2).
+    photos = [p for p in PH.site_photos(card) if str(p.get("url", "")).startswith("/uploads/")]
     # 사장님 사진이 없으면 AI 예시 이미지를 쓴다(버튼으로 만든 것만, SVG 예시 그림보다 먼저).
     ai = card.get("ai_images") or {}
     ai_hero = str((ai.get("hero") or {}).get("url") or "")
@@ -523,7 +525,7 @@ def _representative_photo_path(card: dict) -> Path | None:
 
     예시 팩(/art/ex/)은 사장님 가게 사진이 아니라서 쓰지 않는다.
     """
-    for photo in card.get("photos") or []:
+    for photo in PH.site_photos(card):
         if isinstance(photo, dict):
             found = _photo_path_for_url(photo.get("url"))
             if found is not None:

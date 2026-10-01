@@ -19,6 +19,9 @@ MAX_SIDE = 1600
 MAX_PER_ROOM = 30
 ALLOWED_FORMATS = ("JPEG", "PNG", "WEBP")
 
+NOTICE_TAG = "notice"  # 공지 사진 태그 (NOTICE_PHOTO_CONTRACT §1-2)
+MAX_NOTICE = 5  # 공지 사진은 최대 5장
+
 
 class PhotoError(Exception):
     """사용자에게 보여 줄 한 줄."""
@@ -126,6 +129,56 @@ def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str
         rooms._append(room, member_id, nickname, "사진을 올렸어요" + (f": {caption}" if caption else ""),
                       kind="photo", meta={"photo": {"id": photo_id, "url": url}})
     return {"id": photo_id, "url": url}
+
+
+def site_photos(card: dict) -> list:
+    """카드 photos 중 공지 사진(tag == "notice")을 뺀 목록.
+
+    사이트·시안·사진 고치기가 사진 후보로 읽을 때 쓴다 (NOTICE_PHOTO_CONTRACT §1-2).
+    사진 개수 상한(MAX_PER_ROOM)과 채팅의 사진 질문은 전체 기준 그대로다.
+    """
+    try:
+        out = []
+        for photo in (card or {}).get("photos") or []:
+            if not isinstance(photo, dict):
+                continue
+            if photo.get("tag") == NOTICE_TAG:
+                continue
+            out.append(photo)
+        return out
+    except Exception:
+        return []
+
+
+def notice_urls(card: dict) -> list[str]:
+    """이 카드에서 notice 태그를 가진 사진 주소. 순서 그대로."""
+    try:
+        return [str(p.get("url")) for p in (card or {}).get("photos") or []
+                if isinstance(p, dict) and p.get("tag") == NOTICE_TAG
+                and str(p.get("url") or "").startswith("/uploads/")]
+    except Exception:
+        return []
+
+
+def notice_of(card: dict) -> dict:
+    """공지 {text, photos, popup}. 예전 {text, popup}은 photos=[]로 읽는다 (§0).
+
+    photos 는 이 카드의 notice 사진 주소만, 5장까지.
+    """
+    try:
+        raw = (card or {}).get("notice") if isinstance((card or {}).get("notice"), dict) else {}
+        text = str(raw.get("text") or "").strip()[:200]
+        allowed = set(notice_urls(card))
+        kept = []
+        for url in raw.get("photos") or []:
+            value = str(url or "").strip()
+            if value in allowed and value not in kept:
+                kept.append(value)
+            if len(kept) >= MAX_NOTICE:
+                break
+        return {"text": text, "photos": kept, "popup": raw.get("popup") is True}
+    except Exception:
+        return {"text": "", "photos": [], "popup": False}
 
 
 def remove(room_id_raw: str, member_id_raw: str, photo_id_raw: str) -> None:

@@ -94,7 +94,8 @@ def _path_for_url(url: str) -> Path | None:
 
 
 def _owner_urls(card: dict) -> set:
-    return {str(p.get("url")) for p in (card.get("photos") or [])
+    # 공지 사진은 고칠 대상 칸이 아니라 notice 태그로만 쓴다 (NOTICE_PHOTO_CONTRACT §1-2).
+    return {str(p.get("url")) for p in photos.site_photos(card)
             if isinstance(p, dict) and str(p.get("url") or "").startswith("/uploads/")}
 
 
@@ -342,7 +343,7 @@ def make_candidate(room_id: str, session: dict, target: dict, *,
 def _owner_photo(card: dict, slot: str, before_url: str) -> dict | None:
     """before 주소와 같은 사장님 사진. 없으면 None."""
     del slot
-    for photo in card.get("photos") or []:
+    for photo in photos.site_photos(card):  # 공지 사진은 대상이 아니다 (NOTICE_PHOTO_CONTRACT §1-2)
         if isinstance(photo, dict) and photo.get("url") == before_url:
             return photo
     return None
@@ -390,7 +391,7 @@ def undo(session: dict, target: str) -> dict:
         url = entry.pop("prev_url")
         entry["url"] = url
         return {"url": url}
-    for photo in card.get("photos") or []:
+    for photo in photos.site_photos(card):  # 공지 사진은 되돌리기 대상이 아니다
         if isinstance(photo, dict) and photo.get("prev_slot") == target and photo.get("prev_url"):
             url = photo.pop("prev_url")
             photo.pop("prev_slot", None)
