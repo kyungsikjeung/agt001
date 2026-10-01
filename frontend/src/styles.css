@@ -29,7 +29,7 @@ button:disabled { cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.page { min-height: 100dvh; display: flex; flex-direction: column; padding-inline: 16px; }
+.page { min-height: 100dvh; display: flex; flex-direction: column; padding-inline: 16px; overflow-x: clip; }
 main { flex: 1; width: 100%; max-width: 980px; margin: 0 auto; }
 
 /* 상단 */
@@ -37,6 +37,24 @@ main { flex: 1; width: 100%; max-width: 980px; margin: 0 auto; }
   width: 100%; max-width: 980px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
   padding-block: calc(14px + env(safe-area-inset-top, 0px)) 14px;
+  /* 위에 붙는 띠: 맨 위에선 투명(첫 화면에 녹아듦), 내려가면 진한 반투명 + 흐림 (GitHub 랜딩처럼).
+     바탕은 ::before로 980px 칸 밖 화면 끝까지 칠한다(띠 아래로 열리는 로그인 메뉴는 안 잘린다). */
+  position: sticky; top: 0; z-index: 30;
+  transition: padding 0.25s ease;
+}
+.topbar::before {
+  content: ''; position: absolute; z-index: -1; inset: 0 -100vmax;
+  background: transparent; border-bottom: 1px solid transparent;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+.topbar--solid { padding-block: calc(10px + env(safe-area-inset-top, 0px)) 10px; }
+.topbar--solid::before {
+  background: rgba(10, 11, 12, 0.86); border-bottom-color: var(--line);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  backdrop-filter: saturate(140%) blur(14px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar, .topbar::before { transition: none; }
 }
 .brand { font-weight: 700; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; font-size: 18px; }
 .ghost {

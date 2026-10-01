@@ -7,10 +7,12 @@ import { MSG, voiceSupported, useVoiceInput } from './voice';
 import { PHOTOS, photoBg } from './landing/photos';
 import HeroDemo from './landing/HeroDemo';
 import './landing.css';
+import { useScrolled } from './useScrolled';
 
 const MAX_LEN = 2000; // 서버 메시지 상한 (app/services/rooms.py MAX_MESSAGE_LEN)
 
 export default function Landing() {
+  const scrolled = useScrolled();
   const [text, setText] = useState('');
   const [templateId, setTemplateId] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
@@ -162,7 +164,7 @@ export default function Landing() {
 
   return (
     <div className="page">
-      <header className="topbar">
+      <header className={scrolled ? 'topbar topbar--solid' : 'topbar'}>
         <a className="brand" href="/">
           한마디
         </a>

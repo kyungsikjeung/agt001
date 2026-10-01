@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { claim, me, startLogin, type MeUser } from '../auth';
+import { useScrolled } from '../useScrolled';
 
 export interface Project {
   room_id: string;
@@ -72,6 +73,7 @@ async function fetchSummary(roomIds: string[], memberId: string | null, loggedIn
 }
 
 export default function ProjectsPage() {
+  const scrolled = useScrolled();
   const [user, setUser] = useState<MeUser | null>(null);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export default function ProjectsPage() {
 
   return (
     <div className="page">
-      <header className="topbar">
+      <header className={scrolled ? 'topbar topbar--solid' : 'topbar'}>
         <a className="brand" href="/">
           한마디
         </a>
