@@ -520,7 +520,11 @@
   border-color: var(--bd-edge);
 }
 .bd-page input::placeholder {
-  color: #7d7a73;
+  color: #9a968e;
+}
+/* 오류 글: 밝은 화면용 짙은 빨강(#8c2f2f)은 어두운 작업대에서 2:1로 거의 안 보임 → 밝은 빨강 */
+.bd-page :is(.bd-msg--error, .ed-error) {
+  color: #f2a0a0;
 }
 .bd-page .ed-banner-ok {
   background: rgba(120, 190, 150, 0.14);

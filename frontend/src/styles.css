@@ -119,7 +119,7 @@ h1 {
 .voice-status { min-height: 1em; margin: 10px auto 0; max-width: 720px; font-size: 13px; color: var(--muted); }
 .voice-status:empty { display: none; }
 .send:not(:disabled):active { transform: scale(0.97); }
-.error { margin: 12px 0 0; color: #c2410c; font-size: 14px; }
+.error { margin: 12px 0 0; color: #fb923c; font-size: 14px; }
 
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin: 22px auto 0; max-width: 720px; }
 .chip {
