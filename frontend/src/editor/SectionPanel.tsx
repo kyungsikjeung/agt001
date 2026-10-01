@@ -1,18 +1,21 @@
 // 보며 고치기 구역 패널 (EDIT_WAVE2_CONTRACT §4).
 // bind별로 칸을 열고, 아래에 구역 위로·아래로·숨기기를 둔다. locked면 공통 버튼을 그리지 않는다.
 import { useEffect, useState } from 'react';
+import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
   readMemberId,
   saveCard,
   uploadPhoto,
-  type CardItemEdit,
   type CardLayoutEdit,
   type PreviewAddable,
   type PreviewItem,
   type PreviewSection,
   type RoomCard,
 } from './cardApi';
+
+/** 그룹이 없을 때 (기본값을 매번 새 배열로 만들면 칸 다시 채우기가 끝없이 돈다) */
+const NO_GROUPS: string[] = [];
 
 /** 항목 목록을 쓰는 bind (계약 §4 2번). */
 const CATALOG_BINDS = ['catalog', 'classes', 'rooms', 'signature', 'menu_photos'];
@@ -56,15 +59,6 @@ function offeringNames(card: RoomCard): string[] {
     .filter((v) => v !== '');
 }
 
-interface ItemDraft {
-  key: number;
-  prevName: string;
-  name: string;
-  price: string;
-  note: string;
-  touched: boolean;
-}
-
 export interface SectionPanelProps {
   roomId: string;
   card: RoomCard;
@@ -72,6 +66,8 @@ export interface SectionPanelProps {
   addable: PreviewAddable[];
   added: string[];
   baseItems: PreviewItem[];
+  /** 지금 보이는 그룹 순서 (GROUP_CARDS_CONTRACT §2-6) */
+  baseGroups?: string[];
   variant: string;
   selectedId: string | null;
   clickedText: string;
@@ -86,6 +82,7 @@ export default function SectionPanel({
   addable,
   added: addedIds,
   baseItems,
+  baseGroups = NO_GROUPS,
   variant,
   selectedId,
   clickedText,
@@ -98,8 +95,8 @@ export default function SectionPanel({
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [items, setItems] = useState<ItemDraft[]>([]);
+  const [groups, setGroups] = useState<GroupDraft[]>([]);
   const [expanded, setExpanded] = useState<string[]>([]);
-  const [newName, setNewName] = useState('');
   const [confirmReset, setConfirmReset] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoBusy, setPhotoBusy] = useState(false);
@@ -112,17 +109,15 @@ export default function SectionPanel({
     for (const k of fieldKeys(kindOf(selected?.bind ?? ''))) d[k] = fieldVal(card, k);
     setDrafts(d);
     const names = offeringNames(card);
-    const base = new Map(baseItems.map((b) => [b.name, b]));
-    setItems(names.map((n, i) => ({
-      key: i, prevName: n, name: n, price: base.get(n)?.price ?? '', note: base.get(n)?.note ?? '', touched: false,
-    })));
+    const drafts = initDrafts(names, baseItems, baseGroups);
+    setItems(drafts.items);
+    setGroups(drafts.groups);
     const hit = clickedText.trim();
     setExpanded(hit && names.includes(hit) ? [hit] : []);
-    setNewName('');
     setError('');
     setInfo('');
     setConfirmReset(false);
-  }, [card, baseItems, clickedText, selected?.bind, selectedId]);
+  }, [card, baseItems, baseGroups, clickedText, selected?.bind, selectedId]);
 
   // 구역 고르기 전에도 "구역 더하기"가 쓰므로 조기 반환보다 앞에 둔다
   const orderIds = sections.map((s) => s.id);
@@ -217,40 +212,6 @@ export default function SectionPanel({
     }
   }
 
-  /** 항목 목록을 items ops로 바꾼다 (계약 §2.2). 손대지 않은 줄은 안 보낸다. */
-  function buildItemOps(orig: string[]): CardItemEdit[] {
-    const ops: CardItemEdit[] = [];
-    const kept = new Set(items.map((it) => it.prevName));
-    for (const name of orig) {
-      if (!kept.has(name)) ops.push({ name, remove: true });
-    }
-    for (const it of items) {
-      const name = it.name.trim();
-      if (!name) continue;
-      const isNew = !orig.includes(it.prevName);
-      if (isNew) {
-        const op: CardItemEdit = { name, add: true };
-        if (it.price.trim()) op.price = it.price.trim();
-        if (it.note.trim()) op.note = it.note.trim();
-        ops.push(op);
-      } else if (it.touched) {
-        if (name !== it.prevName) {
-          const op: CardItemEdit = { name: it.prevName, rename: name };
-          op.price = it.price.trim();
-          op.note = it.note.trim();
-          ops.push(op);
-        } else {
-          // 지운 가격·설명도 보낸다(빈 글 = 삭제). 그대로면 안 보낸다.
-          const was = baseItems.find((b) => b.name === name);
-          if (it.price.trim() !== (was?.price ?? '') || it.note.trim() !== (was?.note ?? '')) {
-            ops.push({ name, price: it.price.trim(), note: it.note.trim() });
-          }
-        }
-      }
-    }
-    return ops;
-  }
-
   async function saveContent() {
     setSaving(true);
     setError('');
@@ -261,15 +222,18 @@ export default function SectionPanel({
         const cur = drafts[k] ?? '';
         if (cur !== fieldVal(card, k)) fields[k] = cur;
       }
-      const ops = kind === 'catalog' ? buildItemOps(offeringNames(card)) : [];
-      if (Object.keys(fields).length === 0 && ops.length === 0) return;
-      const updated = await saveCard(
-        roomId,
-        readMemberId(),
-        fields,
-        undefined,
-        ops.length > 0 ? { items: ops } : undefined,
-      );
+      const ops = kind === 'catalog' ? buildItemOps(items, groups, offeringNames(card), baseItems) : [];
+      const groupsOp = kind === 'catalog' ? buildGroupsOp(groups, baseGroups) : null;
+      if (groupsOp) {
+        const bad = groupError(groups);
+        if (bad) {
+          setError(bad);
+          return;
+        }
+      }
+      if (Object.keys(fields).length === 0 && ops.length === 0 && !groupsOp) return;
+      const extra = ops.length > 0 || groupsOp ? { ...(ops.length > 0 ? { items: ops } : {}), ...(groupsOp ? { groups: groupsOp } : {}) } : undefined;
+      const updated = await saveCard(roomId, readMemberId(), fields, undefined, extra);
       onSaved(updated, selId);
       setInfo('저장했어요.');
     } catch {
@@ -293,14 +257,6 @@ export default function SectionPanel({
     } finally {
       setPhotoBusy(false);
     }
-  }
-
-  function toggleExpand(name: string) {
-    setExpanded((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
-  }
-
-  function patchItem(key: number, patch: Partial<ItemDraft>) {
-    setItems((prev) => prev.map((it) => (it.key === key ? { ...it, ...patch, touched: true } : it)));
   }
 
   return (
@@ -364,107 +320,19 @@ export default function SectionPanel({
         ) : null}
 
         {kind === 'catalog' ? (
-          <div className="ed-item-list">
-            <h3>항목</h3>
-            <ul>
-              {items.map((it) => {
-                const open = expanded.includes(it.prevName);
-                return (
-                  <li key={it.key} className="ed-item">
-                    <button type="button" aria-expanded={open} onClick={() => toggleExpand(it.prevName)}>
-                      {it.prevName}
-                    </button>
-                    {open ? (
-                      <div className="ed-item-form">
-                        <label className="ed-site-field">
-                          이름
-                          <input
-                            className="ed-input"
-                            type="text"
-                            value={it.name}
-                            maxLength={30}
-                            disabled={saving}
-                            onChange={(e) => patchItem(it.key, { name: e.target.value })}
-                          />
-                        </label>
-                        <label className="ed-site-field">
-                          가격
-                          <input
-                            className="ed-input"
-                            type="text"
-                            value={it.price}
-                            maxLength={20}
-                            placeholder="예: 4,500원"
-                            disabled={saving}
-                            onChange={(e) => patchItem(it.key, { price: e.target.value })}
-                          />
-                        </label>
-                        <label className="ed-site-field">
-                          설명
-                          <input
-                            className="ed-input"
-                            type="text"
-                            value={it.note}
-                            maxLength={80}
-                            disabled={saving}
-                            onChange={(e) => patchItem(it.key, { note: e.target.value })}
-                          />
-                        </label>
-                        <label className="ed-site-field ed-file">
-                          항목 사진 올리기
-                          <input
-                            type="file"
-                            accept="image/*"
-                            disabled={photoBusy}
-                            onChange={(e) => void onPhoto(e.target.files?.[0], `item:${it.name.trim() || it.prevName}`)}
-                          />
-                        </label>
-                        <button
-                          type="button"
-                          className="ed-btn"
-                          disabled={saving}
-                          onClick={() => setItems((prev) => prev.filter((x) => x.key !== it.key))}
-                        >
-                          빼기
-                        </button>
-                      </div>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-            <div className="ed-item-add">
-              <label className="ed-site-field" htmlFor={`ed-site-${selected.id}-new`}>
-                새 항목 이름
-                <input
-                  id={`ed-site-${selected.id}-new`}
-                  className="ed-input"
-                  type="text"
-                  value={newName}
-                  maxLength={30}
-                  disabled={saving}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </label>
-              <button
-                type="button"
-                className="ed-btn"
-                disabled={saving || !newName.trim()}
-                onClick={() => {
-                  const name = newName.trim();
-                  if (!name) return;
-                  setItems((prev) => [
-                    ...prev,
-                    { key: Date.now(), prevName: name, name, price: '', note: '', touched: true },
-                  ]);
-                  setExpanded((prev) => [...prev, name]);
-                  setNewName('');
-                }}
-              >
-                더하기
-              </button>
-            </div>
-          </div>
+          <ItemList
+            sectionId={selected.id}
+            items={items}
+            groups={groups}
+            grouped={selected.bind === 'catalog'}
+            saving={saving}
+            photoBusy={photoBusy}
+            expanded={expanded}
+            setItems={setItems}
+            setGroups={setGroups}
+            setExpanded={setExpanded}
+            onPhoto={(file, tag) => void onPhoto(file, tag)}
+          />
         ) : null}
 
         {kind === 'hero' || kind === 'catalog' || kind === 'location' || kind === 'contact' ? (

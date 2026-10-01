@@ -344,16 +344,20 @@ def _catalog(card: dict, industry_key: str) -> list:
 
     menu_categories가 FILLED면 분류 이름을 그 순서로 쓰고,
     낱말표로 못 넣는 품목은 첫 분류에 넣는다.
+    사장님이 그룹을 적은 항목(item_groups)은 그 그룹이 목록에 있을 때 그 그룹이다 (GROUP_CARDS_CONTRACT §2-4).
     """
     pairs = card.get("price_pairs") or {}
     durations = card.get("duration_pairs") or {}
     custom = _custom_categories(card)
+    pinned = card.get("item_groups") if isinstance(card.get("item_groups"), dict) else {}
     groups: dict = {}
     for item in _values(card, "offerings"):
         name = str(item)
-        cat = _classify(industry_key, name)
-        if custom and cat not in custom:
-            cat = custom[0]
+        cat = pinned.get(name)
+        if cat not in custom:
+            cat = _classify(industry_key, name)
+            if custom and cat not in custom:
+                cat = custom[0]
         price = pairs.get(name, "")
         groups.setdefault(cat, []).append(
             {"name": name, "price": price, "price_won": price_won(price),
@@ -363,6 +367,21 @@ def _catalog(card: dict, industry_key: str) -> list:
         ordered = [(c, groups[c]) for c in custom if c in groups] + \
             [(c, items) for c, items in ordered if c not in custom]
     return [{"name": cat, "source": "assumed", "items": items} for cat, items in ordered]
+
+
+def group_view(card: dict) -> tuple:
+    """편집기용 그룹 (GROUP_CARDS_CONTRACT §2-6): (그룹 순서, {항목 이름: 지금 보이는 그룹}).
+
+    순서 = 그룹 목록(빈 그룹 포함) + 그 밖에 보이는 분류(낱말표).
+    """
+    order = list(_custom_categories(card))
+    shown = {}
+    for cat in _catalog(card, E.industry_of(card).key):
+        if cat["name"] not in order:
+            order.append(cat["name"])
+        for it in cat["items"]:
+            shown[it["name"]] = cat["name"]
+    return order, shown
 
 
 def _parse_staff(value: str) -> dict:

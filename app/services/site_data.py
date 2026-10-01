@@ -103,8 +103,16 @@ def _ai_url(card: dict, slot: str) -> str:
     return url if isinstance(url, str) and url.startswith("/uploads/") else ""
 
 
+def _photo_off(card: dict | None, name: str) -> bool:
+    """사장님이 "사진 없음"을 고른 항목 (GROUP_CARDS_CONTRACT §1-3)."""
+    off = (card or {}).get("item_photo_off")
+    return isinstance(off, list) and name in off
+
+
 def _item_image(card: dict, name: str, pack: dict, example: dict) -> dict:
-    """항목 사진 고르는 순서 (BETA_FLOW §2.7): 사장님 사진 → AI 그림 → 예시 팩."""
+    """항목 사진 고르는 순서 (BETA_FLOW §2.7): 사장님 사진 → AI 그림 → 예시 팩. 사진 없음이면 그림 없음."""
+    if _photo_off(card, name):
+        return {"image_off": True}
     try:
         from app.services import card_data as card_data_module
         hit = card_data_module.item_photo(card, name)
@@ -346,9 +354,11 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
         if not items:
             continue
         cat = {"name": str(group.get("name") or "")}
-        # 분류 대표 사진: 첫 메뉴의 사장님 사진 → AI 그림 → 태그 사진 창고(ART_LIB) → 업종 예시 팩
-        own = _item_image(card, items[0]["name"], pack, {}) if card and items[0].get("name") else {}
-        photo = pack["photos"].get(f"category:{cat['name']}")
+        # 분류 대표 사진: 사진 없음이 아닌 첫 메뉴의 사장님 사진 → AI 그림 → 태그 사진 창고(ART_LIB) → 업종 예시 팩.
+        # 모두 사진 없음이면 대표도 없다 (GROUP_CARDS_CONTRACT §2-5)
+        first = next((it for it in items if not _photo_off(card, it["name"])), None)
+        own = _item_image(card, first["name"], pack, {}) if card and first else {}
+        photo = pack["photos"].get(f"category:{cat['name']}") if first else None
         if own.get("image"):
             cat["image"] = own["image"]
             cat["image_alt"] = f"{cat['name']} 사진" + (" (예시 이미지)" if own.get("image_example") else "")

@@ -285,6 +285,7 @@ export default function SiteEditor({
             addable={preview.addable}
             added={preview.layout?.added ?? []}
             baseItems={preview.items ?? []}
+            baseGroups={preview.groups}
             variant={variant}
             selectedId={pick.id}
             clickedText={pick.text}

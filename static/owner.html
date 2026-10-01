@@ -296,7 +296,7 @@
   function tab(name) {
     for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
     for (const p of ["bookings", "orders", "chats", "stamps", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
-    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+    chatStop();
     if (name === "bookings") loadBookings();
     if (name === "orders") loadOrders();
     if (name === "chats") { loadChatOn(); loadChats(); }
@@ -309,7 +309,7 @@
     if (b) tab(b.dataset.tab);
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) { if (chatTimer) { clearInterval(chatTimer); chatTimer = null; } }
+    if (document.hidden) chatStop();
     else if (isChatTab()) loadChats();
   });
 
@@ -414,7 +414,7 @@
 
   // ── 손님 채팅 ──
   const CHSTATUS = { ai: "AI 답함", owner: "사장님 대기", closed: "닫힘", blocked: "차단됨" };
-  let chatTimer = null, curChat = null;
+  let chatTimer = null, chatES = null, curChat = null;
   const isChatTab = () => { const t = $("tabs").querySelector('button[data-tab="chats"]'); return !!t && t.getAttribute("aria-selected") === "true"; };
   function chBadge(n) {
     const b = $("chats-badge");
@@ -463,9 +463,37 @@
       if (d && typeof d.guest_chat_on === "boolean") $("ch-on").value = d.guest_chat_on ? "on" : "off";
     } catch (e) { /* 없으면 그대로 */ }
   }
+  // 즉시 반영(SSE, GUEST_CHAT_CONTRACT §7): 대화 목록이 바뀌면 목록과 열어 둔 대화를 다시 그린다.
+  // EventSource가 없거나 연결이 영영 끊기면 예전처럼 10초마다 다시 부른다.
   function chatPoll() {
-    if (chatTimer || !isChatTab() || document.hidden) return;
-    chatTimer = setInterval(loadChats, 10000);
+    if (!isChatTab() || document.hidden) return;
+    if (window.EventSource && !chatTimer) {
+      if (chatES) return;
+      chatES = new EventSource(base() + "/chat-stream");
+      chatES.addEventListener("changed", () => { loadChats(); if (curChat != null) refreshChat(curChat); });
+      chatES.onerror = () => {
+        if (chatES && chatES.readyState === EventSource.CLOSED) { chatES = null; chatTimer = setInterval(loadChats, 10000); }
+      };
+      return;
+    }
+    if (!chatTimer) chatTimer = setInterval(loadChats, 10000);
+  }
+  function chatStop() {
+    if (chatTimer) { clearInterval(chatTimer); chatTimer = null; }
+    if (chatES) { chatES.close(); chatES = null; }
+  }
+  // 열어 둔 대화를 다시 그린다(쓰던 답은 그대로 둔다)
+  async function refreshChat(id) {
+    try {
+      const d = await api(base() + "/chats/" + encodeURIComponent(id));
+      if (curChat !== id) return;
+      $("ch-status").textContent = CHSTATUS[d.status] || d.status;
+      $("ch-msgs").replaceChildren();
+      for (const m of d.messages || []) chMsg(m.text, m.sender);
+      const ended = d.status === "blocked" || d.status === "closed";
+      $("ch-text").disabled = ended;
+      $("ch-form").querySelector("button").disabled = ended;
+    } catch (e) { /* 다음 알림에 다시 */ }
   }
   async function openChat(id) {
     curChat = id;

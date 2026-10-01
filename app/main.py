@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import mimetypes
 from contextlib import asynccontextmanager
@@ -10,7 +11,7 @@ from app import store
 from app.db import migrate as db_migrate
 from app.api import auth, bookings, callbot, card, chat, chat_agent, events, inquiries, orders, owner, projects, public, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
-from app.services import funnel, rag
+from app.services import funnel, ops_alert, rag
 
 # 서버 파이썬에 webp가 없어 예시 사진이 application/octet-stream으로 나갔다(카톡 미리보기가 그림으로 못 읽음)
 mimetypes.add_type("image/webp", ".webp")
@@ -22,13 +23,14 @@ from app.services import inquiries as inquiries_svc
 from app.services import phone_verify as phone_verify_svc
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger(__name__)
+
+# 보관 기간이 지난 기록을 지우는 간격. 서버를 오래 안 껐다 켜도 개인정보처리방침 3항 기간을 넘기지 않게 한다.
+PURGE_EVERY_SEC = 24 * 3600
 
 
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    if settings.run_migrations_on_startup:
-        db_migrate.upgrade_head()
-    store.recover_on_startup()
+def _purge_all() -> None:
+    """보관 기간 지난 기록 지우기 (개인정보처리방침 3항): 서버가 뜰 때와 그 뒤 하루에 한 번."""
     funnel.purge_expired()
     store.purge_chat_turns()
     inquiries_svc.purge_expired()
@@ -37,9 +39,29 @@ async def lifespan(_app: FastAPI):
     phone_verify_svc.purge()
     chat_agent_svc.purge()
     guest_chat_svc.purge()
+
+
+async def _purge_daily() -> None:
+    while True:
+        await asyncio.sleep(PURGE_EVERY_SEC)
+        try:
+            await asyncio.to_thread(_purge_all)
+        except Exception:
+            log.exception("보관 기간 지난 기록을 지우지 못함 — 다음 날 다시 한다")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    ops_alert.install()  # ERROR 로그를 운영자 텔레그램으로 (OPS_ALERT_CONTRACT, 켜져 있을 때만)
+    if settings.run_migrations_on_startup:
+        db_migrate.upgrade_head()
+    store.recover_on_startup()
+    _purge_all()
     if settings.precompute_embeddings:
         rag.precompute()
+    purge_task = asyncio.create_task(_purge_daily())
     yield
+    purge_task.cancel()
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.

@@ -364,6 +364,21 @@ def list_variants() -> list:
     return sorted(_bundle()["templates"].keys())
 
 
+def app_link(path: str) -> str:
+    """공개 사이트에서 앱 페이지(채팅 등)로 가는 링크.
+
+    공개 사이트는 미리보기 주소에서 열리고, 미리보기 주소는 앱 경로를 열지 않는다(main._split_hosts → 404).
+    그래서 앱 주소(PUBLIC_BASE_URL, https)로 절대 주소를 만든다. 주소를 나눴는데 앱 주소를 모르면 빈 글
+    (링크를 빼서 404를 막는다). 주소를 나누지 않는 개발 환경은 상대 주소.
+    """
+    base = (settings.public_base_url or "").strip().rstrip("/")
+    if base.startswith("https://"):
+        return f"{base}{path}"
+    if settings.preview_host:
+        return ""
+    return path
+
+
 def _chat_url(content: dict, site_key: str) -> str:
     """예약 채팅 링크 (BOOKING_BOT_IMPL_PLAN CH-1). https 주소이거나 이 가게의 /chat/<key>만 받는다."""
     raw = content.get("chat_url") if isinstance(content, dict) else None
@@ -382,7 +397,7 @@ def _guest_chat_url(site_key: str) -> str:
     try:
         from app.services import guest_chat
         if guest_chat.enabled(site_key):
-            return f"/chat/{site_key}"
+            return app_link(f"/chat/{site_key}")
     except Exception:
         pass
     return ""
@@ -884,6 +899,7 @@ def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
             one["image_alt"] = alt_raw if isinstance(alt_raw, str) and alt_raw else "상품 사진"
             one["image_ai"] = entry.get("image_ai") is True
             one["image_example"] = bool(one["image_src"]) and entry.get("image_example") is True  # D51 ③
+            one["image_off"] = not one["image_src"] and entry.get("image_off") is True  # 사진 없음: 빈 칸도 안 그린다
         if with_index:
             one["index"] = pos
         items.append(one)

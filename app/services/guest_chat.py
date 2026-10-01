@@ -7,7 +7,7 @@ import datetime
 import logging
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from app.config import settings
 from app.db.models import GuestChatMessageRow, GuestChatThreadRow, ShopRow
@@ -153,6 +153,17 @@ def _msg(m: GuestChatMessageRow) -> dict:
 
 
 # ── 사장님 화면 ──
+
+def shop_signature(shop_id: str) -> str:
+    """사장님 채팅 탭 즉시 반영용 (§7): 대화 수·안 읽음·마지막 글 시각·기다림·닫힘 수가 바뀌면 달라지는 한 줄."""
+    t = GuestChatThreadRow
+    with get_sessionmaker()() as db:
+        n, unread, last, waiting, ended = db.execute(
+            select(func.count(), func.coalesce(func.sum(t.owner_unread), 0), func.max(t.last_at),
+                   func.count().filter(t.status == TO_OWNER), func.count().filter(t.status.in_(CLOSED_STATES)))
+            .where(t.shop_id == shop_id)).one()
+    return f"{n}:{unread}:{last.isoformat() if last else ''}:{waiting}:{ended}"
+
 
 def owner_list(shop_id: str) -> list:
     """최근 대화 50개: {id, status, owner_unread, last_at, last_text(40자)}."""
