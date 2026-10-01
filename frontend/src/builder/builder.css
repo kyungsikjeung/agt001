@@ -461,3 +461,89 @@
 .bd-addr-save {
   min-height: 44px;
 }
+
+/* ── 어두운 작업대 (대표 고름 10/2: 시안 1 "The Dark Edition") ──
+   빌더 화면만 어둡게: 편집기 토큰(--ed-*)을 바꿔 칸·시트·버튼이 함께 따라온다.
+   미리보기 안의 사이트는 그대로(사장님 사이트 색). 버튼은 가는 밝은 테두리, 켜진 것은 밝게 채움,
+   가장 중요한 '공개하기'만 금색. 본문 대비 4.5:1 이상(#ecebe6 on #17181a ≈ 15:1, #a9a59c ≈ 7:1). */
+.bd-page.ed-page {
+  color-scheme: dark;
+  --ed-ground: #17181a;
+  --ed-card: #232427;
+  --ed-ink: #ecebe6;
+  --ed-note: #a9a59c;
+  --ed-primary: #ebe5d6;
+  --ed-on-primary: #1a1b1d;
+  --ed-accent-line: #c9a35a;
+  --ed-slot-bg: rgba(201, 163, 90, 0.16);
+  --ed-slot-ink: #f0d9a8;
+  --ed-line: rgba(235, 229, 214, 0.12);
+  --ed-focus: #8cc8ff;
+  --bd-gold: #c9a35a;
+  --bd-field: #2a2b2f;
+  --bd-edge: rgba(235, 229, 214, 0.24);
+  background: radial-gradient(90% 70% at 50% 35%, #2b2c30 0%, #17181a 70%) fixed #17181a;
+}
+
+/* 위·아래 띠: 작업대 위에 뜬 반투명 유리 */
+.bd-page .bd-top,
+.bd-page .bd-bottom {
+  background: rgba(23, 24, 26, 0.78);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+}
+
+/* 버튼·칩: 진한 테두리 대신 가는 밝은 테두리 */
+.bd-page :is(.ed-btn, .bd-choice button, .bd-chip, .bd-fixtag, .bd-addr-open, .ph-btn, .ed-file) {
+  border-width: 1px;
+  border-color: var(--bd-edge);
+}
+.bd-page :is(.ed-btn[aria-pressed='true'], .ed-btn--primary, .bd-choice button[aria-pressed='true'], .bd-chip.on) {
+  border-color: var(--ed-primary);
+}
+.bd-page .bd-publish > .ed-btn--primary {
+  background: var(--bd-gold);
+  border-color: var(--bd-gold);
+  color: #1a1b1d;
+}
+.bd-page .bd-title {
+  color: var(--bd-gold);
+  letter-spacing: -0.01em;
+}
+
+/* 글 칸: 흰 바탕 대신 어두운 칸 */
+.bd-page :is(input, textarea, select):not([type='checkbox'], [type='radio'], [type='file'], [type='range']),
+.bd-page .bd-say-bubble,
+.bd-page .ph-photo {
+  background: var(--bd-field);
+  color: var(--ed-ink);
+  border-color: var(--bd-edge);
+}
+.bd-page input::placeholder {
+  color: #7d7a73;
+}
+.bd-page .ed-banner-ok {
+  background: rgba(120, 190, 150, 0.14);
+  color: #b9e3c8;
+}
+
+/* 미리보기 기기: 어두운 바탕에서도 테두리가 보이게 은빛 테 + 깊은 그림자 */
+.bd-page .ed-dev--mobile {
+  border-color: #0e0f10;
+  box-shadow:
+    0 0 0 1.5px #4a4c51,
+    0 0 0 3px #1d1e21,
+    0 40px 80px -20px rgba(0, 0, 0, 0.75);
+}
+.bd-page .ed-dev--desktop {
+  border-color: #3a3c40;
+  box-shadow: 0 40px 80px -24px rgba(0, 0, 0, 0.75);
+}
+.bd-page .ed-dev-bar {
+  background: #2b2d30;
+  border-bottom-color: #1c1d20;
+}
+.bd-page .ed-dev-bar span {
+  background: #1c1d20;
+  color: var(--ed-note);
+}
