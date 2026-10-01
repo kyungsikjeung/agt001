@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>관리자</title>
+<style>
+  /* 관리자 화면 (ADMIN_CONTRACT §4). owner.html과 같은 토큰. 외부 스크립트 없음, 글은 모두 textContent. */
+  :root {
+    --accent: #6366f1; --accent-dark: #4338ca; --accent-soft: #eef2ff; --bg: #f7f7f8; --surface: #fff;
+    --border: #e5e7eb; --text: #1f2328; --muted: #52525b; --warn: #b45309; --warn-soft: #fffbeb; --bad: #b91c1c;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }  /* nav·section·button의 display가 hidden을 덮지 않게 */
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; margin: 0; background: var(--bg);
+    color: var(--text); line-height: 1.55; -webkit-tap-highlight-color: transparent;
+  }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px;
+    padding-top: max(12px, env(safe-area-inset-top)); display: flex; gap: 8px; align-items: center;
+  }
+  header h1 { font-size: 1.125rem; margin: 0; flex: 1; }
+  nav { display: flex; gap: 4px; padding: 8px 12px; background: var(--surface); border-bottom: 1px solid var(--border); overflow-x: auto; }
+  nav button { flex: none; }
+  nav button[aria-selected="true"] { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  main { max-width: 960px; margin: 0 auto; padding: 16px 12px 64px; display: flex; flex-direction: column; gap: 12px; }
+  section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  input {
+    font-size: 16px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+    min-height: 44px; min-width: 0; flex: 1; color: var(--text);
+  }
+  button, .btn {
+    min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+    font-size: 0.9375rem; font-weight: 600; cursor: pointer; padding: 0 14px; color: var(--text);
+    display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-family: inherit;
+  }
+  button.primary { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  a { color: var(--accent-dark); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .card h2 { margin: 0; font-size: 1rem; }
+  .sub { margin: 0; font-size: 0.875rem; color: var(--muted); overflow-wrap: anywhere; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .note { margin: 0; padding: 10px 12px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 0.9375rem; }
+  .item {
+    width: 100%; flex-direction: column; align-items: stretch; text-align: left; gap: 4px; padding: 12px 14px;
+    background: var(--surface); border-radius: 12px; font-weight: 400;
+  }
+  .item strong { font-size: 1rem; overflow-wrap: anywhere; }
+  .pills { display: flex; flex-wrap: wrap; gap: 4px; }
+  .pill { display: inline-block; font-size: 0.75rem; font-weight: 700; border-radius: 999px; padding: 2px 10px; border: 1px solid var(--border); color: var(--muted); }
+  .pill.ok { color: var(--accent-dark); border-color: var(--accent); background: var(--accent-soft); }
+  .pill.warn { color: var(--warn); border-color: #fcd34d; background: var(--warn-soft); }
+  .kv { display: grid; grid-template-columns: minmax(96px, 30%) 1fr; gap: 4px 12px; margin: 0; font-size: 0.9375rem; }
+  .kv dt { color: var(--muted); overflow-wrap: anywhere; }
+  .kv dd { margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+  .msg { padding: 8px 12px; border-radius: 12px; white-space: pre-line; font-size: 0.9375rem; overflow-wrap: anywhere; border: 1px solid var(--border); }
+  .msg.ai { background: var(--accent-soft); border-color: var(--accent); }
+  .msg.system { background: var(--bg); color: var(--muted); }
+  .msg .who { display: block; font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+  .turn { border-top: 1px solid var(--border); padding-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+  .turn:first-of-type { border-top: 0; padding-top: 0; }
+  pre { margin: 0; padding: 8px; background: var(--bg); border-radius: 8px; font-size: 0.8125rem; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
+  summary { cursor: pointer; min-height: 32px; font-size: 0.875rem; color: var(--muted); }
+  .nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+  .num { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
+  .num b { display: block; font-size: 1.375rem; }
+  .num span { font-size: 0.8125rem; color: var(--muted); }
+  .scroll { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
+</style>
+</head>
+<body>
+<header><h1>관리자</h1></header>
+<nav id="tabs" role="tablist" aria-label="관리자 메뉴" hidden>
+  <button type="button" role="tab" data-tab="rooms" aria-selected="true">가게</button>
+  <button type="button" role="tab" data-tab="signals" aria-selected="false">문제 신호</button>
+  <button type="button" role="tab" data-tab="metrics" aria-selected="false">지표</button>
+  <button type="button" role="tab" data-tab="keys" aria-selected="false">키</button>
+</nav>
+<main>
+  <section id="gate" hidden></section>
+
+  <section id="p-rooms" role="tabpanel" aria-label="가게" hidden>
+    <form id="search" class="row" role="search">
+      <input id="q" type="search" placeholder="가게 이름·업종·사이트 키" aria-label="가게 찾기">
+      <button type="submit">찾기</button>
+    </form>
+    <p class="sub" id="rooms-count" role="status"></p>
+    <div id="rooms" class="row" style="flex-direction:column;align-items:stretch"></div>
+    <button type="button" id="more" hidden>더 보기</button>
+  </section>
+
+  <section id="p-detail" aria-label="가게 상세" hidden>
+    <div class="row"><button type="button" id="back">← 목록으로</button></div>
+    <div id="detail" style="display:flex;flex-direction:column;gap:12px"></div>
+  </section>
+
+  <section id="p-signals" role="tabpanel" aria-label="문제 신호" hidden>
+    <p class="sub">최근 7일 대화 중 막힘·추출 실패·느림·같은 질문 반복·영어 답이 있는 대화예요.</p>
+    <div id="signals" style="display:flex;flex-direction:column;gap:8px"></div>
+  </section>
+
+  <section id="p-metrics" role="tabpanel" aria-label="지표" hidden>
+    <div id="metrics" style="display:flex;flex-direction:column;gap:12px"></div>
+  </section>
+
+  <section id="p-keys" role="tabpanel" aria-label="키" hidden>
+    <p class="sub">키 값은 다시 볼 수 없고 뒤 4자리만 보여요. 바꾸기·되돌리기·지우기는 로그인한 지 10분 안에만 돼요.</p>
+    <p class="sub" id="keys-status" role="status"></p>
+    <div id="keys" style="display:flex;flex-direction:column;gap:12px"></div>
+  </section>
+</main>
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, text, cls) => {
+    const e = document.createElement(tag);
+    if (text !== undefined && text !== null) e.textContent = String(text);
+    if (cls) e.className = cls;
+    return e;
+  };
+  const FLAG = { stuck: "막힘", extract_fail: "추출 실패", slow: "느림", repeat: "같은 질문 반복", english: "영어 답" };
+  const SOURCE = { db: "화면에서 넣은 키", env: "서버 .env 키", none: "없음" };
+  const PANELS = { rooms: "p-rooms", signals: "p-signals", metrics: "p-metrics", keys: "p-keys" };
+  const LOGIN_NEXT = encodeURIComponent("/admin");
+  let lastTab = "rooms";
+
+  class HttpError extends Error {
+    constructor(status, detail) { super(detail || String(status)); this.status = status; this.detail = detail; }
+  }
+
+  async function api(path, opts) {
+    const init = Object.assign({ credentials: "same-origin" }, opts || {});
+    if (init.body) init.headers = { "Content-Type": "application/json" };
+    const res = await fetch(path, init);
+    let data = null;
+    try { data = await res.json(); } catch (e) { data = null; }
+    if (!res.ok) throw new HttpError(res.status, data && typeof data.detail === "string" ? data.detail : "");
+    return data;
+  }
+
+  const when = (iso) => {
+    if (!iso) return "";
+    try { return new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }); } catch (e) { return String(iso); }
+  };
+  const pct = (v) => (v === null || v === undefined) ? "—" : `${Math.round(v * 1000) / 10}%`;
+
+  function loginLinks(label) {
+    const row = el("div", null, "row");
+    for (const [p, name] of [["kakao", "카카오"], ["google", "구글"]]) {
+      const a = el("a", `${name}로 ${label}`, "btn");
+      a.href = `/auth/${p}/start?next=${LOGIN_NEXT}`;
+      row.append(a);
+    }
+    return row;
+  }
+
+  // 401·404면 문만 보인다. 404는 관리자 기능이 있다는 것을 드러내지 않는 문구.
+  function showGate(status) {
+    $("tabs").hidden = true;
+    for (const id of [...Object.values(PANELS), "p-detail"]) $(id).hidden = true;
+    const gate = $("gate");
+    gate.replaceChildren();
+    const card = el("div", null, "card");
+    if (status === 401) {
+      card.append(el("p", "로그인한 뒤에 볼 수 있어요."), loginLinks("로그인"));
+    } else if (status === 404) {
+      card.append(el("p", "관리자만 볼 수 있어요."));
+    } else {
+      card.append(el("p", "불러오지 못했어요. 잠시 뒤 다시 열어 주세요."));
+    }
+    gate.append(card);
+    gate.hidden = false;
+  }
+
+  function failed(box, e) {
+    if (e && (e.status === 401 || e.status === 404)) return showGate(e.status);
+    box.replaceChildren(el("p", "불러오지 못했어요. 잠시 뒤 다시 눌러 주세요.", "note"));
+  }
+
+  function showTab(name) {
+    lastTab = name;
+    for (const b of $("tabs").querySelectorAll("button[role=tab]")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
+    for (const [k, id] of Object.entries(PANELS)) $(id).hidden = k !== name;
+    $("p-detail").hidden = true;
+    if (name === "signals") loadSignals();
+    if (name === "metrics") loadMetrics();
+    if (name === "keys") loadKeys();
+  }
+
+  function flagPills(flags) {
+    const box = el("span", null, "pills");
+    for (const f of flags || []) box.append(el("span", FLAG[f] || f, "pill warn"));
+    return box;
+  }
+
+  // ── 가게 목록 ──
+  const rooms = { q: "", offset: 0 };
+
+  function roomItem(r) {
+    const b = el("button", null, "item");
+    b.type = "button";
+    b.append(el("strong", r.shop_name || "(이름 없음)"));
+    b.append(el("span", [r.industry || "업종 모름", r.state, `대화 ${r.turns}`, `문의 ${r.inquiries}`, `예약 ${r.bookings}`, when(r.created_at)].join(" · "), "sub"));
+    const pills = flagPills(r.flags);
+    if (r.published) pills.prepend(el("span", "공개", "pill ok"));
+    if (r.owner_logged_in) pills.prepend(el("span", "사장님 로그인", "pill"));
+    b.append(pills);
+    b.addEventListener("click", () => openRoom(r.room_id));
+    return b;
+  }
+
+  async function loadRooms(reset) {
+    if (reset) { rooms.offset = 0; $("rooms").replaceChildren(); }
+    const q = encodeURIComponent(rooms.q);
+    let d;
+    try {
+      d = await api(`/api/admin/rooms?q=${q}&limit=50&offset=${rooms.offset}`);
+    } catch (e) {
+      // 첫 요청(탭이 아직 숨어 있음)이 실패하면 문에 알린다
+      if (e.status === 401 || e.status === 404 || $("tabs").hidden) return showGate(e.status);
+      $("rooms-count").textContent = "불러오지 못했어요.";
+      return false;
+    }
+    rooms.offset += d.rooms.length;
+    for (const r of d.rooms) $("rooms").append(roomItem(r));
+    $("rooms-count").textContent = rooms.q ? `"${rooms.q}" ${d.total}곳` : `가게 ${d.total}곳`;
+    $("more").hidden = rooms.offset >= d.total;
+    return true;
+  }
+
+  // ── 가게 상세 ──
+  function kv(pairs) {
+    const dl = el("dl", null, "kv");
+    for (const [k, v] of pairs) dl.append(el("dt", k), el("dd", v));
+    return dl;
+  }
+
+  const show = (value) => Array.isArray(value) ? value.join(", ") : (value === null || value === undefined ? "" : String(value));
+
+  async function openRoom(id) {
+    for (const p of Object.values(PANELS)) $(p).hidden = true;
+    $("p-detail").hidden = false;
+    const box = $("detail");
+    box.replaceChildren(el("p", "불러오는 중…", "sub"));
+    let d;
+    try { d = await api(`/api/admin/rooms/${encodeURIComponent(id)}`); } catch (e) { return failed(box, e); }
+    box.replaceChildren();
+    const r = d.room;
+
+    const head = el("div", null, "card");
+    head.append(el("h2", r.shop_name || "(이름 없음)"));
+    head.append(kv([
+      ["사이트 키", r.site_key], ["업종", r.industry || "모름"], ["상태", r.state], ["만든 때", when(r.created_at)],
+      ["공개", r.published ? "예" : "아니요"], ["사장님 로그인", r.owner_logged_in ? "예" : "아니요"],
+      ["대화·문의·예약", `${r.turns} · ${r.inquiries} · ${r.bookings}`],
+    ]));
+    if ((r.flags || []).length) head.append(flagPills(r.flags));
+    box.append(head);
+
+    const card = el("div", null, "card");
+    card.append(el("h2", "카드"));
+    const pairs = Object.entries(d.card).filter(([, s]) => s.value !== null && s.value !== "" && !(Array.isArray(s.value) && !s.value.length))
+      .map(([k, s]) => [`${k} (${s.status})`, show(s.value)]);
+    card.append(pairs.length ? kv(pairs) : el("p", "채운 칸이 없어요.", "sub"));
+    box.append(card);
+
+    const m = d.metrics || {};
+    const mc = el("div", null, "card");
+    mc.append(el("h2", "대화 지표"));
+    mc.append(kv([
+      ["대화 턴", m.n_turns], ["요약까지", m.reached_summary ? `갔음 (${m.turns_to_summary}턴)` : "못 감"],
+      ["추출 실패율", pct(m.extract_fail_rate)], ["추출 중앙값", m.extract_p50_ms == null ? "—" : `${Math.round(m.extract_p50_ms)}ms`],
+      ["반복해 물은 칸", show(m.repeat_slots) || "없음"], ["헷갈림 턴", show(m.confusion_hits) || "없음"],
+    ]));
+    if ((m.missed || []).length) {
+      mc.append(el("p", "카드에 못 담은 말", "sub"));
+      for (const t of m.missed) mc.append(el("p", t, "msg"));
+    }
+    box.append(mc);
+
+    const chat = el("div", null, "card");
+    chat.append(el("h2", `채팅 (최근 ${d.messages.length})`));
+    const chatList = el("div", null, "scroll");
+    for (const msg of d.messages) {
+      const who = msg.who === "ai" ? "AI" : (msg.who === "system" ? "알림" : "참여자");
+      const p = el("div", null, `msg ${msg.who}`);
+      p.append(el("span", `${who} · ${when(msg.ts)}`, "who"), el("span", msg.text));
+      chatList.append(p);
+    }
+    chat.append(d.messages.length ? chatList : el("p", "채팅이 없어요.", "sub"));
+    box.append(chat);
+
+    const turns = el("div", null, "card");
+    turns.append(el("h2", `대화 턴 (최근 ${d.turns.length})`));
+    const turnList = el("div", null, "scroll");
+    for (const t of d.turns) {
+      const one = el("div", null, "turn");
+      one.append(el("span", `${when(t.ts)} · ${t.state_before} → ${t.state_after}`, "sub"));
+      one.append(kv([["사장님", t.user_text], ["AI", t.ai_text]]));
+      if (t.meta) {
+        const det = el("details");
+        det.append(el("summary", "엔진 판단"), el("pre", JSON.stringify(t.meta, null, 2)));
+        one.append(det);
+      }
+      turnList.append(one);
+    }
+    turns.append(d.turns.length ? turnList : el("p", "기록된 대화가 없어요.", "sub"));
+    box.append(turns);
+  }
+
+  // ── 문제 신호 ──
+  async function loadSignals() {
+    const box = $("signals");
+    box.replaceChildren(el("p", "불러오는 중…", "sub"));
+    let d;
+    try { d = await api("/api/admin/signals?days=7"); } catch (e) { return failed(box, e); }
+    box.replaceChildren();
+    if (!d.sessions.length) { box.append(el("p", "최근 7일 문제 신호가 없어요.", "sub")); return; }
+    for (const s of d.sessions) {
+      const b = el("button", null, "item");
+      b.type = "button";
+      b.append(el("strong", s.shop_name || "(이름 없음)"));
+      b.append(el("span", [`대화 ${s.n_turns}턴`, s.reached_summary ? "요약까지 감" : "요약 전",
+        `추출 실패율 ${pct(s.extract_fail_rate)}`].join(" · "), "sub"));
+      b.append(flagPills(s.flags));
+      b.addEventListener("click", () => openRoom(s.room_id));
+      box.append(b);
+    }
+  }
+
+  // ── 지표 ──
+  function num(value, label) {
+    const d = el("div", null, "num");
+    d.append(el("b", value), el("span", label));
+    return d;
+  }
+
+  function topList(title, obj) {
+    const card = el("div", null, "card");
+    card.append(el("h2", title));
+    const pairs = Object.entries(obj || {});
+    card.append(pairs.length ? kv(pairs.map(([k, n]) => [k, String(n)])) : el("p", "아직 없어요.", "sub"));
+    return card;
+  }
+
+  async function loadMetrics() {
+    const box = $("metrics");
+    box.replaceChildren(el("p", "불러오는 중…", "sub"));
+    let d;
+    try { d = await api("/api/admin/metrics?days=30"); } catch (e) { return failed(box, e); }
+    box.replaceChildren();
+    const g = d.design || {};
+    const head = el("div", null, "card");
+    head.append(el("h2", `최근 ${d.days}일`));
+    const nums = el("div", null, "nums");
+    nums.append(
+      num(d.rooms_created, "새로 만든 방"), num(d.published, "공개한 가게(전체)"), num(d.owners_logged_in, "로그인한 사장님(전체)"),
+      num(g.sites_shown ?? "—", "시안을 본 가게"), num(pct(g.choice_rate), "시안을 고른 비율"), num(pct(g.publish_rate), "공개한 비율"),
+      num(pct(g.published_with_inquiry_rate), "공개 뒤 30일 문의 있는 비율"), num(g.inquiries_30d_total ?? "—", "공개 뒤 30일 문의"),
+      num(pct(g.unmet_site_rate), "못 담은 요구가 있는 비율"), num(pct(g.voice_fail_rate), "음성 인식 실패율"),
+    );
+    head.append(nums);
+    box.append(head);
+    box.append(topList("못 담은 요구 상위", g.unmet_top), topList("말로 고친 것 상위", g.restyle_changes),
+      topList("마지막에 고른 안", g.chosen_variant), topList("퍼널 사건 수", d.funnel));
+  }
+
+  // ── 키 ──
+  async function keyAction(path, body, status) {
+    status.replaceChildren(el("span", "확인하는 중…"));
+    try {
+      const d = await api(path, { method: "POST", body: JSON.stringify(body || {}) });
+      renderKeys(d);
+      $("keys-status").textContent = "바꿨어요.";
+    } catch (e) {
+      if (e.status === 403 && e.detail === "reauth") {
+        status.replaceChildren(el("span", "보안을 위해 다시 로그인해 주세요. "), loginLinks("다시 로그인"));
+        return;
+      }
+      if (e.status === 401 || e.status === 404) return showGate(e.status);
+      status.replaceChildren(el("span", e.detail || "바꾸지 못했어요."));
+    }
+  }
+
+  function keyCard(k, ready) {
+    const card = el("div", null, "card");
+    card.append(el("h2", k.label), el("p", k.use, "sub"));
+    const facts = [SOURCE[k.source] || k.source];
+    if (k.last4) facts.push(`뒤 4자리 ${k.last4}`);
+    if (k.updated_at) facts.push(`${when(k.updated_at)} ${k.updated_by || ""}`.trim());
+    card.append(el("p", facts.join(" · "), "sub"));
+    const status = el("p", "", "sub");
+    status.setAttribute("role", "status");
+    if (ready) {
+      const form = el("form", null, "row");
+      const input = el("input");
+      input.type = "password";
+      input.autocomplete = "off";
+      input.spellcheck = false;
+      input.placeholder = "새 키";
+      input.setAttribute("aria-label", `${k.label} 새 값`);
+      const save = el("button", "연결 테스트 후 저장", "primary");
+      save.type = "submit";
+      form.append(input, save);
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        if (input.value.trim()) keyAction(`/api/admin/keys/${encodeURIComponent(k.name)}`, { value: input.value.trim() }, status);
+      });
+      card.append(form);
+      const row = el("div", null, "row");
+      if (k.can_rollback) {
+        const back = el("button", "이전 키로 되돌리기");
+        back.type = "button";
+        back.addEventListener("click", () => keyAction(`/api/admin/keys/${encodeURIComponent(k.name)}/rollback`, null, status));
+        row.append(back);
+      }
+      if (k.source === "db") {
+        const clear = el("button", "화면에서 넣은 키 지우기", "danger");
+        clear.type = "button";
+        clear.addEventListener("click", () => {
+          status.replaceChildren(el("span", ".env 키로 돌아가요. 지울까요? "));
+          const yes = el("button", "지우기", "danger");
+          yes.type = "button";
+          yes.addEventListener("click", () => keyAction(`/api/admin/keys/${encodeURIComponent(k.name)}/clear`, null, status));
+          const no = el("button", "그만두기");
+          no.type = "button";
+          no.addEventListener("click", () => status.replaceChildren());
+          status.append(yes, no);
+        });
+        row.append(clear);
+      }
+      if (row.childElementCount) card.append(row);
+    }
+    card.append(status);
+    return card;
+  }
+
+  function renderKeys(d) {
+    const box = $("keys");
+    box.replaceChildren();
+    if (!d.ready) box.append(el("p", "서버 .env에 TOKEN_ENC_KEY가 없어서 화면에서 키를 바꿀 수 없어요. 상태만 볼 수 있어요.", "note"));
+    for (const k of d.keys) box.append(keyCard(k, d.ready));
+  }
+
+  async function loadKeys() {
+    const box = $("keys");
+    $("keys-status").textContent = "";
+    box.replaceChildren(el("p", "불러오는 중…", "sub"));
+    let d;
+    try { d = await api("/api/admin/keys"); } catch (e) { return failed(box, e); }
+    renderKeys(d);
+  }
+
+  // ── 시작 ──
+  $("tabs").addEventListener("click", (e) => {
+    const b = e.target.closest("button[role=tab]");
+    if (b) showTab(b.dataset.tab);
+  });
+  $("search").addEventListener("submit", (e) => {
+    e.preventDefault();
+    rooms.q = $("q").value.trim();
+    loadRooms(true);
+  });
+  $("more").addEventListener("click", () => loadRooms(false));
+  $("back").addEventListener("click", () => showTab(lastTab));
+
+  // 첫 요청(가게 목록)으로 권한을 확인한다. 통과하면 탭을 보인다.
+  loadRooms(true).then((ok) => {
+    if (!ok) return;
+    $("tabs").hidden = false;
+    $("p-rooms").hidden = false;
+  });
+})();
+</script>
+</body>
+</html>
