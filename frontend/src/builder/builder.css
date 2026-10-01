@@ -364,6 +364,7 @@
   max-width: 480px;
   max-height: 88dvh;
   overflow-y: auto;
+  overflow-x: hidden;
   border-radius: 12px 12px 0 0;
   padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   display: grid;
@@ -394,7 +395,9 @@
 }
 
 .bd-addr-post {
-  min-height: 200px;
+  height: min(60dvh, 470px);
+  min-height: 300px;
+  width: 100%;
 }
 
 .bd-addr-picked {

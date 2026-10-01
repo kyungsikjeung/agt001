@@ -13,7 +13,7 @@ interface PostcodeData {
 }
 
 interface DaumWindow {
-  daum?: { Postcode?: new (opts: { oncomplete: (data: PostcodeData) => void }) => { embed: (el: HTMLElement) => void } };
+  daum?: { Postcode?: new (opts: { oncomplete: (data: PostcodeData) => void; width?: string; height?: string }) => { embed: (el: HTMLElement) => void } };
 }
 
 /** 우편번호 스크립트를 한 번만 붙인다. 다 붙었으면 바로 끝난다. */
@@ -76,7 +76,10 @@ export default function AddressSearch({ roomId, onSaved }: AddressSearchProps) {
       }
       box.replaceChildren();
       try {
+        // 폭을 안 주면 우편번호 창이 500px로 들어와 390px 화면에서 옆으로 넘친다
         new w.daum.Postcode({
+          width: '100%',
+          height: '100%',
           oncomplete: (data) => {
             if (!alive) return;
             // 지번을 고르면 도로명이 빌 수 있다 → 지번·고른 주소로 채운다
