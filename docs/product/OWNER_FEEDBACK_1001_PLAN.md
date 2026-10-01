@@ -188,7 +188,7 @@ sequenceDiagram
 | §3 공지 사진 | [NOTICE_PHOTO_CONTRACT](NOTICE_PHOTO_CONTRACT.md) | ✅ 운영(PR #3) |
 | §5 메뉴 태그 사진 | [ART_LIB_CONTRACT](ART_LIB_CONTRACT.md) | ✅ 운영(PR #3): 메뉴를 넣으면 뒤에서 태그 사진을 만든다. 미리 채우기는 [PREBETA_RUNBOOK](PREBETA_RUNBOOK.md) §2 |
 | §6 손님 채팅 | [GUEST_CHAT_CONTRACT](GUEST_CHAT_CONTRACT.md) | ✅ 운영(PR #3, 0019 적용 확인): 손님 페이지·사장님 탭·사이트 "채팅하기" |
-| §2 그룹 카드 | - | 베타 뒤 |
+| §2 그룹 카드 | [GROUP_CARDS_CONTRACT](GROUP_CARDS_CONTRACT.md) | 🔄 브랜치 `group-cards`: 서버(GC1)·화면(GC2) 구현, 375px 흐름 확인. **베타 뒤 병합** |
 | #12 "스파게티" | - | 그 방 링크·캡처 필요 |
 
 - 남은 것(대표, 서버에서): [PREBETA_RUNBOOK](PREBETA_RUNBOOK.md) — 이미 공개된 가게 다시 공개, 태그 사진 창고 미리 채우기, 실제 가게로 주소 검색→지도·손님 채팅→답 확인.
@@ -201,3 +201,4 @@ sequenceDiagram
 | 2026-10-01 | §10 진행 표 추가 |
 | 2026-10-01 | 대표 결정 D58 반영: 지도·손님 채팅 베타 전, 메뉴 사진 상한 없음(태그로 저장), 그룹 카드는 베타 뒤. #1~#4 운영 배포(`51f14c6`) |
 | 2026-10-01 | §10 저녁 기준으로 갱신: D58 베타 전 묶음 모두 운영(PR #3), 남은 것은 PREBETA_RUNBOOK |
+| 2026-10-01 | §2 그룹 카드 계약서·구현(브랜치 `group-cards`, 베타 뒤 병합) |
