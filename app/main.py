@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import auth, bookings, callbot, card, chat, chat_agent, events, inquiries, orders, owner, projects, public, rooms, settings as owner_settings, start, stt, tts
+from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, orders, owner, projects, public, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
 from app.services import funnel, ops_alert, rag
 
@@ -106,6 +106,8 @@ def create_app() -> FastAPI:
     app.include_router(card.router)
     app.include_router(start.router)
     app.include_router(callbot.router)
+    app.include_router(admin.router)
+    app.include_router(admin_keys.router)
     # 라우터 뒤에 마운트해야 API 경로가 우선한다. html=True로 "/"에서 index.html을 준다.
     # React 빌드 자산. 빌드 전에도 기동은 되도록 디렉터리 확인을 끈다.
     # 시안 공용 그림(D51 ① 추상·일러스트, 표시 없이 씀). 생성물과 같은 미리보기 주소에서 연다.
