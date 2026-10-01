@@ -44,6 +44,8 @@ NEG_NORMS = ("안돼", "안되", "안됨", "안해", "안함", "못해", "못가
              "없어", "없다", "아니", "별로", "싫", "불가", "빼", "제외")
 # 잡담 판정 (B-4): 정규화 후 이 길이를 넘는데 추출·규칙에 안 걸리면 주제 이탈로 보고 예산을 쓰지 않는다.
 CHATTER_LEN = 5
+# 한 메시지에 값이 여럿 와도 하나로 합쳐 두는 단일 칸. 이름·전화·주소·업종처럼 하나뿐인 칸은 넣지 않는다.
+JOIN_SAME_MESSAGE = frozenset(("hours", "price", "target", "goal", "contact_method", "detail"))
 def _spoken_phone(text: str) -> str:
     """"공일공에 0000에 6789번" → "010-0000-6789": 세 글자 이상 이어진 한 자리 수 읽기를 숫자로 바꾸고,
     숫자 덩어리만 남았으면 하이픈으로 잇는다(전화 칸에서만 쓴다)."""
@@ -141,6 +143,29 @@ def industry_of(card) -> S.Industry:
     if card.get("industry") in S.INDUSTRIES:
         return S.INDUSTRIES[card["industry"]]
     return S.industry_for(_slot(card, "business_type").get("value"))
+
+
+_AMENITY_TAIL = re.compile(r"\s*(안내|가능|서비스|돼요|됩니다)$")
+
+
+def _hidden_piece_key(card: dict, item: str) -> Optional[str]:
+    """offerings 항목이 숨은 항목 라벨 조각과 같으면 그 키 ("포장·배달 안내"의 "배달 안내" → takeout).
+
+    포장·배달·주차 같은 편의는 파는 것이 아니다. 첫 메시지에서도 offerings로 들어와
+    메뉴 질문을 건너뛰던 문제(T3 z3 restaurant-changes_mind: offerings ['배달']).
+    """
+    n = _norm(_AMENITY_TAIL.sub("", (item or "").strip()))
+    if len(n) < 2:
+        return None
+    try:
+        hidden = industry_of(card).hidden
+    except (KeyError, AttributeError):
+        hidden = ()
+    for key, label in hidden or ():
+        pieces = {_norm(label)} | {_norm(x) for x in re.split(r"[·/]", label)}
+        if n in pieces:
+            return key
+    return None
 
 
 def _hidden_label_norms(card: dict) -> set:
@@ -466,6 +491,10 @@ _META_GOAL = re.compile(r"(홈페이지|사이트|웹사이트)\s*(제작|만들
 _COUNT_RE = re.compile(r"(\d+|한|두|세|네|다섯|여섯|일곱|여덟|아홉|열)\s*(개|실|채|동|반|명|곳)")
 
 
+# 칸 이름 조각이지만 값의 뜻을 품은 말: "체크인 15시"에서 "체크인"을 떼면 체크아웃과 구별이 안 된다(T3 z3 pension-talkative).
+_LABEL_KEEP = frozenset(("체크인",))
+
+
 def _strip_label(ind, key: str, value: str) -> str:
     """"대표 메뉴 아메리카노", "대표 메뉴: 라떼"처럼 칸 이름이 값 앞에 붙어 오면 뗀다(T3 카페 시나리오)."""
     if isinstance(value, list):
@@ -473,6 +502,8 @@ def _strip_label(ind, key: str, value: str) -> str:
     v = (value or "").strip()
     for label in sorted({S.label_for(ind, key), S.SLOTS[key].label}, key=len, reverse=True):
         for part in [label] + [x for x in re.split(r"[·/]", label) if len(x) >= 2]:
+            if part in _LABEL_KEEP:
+                continue
             if v.startswith(part) and len(v) > len(part):
                 # 라벨 뒤가 조사로 이어지면 값의 일부다 ("메뉴와 가격"의 "메뉴"는 떼지 않는다).
                 if v[len(part)] not in (" ", ":", "：", "-", "은", "는", "이", "가", "요"):
@@ -789,6 +820,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
     updates = _separate_menu_price(updates, text)  # N-2: 메뉴·가격 뭉침 분리
     # N-3: 근거 판단용 대화 기록 (turn()은 said에 현재 메시지를 먼저 넣어 둔다).
     history = "\n".join([*(card.get("said") or []), text])
+    this_msg: dict[str, str] = {}  # 이번 메시지에서 이미 넣은 단일 칸 값
     for u in updates:
         key, value = u["slot"], u["value"]
         if not grounded(key, value, text):
@@ -815,10 +847,6 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             _label_norms |= {_norm(w) for w in ("메뉴", "가격", "상품", "메뉴판")}
             kept = [i for i in _split_items(value)
                     if _norm(i) not in VAGUE_OFFERINGS and _norm(i) not in _label_norms]
-            if not kept:
-                continue
-            # F4: hidden 답이 offerings로 오염되는 것을 막는다 ("단체 수업").
-            # hidden 라벨과 겹치고 hidden 답 전 대화에 근거가 없으면 hidden 선택을 유지하고 버린다.
             # turn()은 said에 현재 메시지를 먼저 넣어 두므로 마지막 1개가 현재문이면 뺀다.
             said = card.get("said") or []
             if said and (said[-1] == text[:SAID_CHARS] or said[-1] in text or text.startswith(said[-1])):
@@ -826,6 +854,22 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
             else:
                 prior_list = said
             prior = "\n".join(prior_list)
+            # 편의(포장·배달·주차 등)는 파는 것이 아니다. 앞서 직접 말한 품목(바비큐장 등)은 F4처럼 살린다.
+            amenity = []
+            for i in kept:
+                hk = _hidden_piece_key(card, i)
+                if hk and not (prior and _in_history(i, prior)):
+                    amenity.append(i)
+                    sel = card.setdefault("hidden", {"asked": False, "selected": []}).setdefault("selected", [])
+                    if hk not in sel:
+                        sel.append(hk)
+            if amenity:
+                log.info("편의 항목은 offerings가 아님: %s", amenity)
+                kept = [i for i in kept if i not in amenity]
+            if not kept:
+                continue
+            # F4: hidden 답이 offerings로 오염되는 것을 막는다 ("단체 수업").
+            # hidden 라벨과 겹치고 hidden 답 전 대화에 근거가 없으면 hidden 선택을 유지하고 버린다.
             if prior:
                 hidden_norms = _hidden_label_norms(card)
                 if hidden_norms:
@@ -875,6 +919,9 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
                     # B-16: 부분일치 제거는 의도된 동작이다 ("바비큐" 제외가 "바비큐장" 섹션을 치운다).
                     kept = [v for v in cur["value"] if not any(e in v for e in excl)]
                     card["slots"][k]["value"] = kept
+                    if k == "offerings" and not kept and cur.get("status") == S.FILLED:
+                        # 다 빠졌으면 채운 칸이 아니다: 메뉴를 다시 묻는다 (빈 목록이 FILLED로 남아 질문을 건너뛰던 문제).
+                        _put(card, k, None, S.EMPTY)
             applied.append(key)
             continue
         if spec.fact and isinstance(value, str):
@@ -890,7 +937,17 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
         if spec.multi:
             _put(card, key, _merge_items(card, key, value, (S.FILLED,)), S.FILLED, turn, by)
         else:
+            prev = this_msg.get(key)
+            if prev and key in JOIN_SAME_MESSAGE and isinstance(value, str):
+                # 한 메시지에 같은 칸 값이 둘이면 뒤엣것이 앞엣것을 덮지 않게 합친다
+                # ("체크인 15시"+"체크아웃 11시", "8천원"+"2만원", 대상 "동네 주민"+"학생". T3 z3·T2 r3).
+                if _norm(value) in _norm(prev):
+                    continue
+                if _norm(prev) not in _norm(value):
+                    value = f"{prev}, {value}"
             _put(card, key, value, S.FILLED, turn, by)
+            if isinstance(value, str):
+                this_msg[key] = value
         if key == "business_type":
             old_ind = card.get("industry")
             new_ind = S.industry_for(value).key

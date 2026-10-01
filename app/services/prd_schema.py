@@ -38,7 +38,7 @@ SLOTS: dict[str, Slot] = {s.key: s for s in [
     Slot("exclude", "뺄 것", "넣지 말라고 한 것. 예: '바비큐는 빼주세요' → 바비큐", multi=True),
     Slot("contact_method", "연락 방법", "손님이 연락·예약하는 방법. 예: 전화, 카카오톡 채널, 네이버 예약, 문자"),
     Slot("phone", "전화번호", "사장님이 직접 말한 전화번호만. 말하지 않았으면 넣지 않는다", fact=True),
-    Slot("hours", "영업시간", "사장님이 직접 말한 영업시간·체크인 시간·수업 시간만", fact=True),
+    Slot("hours", "영업시간", "사장님이 직접 말한 영업시간·체크인 시간·수업 시간만. 쉬는 날도 말했으면 함께 넣는다. 예: '매주 월요일 쉬고 열 시부터 여덟 시까지' → 10시~20시, 월요일 휴무. 체크인·체크아웃처럼 시간이 둘이면 한 값에 둘 다 넣는다", fact=True),
     Slot("location", "위치", "사장님이 직접 말한 지역·주소만. 예: 강릉 경포, 부산 해운대구 우동 123", fact=True),
     Slot("price", "가격", "사장님이 직접 말한 가격만. 예: 원데이 클래스 3만5천원. 메뉴 이름이 붙어 있으면('젤네일 5만원', '컷트 2만원') 메뉴는 offerings로 나누고 가격만 price에 넣는다", fact=True),
     Slot("detail", "특징", "가게만의 특징이나 자랑. 예: 바다가 보이는 객실, 직접 로스팅. 대상이 섞여 있으면('중년 아주머니가 많이 와요') 그 부분은 target으로 나눈다"),
@@ -84,7 +84,9 @@ COMMON_QUESTIONS: dict[str, Question] = {
     "offerings": Question("offerings", "어떤 것을 소개하고 싶으세요?"),
     "contact_method": Question("contact_method", "손님 연락은 어떻게 받으실까요?",
                                options=("전화", "카카오톡 채널", "예약 사이트 링크")),
-    "hours": Question("hours", "영업시간은 어떻게 되나요?", options=("매일 같은 시간", "요일마다 달라요", "나중에 넣을게요")),
+    # 시간을 바로 묻는다: "매일 같은 시간"을 고르면 "몇 시부터?"를 또 물어 질문 하나가 늘던 문제(T3 z3 salon-terse 9회).
+    "hours": Question("hours", "몇 시부터 몇 시까지 여나요? 쉬는 날도 있으면 함께 알려 주세요. 예: 매일 10시~21시, 월요일 휴무",
+                      options=("요일마다 달라요", "나중에 넣을게요")),
     "phone": Question("phone", "연락받을 전화번호를 알려 주세요.", options=("나중에 넣을게요",)),
     "location": Question("location", "가게는 어디에 있나요? 지역만 알려 주셔도 돼요.", options=("나중에 넣을게요",)),
 }
