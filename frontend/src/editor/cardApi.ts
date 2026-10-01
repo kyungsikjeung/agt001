@@ -61,14 +61,20 @@ export interface CardPreview {
   addable: PreviewAddable[];
   /** 이 안의 지금 구역 편집 (없으면 빈 객체). 다음 저장이 더한 구역을 잃지 않게 여기서 시작한다. */
   layout: { order?: string[]; hidden?: string[]; added?: string[] };
-  /** 항목의 지금 가격·설명 */
+  /** 항목의 지금 가격·설명·그룹·사진 */
   items: PreviewItem[];
+  /** 지금 보이는 그룹 순서 (GROUP_CARDS_CONTRACT §2-6, 빈 그룹 포함). 예전 서버는 없다 */
+  groups?: string[];
 }
 
 export interface PreviewItem {
   name: string;
   price: string;
   note: string;
+  /** 지금 보이는 그룹 (그룹 카드 §2-6) */
+  group?: string;
+  /** own = 내 사진 있음, auto = 예시 사진, none = 사진 없음 */
+  photo?: 'own' | 'auto' | 'none';
 }
 
 /** 항목 고치기 1줄 (EDIT_WAVE2_CONTRACT §2.2). */
@@ -79,6 +85,16 @@ export interface CardItemEdit {
   note?: string;
   remove?: boolean;
   add?: boolean;
+  /** 그룹 이름 (그룹 카드 §2-1) */
+  group?: string;
+  /** none = 사진 없음, auto = 기본(내 사진 → 예시 사진) */
+  photo?: 'auto' | 'none';
+}
+
+/** 그룹 목록 통째로 (그룹 카드 §2-2). rename = 옛 이름 → 새 이름 */
+export interface CardGroupsEdit {
+  order: string[];
+  rename?: Record<string, string>;
 }
 
 /** 구역 순서·숨기기·추가 (EDIT_WAVE2_CONTRACT §2.2). */
@@ -93,6 +109,7 @@ export interface CardLayoutEdit {
 /** PUT /card에 fields·notice 말고 더 보낼 것. choice는 고른 안 바꾸기(빌더 "모양 바꾸기"). */
 export interface CardSaveExtra {
   items?: CardItemEdit[];
+  groups?: CardGroupsEdit;
   layout?: CardLayoutEdit;
   choice?: string;
 }
@@ -157,6 +174,7 @@ export async function saveCard(
   const body: Record<string, unknown> = { fields };
   if (notice) body.notice = notice;
   if (extra?.items) body.items = extra.items;
+  if (extra?.groups) body.groups = extra.groups;
   if (extra?.layout) body.layout = extra.layout;
   if (extra?.choice) body.choice = extra.choice;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {

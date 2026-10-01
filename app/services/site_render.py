@@ -899,6 +899,7 @@ def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
             one["image_alt"] = alt_raw if isinstance(alt_raw, str) and alt_raw else "상품 사진"
             one["image_ai"] = entry.get("image_ai") is True
             one["image_example"] = bool(one["image_src"]) and entry.get("image_example") is True  # D51 ③
+            one["image_off"] = not one["image_src"] and entry.get("image_off") is True  # 사진 없음: 빈 칸도 안 그린다
         if with_index:
             one["index"] = pos
         items.append(one)

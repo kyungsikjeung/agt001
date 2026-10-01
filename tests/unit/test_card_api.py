@@ -106,7 +106,7 @@ def test_preview_owner_design_and_hidden(client):
     assert body["layout"]["hidden"] == ["space"]
     assert [i["name"] for i in body["items"]] == store.read_session(
         store.read_room(rid)["session_id"])["prd"]["slots"]["offerings"]["value"]
-    assert all({"name", "price", "note"} == set(i) for i in body["items"])
+    assert all({"name", "price", "note", "group", "photo"} == set(i) for i in body["items"])  # 그룹 카드 §2-6
     assert next(s for s in body["sections"] if s["id"] == "hero")["locked"] is True
     # variant 생략·이상한 값은 v1 (choice 없음)
     assert client.get(f"/api/rooms/{rid}/card/preview", headers=h).json()["variant"] == "v1"
