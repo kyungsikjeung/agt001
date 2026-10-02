@@ -261,12 +261,17 @@ SCENE_COUNT = 5
 
 
 def _scene_key(card: dict) -> str:
-    """장면 묶음 이름 = 사장님이 말한 종류 낱말(가게 이름·사실은 쓰지 않는다)."""
+    """장면 묶음 이름 = 종류의 대표 낱말(가게 이름·사실은 쓰지 않는다).
+    '결혼 청첩장'·'모바일 청첩장'이 같은 묶음('청첩장')을 쓰게 종류 별칭이 들어 있으면 그 별칭, 없으면 말한 낱말 그대로."""
     slot = ((card or {}).get("slots") or {}).get("business_type") or {}
     value = slot.get("value") if isinstance(slot, dict) else ""
     if isinstance(value, list):
         value = " ".join(str(v) for v in value)
-    return normalize(str(value or ""))[:40]
+    text = str(value or "")
+    from app.services import prd_schema as S
+    squeezed = text.replace(" ", "")
+    hit = max((a for a in S.industry_for(text).aliases if a in squeezed), key=len, default="")
+    return normalize(hit or text)[:40]
 
 
 def _ask_scenes(kind_words: str, known: list) -> list:
