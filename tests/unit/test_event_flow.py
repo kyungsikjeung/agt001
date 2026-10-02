@@ -97,3 +97,59 @@ def test_unreadable_date_shows_example_date_in_draft_only():
     secs = {s["type"]: s["content"] for s in DV.variants(card)[0]["spec"]["sections"]}
     assert secs["event"]["example"] is True
     assert [side["side"] for side in secs["family"]["sides"]] == ["연락처"]  # 결혼이 아니면 신랑측·신부측이 아니다
+
+
+# ---- 빌더에서 양가 연락처·계좌 넣기 (PUT /card event) ----
+def _wedding_room(client):
+    from app import store
+    rid = client.post("/room").json()["room_id"]
+    client.post(f"/room/{rid}/chat", json={"member_id": "owner", "nickname": "신랑", "message": "결혼 청첩장"})
+    room = store.read_room(rid)
+    with store.session_tx(room["session_id"]) as s:
+        card = E.new_card()
+        for key, value in dict(business_type="결혼 청첩장", **WEDDING).items():
+            E._put(card, key, value, S.FILLED, 1)
+        card["industry"], card["turn"] = "event", 1
+        s["prd"] = card
+    return rid
+
+
+OWNER = {"X-Member-Id": "owner"}
+FAMILY = [{"side": "신랑측", "people": [{"role": "신랑", "name": "김민준", "phone": "010-1234-5678"},
+                                     {"role": "아버지", "name": "김철수", "phone": "010-2222-3333"}]},
+          {"side": "신부측", "people": [{"role": "신부", "name": "이서연", "phone": ""}]}]
+GIFT = [{"side": "신랑측", "accounts": [{"role": "신랑", "holder": "김민준", "bank": "국민은행", "number": "123456-01-234567"}]}]
+
+
+def test_card_view_shows_editable_lists_with_defaults(client):
+    rid = _wedding_room(client)
+    view = client.get(f"/api/rooms/{rid}/card", headers=OWNER).json()
+    assert [s["side"] for s in view["event"]["family"]] == ["신랑측", "신부측"]
+    assert view["event"]["gift"][0]["accounts"][0]["bank"] == "예시은행"
+    assert view["event"]["saved"] == {"family": False, "gift": False}
+
+
+def test_saved_contacts_and_accounts_replace_examples_and_go_public(client):
+    from app.services import design_variants as DV
+    from app import store
+    rid = _wedding_room(client)
+    r = client.put(f"/api/rooms/{rid}/card", json={"event": {"family": FAMILY, "gift": GIFT}}, headers=OWNER)
+    assert r.status_code == 200 and r.json()["event"]["saved"] == {"family": True, "gift": True}
+    card = store.read_session(store.read_room(rid)["session_id"])["prd"]
+    public = SR.render_site(DV.variants(card)[0]["spec"], site_key="k", public=True)
+    assert 'href="tel:01022223333"' in public and "국민은행 123456-01-234567" in public and "예시은행" not in public
+    # 빈 목록이면 예시로 되돌린다
+    r = client.put(f"/api/rooms/{rid}/card", json={"event": {"gift": []}}, headers=OWNER)
+    assert r.json()["event"]["saved"] == {"family": True, "gift": False}
+
+
+def test_bad_phone_or_account_is_refused_with_who(client):
+    rid = _wedding_room(client)
+    bad_phone = [{"side": "신랑측", "people": [{"role": "신랑", "name": "김민준", "phone": "010-12"}]}]
+    r = client.put(f"/api/rooms/{rid}/card", json={"event": {"family": bad_phone}}, headers=OWNER)
+    assert r.status_code == 400 and "김민준" in r.json()["detail"]
+    rrn = [{"side": "신랑측", "accounts": [{"holder": "김민준", "bank": "농협", "number": "900101-1234567"}]}]
+    r = client.put(f"/api/rooms/{rid}/card", json={"event": {"gift": rrn}}, headers=OWNER)
+    assert r.status_code == 400 and "주민등록번호" in r.json()["detail"]
+    assert client.put(f"/api/rooms/{rid}/card", json={"event": {"gift": GIFT}},
+                      headers={"X-Member-Id": "stranger"}).status_code in (403, 404)
