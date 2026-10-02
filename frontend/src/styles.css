@@ -1,30 +1,17 @@
 :root {
-  --ground: #fbfaf7;
-  --surface: #ffffff;
-  --ink: #16191d;
-  --muted: #5f6670;
-  --line: #e6e3dc;
-  --accent: #0f7a5c;
-  --accent-ink: #ffffff;
-  --accent-soft: #e4f2ec;
-  --glow: rgba(15, 122, 92, 0.14);
+  /* 기본 다크 (대표 결정 10/2: 휴대폰에서도 랜딩·빌더를 어둡게). 빌더 작업대(#17181a)와 같은 숯색 바탕 */
+  --ground: #17181a;
+  --surface: #232427;
+  --ink: #ecebe6;
+  --muted: #a3a8ad;
+  --line: #2f3236;
+  --accent: #3fbf95;
+  --accent-ink: #0b1511;
+  --accent-soft: #17302a;
+  --glow: rgba(63, 191, 149, 0.16);
   --kakao: #fee500;
   --radius: 18px;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #111315;
-    --surface: #1a1d20;
-    --ink: #eceef0;
-    --muted: #9aa2ab;
-    --line: #2b3035;
-    --accent: #3fbf95;
-    --accent-ink: #0b1511;
-    --accent-soft: #17302a;
-    --glow: rgba(63, 191, 149, 0.16);
-    color-scheme: dark;
-  }
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -42,7 +29,7 @@ button:disabled { cursor: default; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-.page { min-height: 100dvh; display: flex; flex-direction: column; padding-inline: 16px; }
+.page { min-height: 100dvh; display: flex; flex-direction: column; padding-inline: 16px; overflow-x: clip; }
 main { flex: 1; width: 100%; max-width: 980px; margin: 0 auto; }
 
 /* 상단 */
@@ -50,8 +37,27 @@ main { flex: 1; width: 100%; max-width: 980px; margin: 0 auto; }
   width: 100%; max-width: 980px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
   padding-block: calc(14px + env(safe-area-inset-top, 0px)) 14px;
+  /* 위에 붙는 띠: 맨 위에선 투명(첫 화면에 녹아듦), 내려가면 진한 반투명 + 흐림 (GitHub 랜딩처럼).
+     바탕은 ::before로 980px 칸 밖 화면 끝까지 칠한다(띠 아래로 열리는 로그인 메뉴는 안 잘린다). */
+  position: sticky; top: 0; z-index: 30;
+  transition: padding 0.12s ease-out;
 }
-.brand { font-weight: 700; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; font-size: 18px; }
+.topbar::before {
+  content: ''; position: absolute; z-index: -1; inset: 0 -100vmax;
+  background: transparent; border-bottom: 1px solid transparent;
+  transition: background-color 0.12s ease-out, border-color 0.12s ease-out;
+}
+.topbar--solid { padding-block: calc(10px + env(safe-area-inset-top, 0px)) 10px; }
+.topbar--solid::before {
+  background: rgba(17, 18, 20, 0.94); border-bottom-color: var(--line);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  backdrop-filter: saturate(140%) blur(14px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .topbar, .topbar::before { transition: none; }
+}
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; font-size: 18px; }
+.brand-mark { display: block; flex: none; }
 .ghost {
   background: transparent; border: 1px solid var(--line); border-radius: 999px;
   padding: 7px 16px; font-size: 14px; font-weight: 500;

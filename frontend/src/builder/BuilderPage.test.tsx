@@ -207,7 +207,7 @@ describe('BuilderPage', () => {
     render(<BuilderPage roomId="r1" />);
     await screen.findByTitle('사이트 미리보기');
     const before = callsTo('/card/preview').length;
-    fireEvent.click(screen.getByRole('button', { name: '가게 정보 펼치기' }));
+    fireEvent.click(screen.getByRole('button', { name: '가게 정보 입력' }));
     fireEvent.change(screen.getByLabelText('가게 이름'), { target: { value: '모퉁이 커피' } });
     fireEvent.click(screen.getByRole('button', { name: '저장' }));
     await waitFor(() => expect(callsTo('/card/preview').length).toBe(before + 1));

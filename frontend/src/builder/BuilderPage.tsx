@@ -60,6 +60,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   const [changeSeq, setChangeSeq] = useState(0);
   const [photoPick, setPhotoPick] = useState<PhotoSheetPick | null>(null);
   const control = useRef<BuilderControl | null>(null);
+  const bottomRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -243,7 +244,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
           <PublishBar view={{ busy: pubBusy, result: pubResult, siteUrl }} onPublish={(force) => void publish(force)} />
         </div>
         <button type="button" className="ed-btn" aria-expanded={topOpen} onClick={() => setTopOpen((v) => !v)}>
-          {topOpen ? '가게 정보 접기' : '가게 정보 펼치기'}
+          {topOpen ? '가게 정보 닫기' : '가게 정보 입력'}
         </button>
         {topOpen ? (
           <div className="bd-top-fields">
@@ -298,6 +299,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
           builderMode
           controlRef={control}
           onPhotoPick={setPhotoPick}
+          bottomRef={bottomRef}
         />
         <PhotoSheet
           roomId={roomId}
@@ -307,7 +309,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
         />
       </main>
 
-      <footer className="bd-bottom">
+      <footer ref={bottomRef} className="bd-bottom">
         <SayBar
           roomId={roomId}
           clearUndoOn={changeSeq}
