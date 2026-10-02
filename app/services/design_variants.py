@@ -200,6 +200,9 @@ def _build_spec(card: dict, concept: dict) -> dict:
         ai_hero = ""
     drop = {t for word, t in _EXCLUDE_TYPES.items() if word in excluded}
 
+    # 장면 사진: 기본 그림이 없는 종류만(6업종은 목업이 먼저). 그리기 중이라 만들지 않고 있는 것만 쓴다.
+    from app.services import art_lib
+    scenes = art_lib.pick_scenes(card) if ind.key in art_lib.SCENE_KINDS else []
     sections = []
     for sec in spec["sections"]:
         if sec["type"] in drop:
@@ -220,7 +223,8 @@ def _build_spec(card: dict, concept: dict) -> dict:
                 c["image_alt"] = "AI 예시 이미지: 사장님 사진으로 바뀌어요"
                 c["ai_example"] = True
             else:
-                c["image"] = _mock_path(ind.key, "hero") or _default_art(ind.key)
+                # 기본 그림 전에 이 종류의 장면 사진(사진 창고, 청첩장이면 반지·부케…)을 쓴다
+                c["image"] = _mock_path(ind.key, "hero") or (scenes[0] if scenes else "") or _default_art(ind.key)
                 c["image_alt"] = _EXEMPLAR_ALT
                 c.pop("ai_example", None)
             c["title"] = shop
@@ -245,7 +249,7 @@ def _build_spec(card: dict, concept: dict) -> dict:
                                   for u in mock]
                 else:
                     c["items"] = [{"src": u, "alt": _EXEMPLAR_ALT, "caption": ""}
-                                  for u in _default_gallery(ind.key)]
+                                  for u in (scenes[1:] or _default_gallery(ind.key))]
         elif sec["type"] == "offerings":
             c["label"] = S.label_for(ind, "offerings")
             # 이름만 넣는다. 가격은 사장님이 말한 가격표가 생기면 채운다(지어내지 않음).

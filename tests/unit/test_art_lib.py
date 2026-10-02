@@ -166,3 +166,69 @@ def test_3_item_image_order_uses_library_before_pack(lib):
     got = site_data._item_image(card, "아메리카노", {}, {"image": "/art/ex/cafe-coffee.webp"})
     assert got["image"] == "/art-lib/coffee-americano.webp" and got["image_example"] is True
     assert site_data._item_image(card, "처음 보는 메뉴", {}, {"image": "/art/ex/x.webp"}) == {"image": "/art/ex/x.webp"}
+
+
+# ---- 장면 사진 (첫 화면·사진첩): 처음 보는 종류(청첩장)도 그 종류 사진을 만들어 보인다 (10/2) ----
+WEDDING = {"scenes": [
+    {"tag": "wedding-rings", "prompt": "two gold wedding rings on white silk"},
+    {"tag": "wedding-bouquet", "prompt": "a white rose bouquet on a chair"},
+    {"tag": "wedding-aisle", "prompt": "a chapel aisle with candles"},
+    {"tag": "Bad Tag!", "prompt": "x"},
+    {"tag": "wedding-table", "prompt": "a wedding reception table setting"},
+]}
+
+
+def _wedding_card():
+    return {"industry": "other", "slots": {"business_type": {"value": "결혼 청첩장", "status": "filled"}}, "photos": []}
+
+
+def test_scenes_llm_once_per_kind_then_reused(lib):
+    lib["answer"] = WEDDING
+    assert art_lib.scene_tags(_wedding_card()) == ["wedding-rings", "wedding-bouquet", "wedding-aisle", "wedding-table"]
+    assert lib["llm"][0] == {"site_kind": "결혼청첩장", "existing_tags": lib["llm"][0]["existing_tags"]}
+    assert art_lib.scene_tags(_wedding_card()) == ["wedding-rings", "wedding-bouquet", "wedding-aisle", "wedding-table"]
+    assert len(lib["llm"]) == 1  # 같은 종류는 다시 묻지 않는다
+    assert art_lib.pick_scenes(_wedding_card()) == []  # 아직 안 만들었으면 그리기에 안 쓴다
+
+
+def test_scenes_prefetch_makes_photos_and_refreshes(lib, monkeypatch):
+    lib["answer"] = WEDDING
+    from app.services import keystore, photo_needs, photos
+    monkeypatch.setattr(keystore, "get", lambda name: "k" if name == "gemini_api_key" else None)
+    monkeypatch.setattr(photo_needs, "items", lambda card: [])
+    refreshed = []
+    monkeypatch.setattr(photos, "_refresh_designs_async", lambda *a, **k: refreshed.append(a[:2]))
+    art_lib.prefetch(_wedding_card(), "room1", "req1")
+    for _ in range(150):
+        if refreshed:
+            break
+        time.sleep(0.02)
+    assert refreshed == [("room1", "req1")]
+    assert art_lib.pick_scenes(_wedding_card())[0] == "/art-lib/wedding-rings.webp"
+    assert len(lib["gen"]) == 4 and all("no people" in g["prompt"] for g in lib["gen"])
+
+
+def test_scenes_not_for_six_shop_kinds_or_when_owner_has_photos(lib, monkeypatch):
+    from app.services import keystore, photo_needs
+    monkeypatch.setattr(keystore, "get", lambda name: "k" if name == "gemini_api_key" else None)
+    monkeypatch.setattr(photo_needs, "items", lambda card: [])
+    cafe = {"industry": "cafe", "slots": {"business_type": {"value": "카페", "status": "filled"}}}
+    art_lib.prefetch(cafe, "r", "q")
+    own = {**_wedding_card(), "photos": [{"url": "/uploads/a.webp", "use": "site"}]}
+    monkeypatch.setattr("app.services.photos.site_photos", lambda card: card.get("photos") or [])
+    art_lib.prefetch(own, "r", "q")
+    time.sleep(0.15)
+    assert lib["llm"] == [] and lib["gen"] == []
+
+
+def test_draft_uses_scene_photos_before_cafe_default_art(lib):
+    lib["answer"] = WEDDING
+    for tag in art_lib.scene_tags(_wedding_card()):
+        art_lib.ensure(tag, "scene")
+    from app.services import design_variants as DV
+    spec = DV.base_spec(_wedding_card())
+    hero = next(s for s in spec["sections"] if s["type"] == "hero")["content"]
+    assert hero["image"] == "/art-lib/wedding-rings.webp" and "cafe" not in hero["image"]
+    gallery = next((s for s in spec["sections"] if s["type"] == "gallery"), None)
+    if gallery:
+        assert all(i["src"].startswith("/art-lib/wedding-") for i in gallery["content"]["items"])

@@ -75,6 +75,15 @@
   `items[].icon_star`, `items[].icon_pin`, `items[].icon_clock`,
   `items[].icon_phone`, `items[].icon_leaf`, `items[].icon_heart`
   (렌더 분기용 불리언. 렌더러가 `icon` 값에 맞는 1개만 참으로 넘긴다. 모르는 값은 `star`로 둔다)
+- `event--date` (초대·기념, 청첩장): `id`, `label`(비면 "날짜와 장소"), `example`, `has_date`, `iso`(YYYY-MM-DD),
+  `date_text`("2026년 11월 14일 토요일"), `time`, `venue`, `month_label`, `weekdays[].label/cls`, `weeks[].days[].n/on/cls`.
+  content는 `date`(YYYY-MM-DD, 틀리면 빈칸), `time`, `venue`. D-day는 공용 스크립트가 `data-dday`로 채운다(편집 미리보기 제외)
+- `family--contacts` (초대·기념): `id`, `label`(비면 "연락하기"), `example`, `has_sides`, `sides[].side`,
+  `sides[].people[].role/name/digits`. content는 `sides: [{side, people: [{role, name, phone}]}]` 최대 2묶음×4명.
+  맞는 전화번호일 때만 전화·문자 단추
+- `gift--accounts` (초대·기념): `id`, `label`(비면 "마음 전하실 곳"), `note`, `example`, `has_sides`, `sides[].side`,
+  `sides[].accounts[].role/holder/bank/number`. content는 `sides: [{side, accounts: [{role, holder, bank, number}]}]`.
+  번호는 숫자·하이픈만(숫자 6~20자리), 주민등록번호 모양은 버린다. 측마다 `<details>`로 접고, 복사 단추는 클립보드가 될 때만 보인다
 - `stats--band` (P2 새 부품): `id`, `title` (선택. 비면 제목 없이 `aria-label="가게 숫자 안내"`),
   `has_items`, `items[].value` (예: "10년". 사장님이 말한 값만), `items[].label` (예: "운영").
   `has_items`가 거짓이면 부품 전체를 렌더하지 않는다(빈 띠를 두지 않음)
