@@ -1,0 +1,187 @@
+/* ==== 초대·기념 부품 (청첩장 등): event--date, family--contacts, gift--accounts ====
+ * 휴대폰 390px 1열 우선, 760px 이상에서 양가를 나란히. 색·여백·모서리·글꼴은 토큰 변수만 쓴다.
+ * 누름 칸 44px 이상, 움직임은 눌림(transform)만. */
+
+.s-btn--sm {
+  min-height: 44px;
+  padding: 6px 14px;
+  font-size: 14px;
+}
+
+/* ---- 날짜와 장소 ---- */
+.s-event__when {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.s-event__time { color: var(--c-primary); }
+
+.s-event__venue {
+  margin: 6px 0 0;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.s-event__cal {
+  width: 100%;
+  max-width: 360px;
+  margin: 20px auto 0;
+  border-collapse: collapse;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.s-event__cal caption {
+  padding-bottom: 8px;
+  font-weight: 700;
+}
+
+.s-event__cal th,
+.s-event__cal td {
+  width: calc(100% / 7);
+  height: 40px;
+  font-size: 15px;
+}
+
+.s-event__cal th {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.s-event__cal .s-sun { color: #c0392b; }
+.s-event__cal .s-sat { color: #2e6da4; }
+
+.s-event__day {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--c-primary);
+  color: var(--c-ground);
+  font-weight: 700;
+}
+
+.s-event__dday {
+  margin: 16px 0 0;
+  text-align: center;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+/* ---- 연락하기 · 마음 전하실 곳: 양가 묶음 ---- */
+.s-family__sides {
+  display: grid;
+  gap: var(--space-gap);
+}
+
+.s-family__side,
+.s-gift__side {
+  padding: var(--space-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.s-family__side h3 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.s-family__list,
+.s-gift__list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.s-family__person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 10px;
+}
+
+/* 계좌 한 줄: 이름 줄 위, 아래 줄에 번호 + 복사 단추 나란히 */
+.s-gift__account {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 10px;
+}
+
+.s-gift__who { grid-column: 1 / -1; }
+
+.s-family__role,
+.s-gift__role {
+  margin-right: 2px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.s-family__who,
+.s-gift__who { font-weight: 600; }
+
+.s-family__acts {
+  display: flex;
+  gap: 6px;
+}
+
+.s-gift__note {
+  color: var(--muted);
+}
+
+.s-gift__side + .s-gift__side { margin-top: 10px; }
+
+.s-gift__side summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+
+.s-gift__side summary::-webkit-details-marker { display: none; }
+
+/* 접힘 표시: 펼치면 뒤집힌다 */
+.s-gift__side summary::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  margin-right: 4px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s ease-out;
+}
+
+.s-gift__side[open] summary::after { transform: translateY(2px) rotate(-135deg); }
+
+.s-gift__side[open] summary { margin-bottom: 8px; }
+
+.s-gift__list { gap: 14px; }
+
+.s-gift__num {
+  font-variant-numeric: tabular-nums;
+  word-break: break-all;
+}
+
+@media (min-width: 760px) {
+  .s-family__sides { grid-template-columns: 1fr 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-gift__side summary::after { transition: none; }
+}
