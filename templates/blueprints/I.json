@@ -76,6 +76,14 @@
           "bind": "gift",
           "label": "마음 전하실 곳",
           "nav": "마음 전하기"
+        },
+        {
+          "id": "guestbook",
+          "type": "guestbook",
+          "variant": "list",
+          "bind": "guestbook",
+          "label": "방명록",
+          "nav": "방명록"
         }
       ]
     },
@@ -139,6 +147,14 @@
           "bind": "gift",
           "label": "마음 전하실 곳",
           "nav": "마음 전하기"
+        },
+        {
+          "id": "guestbook",
+          "type": "guestbook",
+          "variant": "list",
+          "bind": "guestbook",
+          "label": "방명록",
+          "nav": "방명록"
         }
       ]
     },
@@ -202,6 +218,14 @@
           "bind": "gift",
           "label": "마음 전하실 곳",
           "nav": "마음 전하기"
+        },
+        {
+          "id": "guestbook",
+          "type": "guestbook",
+          "variant": "list",
+          "bind": "guestbook",
+          "label": "방명록",
+          "nav": "방명록"
         }
       ]
     }

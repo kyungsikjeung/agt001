@@ -194,4 +194,10 @@ def serve_site(requirement_id: str, filename: str = ""):
         target = target / "index.html"
     if not target.is_file():
         raise HTTPException(status_code=404)
+    if target.name == "index.html":
+        # 청첩장 방명록: 공개본은 고정 파일이라 보낼 때 최신 글을 끼운다(스크립트·다른 출처 요청 없이)
+        from app.services import guestbook
+        page = target.read_text(encoding="utf-8")
+        if guestbook.MARK in page:
+            return HTMLResponse(guestbook.inject(page, requirement_id), headers=_SITE_HEADERS)
     return FileResponse(target, headers=_SITE_HEADERS)

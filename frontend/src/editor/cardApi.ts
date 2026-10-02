@@ -500,3 +500,30 @@ export async function getFixTargets(
   }
   return data.targets as import('../builder/fixTags').FixTarget[];
 }
+
+/** 청첩장 방명록 (방장만, 최신순). */
+export interface GuestbookEntry {
+  id: number;
+  name: string;
+  message: string;
+  ts: string;
+}
+
+export async function listGuestbook(roomId: string, memberId: string | null): Promise<GuestbookEntry[]> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/guestbook`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`방명록을 불러오지 못했어요 (${res.status})`);
+  const data = (await res.json()) as { entries?: GuestbookEntry[] };
+  return Array.isArray(data.entries) ? data.entries : [];
+}
+
+export async function deleteGuestbook(roomId: string, memberId: string | null, id: number): Promise<void> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/guestbook/${id}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`지우지 못했어요 (${res.status})`);
+}

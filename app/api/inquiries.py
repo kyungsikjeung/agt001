@@ -75,6 +75,20 @@ def submit_rsvp(site_key: str, request: Request, name: Optional[str] = Form(defa
     return _page("참석 여부를 전했어요", "알려 주셔서 고마워요. 그날 뵐게요.", site_key, 200)
 
 
+@router.post("/api/guestbook/{site_key}", include_in_schema=False)
+def submit_guestbook(site_key: str, request: Request, name: Optional[str] = Form(default=None),
+                     message: Optional[str] = Form(default=None), website: Optional[str] = Form(default=None)):
+    """청첩장 방명록 (guestbook--list). 남기면 사이트의 방명록 자리로 돌아간다."""
+    from app.services import guestbook
+    if not _allow(request.client.host if request.client else "unknown"):
+        return _page("잠시 후 다시 남겨 주세요", "짧은 시간에 많이 들어왔어요.", site_key, 429)
+    try:
+        guestbook.add(site_key, name, message, website)
+    except guestbook.GuestbookError as e:
+        return _page("남기지 못했어요", str(e), site_key, 400)
+    return RedirectResponse(f"/site/{sanitize_token(site_key)}/#guestbook-title-guestbook", status_code=303)
+
+
 @router.get("/api/inquiries/{site_key}/done", include_in_schema=False)
 def inquiry_done(site_key: str):
     return _page("문의가 전달됐어요", "가게에서 확인한 뒤 적어 주신 연락처로 답변드릴 거예요.", site_key, 200)

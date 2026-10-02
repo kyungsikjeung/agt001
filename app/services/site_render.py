@@ -1358,6 +1358,10 @@ def _section_context(
         ctx["sides"] = _event_sides(content, "people", _family_person)
         ctx["has_sides"] = bool(ctx["sides"])
         ctx["example"] = content.get("example") is True
+    elif section_type == "guestbook" and variant == "list":
+        # 초대·기념: 방명록. 공개본은 자리 표시(MARK)만 두고, 보낼 때 최신 글을 끼운다(guestbook.inject)
+        ctx["site_key"] = site_key
+        ctx["label"] = _text(content, "label")
     elif section_type == "rsvp" and variant == "form":
         # 초대·기념: 참석 여부 받기(문의 저장소로, /api/rsvp/). 측은 신랑측·신부측만
         ctx["site_key"] = site_key
@@ -1609,6 +1613,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             rendered_parts.append(_apply_tone(
                 _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section))
             continue
+        if section_type == "guestbook":
+            ctx["public"] = public
         part = chevron.render(template, _safe(ctx))
         if (section_type == "hero" and variant in _HERO_PHOTO_VARIANTS
                 and not ctx.get("image_src")):
