@@ -283,7 +283,11 @@ def _ask_scenes(kind_words: str, known: list) -> list:
               "(e.g. a wedding invitation site shows the wedding: rings, bouquet, ceremony venue, aisle, reception table; "
               "a first-birthday party site shows the party table and decorations). "
               f"List {SCENE_COUNT} clearly different scenes, the first one being the hero image. "
-              "Each scene must show objects or places only: no people, no faces, no hands, no text, no lettering. "
+              "Each scene must show objects or places only: no people, no faces, no hands, no text, no lettering, "
+              "no letters or characters on banners or signs. "
+              # 10/2 운영 실측: 칠순 장면에 제사상(향·빈 액자)이 나와 추모처럼 보였다
+              "For celebrations (weddings, birthdays, 70th birthdays) keep every scene festive: never memorial, "
+              "funeral or ancestral-rite imagery (no incense, no empty portrait frames, no jesa table). "
               'Reply JSON only: {"scenes": [{"tag": "<topic-scene, lowercase words with hyphens>", '
               '"prompt": "<one English line describing the photo>"}]}. '
               "Tags must start with one shared topic word (e.g. wedding-rings, wedding-bouquet). "
