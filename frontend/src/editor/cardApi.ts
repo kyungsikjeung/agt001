@@ -37,6 +37,28 @@ export interface RoomCard {
   layout?: Record<string, { order?: string[]; hidden?: string[]; added?: string[] }>;
   /** 무료 디자인 남은 횟수 (USAGE_QUOTA_CONTRACT §2-6). 예전 서버는 없다 */
   quota?: CardQuota | null;
+  /** 초대·기념(청첩장)만: 양가 연락처·계좌 (넣은 값 또는 시안 기본 묶음) */
+  event?: CardEvent;
+}
+
+export interface EventPerson {
+  role: string;
+  name: string;
+  phone?: string;
+}
+
+export interface EventAccount {
+  role: string;
+  holder: string;
+  bank: string;
+  number: string;
+}
+
+export interface CardEvent {
+  family: { side: string; people: EventPerson[] }[];
+  gift: { side: string; accounts: EventAccount[] }[];
+  /** 사장님이 넣은 값인가 (아니면 시안 기본·예시) */
+  saved: { family: boolean; gift: boolean };
 }
 
 export interface CardQuota {
@@ -117,6 +139,7 @@ export interface CardLayoutEdit {
 
 /** PUT /card에 fields·notice 말고 더 보낼 것. choice는 고른 안 바꾸기(빌더 "모양 바꾸기"). */
 export interface CardSaveExtra {
+  event?: Partial<Pick<CardEvent, 'family' | 'gift'>>;
   items?: CardItemEdit[];
   groups?: CardGroupsEdit;
   layout?: CardLayoutEdit;
@@ -186,13 +209,18 @@ export async function saveCard(
   if (extra?.groups) body.groups = extra.groups;
   if (extra?.layout) body.layout = extra.layout;
   if (extra?.choice) body.choice = extra.choice;
+  if (extra?.event) body.event = extra.event;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`저장하지 못했습니다 (${res.status})`);
+  if (!res.ok) {
+    // 400이면 서버가 틀린 곳을 한 줄로 알려 준다(예: "김민준 전화번호: 전화번호 자리수가 맞지 않아요")
+    const detail = res.status === 400 ? await res.json().then((d) => d?.detail).catch(() => '') : '';
+    throw new Error(typeof detail === 'string' && detail ? detail : `저장하지 못했습니다 (${res.status})`);
+  }
   const data = (await res.json()) as RoomCard;
   if (!data || !Array.isArray(data.fields)) throw new Error('카드 모양이 맞지 않아요.');
   return data;

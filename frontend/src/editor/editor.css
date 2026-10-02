@@ -1022,3 +1022,44 @@
 .ed-notice-photos__list .ed-btn { min-height: 44px; padding: 6px 12px; }
 .ed-hint { margin: 4px 0; font-size: 14px; color: var(--ed-muted, #52525b); }
 
+
+/* 청첩장 양가 연락처·계좌 고치기 (EventEditor): 측마다 묶음, 줄마다 칸 2열(넓으면 한 줄) */
+.ed-event {
+  display: grid;
+  gap: 12px;
+}
+.ed-event__side {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+}
+.ed-event__side legend {
+  padding: 0 4px;
+  font-weight: 700;
+}
+.ed-event__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--ed-line);
+}
+.ed-event__cell {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+.ed-event__cell .ed-input {
+  min-height: 44px;
+}
+.ed-event__remove {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 13px;
+}

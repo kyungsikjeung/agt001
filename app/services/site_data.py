@@ -791,8 +791,60 @@ def _couple(card: dict) -> list:
     return [n for n in _COUPLE_SPLIT.split(name) if n.strip()][:2] if name else []
 
 
+_EVENT_FIELDS = {"family": ("people", ("role", "name", "phone")),
+                 "gift": ("accounts", ("role", "holder", "bank", "number"))}
+
+
+def clean_event(kind: str, raw) -> tuple:
+    """빌더에서 넣은 양가 연락처·계좌 → (저장할 묶음, 틀린 곳 목록). 최대 2묶음×4줄, 칸마다 40자.
+    전화는 자리수, 계좌는 숫자·하이픈 6~20자리, 주민등록번호 모양은 받지 않는다."""
+    from app.services import validate as V
+    key, cols = _EVENT_FIELDS[kind]
+    sides, errors = [], []
+    for entry in (raw if isinstance(raw, list) else [])[:2]:
+        if not isinstance(entry, dict):
+            continue
+        side = str(entry.get("side") or "").strip()[:20]
+        rows = []
+        for row in (entry.get(key) if isinstance(entry.get(key), list) else [])[:4]:
+            if not isinstance(row, dict):
+                continue
+            item = {c: " ".join(str(row.get(c) or "").split())[:40] for c in cols}
+            who = item.get("name") or item.get("holder")
+            if not who:
+                continue
+            if kind == "family" and item["phone"] and V.check_phone(item["phone"]):
+                errors.append(f"{who} 전화번호: {V.check_phone(item['phone'])}")
+            if kind == "gift":
+                number = re.sub(r"[^0-9-]", "", item["number"]).strip("-")
+                digits = re.sub(r"\D", "", number)
+                if V._RRN_HYPHEN_RE.search(number) or V._RRN_PLAIN_RE.search(digits):
+                    errors.append(f"{who} 계좌번호: 주민등록번호는 받지 않아요")
+                elif not item["bank"] or not 6 <= len(digits) <= 20:
+                    errors.append(f"{who} 계좌: 은행과 계좌번호(숫자 6~20자리)를 적어 주세요")
+                item["number"] = number
+            rows.append(item)
+        if side and rows:
+            sides.append({"side": side, key: rows})
+    return sides, errors
+
+
+def event_lists(card: dict) -> dict:
+    """빌더 고치기 칸에 보일 양가 연락처·계좌: 넣은 값이 있으면 그것, 없으면 시안에 보이는 기본 묶음."""
+    family, gift = {"bind": "family", "label": ""}, {"bind": "gift", "label": ""}
+    _fill_family(family, card, _fact(card, "phone"))
+    _fill_gift(gift, card)
+    saved = card.get("event") if isinstance(card.get("event"), dict) else {}
+    return {"family": family["content"]["sides"], "gift": gift["content"]["sides"],
+            "saved": {k: bool(saved.get(k)) for k in ("family", "gift")}}
+
+
 def _fill_family(sec: dict, card: dict, phone: str) -> None:
-    """family bind → 연락하기. 결혼이면 신랑측·신부측(이름은 사장님 말), 번호는 빌더에서 채운다(그 전엔 예시)."""
+    """family bind → 연락하기. 빌더에서 넣은 값이 먼저. 없으면 결혼이면 신랑측·신부측(이름은 사장님 말), 그 전엔 예시."""
+    saved = (card.get("event") or {}).get("family") if isinstance(card.get("event"), dict) else None
+    if saved:
+        sec["content"] = {"label": sec.get("label") or "", "sides": saved, "example": False}
+        return
     names = _couple(card)
     if _is_wedding(card):
         sides = [{"side": side, "people": [{"role": role, "name": n}]}
@@ -807,6 +859,11 @@ def _fill_family(sec: dict, card: dict, phone: str) -> None:
 
 def _fill_gift(sec: dict, card: dict) -> None:
     """gift bind → 마음 전하실 곳. 계좌는 사장님이 빌더에서 넣는다 → 그 전엔 예시 계좌(공개본에선 빠진다)."""
+    saved = (card.get("event") or {}).get("gift") if isinstance(card.get("event"), dict) else None
+    if saved:
+        sec["content"] = {"label": sec.get("label") or "", "sides": saved, "example": False,
+                          "note": "참석이 어려우신 분들을 위해 적어 두었어요."}
+        return
     names = _couple(card) or ["주인공"]
     sides = ([{"side": side, "accounts": [{"role": role, "holder": n, "bank": "예시은행", "number": "000-0000-0000"}]}
               for (side, role), n in zip((("신랑측", "신랑"), ("신부측", "신부")), names)]
