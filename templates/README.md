@@ -48,7 +48,7 @@
 - `hero--photo-overlay`: `id`, `image_src`, `image_alt`, `title`, `subtitle`, `cta_label`, `cta_href`
 - `hero--photo-side`: `id`, `image_src`, `image_alt`, `title`, `subtitle`, `cta_label`, `cta_href`
 - `hero--text-only`: `id`, `title`, `subtitle`, `cta_label`, `cta_href` (이미지 변수 없음)
-- `intro--short`: `id`, `body`
+- `intro--short`: `id`, `body`, `label`(선택, 비면 "소개")
 - `intro--owner`: `id`, `body`, `owner_name`
 - `intro--stats`: `id`, `body`, `has_stats`, `stats[].label`, `stats[].value`
 - `offerings--list-price`: `id`, `label`, `has_items`, `items[].name`, `items[].desc`, `items[].price`

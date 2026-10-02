@@ -1105,6 +1105,7 @@ def _section_context(
         ctx.update(_hero_context(content))
     elif section_type == "intro" and variant == "short":
         ctx["body"] = _text(content, "body")
+        ctx["label"] = _text(content, "label")  # 비면 "소개" (청첩장은 "인사말")
     elif section_type == "intro" and variant == "owner":
         ctx["body"] = _text(content, "body")
         ctx["owner_name"] = _text(content, "owner_name")
