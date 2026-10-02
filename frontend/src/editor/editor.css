@@ -3,17 +3,20 @@
    토큰 출발값: SECTION_LIBRARY_SPEC §1.6 forest(펜션 기본). */
 
 .ed-page {
-  --ed-ground: #faf7f2;
-  --ed-card: #ffffff;
-  --ed-ink: #1f2622;
-  --ed-primary: #2f5d50;
-  --ed-on-primary: #ffffff;
-  --ed-accent-line: #8a6d2b;
-  --ed-slot-bg: #fff6df;
-  --ed-slot-ink: #4f3f00;
-  --ed-note: #33413c;
-  --ed-line: rgba(31, 38, 34, 0.14);
-  --ed-focus: #0f7aa8;
+  /* 기본 다크 (10/2 대표 결정: 빌더 작업대와 같은 색. 빌더는 builder.css에서 금색·작업대 바탕을 더한다) */
+  color-scheme: dark;
+  --ed-ground: #17181a;
+  --ed-card: #232427;
+  --ed-ink: #ecebe6;
+  --ed-primary: #ebe5d6;
+  --ed-on-primary: #1a1b1d;
+  --ed-accent-line: #c9a35a;
+  --ed-slot-bg: rgba(201, 163, 90, 0.16);
+  --ed-slot-ink: #f0d9a8;
+  --ed-note: #a9a59c;
+  --ed-line: rgba(235, 229, 214, 0.12);
+  --ed-focus: #8cc8ff;
+  --ed-field: #2a2b2f;
   min-height: 100dvh;
   background: var(--ed-ground);
   color: var(--ed-ink);
@@ -134,8 +137,8 @@
   margin: 12px 0 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #e7f2ea;
-  color: #1e4d38;
+  background: rgba(120, 190, 150, 0.14);
+  color: #b9e3c8;
   font-size: 15px;
   font-weight: 600;
 }
@@ -340,9 +343,9 @@
   min-height: 44px;
   font: inherit;
   padding: 10px 12px;
-  border: 1.5px solid var(--ed-primary);
+  border: 1.5px solid var(--ed-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--ed-field);
   color: var(--ed-ink);
 }
 
@@ -422,16 +425,16 @@
   min-height: 44px;
   font: inherit;
   padding: 10px 12px;
-  border: 1.5px solid var(--ed-primary);
+  border: 1.5px solid var(--ed-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--ed-field);
   color: var(--ed-ink);
 }
 
 .ed-card-field input:disabled {
   opacity: 0.7;
   border-color: var(--ed-line);
-  background: #f4f1ea;
+  background: #2f3034;
 }
 
 .ed-badge {
