@@ -1083,3 +1083,29 @@
 .ed-guestbook__who { margin: 0; }
 .ed-guestbook__who span { font-size: 12px; color: var(--ed-note); }
 .ed-guestbook__text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+/* 청첩장 참석 여부 집계 (RsvpSummary) */
+.ed-rsvp { display: grid; gap: 10px; }
+.ed-rsvp__totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+.ed-rsvp__totals div {
+  padding: 8px;
+  border: 1px solid var(--ed-line);
+  border-radius: 10px;
+  text-align: center;
+}
+.ed-rsvp__totals dt { font-size: 12px; color: var(--ed-note); }
+.ed-rsvp__totals dd { margin: 2px 0 0; font-size: 18px; font-weight: 700; }
+.ed-rsvp__sides { margin: 0; font-size: 14px; color: var(--ed-note); }
+.ed-rsvp__filter { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 14px; }
+.ed-rsvp__list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ed-rsvp__item { padding: 8px 10px; border: 1px solid var(--ed-line); border-radius: 10px; }
+.ed-rsvp__item.is-declined { opacity: 0.6; }
+.ed-rsvp__who { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; align-items: baseline; }
+.ed-rsvp__who span { font-size: 13px; color: var(--ed-note); }
+.ed-rsvp__state { margin-left: auto; font-weight: 600; color: var(--ed-ink) !important; }
+.ed-rsvp__note, .ed-rsvp__contact { margin: 2px 0 0; font-size: 13px; color: var(--ed-note); }

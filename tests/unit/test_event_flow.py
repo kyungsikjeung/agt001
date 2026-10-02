@@ -205,3 +205,18 @@ def test_rsvp_needs_name_attend_and_agree(client):
     assert client.post(f"/api/rsvp/{key}", data={"name": "a", "agree": "yes"}).status_code == 400
     assert client.post(f"/api/rsvp/{key}", data={"name": "a", "attend": "no"}).status_code == 400
     assert client.post("/api/rsvp/nope", data={"name": "a", "attend": "no", "agree": "yes"}).status_code == 400
+
+
+def test_rsvp_summary_counts_people_meals_sides_and_is_owner_only(client):
+    rid, key = _published_key(client)
+    for form in ({"name": "박하객", "side": "신부측", "attend": "yes", "count": "2", "meal": "yes"},
+                 {"name": "김친구", "side": "신랑측", "attend": "yes", "count": "3", "meal": "no", "message": "늦을 수 있어요"},
+                 {"name": "이선배", "side": "신랑측", "attend": "no"}):
+        assert client.post(f"/api/rsvp/{key}", data={**form, "agree": "yes"}).status_code == 200
+    client.post(f"/api/inquiries/{key}", data={"name": "문의", "contact": "010-1234-5678", "message": "주차 되나요?", "agree": "yes"})
+    data = client.get(f"/api/rooms/{rid}/rsvp", headers=OWNER).json()
+    assert data["total"] == {"replies": 3, "people": 5, "declined": 1, "meal": 2}
+    assert data["sides"] == {"신부측": 2, "신랑측": 3}
+    assert [e["name"] for e in data["entries"]] == ["이선배", "김친구", "박하객"]  # 최신순, 일반 문의는 빼고
+    assert data["entries"][1]["note"] == "늦을 수 있어요"
+    assert client.get(f"/api/rooms/{rid}/rsvp", headers={"X-Member-Id": "guest"}).status_code in (403, 404)
