@@ -1015,6 +1015,8 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_family(sec, card, phone)
         elif bind == "gift":
             _fill_gift(sec, card)
+        elif bind == "rsvp":
+            sec["content"] = {"label": sec.get("label") or "", "sides": ["신랑측", "신부측"] if _is_wedding(card) else []}
         else:
             sec["content"] = {}
     if order_action and any(isinstance(s, dict)
@@ -1047,9 +1049,11 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     if phone:
         actionbar["secondary"] = _action("전화", f"tel:{phone}")
     else:
-        around = next((s for s in sections if s.get("bind") == "location"), None)
-        if around is not None:
-            actionbar["secondary"] = _action("오시는 길", _anchor(sections, around["id"]))
+        # 전화가 없으면 오시는 길. 청첩장(I)은 주 버튼이 오시는 길이라 참석 여부로(같은 버튼 두 개 방지)
+        bind = "rsvp" if archetype == "I" else "location"
+        sec = next((s for s in sections if s.get("bind") == bind), None)
+        if sec is not None:
+            actionbar["secondary"] = _action("참석 여부" if bind == "rsvp" else "오시는 길", _anchor(sections, sec["id"]))
     if actionbar:
         out["actionbar"] = actionbar
     # 공지 글·사진. 사진 주소는 그대로 (NOTICE_PHOTO_CONTRACT §1-7).

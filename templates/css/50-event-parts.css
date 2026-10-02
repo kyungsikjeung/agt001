@@ -185,3 +185,25 @@
 @media (prefers-reduced-motion: reduce) {
   .s-gift__side summary::after { transition: none; }
 }
+
+/* ---- 참석 여부 (rsvp--form): 문의 폼(.s-form) 모양을 쓰고 고르기 줄만 더한다 ---- */
+.s-rsvp__lead { color: var(--muted); }
+.s-rsvp__choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.s-rsvp__choice legend {
+  width: 100%;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.s-rsvp__choice label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+}
