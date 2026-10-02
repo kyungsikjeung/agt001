@@ -1015,6 +1015,8 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_family(sec, card, phone)
         elif bind == "gift":
             _fill_gift(sec, card)
+        elif bind == "guestbook":
+            sec["content"] = {"label": sec.get("label") or ""}
         elif bind == "rsvp":
             sec["content"] = {"label": sec.get("label") or "", "sides": ["신랑측", "신부측"] if _is_wedding(card) else []}
         else:

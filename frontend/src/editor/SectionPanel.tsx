@@ -2,6 +2,7 @@
 // bind별로 칸을 열고, 아래에 구역 위로·아래로·숨기기를 둔다. locked면 공통 버튼을 그리지 않는다.
 import { useEffect, useState } from 'react';
 import EventEditor from './EventEditor';
+import GuestbookAdmin from './GuestbookAdmin';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -21,7 +22,7 @@ const NO_GROUPS: string[] = [];
 /** 항목 목록을 쓰는 bind (계약 §4 2번). */
 const CATALOG_BINDS = ['catalog', 'classes', 'rooms', 'signature', 'menu_photos'];
 
-type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event';
+type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook';
 
 /** bind를 패널 종류로 묶는다 (계약 §4 표). */
 function kindOf(bind: string): BindKind {
@@ -36,6 +37,7 @@ function kindOf(bind: string): BindKind {
   if (bind === 'greeting') return 'greeting';
   if (bind === 'event') return 'when';
   if (bind === 'family' || bind === 'gift') return 'event';
+  if (bind === 'guestbook') return 'guestbook';
   return 'chat';
 }
 
@@ -341,6 +343,8 @@ export default function SectionPanel({
             onPhoto={(file, tag) => void onPhoto(file, tag)}
           />
         ) : null}
+
+        {kind === 'guestbook' ? <GuestbookAdmin roomId={roomId} /> : null}
 
         {kind === 'event' ? (
           <EventEditor roomId={roomId} card={card} kind={selected.bind === 'gift' ? 'gift' : 'family'} onSaved={(c) => onSaved(c, selId)} />

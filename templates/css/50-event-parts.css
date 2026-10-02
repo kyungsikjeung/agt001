@@ -50,7 +50,7 @@
 }
 
 .s-event__cal th {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--muted);
 }
@@ -207,3 +207,27 @@
   gap: 6px;
   min-height: 44px;
 }
+
+/* ---- 방명록 (guestbook--list): 폼은 .s-form, 글은 카드 목록(최신순) ---- */
+.s-guestbook__list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.s-guestbook__item {
+  padding: var(--space-card);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+.s-guestbook__who {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+.s-guestbook__date { font-size: 14px; color: var(--muted); }
+.s-guestbook__text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.s-guestbook__empty { margin-top: 14px; color: var(--muted); }

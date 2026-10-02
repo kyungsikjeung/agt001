@@ -664,6 +664,36 @@ def post_change_followup(room: dict, session: dict, safe: str, changed: list, me
         rooms._append(room, "system", "시스템", message, kind="system")
 
 
+def _owner_site_key(room_id: str, x_member_id: Optional[str], request: Request) -> str:
+    """방장만. 이 방 사이트 키(requirement_id)."""
+    safe, member_id = _member_room(room_id, x_member_id, request)
+    room = store.read_room(safe)
+    if rooms.owner_id(room) != member_id:
+        raise HTTPException(status_code=403, detail="owner only")
+    return (store.read_session(room["session_id"]) or {}).get("requirement_id") or ""
+
+
+@router.get("/api/rooms/{room_id}/guestbook")
+def list_guestbook(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """청첩장 방명록 (방장만, 최신순 100개). 빌더 고치기 칸에서 지울 때 본다."""
+    from fastapi.responses import JSONResponse
+    from app.services import guestbook
+    key = _owner_site_key(room_id, x_member_id, request)
+    items = [{"id": e["id"], "name": e["name"], "message": e["message"], "ts": e["ts"].isoformat()}
+             for e in guestbook.latest(key, 100)] if key else []
+    return JSONResponse(content={"entries": items}, headers={"Cache-Control": "no-store"})
+
+
+@router.delete("/api/rooms/{room_id}/guestbook/{entry_id}", status_code=204)
+def delete_guestbook(room_id: str, entry_id: int, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    from fastapi.responses import Response
+    from app.services import guestbook
+    key = _owner_site_key(room_id, x_member_id, request)  # 쿠키 로그인이면 _member_room이 출처를 본다
+    if not key or not guestbook.remove(key, entry_id):
+        raise HTTPException(status_code=404)
+    return Response(status_code=204)
+
+
 @router.get("/api/rooms/{room_id}/card/preview")
 def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None),
                  variant: Optional[str] = None):

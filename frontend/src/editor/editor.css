@@ -1063,3 +1063,23 @@
   padding: 4px 12px;
   font-size: 13px;
 }
+
+/* 청첩장 방명록 관리 (GuestbookAdmin) */
+.ed-guestbook__list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ed-guestbook__item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--ed-line);
+  border-radius: 10px;
+}
+.ed-guestbook__item .ed-btn { justify-self: end; min-height: 36px; padding: 4px 12px; font-size: 13px; }
+.ed-guestbook__who { margin: 0; }
+.ed-guestbook__who span { font-size: 12px; color: var(--ed-note); }
+.ed-guestbook__text { margin: 0; white-space: pre-wrap; word-break: break-word; }
