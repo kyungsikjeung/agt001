@@ -725,12 +725,96 @@
   }
   .ed-site-view {
     grid-column: 2;
+    grid-row: 1;
     position: sticky;
     top: 12px;
   }
+
+  /* 휴대폰↔데스크톱 바꿀 때 기기가 살짝 커지며 나타난다. 이름이 다른 키프레임이라 바꿀 때마다 다시 돈다 */
+  .ed-dev--mobile {
+    animation: ed-dev-in-m 0.22s ease-out;
+  }
+  .ed-dev--desktop {
+    animation: ed-dev-in-d 0.22s ease-out;
+  }
+  @keyframes ed-dev-in-m {
+    from { opacity: 0; transform: scale(0.97); }
+  }
+  @keyframes ed-dev-in-d {
+    from { opacity: 0; transform: scale(0.97); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ed-dev--mobile,
+    .ed-dev--desktop {
+      animation: none;
+    }
+    .ed-outline button {
+      transition: none;
+    }
+  }
   .ed-site-body > .ed-site-panel {
     grid-column: 3;
+    grid-row: 1;
     max-width: 380px;
+  }
+
+  /* 구역 바로가기 (빌더, 왼쪽 칸): 기기 쪽으로 붙여 세운 가는 목록 */
+  .ed-outline {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    position: sticky;
+    top: 12px;
+    width: min(100%, 200px);
+    /* 기기 왼쪽에 매단 크기 버튼(44px + 간격)과 겹치지 않게 */
+    margin-right: 56px;
+  }
+  .ed-outline h2 {
+    margin: 4px 0 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ed-note);
+  }
+  .ed-outline ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 2px;
+  }
+  .ed-outline button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ed-ink);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  }
+  .ed-outline button:hover {
+    background: var(--ed-line);
+  }
+  .ed-outline button[aria-current='true'] {
+    background: var(--ed-primary);
+    color: var(--ed-on-primary);
+    font-weight: 600;
+  }
+  .ed-outline-hidden {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+  .ed-site-body--desktop .ed-outline {
+    display: none;
   }
   /* 크기 버튼은 기기 왼쪽 바깥에 세로로 매단다: 기기 자체가 정가운데 오고, 위에 두면 그만큼 기기가 작아졌다 */
   .ed-site-view .ed-device {

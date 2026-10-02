@@ -282,6 +282,30 @@ export default function SiteEditor({
 
       {!loading && !failed && preview && !legacy ? (
         <div className={`ed-site-body${device === 'desktop' ? ' ed-site-body--desktop' : ''}`}>
+          {/* 빌더 넓은 화면: 왼쪽 칸에 구역 바로가기. 누르면 미리보기가 그 구역으로 가서 반짝이고 오른쪽 고치기 칸이 열린다 */}
+          {builderMode && wide ? (
+            <nav className="ed-outline" aria-label="구역 바로가기">
+              <h2>구역</h2>
+              <ul>
+                {preview.sections.map((s) => (
+                  <li key={s.id}>
+                    <button
+                      type="button"
+                      aria-current={pick.id === s.id}
+                      onClick={() => {
+                        setPick({ id: s.id, text: '', photo: null });
+                        postToFrame({ type: 'agt-scroll', section: s.id });
+                        postToFrame({ type: 'agt-flash', section: s.id });
+                      }}
+                    >
+                      {s.label}
+                      {s.hidden ? <span className="ed-outline-hidden">숨김</span> : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null}
           <div className="ed-site-view">
             <div className="ed-device" role="group" aria-label="미리보기 크기">
               <button

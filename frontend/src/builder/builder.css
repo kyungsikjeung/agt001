@@ -547,3 +547,78 @@
   background: #1c1d20;
   color: var(--ed-note);
 }
+
+/* ── 아래 띠 정리 (빌더 다듬기 ④) ──
+   입력줄을 둥근 한 덩어리로(고칠 곳 · 글 칸 · 보내기 · 마이크), 켜진 칩은 ✓로 구분.
+   넓은 화면에선 칩과 '채팅으로 설명하기'를 한 줄에 두고 칩을 조금 작게(휴대폰은 손가락 칸 44px 그대로). */
+.bd-page .bd-say-row {
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--bd-edge);
+  border-radius: 999px;
+  background: var(--bd-field);
+  transition: border-color 0.15s ease-out;
+}
+.bd-page .bd-say-row:focus-within {
+  border-color: var(--ed-focus);
+}
+.bd-page .bd-say-row .bd-say-input {
+  border: 0;
+  background: transparent;
+  padding: 8px 10px;
+}
+.bd-page .bd-say-row .bd-say-input:focus-visible {
+  outline: none; /* 칸 테두리(:focus-within)가 대신 보인다 */
+}
+.bd-page .bd-chip.on::before {
+  content: '✓';
+  margin-right: 6px;
+}
+
+@media (min-width: 760px) {
+  .bd-page .bd-bottom {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px 12px;
+    padding-top: 10px;
+  }
+  .bd-page .bd-bottom > * {
+    grid-column: 1 / -1;
+  }
+  .bd-page .bd-bottom > .bd-say {
+    grid-row: 1;
+  }
+  .bd-page .bd-bottom > .bd-chips {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .bd-page .bd-bottom > .bd-voice-line {
+    grid-column: 2;
+    grid-row: 2;
+  }
+  .bd-page .bd-chip {
+    min-height: 34px;
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+  .bd-page .bd-say-row .ed-btn {
+    min-height: 40px;
+    padding: 8px 14px;
+  }
+  .bd-page .bd-chat-link {
+    min-height: 34px;
+    font-size: 13px;
+  }
+}
+
+/* ── 움직임 (빌더 다듬기 ⑥) ── 칩 켜고 끌 때 색이 부드럽게. 움직임 줄이기면 끈다. */
+.bd-page .bd-chip,
+.bd-page .bd-choice button {
+  transition: background-color 0.15s ease-out, color 0.15s ease-out, border-color 0.15s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bd-page .bd-chip,
+  .bd-page .bd-choice button,
+  .bd-page .bd-say-row {
+    transition: none;
+  }
+}

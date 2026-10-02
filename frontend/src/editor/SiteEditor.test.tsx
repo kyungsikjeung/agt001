@@ -179,3 +179,33 @@ describe('SiteEditor 미리보기 크기', () => {
     expect(screen.getByRole('button', { name: '데스크톱' })).toHaveAttribute('aria-pressed', 'true');
   });
 });
+
+describe('SiteEditor 구역 바로가기 (빌더, 넓은 화면)', () => {
+  it('구역을 누르면 그 구역이 골라지고 고치기 칸이 열린다', async () => {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q.includes('min-width'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      return okJson(CARD);
+    });
+    render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} builderMode />);
+    const nav = await screen.findByRole('navigation', { name: '구역 바로가기' });
+    const menu = Array.from(nav.querySelectorAll('button')).find((b) => b.textContent === '메뉴')!;
+    fireEvent.click(menu);
+    expect(menu).toHaveAttribute('aria-current', 'true');
+    expect(screen.queryByText('미리보기에서 고칠 곳을 누르세요.')).toBeNull();
+  });
+
+  it('좁은 화면에선 구역 바로가기를 그리지 않는다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      return okJson(CARD);
+    });
+    render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} builderMode />);
+    await screen.findByTitle('사이트 미리보기');
+    expect(screen.queryByRole('navigation', { name: '구역 바로가기' })).toBeNull();
+  });
+});
