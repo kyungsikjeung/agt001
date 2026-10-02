@@ -240,3 +240,22 @@ def test_scenes_shared_across_phrasings_of_the_same_kind(lib):
     other = {**_wedding_card(), "slots": {"business_type": {"value": "모바일 청첩장", "status": "filled"}}}
     assert art_lib.scene_tags(_wedding_card()) == art_lib.scene_tags(other)
     assert len(lib["llm"]) == 1
+
+
+def test_scene_prompt_forbids_memorial_and_letters(lib):
+    """10/2 운영: 칠순에 제사상, 돌잔치 현수막에 글자가 나왔다 → 장면 지시에 금지를 둔다."""
+    seen = {}
+    from app import llm
+
+    def spy(system, user, timeout_sec=20.0, max_tokens=700):
+        seen["system"] = system
+        return json.dumps({"scenes": [{"tag": "chilseon-table", "prompt": "a festive table"}]})
+
+    import pytest as _pytest
+    mp = _pytest.MonkeyPatch()
+    mp.setattr(llm, "chat_json", spy)
+    try:
+        art_lib._ask_scenes("칠순", [])
+    finally:
+        mp.undo()
+    assert "never memorial" in seen["system"] and "no letters or characters on banners" in seen["system"]
