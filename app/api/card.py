@@ -673,6 +673,16 @@ def _owner_site_key(room_id: str, x_member_id: Optional[str], request: Request) 
     return (store.read_session(room["session_id"]) or {}).get("requirement_id") or ""
 
 
+@router.get("/api/rooms/{room_id}/rsvp")
+def rsvp_summary(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """청첩장 참석 여부 집계·명단 (방장만). 연락처가 있어 저장하지 않게 한다."""
+    from fastapi.responses import JSONResponse
+    from app.services import inquiries
+    key = _owner_site_key(room_id, x_member_id, request)
+    data = inquiries.rsvp_summary(key) if key else {"entries": [], "total": {}, "sides": {}}
+    return JSONResponse(content=data, headers={"Cache-Control": "no-store"})
+
+
 @router.get("/api/rooms/{room_id}/guestbook")
 def list_guestbook(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
     """청첩장 방명록 (방장만, 최신순 100개). 빌더 고치기 칸에서 지울 때 본다."""

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
+import RsvpSummary from './RsvpSummary';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -22,7 +23,7 @@ const NO_GROUPS: string[] = [];
 /** 항목 목록을 쓰는 bind (계약 §4 2번). */
 const CATALOG_BINDS = ['catalog', 'classes', 'rooms', 'signature', 'menu_photos'];
 
-type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook';
+type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook' | 'rsvp';
 
 /** bind를 패널 종류로 묶는다 (계약 §4 표). */
 function kindOf(bind: string): BindKind {
@@ -38,6 +39,7 @@ function kindOf(bind: string): BindKind {
   if (bind === 'event') return 'when';
   if (bind === 'family' || bind === 'gift') return 'event';
   if (bind === 'guestbook') return 'guestbook';
+  if (bind === 'rsvp') return 'rsvp';
   return 'chat';
 }
 
@@ -345,6 +347,8 @@ export default function SectionPanel({
         ) : null}
 
         {kind === 'guestbook' ? <GuestbookAdmin roomId={roomId} /> : null}
+
+        {kind === 'rsvp' ? <RsvpSummary roomId={roomId} /> : null}
 
         {kind === 'event' ? (
           <EventEditor roomId={roomId} card={card} kind={selected.bind === 'gift' ? 'gift' : 'family'} onSaved={(c) => onSaved(c, selId)} />

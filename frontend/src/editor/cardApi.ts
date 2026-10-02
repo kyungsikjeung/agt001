@@ -527,3 +527,31 @@ export async function deleteGuestbook(roomId: string, memberId: string | null, i
   });
   if (!res.ok && res.status !== 404) throw new Error(`지우지 못했어요 (${res.status})`);
 }
+
+/** 청첩장 참석 여부 집계 (방장만). */
+export interface RsvpEntry {
+  id: number;
+  name: string;
+  side: string;
+  attend: boolean;
+  count: number;
+  meal: boolean;
+  note: string;
+  contact: string;
+  ts: string;
+}
+
+export interface RsvpSummary {
+  entries: RsvpEntry[];
+  total: { replies?: number; people?: number; declined?: number; meal?: number };
+  sides: Record<string, number>;
+}
+
+export async function getRsvp(roomId: string, memberId: string | null): Promise<RsvpSummary> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/rsvp`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`참석 여부를 불러오지 못했어요 (${res.status})`);
+  return (await res.json()) as RsvpSummary;
+}

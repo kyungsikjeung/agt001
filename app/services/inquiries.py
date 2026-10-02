@@ -110,7 +110,7 @@ def submit_rsvp(site_key: str, name: Optional[str], side: Optional[str], attend:
     parts.append(f"참석 · {people}명" if attend == "yes" else "불참")
     if attend == "yes" and meal in ("yes", "no"):
         parts.append("식사함" if meal == "yes" else "식사 안 함")
-    text = "[참석 여부] " + " · ".join(parts) + (f"\n{note}" if note else "")
+    text = RSVP_PREFIX + " · ".join(parts) + (f"\n{note}" if note else "")
     with get_sessionmaker()() as db, db.begin():
         db.add(InquiryRow(site_key=key, name=name_c, contact=contact_c, message=text))
         room_id = db.scalar(select(RoomRow.id).join(SessionRow, RoomRow.session_id == SessionRow.id)
@@ -120,6 +120,40 @@ def submit_rsvp(site_key: str, name: Optional[str], side: Optional[str], attend:
         from app.services import notify
         notify.owner_kakao(room_id, f"청첩장에 참석 여부가 왔어요.\n{name_c}: {text[8:120]}")
     return True
+
+
+RSVP_PREFIX = "[참석 여부] "
+_RSVP_COUNT = re.compile(r"참석 · (\d+)명")
+
+
+def rsvp_summary(site_key: str) -> dict:
+    """참석 여부 집계 (빌더 '참석 여부' 칸). submit_rsvp가 쓴 한 줄 형식을 읽는다(최신순).
+    {entries: [{id, name, side, attend, count, meal, note, contact, ts}], total: {...}, sides: {측: 참석 인원}}"""
+    key = sanitize_token(site_key or "")
+    entries = []
+    if key:
+        with get_sessionmaker()() as db:
+            rows = db.scalars(select(InquiryRow).where(InquiryRow.site_key == key,
+                                                       InquiryRow.message.startswith(RSVP_PREFIX))
+                              .order_by(InquiryRow.id.desc()).limit(500)).all()
+            for r in rows:
+                head, _, note = r.message[len(RSVP_PREFIX):].partition("\n")
+                parts = head.split(" · ")
+                side = parts[0] if parts and parts[0] in ("신랑측", "신부측") else ""
+                attend = "불참" not in parts
+                found = _RSVP_COUNT.search(head)
+                entries.append({"id": r.id, "name": r.name or "", "side": side, "attend": attend,
+                                "count": int(found.group(1)) if attend and found else 0,
+                                "meal": "식사함" in parts, "note": note.strip(), "contact": r.contact or "",
+                                "ts": r.ts.isoformat() if r.ts else ""})
+    coming = [e for e in entries if e["attend"]]
+    sides: dict = {}
+    for e in coming:
+        if e["side"]:
+            sides[e["side"]] = sides.get(e["side"], 0) + e["count"]
+    total = {"replies": len(entries), "people": sum(e["count"] for e in coming),
+             "declined": len(entries) - len(coming), "meal": sum(e["count"] for e in coming if e["meal"])}
+    return {"entries": entries, "total": total, "sides": sides}
 
 
 def _notify_room(room_id: str, name: str, contact: str, message: str, line: Optional[str] = None) -> None:
