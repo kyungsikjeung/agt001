@@ -654,7 +654,8 @@ def variants(card: dict) -> list[dict]:
             items = None
     if items is None:
         items = _legacy_variants(card)
-    if len(items) >= 3:
+    if len(items) >= 3 and arch != "I":
+        # 초대·기념(청첩장)은 앱형 아래 탭이 어울리지 않아 청사진의 3안('날짜 먼저')을 그대로 쓴다
         items = items[:2] + [_to_app(items[2])] + items[3:]
     return _agent_apply(card, items)
 

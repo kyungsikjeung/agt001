@@ -24,6 +24,7 @@ INDUSTRY_ARCHETYPE = {
     "individual": "F",
     "group": "G",
     "webservice": "H",
+    "event": "I",  # 초대·기념(청첩장·돌잔치·칠순, EVENT_INVITE_PLAN)
     "other": "A",
 }
 
@@ -32,6 +33,7 @@ INDUSTRY_ARCHETYPE = {
 # 순서 이유: 음식 판매(케이크 배달 서비스 → A)가 서비스(H)보다 먼저,
 # 법률 상담 솔루션 같은 상품형(H)이 전문가 의뢰(F)보다 먼저 판정된다.
 _KEYWORD_ARCHETYPE = (
+    ("I", ("청첩장", "결혼식", "돌잔치", "칠순", "팔순", "환갑", "고희연", "초대장")),
     ("B", ("필라테스", "요가", "퍼스널", "피티", "네일", "속눈썹", "왁싱",
            "반려견", "애견", "미용", "바버", "타투")),
     ("D", ("수영", "태권도", "피아노", "과외", "교습", "어린이집",
@@ -100,7 +102,7 @@ def of(card: dict) -> tuple:
     if _industry_key(card or {}) != "other":
         return (INDUSTRY_ARCHETYPE[_industry_key(card)], _mode(card))
     override = (card or {}).get("archetype_override")
-    if isinstance(override, str) and override in "ABCDEFGH" and len(override) == 1:
+    if isinstance(override, str) and override in "ABCDEFGHI" and len(override) == 1:
         return (override, _mode(card))
     return (keyword_archetype(_business_type_text(card)) or "A", _mode(card))
 
@@ -132,7 +134,7 @@ _JUDGE_SYSTEM = (
     "너는 가게 설명을 보고 손님 동선 원형 하나를 고르는 도우미다. JSON만 출력한다. "
     "원형: A(방문·메뉴형: 카페·식당) B(사람 예약형: 미용실·PT) C(공간 예약형: 펜션·스튜디오) "
     "D(상담·등록형: 학원) E(클래스·체험형: 공방) F(작업·의뢰형: 사진·전문가) "
-    "G(모임·단체형: 동호회·교회) H(서비스·상품형: 웹서비스·판매). "
+    "G(모임·단체형: 동호회·교회) H(서비스·상품형: 웹서비스·판매) I(초대·기념형: 청첩장·돌잔치). "
     '출력 형식: {"archetype": "B", "reason": "이유 한 줄"}'
 )
 
@@ -187,7 +189,7 @@ def judge(card: dict) -> str | None:
         except ValueError:
             return None
     letter = data.get("archetype") if isinstance(data, dict) else None
-    if isinstance(letter, str) and letter in "ABCDEFGH" and len(letter) == 1:
+    if isinstance(letter, str) and letter in "ABCDEFGHI" and len(letter) == 1:
         card["archetype_override"] = letter
         return letter
     return None

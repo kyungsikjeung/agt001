@@ -256,7 +256,7 @@ def prefetch(card: dict, room_id: str = "", requirement_id: str = "") -> None:
 # ---- 장면 사진 (첫 화면·사진첩): 처음 보는 종류(청첩장 등)도 그 종류에 맞는 예시 사진을 보인다 ----
 # 6업종은 목업·기본 그림이 있다. 그 밖(other·개인·단체·웹서비스)은 기본 그림이 카페 판화라
 # 청첩장에 카페 그림이 나왔다(10/2 대표 지적) → 종류 낱말로 장면 5개(첫 장 = 대표)를 정해 만들어 둔다.
-SCENE_KINDS = ("other", "individual", "group", "webservice")
+SCENE_KINDS = ("other", "individual", "group", "webservice", "event")
 SCENE_COUNT = 5
 
 
