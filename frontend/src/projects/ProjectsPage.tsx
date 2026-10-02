@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import Mascot from '../Mascot';
 import { claim, me, startLogin, type MeUser } from '../auth';
 import { useScrolled } from '../useScrolled';
 
@@ -144,11 +145,12 @@ export default function ProjectsPage() {
         )}
 
         {projects === null ? (
-          <p className="loading" role="status">
-            불러오는 중…
-          </p>
+          <Mascot mood="wait" role="status" className="loading">
+            <p>불러오는 중…</p>
+          </Mascot>
         ) : projects.length === 0 ? (
           <section className="empty" aria-label="빈 목록">
+            <img className="mascot__img" src="/icons/kkachi.svg" alt="" width={72} height={72} />
             <p>아직 만든 사이트가 없어요</p>
             <a className="send" href="/">
               새로 만들기

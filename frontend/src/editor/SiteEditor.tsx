@@ -1,6 +1,7 @@
 // 보며 고치기 (EDIT_WAVE2_CONTRACT §1, §4).
 // 미리보기를 iframe(srcdoc, sandbox allow-scripts만)으로 띄우고,
 // iframe이 알린 구역의 패널을 옆(휴대폰은 아래)에 연다.
+import Mascot from '../Mascot';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getPreview, readMemberId, type CardPreview, type RoomCard } from './cardApi';
 import SectionPanel from './SectionPanel';
@@ -271,12 +272,16 @@ export default function SiteEditor({
         ))}
       </div>
 
-      {loading ? <p role="status">미리보기를 불러오는 중…</p> : null}
+      {loading ? (
+        <Mascot mood="wait" role="status">
+          <p>미리보기를 불러오는 중…</p>
+        </Mascot>
+      ) : null}
       {failed === 'no-design' ? <p role="status">아직 시안이 없어요. 채팅방에서 시안을 먼저 만들어 주세요.</p> : null}
       {failed === 'error' ? (
-        <p className="ed-error" role="alert">
-          미리보기를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.
-        </p>
+        <Mascot mood="oops" role="alert">
+          <p className="ed-error">미리보기를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
+        </Mascot>
       ) : null}
       {legacy ? <p role="status">이 시안은 구역 편집이 안 돼요.</p> : null}
 

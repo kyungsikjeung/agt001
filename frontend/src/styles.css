@@ -240,3 +240,11 @@ h1 {
 
 .foot-links { display: inline-flex; gap: 12px; margin-left: 12px; }
 .foot-links a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+
+/* 한마디 까치 표정 (Mascot): 빈 화면·불러오는 중·오류. 기다릴 땐 살짝 들썩, 움직임 줄이기면 멈춤 */
+.mascot { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 16px; text-align: center; }
+.mascot__img { display: block; }
+.mascot__body > * { margin: 0 0 6px; }
+.mascot--wait .mascot__img { animation: mascot-bob 1.6s ease-in-out infinite; }
+@keyframes mascot-bob { 50% { transform: translateY(-4px); } }
+@media (prefers-reduced-motion: reduce) { .mascot--wait .mascot__img { animation: none; } }
