@@ -59,6 +59,22 @@ def submit_inquiry(site_key: str, request: Request, name: Optional[str] = Form(d
     return RedirectResponse(f"/api/inquiries/{sanitize_token(site_key)}/done", status_code=303)
 
 
+@router.post("/api/rsvp/{site_key}", include_in_schema=False)
+def submit_rsvp(site_key: str, request: Request, name: Optional[str] = Form(default=None),
+                side: Optional[str] = Form(default=None), attend: Optional[str] = Form(default=None),
+                count: Optional[str] = Form(default=None), meal: Optional[str] = Form(default=None),
+                contact: Optional[str] = Form(default=None), message: Optional[str] = Form(default=None),
+                agree: Optional[str] = Form(default=None), website: Optional[str] = Form(default=None)):
+    """청첩장 참석 여부 (rsvp--form). 문의와 같은 IP 제한·저장소를 쓴다."""
+    if not _allow(request.client.host if request.client else "unknown"):
+        return _page("잠시 후 다시 보내 주세요", "짧은 시간에 많이 들어왔어요.", site_key, 429)
+    try:
+        inquiries.submit_rsvp(site_key, name, side, attend, count, meal, contact, message, agree, website)
+    except inquiries.InquiryError as e:
+        return _page("보내지 못했어요", str(e), site_key, 400)
+    return _page("참석 여부를 전했어요", "알려 주셔서 고마워요. 그날 뵐게요.", site_key, 200)
+
+
 @router.get("/api/inquiries/{site_key}/done", include_in_schema=False)
 def inquiry_done(site_key: str):
     return _page("문의가 전달됐어요", "가게에서 확인한 뒤 적어 주신 연락처로 답변드릴 거예요.", site_key, 200)

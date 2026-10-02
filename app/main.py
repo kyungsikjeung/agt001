@@ -65,7 +65,7 @@ async def lifespan(_app: FastAPI):
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/bookings/", "/api/orders/", "/health")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/rsvp/", "/api/bookings/", "/api/orders/", "/health")
 _GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/")
 
 

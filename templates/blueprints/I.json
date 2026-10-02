@@ -1,40 +1,209 @@
 {
   "archetype": "I",
   "mode": "",
-  "primary": {"label": "오시는 길", "target": "around"},
-  "secondary": {"label": "연락하기", "target": "family"},
+  "primary": {
+    "label": "오시는 길",
+    "target": "around"
+  },
+  "secondary": {
+    "label": "연락하기",
+    "target": "family"
+  },
   "actionbar_secondary": "phone",
-  "tokens": {"font_pair": "serif-warm", "density": "comfortable", "radius": "soft", "image_style": "card"},
+  "tokens": {
+    "font_pair": "serif-warm",
+    "density": "comfortable",
+    "radius": "soft",
+    "image_style": "card"
+  },
   "strategies": [
-    {"id": "v1", "name": "단정한 초대장", "journey": "초대 인사 → 날짜·장소 → 오시는 길", "tone": "calm",
-     "hero": "arch",
-     "sections": [
-       {"id": "greeting", "type": "intro", "variant": "short", "bind": "greeting", "label": "인사말"},
-       {"id": "when", "type": "event", "variant": "date", "bind": "event", "label": "날짜와 장소", "nav": "날짜"},
-       {"id": "photos", "type": "gallery", "variant": "grid", "bind": "space_photos", "label": "우리의 순간", "nav": "사진"},
-       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
-       {"id": "family", "type": "family", "variant": "contacts", "bind": "family", "label": "연락하기"},
-       {"id": "gift", "type": "gift", "variant": "accounts", "bind": "gift", "label": "마음 전하실 곳", "nav": "마음 전하기"}
-     ]},
-    {"id": "v2", "name": "사진 이야기", "journey": "사진으로 분위기 → 날짜·장소 → 마음 전하기", "tone": "rich",
-     "hero": "photo-overlay",
-     "sections": [
-       {"id": "photos", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "우리의 순간", "nav": "사진", "tone": "inverse"},
-       {"id": "greeting", "type": "intro", "variant": "short", "bind": "greeting", "label": "인사말"},
-       {"id": "when", "type": "event", "variant": "date", "bind": "event", "label": "날짜와 장소", "nav": "날짜"},
-       {"id": "around", "type": "around", "variant": "map", "bind": "location", "nav": "오시는 길"},
-       {"id": "family", "type": "family", "variant": "contacts", "bind": "family", "label": "연락하기"},
-       {"id": "gift", "type": "gift", "variant": "accounts", "bind": "gift", "label": "마음 전하실 곳", "nav": "마음 전하기"}
-     ]},
-    {"id": "v3", "name": "날짜 먼저", "journey": "날짜·D-day → 사진 → 오시는 길", "tone": "rich",
-     "hero": "photo-side",
-     "sections": [
-       {"id": "when", "type": "event", "variant": "date", "bind": "event", "label": "날짜와 장소", "nav": "날짜"},
-       {"id": "greeting", "type": "intro", "variant": "short", "bind": "greeting", "label": "인사말"},
-       {"id": "photos", "type": "gallery", "variant": "swipe", "bind": "space_photos", "label": "우리의 순간", "nav": "사진", "tone": "inverse"},
-       {"id": "around", "type": "around", "variant": "transit", "bind": "location", "nav": "오시는 길"},
-       {"id": "family", "type": "family", "variant": "contacts", "bind": "family", "label": "연락하기"},
-       {"id": "gift", "type": "gift", "variant": "accounts", "bind": "gift", "label": "마음 전하실 곳", "nav": "마음 전하기"}
-     ]}
+    {
+      "id": "v1",
+      "name": "단정한 초대장",
+      "journey": "초대 인사 → 날짜·장소 → 오시는 길",
+      "tone": "calm",
+      "hero": "arch",
+      "sections": [
+        {
+          "id": "greeting",
+          "type": "intro",
+          "variant": "short",
+          "bind": "greeting",
+          "label": "인사말"
+        },
+        {
+          "id": "when",
+          "type": "event",
+          "variant": "date",
+          "bind": "event",
+          "label": "날짜와 장소",
+          "nav": "날짜"
+        },
+        {
+          "id": "photos",
+          "type": "gallery",
+          "variant": "grid",
+          "bind": "space_photos",
+          "label": "우리의 순간",
+          "nav": "사진"
+        },
+        {
+          "id": "around",
+          "type": "around",
+          "variant": "map",
+          "bind": "location",
+          "nav": "오시는 길"
+        },
+        {
+          "id": "family",
+          "type": "family",
+          "variant": "contacts",
+          "bind": "family",
+          "label": "연락하기"
+        },
+        {
+          "id": "rsvp",
+          "type": "rsvp",
+          "variant": "form",
+          "bind": "rsvp",
+          "label": "참석 여부 알려 주기",
+          "nav": "참석 여부"
+        },
+        {
+          "id": "gift",
+          "type": "gift",
+          "variant": "accounts",
+          "bind": "gift",
+          "label": "마음 전하실 곳",
+          "nav": "마음 전하기"
+        }
+      ]
+    },
+    {
+      "id": "v2",
+      "name": "사진 이야기",
+      "journey": "사진으로 분위기 → 날짜·장소 → 마음 전하기",
+      "tone": "rich",
+      "hero": "photo-overlay",
+      "sections": [
+        {
+          "id": "photos",
+          "type": "gallery",
+          "variant": "marquee",
+          "bind": "space_photos",
+          "label": "우리의 순간",
+          "nav": "사진",
+          "tone": "inverse"
+        },
+        {
+          "id": "greeting",
+          "type": "intro",
+          "variant": "short",
+          "bind": "greeting",
+          "label": "인사말"
+        },
+        {
+          "id": "when",
+          "type": "event",
+          "variant": "date",
+          "bind": "event",
+          "label": "날짜와 장소",
+          "nav": "날짜"
+        },
+        {
+          "id": "around",
+          "type": "around",
+          "variant": "map",
+          "bind": "location",
+          "nav": "오시는 길"
+        },
+        {
+          "id": "family",
+          "type": "family",
+          "variant": "contacts",
+          "bind": "family",
+          "label": "연락하기"
+        },
+        {
+          "id": "rsvp",
+          "type": "rsvp",
+          "variant": "form",
+          "bind": "rsvp",
+          "label": "참석 여부 알려 주기",
+          "nav": "참석 여부"
+        },
+        {
+          "id": "gift",
+          "type": "gift",
+          "variant": "accounts",
+          "bind": "gift",
+          "label": "마음 전하실 곳",
+          "nav": "마음 전하기"
+        }
+      ]
+    },
+    {
+      "id": "v3",
+      "name": "날짜 먼저",
+      "journey": "날짜·D-day → 사진 → 오시는 길",
+      "tone": "rich",
+      "hero": "photo-side",
+      "sections": [
+        {
+          "id": "when",
+          "type": "event",
+          "variant": "date",
+          "bind": "event",
+          "label": "날짜와 장소",
+          "nav": "날짜"
+        },
+        {
+          "id": "greeting",
+          "type": "intro",
+          "variant": "short",
+          "bind": "greeting",
+          "label": "인사말"
+        },
+        {
+          "id": "photos",
+          "type": "gallery",
+          "variant": "swipe",
+          "bind": "space_photos",
+          "label": "우리의 순간",
+          "nav": "사진",
+          "tone": "inverse"
+        },
+        {
+          "id": "around",
+          "type": "around",
+          "variant": "transit",
+          "bind": "location",
+          "nav": "오시는 길"
+        },
+        {
+          "id": "family",
+          "type": "family",
+          "variant": "contacts",
+          "bind": "family",
+          "label": "연락하기"
+        },
+        {
+          "id": "rsvp",
+          "type": "rsvp",
+          "variant": "form",
+          "bind": "rsvp",
+          "label": "참석 여부 알려 주기",
+          "nav": "참석 여부"
+        },
+        {
+          "id": "gift",
+          "type": "gift",
+          "variant": "accounts",
+          "bind": "gift",
+          "label": "마음 전하실 곳",
+          "nav": "마음 전하기"
+        }
+      ]
+    }
   ]
 }

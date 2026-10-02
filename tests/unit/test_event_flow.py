@@ -153,3 +153,42 @@ def test_bad_phone_or_account_is_refused_with_who(client):
     assert r.status_code == 400 and "주민등록번호" in r.json()["detail"]
     assert client.put(f"/api/rooms/{rid}/card", json={"event": {"gift": GIFT}},
                       headers={"X-Member-Id": "stranger"}).status_code in (403, 404)
+
+
+# ---- 참석 여부 받기 (rsvp--form → /api/rsvp/, 문의 저장소) ----
+def _published_key(client):
+    """공개된 청첩장 사이트 키(site_exists가 보는 requirement_id)."""
+    from app import store
+    rid = _wedding_room(client)
+    room = store.read_room(rid)
+    session = store.read_session(room["session_id"])
+    return rid, session["requirement_id"]
+
+
+def test_rsvp_form_in_drafts_with_wedding_sides():
+    items = DV.variants(_card(**WEDDING))
+    for item in items:
+        kinds = [s["type"] for s in item["spec"]["sections"]]
+        assert kinds.index("rsvp") < kinds.index("gift")
+    bar = items[0]["spec"]["actionbar"]  # 주 버튼 오시는 길 + 참석 여부 (같은 버튼 두 개가 아니게)
+    assert bar["primary"]["label"] == "오시는 길" and bar["secondary"]["label"] == "참석 여부"
+    html = SR.render_site(items[0]["spec"], site_key="abc", public=True)
+    assert 'action="/api/rsvp/abc"' in html and 'value="신랑측"' in html and 'name="attend"' in html
+
+
+def test_rsvp_submit_goes_to_inquiries_and_owner_room(client):
+    from app import store
+    rid, key = _published_key(client)
+    r = client.post(f"/api/rsvp/{key}", data={"name": "박하객", "side": "신부측", "attend": "yes", "count": "2",
+                                             "meal": "yes", "message": "축하해요!", "agree": "yes"})
+    assert r.status_code == 200 and "참석 여부를 전했어요" in r.text
+    msgs = [m for m in store.read_messages(rid, 0) if m.get("kind") == "inquiry"]
+    assert msgs and "[참석 여부] 신부측 · 참석 · 2명 · 식사함" in msgs[-1]["text"] and "박하객" in msgs[-1]["text"]
+
+
+def test_rsvp_needs_name_attend_and_agree(client):
+    _, key = _published_key(client)
+    assert client.post(f"/api/rsvp/{key}", data={"attend": "yes", "agree": "yes"}).status_code == 400
+    assert client.post(f"/api/rsvp/{key}", data={"name": "a", "agree": "yes"}).status_code == 400
+    assert client.post(f"/api/rsvp/{key}", data={"name": "a", "attend": "no"}).status_code == 400
+    assert client.post("/api/rsvp/nope", data={"name": "a", "attend": "no", "agree": "yes"}).status_code == 400

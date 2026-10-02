@@ -27,7 +27,7 @@
   존재하는 조합만 허용한다(26종: SPEC §2 20종 + 문의 공용 2종 + 영상 1종 + P2 새 부품 2종 + 예약 신청 1종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
 - 금지(소유 파일 공통): 삼중 중괄호, 스크립트 태그, 아이프레임 태그,
   `http:` 평문 URL 없음. 외부 링크는 `https://`만.
-  폼 태그는 `contact--form` 1종에만 허용(§5 서버 계약의 일반 HTML form 전송용).
+  폼 태그는 `contact--form`·`booking--form`·`rsvp--form`에만 허용(§5 서버 계약의 일반 HTML form 전송용, 참석 여부는 `/api/rsvp/`).
   Mustache는 `{{ }}` 이중 중괄호만 쓴다(HTML 이스케이프 유지).
 
 ## 2. 토큰 → CSS 변수 (렌더러 주입, site.css가 소비)
@@ -81,6 +81,8 @@
 - `family--contacts` (초대·기념): `id`, `label`(비면 "연락하기"), `example`, `has_sides`, `sides[].side`,
   `sides[].people[].role/name/digits`. content는 `sides: [{side, people: [{role, name, phone}]}]` 최대 2묶음×4명.
   맞는 전화번호일 때만 전화·문자 단추
+- `rsvp--form` (초대·기념, 참석 여부): `id`, `label`(비면 "참석 여부 알려 주기"), `site_key`, `retention_days`, `has_sides`, `sides[].side`(신랑측·신부측만).
+  `/api/rsvp/{site_key}`로 이름·측·참석·인원·식사·연락처(선택)·남길 말을 보내면 문의 저장소에 "[참석 여부] …" 한 줄로 들어간다
 - `gift--accounts` (초대·기념): `id`, `label`(비면 "마음 전하실 곳"), `note`, `example`, `has_sides`, `sides[].side`,
   `sides[].accounts[].role/holder/bank/number`. content는 `sides: [{side, accounts: [{role, holder, bank, number}]}]`.
   번호는 숫자·하이픈만(숫자 6~20자리), 주민등록번호 모양은 버린다. 측마다 `<details>`로 접고, 복사 단추는 클립보드가 될 때만 보인다

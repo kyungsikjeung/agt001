@@ -1358,6 +1358,13 @@ def _section_context(
         ctx["sides"] = _event_sides(content, "people", _family_person)
         ctx["has_sides"] = bool(ctx["sides"])
         ctx["example"] = content.get("example") is True
+    elif section_type == "rsvp" and variant == "form":
+        # 초대·기념: 참석 여부 받기(문의 저장소로, /api/rsvp/). 측은 신랑측·신부측만
+        ctx["site_key"] = site_key
+        ctx["retention_days"] = int(retention_days)
+        ctx["label"] = _text(content, "label")
+        sides = [s for s in (content.get("sides") or []) if s in ("신랑측", "신부측")][:2]
+        ctx["sides"], ctx["has_sides"] = [{"side": s} for s in sides], bool(sides)
     elif section_type == "gift" and variant == "accounts":
         # 초대·기념: 마음 전하실 곳(양가 계좌, 측마다 접기·복사)
         ctx["label"] = _text(content, "label")
