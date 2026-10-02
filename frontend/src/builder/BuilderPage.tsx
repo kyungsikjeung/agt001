@@ -1,5 +1,6 @@
 // 빌더 화면 (BUILDER_CONTRACT §3).
 // 위 3칸 + 모양 바꾸기, 가운데는 SiteEditor 재사용(빌더 모드), 아래는 기능 칩 + 공개.
+import Mascot from '../Mascot';
 import { useEffect, useRef, useState } from 'react';
 import SiteEditor, { type BuilderControl } from '../editor/SiteEditor';
 import {
@@ -214,11 +215,13 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     return (
       <div className="bd-page ed-page">
         <main className="bd-main">
-          <h1>빌더를 열지 못했어요</h1>
-          <p>방을 만든 기기에서 열거나, 방을 만든 계정으로 로그인해 주세요.</p>
-          <a className="bd-chat-link" href={`/room.html?room=${encodeURIComponent(roomId)}`}>
-            채팅으로 설명하기
-          </a>
+          <Mascot mood="oops">
+            <h1>빌더를 열지 못했어요</h1>
+            <p>방을 만든 기기에서 열거나, 방을 만든 계정으로 로그인해 주세요.</p>
+            <a className="bd-chat-link" href={`/room.html?room=${encodeURIComponent(roomId)}`}>
+              채팅으로 설명하기
+            </a>
+          </Mascot>
         </main>
       </div>
     );
@@ -227,7 +230,9 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     return (
       <div className="bd-page ed-page">
         <main className="bd-main">
-          <p role="status">불러오는 중…</p>
+          <Mascot mood="wait" role="status">
+            <p>불러오는 중…</p>
+          </Mascot>
         </main>
       </div>
     );
