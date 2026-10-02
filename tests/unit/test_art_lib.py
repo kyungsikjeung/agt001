@@ -185,7 +185,7 @@ def _wedding_card():
 def test_scenes_llm_once_per_kind_then_reused(lib):
     lib["answer"] = WEDDING
     assert art_lib.scene_tags(_wedding_card()) == ["wedding-rings", "wedding-bouquet", "wedding-aisle", "wedding-table"]
-    assert lib["llm"][0] == {"site_kind": "결혼청첩장", "existing_tags": lib["llm"][0]["existing_tags"]}
+    assert lib["llm"][0] == {"site_kind": "청첩장", "existing_tags": lib["llm"][0]["existing_tags"]}
     assert art_lib.scene_tags(_wedding_card()) == ["wedding-rings", "wedding-bouquet", "wedding-aisle", "wedding-table"]
     assert len(lib["llm"]) == 1  # 같은 종류는 다시 묻지 않는다
     assert art_lib.pick_scenes(_wedding_card()) == []  # 아직 안 만들었으면 그리기에 안 쓴다
@@ -232,3 +232,11 @@ def test_draft_uses_scene_photos_before_cafe_default_art(lib):
     gallery = next((s for s in spec["sections"] if s["type"] == "gallery"), None)
     if gallery:
         assert all(i["src"].startswith("/art-lib/wedding-") for i in gallery["content"]["items"])
+
+
+def test_scenes_shared_across_phrasings_of_the_same_kind(lib):
+    """'결혼 청첩장'·'모바일 청첩장'은 같은 장면 묶음(청첩장) → LLM은 한 번만."""
+    lib["answer"] = WEDDING
+    other = {**_wedding_card(), "slots": {"business_type": {"value": "모바일 청첩장", "status": "filled"}}}
+    assert art_lib.scene_tags(_wedding_card()) == art_lib.scene_tags(other)
+    assert len(lib["llm"]) == 1
