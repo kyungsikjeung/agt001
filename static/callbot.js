@@ -38,9 +38,9 @@
     if (!slot || !input) return false;
     wrap = el('div', { id: 'callbotRow', hidden: '' });
     btn = el('button', { type: 'button', id: 'callbotBtn' }, MSG.label);
-    btn.style.cssText = 'min-height:44px;width:100%;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;font-weight:600;';
+    btn.style.cssText = 'min-height:44px;width:100%;padding:0 14px;border:1px solid var(--border, #e5e7eb);border-radius:999px;background:var(--bg, #f7f7f8);cursor:pointer;font-size:0.8125rem;font-weight:600;';
     hint = el('p', { id: 'callbotHint' }, MSG.hint);
-    hint.style.cssText = 'margin:4px 0 0;font-size:0.8125rem;color:#52525b;';
+    hint.style.cssText = 'margin:4px 0 0;font-size:0.8125rem;color:var(--text-muted, #52525b);';
     btn.setAttribute('aria-describedby', 'callbotHint');
     wrap.appendChild(btn);
     wrap.appendChild(hint);
@@ -48,7 +48,7 @@
     btn.addEventListener('click', onClick);
 
     banner = el('div', { id: 'callbotBanner', role: 'status', hidden: '' });
-    banner.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;background:#ecfdf5;color:#065f46;font-size:0.875rem;';
+    banner.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--ok-bg, #ecfdf5);color:var(--ok-ink, #065f46);font-size:0.875rem;';
     var bannerText = el('span', {}, MSG.onCall);
     var hang = el('button', { type: 'button' }, '끊기');
     hang.style.cssText = 'min-height:44px;min-width:64px;border-radius:8px;border:0;background:#b91c1c;color:#fff;font:inherit;';
