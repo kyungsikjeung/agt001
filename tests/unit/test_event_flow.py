@@ -156,6 +156,19 @@ def test_bad_phone_or_account_is_refused_with_who(client):
 
 
 # ---- 참석 여부 받기 (rsvp--form → /api/rsvp/, 문의 저장소) ----
+import pytest
+
+from app.api import inquiries as inquiries_api
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limit():
+    """문의·참석 여부는 IP당 10분 5건 제한을 같이 쓴다. 다른 테스트에 남기지 않게 앞뒤로 비운다."""
+    inquiries_api._hits.clear()
+    yield
+    inquiries_api._hits.clear()
+
+
 def _published_key(client):
     """공개된 청첩장 사이트 키(site_exists가 보는 requirement_id)."""
     from app import store
