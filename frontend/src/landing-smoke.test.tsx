@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import Landing from './Landing';
 import HeroDemo from './landing/HeroDemo';
 
@@ -19,6 +20,10 @@ vi.mock('./voice', async (orig) => {
 });
 
 describe('landing smoke', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
   it('핵심 기능 요소가 모두 렌더된다', () => {
     render(<Landing />);
     expect(document.getElementById('prompt-input')).not.toBeNull();
@@ -36,5 +41,23 @@ describe('landing smoke', () => {
     });
     render(<HeroDemo />);
     expect(document.querySelector('.lp-stage')).not.toBeNull();
+  });
+  it('템플릿을 누른 뒤 뒤로 가기로 돌아오면 다시 누를 수 있다', async () => {
+    // 빌더 이동이 끝나지 않아 busy로 잠긴 채로 둔다.
+    const fetchMock = vi.fn(() => new Promise<Response>(() => {}));
+    vi.stubGlobal('fetch', fetchMock);
+    render(<Landing />);
+    // 템플릿 카드(그리드)를 누른다. 칩과 달리 busy 때 disabled가 붙는다.
+    const btn = screen.getByText('객실, 바비큐장, 주변 맛집과 여행지').closest('button');
+    expect(btn).not.toBeNull();
+    fireEvent.click(btn!);
+    await waitFor(() => expect(btn!).toBeDisabled());
+    act(() => {
+      window.dispatchEvent(new Event('pageshow'));
+    });
+    await waitFor(() => expect(btn!).not.toBeDisabled());
+    // 잠금이 풀려 다시 누르면 빌더 시작을 다시 부른다.
+    fireEvent.click(btn!);
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
   });
 });

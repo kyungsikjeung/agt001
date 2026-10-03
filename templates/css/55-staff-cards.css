@@ -1,0 +1,176 @@
+/* ==== 선생님 카드 격자 (staff--cards): 인강 사이트식 세로 카드 + 네이티브 popover 상세 ====
+ * 휴대폰 2열, 768px 이상 4열. 색·글꼴·여백·모서리는 site.css 토큰 변수만 쓴다(새 색 값 없음).
+ * 움직임은 눌림(transform)만. */
+
+.s-tcard__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.s-tcard__cell { min-width: 0; }
+
+/* 카드 전체가 상세(popover)를 여는 단추 */
+.s-tcard {
+  display: block;
+  position: relative;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-card);
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.s-tcard:active { transform: scale(0.98); }
+
+/* 글 칸은 사진과 겹치지 않게 너비 55% */
+.s-tcard__body {
+  display: flex;
+  position: relative;
+  z-index: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 52%;
+  height: 100%;
+}
+
+.s-tcard__tagline {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.5;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.s-tcard__subject {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.s-tcard__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+
+.s-tcard__role {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* 사진은 카드 오른쪽 아래에 붙는다 */
+.s-tcard__photo {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 46%;
+  height: 78%;
+  object-fit: cover;
+  object-position: top;
+}
+
+/* 사진이 없으면 오른쪽 아래에 큰 이니셜 원 */
+.s-tcard__mono {
+  display: grid;
+  position: absolute;
+  right: 12px;
+  bottom: 12px;
+  place-items: center;
+  width: 44%;
+  aspect-ratio: 1;
+  font-family: var(--font-display);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 12%, var(--c-ground));
+  border-radius: 50%;
+}
+
+/* ---- 상세 창 (네이티브 popover, 스크립트 없음) ---- */
+.s-tcard__pop {
+  width: min(420px, calc(100vw - 32px));
+  padding: var(--space-card);
+  color: var(--c-ink);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+}
+
+.s-tcard__pop::backdrop {
+  background: color-mix(in srgb, var(--c-ink) 45%, transparent);
+}
+
+.s-tcard__pop-photo {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  margin: 0 0 12px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: calc(var(--radius-card) * 0.6);
+}
+
+.s-tcard__pop-subject {
+  margin: 0 0 2px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--c-primary);
+}
+
+.s-tcard__pop-who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+}
+
+.s-tcard__pop-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.s-tcard__pop-role {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.s-tcard__pop-tagline { margin: 8px 0 0; font-weight: 700; }
+
+.s-tcard__pop-bio {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.s-tcard__pop-cta { margin: 14px 0 0; }
+
+.s-tcard__pop-cta .s-btn { width: 100%; min-height: 48px; }
+
+.s-tcard__close { width: 100%; min-height: 44px; margin-top: 8px; }
+
+@media (min-width: 768px) {
+  .s-tcard__grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s-tcard:active { transform: none; }
+}

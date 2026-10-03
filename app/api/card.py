@@ -66,6 +66,16 @@ class EventIn(BaseModel):
     gift: Optional[list[dict]] = Field(default=None, max_length=2)
 
 
+class StaffIn(BaseModel):
+    """선생님 한 명 (S1). 자세한 길이는 site_data.clean_staff가 검사해 400으로 막는다."""
+    name: str = ""
+    role: Optional[str] = None
+    subject: Optional[str] = None
+    tagline: Optional[str] = None
+    bio: Optional[str] = None
+    specialties: Optional[list[str]] = None
+
+
 class CardIn(BaseModel):
     fields: dict[str, str] = {}
     notice: Optional[NoticeIn] = None  # 공지 띠·팝업 (D56). 빈 글이면 공지를 끈다
@@ -74,6 +84,7 @@ class CardIn(BaseModel):
     choice: Optional[Literal["v1", "v2", "v3"]] = None  # 빌더 모양 바꾸기 (B1)
     groups: Optional[GroupsIn] = None  # 그룹 목록 (GROUP_CARDS_CONTRACT §2-2), items보다 먼저 적용
     event: Optional[EventIn] = None  # 청첩장 양가 연락처·계좌
+    staff: Optional[list[StaffIn]] = Field(default=None, max_length=12)  # 선생님 (S1). None=그대로, []=지우기
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -95,6 +106,11 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         photo_tags = photo_needs.photo_tags(card)
     except Exception:
         photo_tags = []
+    try:
+        from app.services import site_data
+        staff = site_data.staff_list(card)
+    except Exception:
+        staff = []
     return {
         "title": DV.title_for(card) if card.get("slots") else "새 프로젝트", "industry": ind.name,
         "fields": fields, "photos": card.get("photos") or [], "photo_tags": photo_tags,
@@ -105,6 +121,7 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "published": card.get("published"), "site_url": session.get("deploy_url") if card.get("published") else None,
         "can_edit": rooms.owner_id(room) == member_id,
         "quota": _quota(session),
+        "staff": staff,
         **_event_view(card, ind),
     }
 
@@ -578,6 +595,19 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                         saved.pop(kind, None)
                     if "event" not in changed:
                         changed.append("event")
+        if body.staff is not None:
+            from app.services import site_data
+            raw = [line.model_dump() for line in body.staff]
+            people, errors = site_data.clean_staff(raw)
+            if errors:
+                raise HTTPException(status_code=400, detail="; ".join(errors[:3]))
+            if people != (card.get("staff_edit") or []):
+                if people:
+                    card["staff_edit"] = people
+                else:
+                    # 빈 목록이면 직접 고친 값을 지우고 대화에서 받은 값·예시로 돌아간다
+                    card.pop("staff_edit", None)
+                changed.append("staff")
         if body.choice is not None:
             if card.get("design_choice") != body.choice:
                 card["design_choice"] = body.choice
@@ -599,6 +629,8 @@ def _changed_label(ind, key: str) -> str:
         return "모양"
     if key == "event":
         return "연락처·계좌"
+    if key == "staff":
+        return "선생님·담당자"
     if key == "items":
         return S.label_for(ind, "offerings")
     return S.label_for(ind, key)

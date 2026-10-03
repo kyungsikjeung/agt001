@@ -741,21 +741,25 @@ def _menu_categories(content: dict) -> list:
     return cats
 
 
-def _staff_members(content: dict) -> list:
-    """담당자 카드: [{name, role, bio, initial, specialties, image_*, example}] 최대 8명."""
+def _staff_members(content: dict, section_id: str = "") -> list:
+    """담당자 카드: [{name, role, subject, tagline, bio, initial, specialties, image_*, pos, popover_id, example}] 최대 8명."""
     raw = content.get("members")
     members = []
+    pos = 0
     for entry in (raw if isinstance(raw, list) else [])[:8]:
         if not isinstance(entry, dict) or not _text(entry, "name").strip():
             continue
+        pos += 1
         name, role = _text(entry, "name").strip(), _text(entry, "role")
         tags = entry.get("specialties")
         tags = [{"text": s} for s in (tags if isinstance(tags, list) else []) if isinstance(s, str) and s.strip()][:4]
         image = _clean_url(_text(entry, "image"))
-        members.append({"name": name, "role": role, "bio": _text(entry, "bio"), "initial": name[:1],
+        members.append({"name": name, "role": role, "subject": _text(entry, "subject"),
+                        "tagline": _text(entry, "tagline"), "bio": _text(entry, "bio"), "initial": name[:1],
                         "specialties": tags, "has_specialties": bool(tags),
                         "image_src": image, "image_alt": f"{name} {role} 사진".strip(),
                         "image_example": bool(image and entry.get("image_example")),
+                        "pos": pos, "popover_id": f"staff-{section_id}-{pos}",
                         "example": entry.get("example") is True})
     return members
 
@@ -1353,8 +1357,8 @@ def _section_context(
         form = content.get("order_form")
         if isinstance(form, dict) and isinstance(form.get("action"), str) and form["action"].startswith("/api/orders/"):
             ctx["order_form"] = {"action": form["action"]}
-    elif section_type == "staff" and variant in ("team", "solo"):
-        members = _staff_members(content)
+    elif section_type == "staff" and variant in ("team", "solo", "cards"):
+        members = _staff_members(content, str(section_id))
         if not members:
             return None
         ctx["label"] = _text(content, "label")

@@ -188,7 +188,7 @@ def test_blueprint_path_academy_names_sections_palette():
     classes = next(s for s in vs[0]["spec"]["sections"] if s.get("bind") == "classes")
     assert [c["name"] for c in classes["content"]["classes"]] == ["초등 파닉스반", "중등 내신반"]
     staff = next(s for s in vs[1]["spec"]["sections"] if s.get("bind") == "staff")
-    assert staff["variant"] == "solo"
+    assert staff["variant"] == "cards"  # 학원 선생님은 카드 격자 (BUILDER_FIX_1003 S1)
     assert [m["name"] for m in staff["content"]["members"]] == ["김믿음"]
 
 

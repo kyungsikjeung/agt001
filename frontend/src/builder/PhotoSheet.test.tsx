@@ -203,6 +203,53 @@ describe('PhotoSheet', () => {
   });
 });
 
+describe('PhotoSheet 닫기', () => {
+  afterEach(() => {
+    cleanup();
+    vi.unstubAllGlobals();
+  });
+
+  function openSheet(onClose: () => void) {
+    stubFetch(async (url) => {
+      if (url.includes('/photo-edit/target')) return okJson(AI_TARGET);
+      return okJson({});
+    });
+    render(<PhotoSheet roomId="r1" pick={PICK} onClose={onClose} onApplied={() => {}} />);
+    return screen.findByAltText('지금 사진');
+  }
+
+  it('✕ 버튼을 누르면 onClose가 1번 불린다', async () => {
+    const onClose = vi.fn();
+    await openSheet(onClose);
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('Esc 키를 누르면 onClose가 1번 불린다', async () => {
+    const onClose = vi.fn();
+    await openSheet(onClose);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('시트 밖 어두운 곳을 누르면 onClose가 1번 불린다', async () => {
+    const onClose = vi.fn();
+    await openSheet(onClose);
+    const dialog = screen.getByRole('dialog', { name: '사진 고치기' });
+    const scrim = dialog.parentElement as HTMLElement;
+    fireEvent.click(scrim);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('시트 안을 누르면 닫히지 않는다', async () => {
+    const onClose = vi.fn();
+    await openSheet(onClose);
+    fireEvent.click(screen.getByRole('dialog', { name: '사진 고치기' }));
+    fireEvent.click(screen.getByText('사진 고치기'));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 describe('PhotoSheet 남은 횟수', () => {
   afterEach(() => {
     cleanup();

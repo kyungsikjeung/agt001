@@ -486,21 +486,148 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
     sec["content"] = content
 
 
-def _fill_staff(sec: dict, data: dict, pack: dict, booking_href: str) -> None:
-    """staff bind → members (+ solo works). 선생님 수로 변형을 고른다(1명 solo, 2명 이상 team)."""
+# ---- 선생님 직접 편집 (S1): 최대 12명 ----
+_STAFF_MAX = 12
+_STAFF_LIMITS = (("role", "역할", 12), ("subject", "과목", 12),
+                 ("tagline", "한 줄 소개", 40), ("bio", "소개", 200))
+
+
+def _clip(text, limit: int) -> tuple:
+    """앞뒤 공백을 지우고 limit자로 자른다 → (값, 잘렸는지)."""
+    clean = " ".join(str(text or "").split())
+    return clean[:limit], len(clean) > limit
+
+
+def clean_staff(raw) -> tuple:
+    """빌더에서 넣은 선생님 목록 → (저장할 묶음, 틀린 곳 목록). 최대 12명.
+    앞뒤 공백은 지우고, 이름이 빈 줄은 버린다. 한 명 =
+    {"name": 1~20자, "role": ≤12자, "subject": ≤12자, "tagline": ≤40자,
+     "bio": ≤200자, "specialties": 최대 4개 × ≤12자}."""
+    if not isinstance(raw, list):
+        return [], ["선생님 목록을 읽지 못했어요"]
+    people, errors = [], []
+    if len(raw) > _STAFF_MAX:
+        errors.append(f"선생님은 {_STAFF_MAX}명까지예요")
+    seen = set()
+    for entry in raw[:_STAFF_MAX]:
+        if not isinstance(entry, dict):
+            continue
+        name, over = _clip(entry.get("name"), 20)
+        if not name:
+            continue  # 이름 빈 줄은 버림
+        if over:
+            errors.append(f"이름은 20자까지예요: {name}")
+        if name in seen:
+            errors.append(f"같은 이름이 두 번 있어요: {name}")
+            continue
+        seen.add(name)
+        person = {"name": name}
+        for key, label, limit in _STAFF_LIMITS:
+            value, clipped = _clip(entry.get(key), limit)
+            if clipped:
+                errors.append(f"{label}은 {limit}자까지예요: {name}")
+            person[key] = value
+        tags = entry.get("specialties") if isinstance(entry.get("specialties"), list) else []
+        tags = [" ".join(str(t or "").split()) for t in tags]
+        tags = [t for t in tags if t]
+        if len(tags) > 4:
+            errors.append(f"전문 분야는 4개까지예요: {name}")
+        kept = []
+        for tag in tags[:4]:
+            if len(tag) > 12:
+                errors.append(f"전문 분야는 12자까지예요: {name}")
+                tag = tag[:12]
+            kept.append(tag)
+        person["specialties"] = kept
+        people.append(person)
+    return people, errors
+
+
+def _staff_source(card: dict | None, data: dict) -> list:
+    """선생님 원본: staff_edit(있고 비어 있지 않으면) 아니면 대화 구조 데이터 staff."""
+    edited = (card or {}).get("staff_edit")
+    if isinstance(edited, list) and any(
+            isinstance(e, dict) and str(e.get("name") or "").strip() for e in edited):
+        return [e for e in edited
+                if isinstance(e, dict) and str(e.get("name") or "").strip()]
+    return [s for s in (data.get("staff") or [])
+            if isinstance(s, dict) and str(s.get("name") or "").strip()]
+
+
+def staff_list(card: dict) -> list:
+    """빌더 고치기 칸에 보일 선생님 목록: staff_edit이 있으면 그것,
+    없으면 대화에서 받은 값(이름·역할·전문, 빈 칸은 ""). 예시는 넣지 않는다."""
+    edited = (card or {}).get("staff_edit")
+    if isinstance(edited, list) and any(
+            isinstance(e, dict) and str(e.get("name") or "").strip() for e in edited):
+        out = []
+        for entry in edited:
+            if not isinstance(entry, dict) or not str(entry.get("name") or "").strip():
+                continue
+            tags = entry.get("specialties") if isinstance(entry.get("specialties"), list) else []
+            out.append({"name": str(entry.get("name") or ""),
+                        "role": str(entry.get("role") or ""),
+                        "subject": str(entry.get("subject") or ""),
+                        "tagline": str(entry.get("tagline") or ""),
+                        "bio": str(entry.get("bio") or ""),
+                        "specialties": [t for t in tags if isinstance(t, str)][:4]})
+        return out
+    data = _structured(card or {})
+    out = []
+    for person in (data.get("staff") or []):
+        if not isinstance(person, dict) or not str(person.get("name") or "").strip():
+            continue
+        tags = [t for t in (person.get("specialties") or [])
+                if isinstance(t, str) and t.strip()][:4]
+        out.append({"name": str(person.get("name")), "role": str(person.get("role") or ""),
+                    "subject": "", "tagline": "", "bio": "", "specialties": tags})
+    return out
+
+
+def _staff_photo(card: dict | None, name: str) -> str:
+    """사장님 사진 중 staff:<이름> 태그의 첫 장 (/uploads/만). 없으면 빈 글."""
+    if not card or not name:
+        return ""
+    try:
+        from app.services import photos as PH
+        for photo in PH.site_photos(card):
+            if (isinstance(photo, dict) and photo.get("tag") == "staff:" + name
+                    and str(photo.get("url") or "").startswith("/uploads/")):
+                return str(photo["url"])
+    except Exception:
+        pass
+    return ""
+
+
+def _fill_staff(sec: dict, data: dict, pack: dict, booking_href: str, card: dict | None = None) -> None:
+    """staff bind → members (+ solo works).
+    원본은 staff_edit(있으면) 아니면 대화 구조 데이터. 구역 id가 teachers·teacher면
+    사람 수와 상관없이 cards, 아니면 1명 solo·2명 이상 team.
+    사장님 사진(staff:이름 태그)이 있으면 예시 표시 없이 쓰고, 없으면 예시 팩 staff:{pos}."""
     members = []
-    staff = [s for s in (data.get("staff") or []) if isinstance(s, dict) and str(s.get("name") or "").strip()]
-    if staff:
+    staff = _staff_source(card, data)
+    if sec.get("id") in ("teachers", "teacher"):
+        sec["variant"] = "cards"  # 학원·공방 선생님은 예시만 있어도 카드 격자
+    elif staff:
         sec["variant"] = "solo" if len(staff) == 1 else "team"
     for pos, person in enumerate(staff, start=1):
-        member = {"name": str(person["name"]), "role": str(person.get("role") or "")}
+        member = {"name": str(person["name"]), "role": str(person.get("role") or ""),
+                  "subject": str(person.get("subject") or ""),
+                  "tagline": str(person.get("tagline") or ""),
+                  "bio": str(person.get("bio") or "")}
         tags = [t for t in (person.get("specialties") or []) if isinstance(t, str) and t.strip()][:4]
         if tags:
             member["specialties"] = tags
-        photo = pack["photos"].get(f"staff:{pos}")
-        if photo:
-            member["image"] = photo
-            member["image_example"] = True
+        image = _staff_photo(card, str(person["name"]))
+        if image:
+            member["image"] = image
+        elif sec.get("variant") == "cards":
+            pass  # 선생님 카드는 사람 자리라 예시 사물 사진 대신 이니셜 원 (D51: AI 얼굴 금지)
+        else:
+            photo = pack["photos"].get(f"staff:{pos}")
+            if photo:
+                member["image"] = photo
+                member["image_example"] = True
         members.append(member)
     if not members:
         for pos, person in enumerate(pack["staff"], start=1):
@@ -1036,9 +1163,8 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     data = _structured(card)
     from app.services import prd_engine  # 순환 참조 방지용 늦은 불러오기
     pack = _examples(archetype, prd_engine.industry_of(card).key)
-    # 선생님이 없으면 optional staff 섹션은 뺀다 (학원 D).
-    staff = [s for s in (data.get("staff") or [])
-             if isinstance(s, dict) and str(s.get("name") or "").strip()]
+    # 선생님이 없으면 optional staff 섹션은 뺀다 (학원 D). 원본은 staff_edit 우선.
+    staff = _staff_source(card, data)
     sections = [s for s in sections
                 if not (s.get("bind") == "staff" and s.get("optional") is True and not staff)]
     out["sections"] = sections
@@ -1063,7 +1189,7 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
         elif bind == "catalog":
             _fill_catalog(sec, data, pack, archetype, order, order_action, card)
         elif bind == "staff":
-            _fill_staff(sec, data, pack, booking_href)
+            _fill_staff(sec, data, pack, booking_href, card)
         elif bind == "booking":
             _fill_booking(sec, data, archetype, hours)
         elif bind == "classes":

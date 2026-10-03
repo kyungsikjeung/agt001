@@ -209,3 +209,107 @@ describe('SiteEditor 구역 바로가기 (빌더, 넓은 화면)', () => {
     expect(screen.queryByRole('navigation', { name: '구역 바로가기' })).toBeNull();
   });
 });
+
+describe('SiteEditor 구역 끌어서 순서 바꾸기 (J4)', () => {
+  const DRAG_PREVIEW = {
+    variant: 'v3',
+    html: '<!doctype html><html><body></body></html>',
+    layout: { added: [] },
+    items: [],
+    sections: [
+      { id: 'hero', label: '첫 화면', bind: 'hero', locked: true, hidden: false },
+      { id: 's2', label: '두 번째', bind: 'catalog', locked: false, hidden: false },
+      { id: 's3', label: '세 번째', bind: 'catalog', locked: false, hidden: false },
+      { id: 's4', label: '네 번째', bind: 'catalog', locked: false, hidden: false },
+    ],
+    addable: [],
+  };
+
+  function stubWide() {
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      matches: q.includes('min-width'),
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+  }
+
+  function dragData() {
+    return { setData: vi.fn(), getData: vi.fn(), effectAllowed: 'uninitialized', dropEffect: 'none' };
+  }
+
+  it('locked 구역은 끌 수 없고 줄 앞에 손잡이가 있다', async () => {
+    stubWide();
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(DRAG_PREVIEW);
+      return okJson(CARD);
+    });
+    render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} builderMode />);
+    const nav = await screen.findByRole('navigation', { name: '구역 바로가기' });
+    const items = nav.querySelectorAll('li');
+    expect(items).toHaveLength(4);
+    expect(items[0].getAttribute('draggable')).toBe('false');
+    expect(items[1].getAttribute('draggable')).toBe('true');
+    const grip = items[1].querySelector('.ed-outline-grip');
+    expect(grip).not.toBeNull();
+    expect(grip).toHaveAttribute('aria-hidden', 'true');
+    expect(grip?.textContent).toContain('⋮⋮');
+  });
+
+  it('2번째를 4번째로 끌면 바뀐 order로 1번 저장한다', async () => {
+    stubWide();
+    const puts: unknown[] = [];
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(DRAG_PREVIEW);
+      if (init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)));
+        return okJson(CARD);
+      }
+      return okJson(CARD);
+    });
+    render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} builderMode />);
+    const nav = await screen.findByRole('navigation', { name: '구역 바로가기' });
+    const items = nav.querySelectorAll('li');
+    fireEvent.dragStart(items[1], { dataTransfer: dragData() });
+    fireEvent.dragOver(items[3], { dataTransfer: dragData() });
+    expect(items[3].className).toContain('ed-outline-drop');
+    fireEvent.drop(items[3]);
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toMatchObject({ layout: { variant: 'v3', order: ['hero', 's3', 's4', 's2'] } });
+  });
+
+  it('같은 자리에 놓으면 저장하지 않는다', async () => {
+    stubWide();
+    const puts: unknown[] = [];
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(DRAG_PREVIEW);
+      if (init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)));
+        return okJson(CARD);
+      }
+      return okJson(CARD);
+    });
+    render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} builderMode />);
+    const nav = await screen.findByRole('navigation', { name: '구역 바로가기' });
+    const items = nav.querySelectorAll('li');
+    fireEvent.dragStart(items[1], { dataTransfer: dragData() });
+    fireEvent.drop(items[1]);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(puts).toHaveLength(0);
+  });
+
+  it('저장에 실패하면 알림 문구를 보여준다', async () => {
+    stubWide();
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(DRAG_PREVIEW);
+      if (init?.method === 'PUT') return { ok: false, status: 500, json: async () => ({}) } as Response;
+      return okJson(CARD);
+    });
+    render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} builderMode />);
+    const nav = await screen.findByRole('navigation', { name: '구역 바로가기' });
+    const items = nav.querySelectorAll('li');
+    fireEvent.dragStart(items[1], { dataTransfer: dragData() });
+    fireEvent.dragOver(items[3], { dataTransfer: dragData() });
+    fireEvent.drop(items[3]);
+    expect(await screen.findByRole('alert')).toHaveTextContent('순서를 바꾸지 못했어요. 잠시 뒤 다시 해 주세요.');
+  });
+});
