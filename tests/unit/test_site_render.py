@@ -437,8 +437,13 @@ def test_video_cover_hero_uses_thumbnail_and_play_link():
             "content": {"title": "바다카페", "subtitle": "카페", "image": "/art/x.webp",
                         "video_url": "https://youtu.be/dQw4w9WgXcQ"}}
     html = render_site(_spec_motion(hero=hero))
-    assert "s-hero--video" in html and 'class="s-hero__play"' in html
-    assert "i.ytimg.com" in html and "<iframe" not in html  # 외부 영상 틀 없이 썸네일 + 링크
+    # 유튜브: 썸네일 위에 소리 없는 배경 영상 틀 + 소리 켜고 보기 (YOUTUBE_EMBED_POLICY)
+    assert "s-hero--video" in html and "i.ytimg.com" in html and "s-hero__sound" in html
+    assert html.count("<iframe") == 1 and "youtube-nocookie.com/embed/dQw4w9WgXcQ" in html
+    # 인스타그램: 틀 없이 썸네일 표지 + 재생 단추
+    hero["content"]["video_url"] = "https://www.instagram.com/reel/AbCdEf12345/"
+    html = render_site(_spec_motion(hero=hero))
+    assert 'class="s-hero__play"' in html and "<iframe" not in html
     hero["content"]["video_url"] = "javascript:alert(1)"
     html = render_site(_spec_motion(hero=hero))
     assert "javascript:" not in html and "/art/x.webp" in html and "s-hero__play is-empty" in html

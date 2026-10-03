@@ -1403,6 +1403,9 @@ def _section_context(
         # 영상 표지형: 영상 주소(지원 주소만)와 썸네일. 썸네일이 없으면 첫 화면 사진을 그대로 쓴다.
         info = parse_video_url(content.get("video_url", "")) if isinstance(content.get("video_url"), str) else None
         ctx["video_href"] = info["url"] if info else ""
+        # 유튜브면 소리 없는 반복 배경 영상 틀 (YOUTUBE_EMBED_POLICY). 썸네일은 그 아래 깔려 막히면 그대로 보인다.
+        from app.services import youtube_embed
+        ctx["yt_id"] = youtube_embed.video_id(info)
         if info and info.get("thumb"):
             ctx["image_src"] = info["thumb"]
             ctx["image_alt"] = "영상 썸네일"

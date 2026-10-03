@@ -194,4 +194,17 @@ def serve_site(requirement_id: str, filename: str = ""):
         target = target / "index.html"
     if not target.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(target, headers=_SITE_HEADERS)
+    return FileResponse(target, headers=_site_headers(target))
+
+
+def _site_headers(target) -> dict:
+    """유튜브 배경 영상이 있는 페이지만 유튜브 전용 헤더 (YOUTUBE_EMBED_POLICY). 그 밖은 기존 격리 그대로."""
+    if target.suffix.lower() in (".html", ".htm"):
+        try:
+            text = target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return _SITE_HEADERS
+        from app.services import youtube_embed
+        if youtube_embed.page_uses_youtube(text):
+            return {**_SITE_HEADERS, "Content-Security-Policy": youtube_embed.SITE_CSP_YOUTUBE}
+    return _SITE_HEADERS

@@ -25,3 +25,18 @@
   text-decoration: none;
 }
 .s-card__action--inquire { background: transparent; color: var(--c-primary); border: 1.5px solid var(--c-primary); }
+
+/* 유튜브 배경 영상 (YOUTUBE_EMBED_POLICY): 소리 없이 반복, 화면을 꽉 채우게 키운다. 누를 수 없고(배경), 소리는 단추로 유튜브에서.
+ * 막히면(저전력·차단) 아래 썸네일이 그대로 보인다. 움직임 줄이기 설정이면 영상을 숨긴다. */
+.s-hero--video .s-hero__yt {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: max(100%, calc(70svh * 16 / 9)); height: max(100%, calc(100vw * 9 / 16));
+  border: 0; pointer-events: none; z-index: 1;
+}
+.s-hero__sound {
+  position: absolute; right: 16px; bottom: 16px; z-index: 3;
+  padding: 8px 14px; border-radius: 999px; font-size: 14px; font-weight: 700; text-decoration: none;
+  color: #fff; background: rgba(0, 0, 0, 0.55);
+}
+.s-hero--video .s-hero__body { z-index: 2; }
+@media (prefers-reduced-motion: reduce) { .s-hero--video .s-hero__yt { display: none; } }
