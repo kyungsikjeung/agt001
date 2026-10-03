@@ -1,0 +1,58 @@
+# 운영 서버 배포 (scripts/deploy.sh를 GitHub에서 실행).
+# 손으로만 시작한다(Actions → Deploy → Run workflow). main만 배포한다.
+# 필요한 저장소 Secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_KEY      서버에 등록된 배포용 개인키 (ed25519, 비밀번호 없음)
+#   DEPLOY_KNOWN_HOSTS  `ssh-keyscan -t ed25519 144.24.91.250` 결과 (가짜 서버 접속 방지)
+# 배포 전 스냅샷, 헬스체크 실패 시 자동 되돌리기는 deploy.sh가 한다.
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "18"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: SSH key
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$DEPLOY_SSH_KEY" ] || [ -z "$DEPLOY_KNOWN_HOSTS" ]; then
+            echo "::error::DEPLOY_SSH_KEY·DEPLOY_KNOWN_HOSTS 저장소 Secret이 필요합니다"
+            exit 1
+          fi
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host *\n  StrictHostKeyChecking yes\n  ConnectTimeout 20\n' > ~/.ssh/config
+      - name: Deploy
+        run: |
+          # 헬스체크 실패로 자동 되돌리기를 했으면 작업은 실패로 남긴다(되돌린 것도 성공처럼 보이지 않게)
+          set -o pipefail
+          SSH_KEY="$HOME/.ssh/deploy_key" ./scripts/deploy.sh --auto-rollback 2>&1 | tee deploy.log
+          if grep -q "헬스체크 실패" deploy.log; then
+            echo "::error::헬스체크 실패로 배포 전 스냅샷으로 되돌렸습니다"
+            exit 1
+          fi
+      - name: Remove key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
