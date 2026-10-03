@@ -405,7 +405,9 @@ def _apply_fields(card: dict, fields: dict, turn: int) -> list[str]:
             prd_engine._put(card, key, [v.strip() for v in value.split(",") if v.strip()], S.FILLED, turn, "editor")
         else:
             if key == "phone":
+                from app.services.phone_format import format_phone
                 value = prd_engine._spoken_phone(value)
+                value = format_phone(value) or value  # 번호면 010-1234-5678로 저장, 글이면 그대로
             prd_engine._put(card, key, value, S.FILLED, turn, "editor")
         changed.append(key)
     return changed

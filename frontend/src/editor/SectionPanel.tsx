@@ -8,6 +8,7 @@ import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
 import StaffEditor from './StaffEditor';
+import { nextPhone, phoneLooksOk } from './phone';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -172,7 +173,9 @@ export default function SectionPanel({
   const currentShape = selected.variant ?? '';
 
   /** 칸 하나를 고친다. 저장된 값과 다른 칸만 미리보기에 보낸다(모두 같으면 빈 값 = 저장된 모양으로). */
-  function editField(k: string, value: string) {
+  function editField(k: string, raw: string) {
+    // 전화번호는 치는 동안 010-1234-5678로 나눠 보인다(저장 형식은 서버가 같은 규칙으로 맞춤)
+    const value = k === 'phone' ? nextPhone(drafts[k] ?? '', raw) : raw;
     const next = { ...drafts, [k]: value };
     setDrafts(next);
     if (!onDraft) return;
@@ -364,11 +367,20 @@ export default function SectionPanel({
             <input
               id={`ed-site-${selected.id}-${k}`}
               className="ed-input"
-              type="text"
+              type={k === 'phone' ? 'tel' : 'text'}
+              inputMode={k === 'phone' ? 'tel' : undefined}
+              autoComplete={k === 'phone' ? 'tel' : undefined}
+              placeholder={k === 'phone' ? '010-0000-0000' : undefined}
               value={drafts[k] ?? ''}
               disabled={saving}
+              aria-describedby={k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? `ed-site-${selected.id}-phone-hint` : undefined}
               onChange={(e) => editField(k, e.target.value)}
             />
+            {k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? (
+              <span id={`ed-site-${selected.id}-phone-hint`} className="ed-site-hint ed-site-hint--warn">
+                번호가 덜 들어간 것 같아요. 예: 010-1234-5678
+              </span>
+            ) : null}
           </label>
         ))}
 

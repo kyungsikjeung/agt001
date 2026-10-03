@@ -565,6 +565,13 @@
   color: var(--ed-note);
 }
 
+/* 전화번호가 덜 들어갔을 때 (막지는 않고 알려만 준다) */
+.ed-site-hint--warn {
+  display: block;
+  margin-top: 4px;
+  color: var(--ed-slot-ink);
+}
+
 .ed-sec-list {
   margin: 8px 0 0;
   padding: 0;

@@ -1,6 +1,15 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/33  [기능 · claude/jolly-hamilton-rg8hfa] 전화번호 자동 하이픈 + 저장 형식 맞추기
+  - 빌더 전화번호 칸: 치는 동안 010-1234-5678로 나눔(02·지역번호·1588·0507·+82도). 하이픈 뒤 백스페이스는 숫자까지 지움
+      글이 섞이면("카톡으로 문의") 손대지 않음. 덜 들어가면 "번호가 덜 들어간 것 같아요" 안내(막지는 않음)
+      frontend/src/editor/phone.ts(신규), SectionPanel.tsx(구역 칸), builder/BuilderPage.tsx(가게 정보), EventEditor.tsx(양가 연락처)
+      editor.css .ed-site-hint--warn(기존 --ed-slot-ink 토큰)
+  - 서버 저장: 번호면 같은 규칙의 표준 표기로 저장(01096567830 → 010-9656-7830), 글이면 그대로
+      app/services/phone_format.py(신규), app/api/card.py _apply_fields
+  - 테스트: 파이썬 tests/unit/test_phone_format.py 15개, 프런트 src/editor/phone.test.ts 5개. API 저장 테스트는 옛 코드에서 실패 확인
+
 10/04/02/23  [고침 · claude/jolly-hamilton-rg8hfa] 빌더 지도 빈 칸 · 2안 가로 띠 마우스로 넘기기 (+ 컴포넌트 엔진 브랜치 합침)
   - 컴포넌트 엔진(claude/sweet-noether-jo25f0, 15f9012)을 이 브랜치로 합침. 이전 채팅방은 로그인 토큰 취소로 멈춤
   - 지도 빈 칸 ①: SDK는 왔는데 그리기가 끝나지 않으면(load 콜백 없음) 지도 칸이 계속 비었다

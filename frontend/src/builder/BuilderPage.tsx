@@ -21,6 +21,7 @@ import NoticePhotos from '../editor/NoticePhotos';
 import PublishBar from './PublishBar';
 import SayBar from './SayBar';
 import type { SayResponse, UndoResponse } from '../editor/cardApi';
+import { nextPhone } from '../editor/phone';
 
 const CHOICES = ['v1', 'v2', 'v3'] as const;
 const TOP_KEYS = ['shop_name', 'phone', 'location'] as const;
@@ -294,10 +295,16 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
                 <input
                   id={`bd-top-${k}`}
                   className="ed-input"
-                  type="text"
+                  type={k === 'phone' ? 'tel' : 'text'}
+                  inputMode={k === 'phone' ? 'tel' : undefined}
+                  autoComplete={k === 'phone' ? 'tel' : undefined}
+                  placeholder={k === 'phone' ? '010-0000-0000' : undefined}
                   value={drafts[k] ?? ''}
                   disabled={topBusy}
-                  onChange={(e) => setDrafts((prev) => ({ ...prev, [k]: e.target.value }))}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setDrafts((prev) => ({ ...prev, [k]: k === 'phone' ? nextPhone(prev[k] ?? '', raw) : raw }));
+                  }}
                 />
               </label>
             ))}
