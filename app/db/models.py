@@ -735,3 +735,23 @@ class UsageLedgerRow(Base):
     kind: Mapped[str] = mapped_column(Text, nullable=False)  # grant·use·topup
     amount: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime.datetime] = _now_col()
+
+
+class PushSubscriptionRow(Base):
+    """휴대폰 알림(웹 푸시) 구독 (OWNER_NOTIFY_PLAN N1). 로그인한 사람의 기기마다 한 줄.
+
+    endpoint는 브라우저 회사(구글·모질라·애플·MS)가 준 주소. 그 회사가 404·410을 주면 지운다(push.py).
+    """
+
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (Index("ix_push_subscriptions_user", "user_id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    endpoint: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    p256dh: Mapped[str] = mapped_column(Text, nullable=False)  # 기기 공개 키(base64url)
+    auth: Mapped[str] = mapped_column(Text, nullable=False)  # 기기 인증 비밀(base64url 16바이트)
+    label: Mapped[Optional[str]] = mapped_column(Text)  # "아이폰 사파리" 같은 기기 이름(화면에서 구분용)
+    created_at: Mapped[datetime.datetime] = _now_col()
+    last_ok_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
+    fail_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")

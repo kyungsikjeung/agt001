@@ -1,0 +1,17 @@
+{
+  "id": "/owner",
+  "name": "한마디 사장님 — 예약·주문·채팅",
+  "short_name": "사장님",
+  "description": "새 문의·예약·주문·채팅을 휴대폰 알림으로 받고 바로 답해요.",
+  "lang": "ko",
+  "start_url": "/owner?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#17181a",
+  "theme_color": "#17181a",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
