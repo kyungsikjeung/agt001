@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, live, orders, owner, projects, public, push, rooms, settings as owner_settings, start, stt, tts
+from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, live, members, orders, owner, projects, public, push, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
 from app.services import funnel, ops_alert, rag
 
@@ -69,7 +69,7 @@ async def lifespan(_app: FastAPI):
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/rsvp/", "/api/guestbook/", "/api/bookings/", "/api/orders/", "/health")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/rsvp/", "/api/guestbook/", "/api/bookings/", "/api/orders/", "/api/members/", "/health")
 _GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/")
 
 
@@ -105,6 +105,7 @@ def create_app() -> FastAPI:
     app.include_router(orders.router)
     app.include_router(owner_settings.router)
     app.include_router(push.router)
+    app.include_router(members.router)
     app.include_router(owner.router)
     app.include_router(chat_agent.router)
     app.include_router(tts.router)

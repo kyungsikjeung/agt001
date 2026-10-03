@@ -1,6 +1,6 @@
 // 빌더 화면 테스트 (BUILDER_CONTRACT §6 8번, fetch 가짜).
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import BuilderPage from './BuilderPage';
 
@@ -275,6 +275,49 @@ describe('BuilderPage', () => {
     fireEvent.click(screen.getByRole('button', { name: '공지 끄기' }));
     await waitFor(() => expect(puts).toHaveLength(2));
     expect(puts[1]).toEqual({ key: 'notice', on: false });
+  });
+
+  it('회원 가입을 아직 안 정했으면 한 번 묻고, 고르면 PUT /features {members}', async () => {
+    const puts: unknown[] = [];
+    const feats = [...FEATURES, { key: 'members', label: '회원', kind: 'shop', on: false, members: true }];
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features') && init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)));
+        return okJson({ features: feats.map((f) => (f.key === 'members' ? { ...f, on: true } : f)), focus: null });
+      }
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: feats });
+      return okJson({ ...CARD, members: puts.length ? { signup: true, method: 'phone' } : null });
+    });
+    render(<BuilderPage roomId="r1" />);
+    const ask = await screen.findByRole('group', { name: /손님 회원 가입을 받을까요/ });
+    fireEvent.click(within(ask).getByRole('button', { name: '회원 가입 받기' }));
+    await waitFor(() => expect(puts).toEqual([{ key: 'members', on: true }]));
+    await waitFor(() => expect(screen.queryByRole('group', { name: /손님 회원 가입을 받을까요/ })).not.toBeInTheDocument());
+    expect(screen.getByText("손님 회원 가입을 받아요. 공개 사이트 메뉴에 '내 정보'가 생겨요.")).toBeInTheDocument();
+  });
+
+  it('회원 칩은 설명 창(무엇이 생기나·문자 비용)에서 켜고 끈다', async () => {
+    const puts: unknown[] = [];
+    const feats = [...FEATURES, { key: 'members', label: '회원', kind: 'shop', on: true, members: true }];
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features') && init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)));
+        return okJson({ features: feats.map((f) => (f.key === 'members' ? { ...f, on: false } : f)), focus: null });
+      }
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: feats });
+      return okJson({ ...CARD, members: { signup: true, method: 'phone' } });
+    });
+    render(<BuilderPage roomId="r1" />);
+    expect(screen.queryByRole('group', { name: /손님 회원 가입을 받을까요/ })).toBeNull(); // 이미 정한 사이트는 안 물음
+    fireEvent.click(await screen.findByRole('button', { name: '회원' }));
+    const sheet = screen.getByRole('dialog', { name: '손님 회원 가입' });
+    expect(within(sheet).getByText('지금: 받는 중')).toBeInTheDocument();
+    expect(within(sheet).getByText(/하루 30건/)).toBeInTheDocument();
+    expect(puts).toHaveLength(0);
+    fireEvent.click(within(sheet).getByRole('button', { name: '회원 가입 그만 받기' }));
+    await waitFor(() => expect(puts).toEqual([{ key: 'members', on: false }]));
   });
 
   it('모양 바꾸기는 PUT /card {choice}로 저장한다', async () => {

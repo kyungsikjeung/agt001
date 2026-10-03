@@ -550,3 +550,11 @@ def set_chat_settings(site_key: str, body: ChatSettingsIn, request: Request):
         raise HTTPException(status_code=403, detail="가게 주인만 바꿀 수 있어요.")
     return {"guest_chat_on": bool(out.get("guest_chat_on", True))}
 
+
+
+@router.get("/api/owner/shops/{site_key}/members")
+def list_members(site_key: str, request: Request):
+    """손님 회원 목록 (FEATURE_PLATFORM_PLAN §7.1). 번호는 가운데를 가린다. 회원 기능이 꺼져 있으면 on=False."""
+    _shop(request, site_key)
+    from app.services import availability, members
+    return {"on": members.enabled(availability._card_for_site(site_key)), "members": members.owner_list(site_key)}

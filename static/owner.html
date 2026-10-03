@@ -101,6 +101,7 @@
   <button role="tab" data-tab="stamps" aria-selected="false">스탬프·쿠폰</button>
   <button role="tab" data-tab="bot" aria-selected="false">예약 봇</button>
   <button role="tab" data-tab="closures" aria-selected="false">휴무·막기</button>
+  <button role="tab" data-tab="members" aria-selected="false">손님</button>
   <button role="tab" data-tab="verify" aria-selected="false">가게 확인</button>
 </nav>
 <main>
@@ -275,6 +276,13 @@
     </section>
   </div>
 
+  <div id="p-members" hidden>
+    <section class="card">
+      <div class="row"><h2 style="flex:1">손님 회원</h2><span class="pill" id="m-count">0명</span></div>
+      <p class="sub">공개 사이트 '내 정보'에서 전화번호 인증으로 가입한 손님이에요. 손님은 이 가게에서의 내 예약·주문·스탬프를 볼 수 있어요. 번호는 가운데를 가려서 보여요.</p>
+      <div id="mlist"><p class="sub">불러오는 중…</p></div>
+    </section>
+  </div>
   <div id="p-verify" hidden>
     <section class="card">
       <h2>가게 확인·사업자 확인</h2>
@@ -289,7 +297,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   let shops = [], cur = null, spec = null;
-  const TABS = ["bookings", "orders", "chats", "stamps", "bot", "closures", "verify"];
+  const TABS = ["bookings", "orders", "chats", "stamps", "bot", "closures", "members", "verify"];
   const qs = new URLSearchParams(location.search);
 
   async function api(path, opts = {}) {
@@ -317,6 +325,7 @@
     if (name === "stamps") loadStamps();
     if (name === "bot") loadBot();
     if (name === "closures") loadClosures();
+    if (name === "members") loadMembers();
   }
   $("tabs").addEventListener("click", e => {
     const b = e.target.closest("button[data-tab]");
@@ -754,6 +763,27 @@
   });
 
   // ── 휴무·막기 ──
+  // ── 손님 회원 (FEATURE_PLATFORM_PLAN §7.1) ──
+  async function loadMembers() {
+    const box = $("mlist");
+    try {
+      const data = await api(base() + "/members");
+      box.replaceChildren();
+      $("m-count").textContent = data.members.length + "명";
+      if (!data.on) {
+        box.append(el("p", "회원 기능이 꺼져 있어요. 사이트 고치기(빌더) 아래 '회원' 칩에서 켤 수 있어요.", "warn"));
+      }
+      if (!data.members.length) { box.append(el("p", "아직 가입한 손님이 없어요.", "sub")); return; }
+      for (const m of data.members) {
+        const row = el("div", null, "bk");
+        row.append(el("strong", (m.name || "이름 없음") + " · " + m.phone));
+        row.append(el("p", "가입 " + m.since + " · 마지막 방문 " + m.last_seen +
+          " · 예약 " + m.bookings + "번 · 주문 " + m.orders + "번", "sub"));
+        box.append(row);
+      }
+    } catch (e) { if (e.message !== "login") box.replaceChildren(el("p", e.message, "err")); }
+  }
+
   async function loadClosures() {
     const box = $("cl-list");
     const { closures } = await api(base() + "/closures");

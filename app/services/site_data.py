@@ -1269,6 +1269,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
         if stamp_key and not any(l.get("href", "").endswith("/my") for l in links):
             links.append({"label": "스탬프", "href": f"/api/orders/{stamp_key}/my"})
     out["navbar"] = {"title": shop, "top": "#hero-title-hero", "links": links}
+    from app.services import members
+    if members.enabled(card):
+        out["members"] = True  # 손님 회원: site_render가 사이트 키로 '내 정보' 링크를 단다
     if primary:
         out["navbar"]["cta"] = primary
     actionbar = {"primary": primary} if primary else {}

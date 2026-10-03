@@ -156,6 +156,9 @@ def _features(session: dict, card: dict, variant: str) -> list:
     out.append({"key": "notice", "label": "공지", "kind": "shop",
                 # 글 또는 사진이 있으면 켜진 것으로 본다 (NOTICE_PHOTO_CONTRACT §1-5).
                 "on": bool(notice["text"] or notice["photos"]), "needs_text": True})
+    from app.services import members
+    # 손님 회원 (FEATURE_PLATFORM_PLAN §7.1): 번호 인증 가입 → 공개 사이트 '내 정보'. 빌더에서 켜고 끈다
+    out.append({"key": "members", "label": "회원", "kind": "shop", "on": members.enabled(card), "members": True})
     from app.services import stamps
     out.append({"key": "stamps", "label": "스탬프", "kind": "shop",
                 "on": stamps.rule(req) is not None, "after_publish": True})
@@ -312,6 +315,13 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                     room, session, safe, ["notice"], f"빌더에서 바꿨어요: 공지 {'켬' if body.on else '끔'}")
                 funnel.record("builder_feature",
                               props={"kind": "notice", "ref": "notice", "choice": "on" if body.on else "off"})
+        elif key == "members":
+            from app.services import members
+            if members.set_enabled(card, body.on):
+                card_api.post_change_followup(
+                    room, session, safe, ["members"], f"빌더에서 바꿨어요: 손님 회원 가입 {'받음' if body.on else '안 받음'}")
+                funnel.record("builder_feature", props={"kind": "members", "ref": "members",
+                                                        "choice": "on" if body.on else "off"})
         elif key in ("stamps", "order", "chat"):
             raise HTTPException(status_code=400, detail="공개한 뒤 사장님 화면에서 켤 수 있어요")
         else:

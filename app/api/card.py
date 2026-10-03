@@ -116,6 +116,11 @@ class CardIn(BaseModel):
     nearby: Optional[NearbyIn] = None  # 주변 안내(대제목·소제목). None=그대로, items=[]=지우기
 
 
+def _members_state(card: dict):
+    from app.services import members
+    return members.state(card)
+
+
 def _nearby_view(card: dict) -> dict:
     try:
         from app.services import nearby
@@ -160,6 +165,8 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "quota": _quota(session),
         "staff": staff,
         "nearby": _nearby_view(card),
+        # 손님 회원 가입: 아직 안 정했으면 None(빌더 첫 화면에서 묻는다)
+        "members": _members_state(card),
         **_event_view(card, ind),
     }
 
@@ -738,6 +745,8 @@ def _changed_label(ind, key: str) -> str:
         return "스타일"
     if key == "nearby":
         return "주변 안내"
+    if key == "members":
+        return "손님 회원"
     if key == "items":
         return S.label_for(ind, "offerings")
     return S.label_for(ind, key)

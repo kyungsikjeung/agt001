@@ -76,6 +76,9 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   // 이미 켜진 공지를 고치는 중인지(칩을 다시 누름), 막 켠 뒤 '어디서 고치나' 안내를 보일지
   const [noticeEdit, setNoticeEdit] = useState(false);
   const [noticeCoach, setNoticeCoach] = useState(false);
+  // 손님 회원 설명 창(칩)과 첫 화면 질문(아직 안 정한 사이트만, 한 번)
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [membersAskHidden, setMembersAskHidden] = useState(false);
   const [pubBusy, setPubBusy] = useState(false);
   const [pubResult, setPubResult] = useState<PublishResult | null>(null);
   const [siteUrl, setSiteUrl] = useState<string | null>(null);
@@ -179,6 +182,12 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       setNoticeEdit(false);
       setChangeSeq((n) => n + 1);
       control.current?.reload(r.focus);
+      if (key === 'members') {
+        setMembersOpen(false);
+        setMembersAskHidden(true);
+        void refreshCard();
+        setChipMsg(on ? "손님 회원 가입을 받아요. 공개 사이트 메뉴에 '내 정보'가 생겨요." : '손님 회원 가입을 받지 않아요.');
+      }
       if (isNotice || key === 'notice') {
         // 다시 열 때 지금 공지 글·사진으로 채우려고 카드도 새로 받는다
         void refreshCard();
@@ -198,6 +207,13 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
     if (chip.after_publish) {
       setNoticeKey(null);
       setInfoKey(chip.key);
+      return;
+    }
+    // 손님 회원은 설명 창에서 켜고 끈다(무엇이 생기는지·비용을 먼저 보이고).
+    if (chip.members) {
+      setNoticeKey(null);
+      setInfoKey(null);
+      setMembersOpen(true);
       return;
     }
     // 공지는 글을 적고 켠다. 켜진 공지를 다시 누르면 바로 끄지 않고 고치기 창(글·사진·끄기)을 연다.
@@ -375,6 +391,53 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
           onUndone={handleSayUndone}
         />
         <FeatureChips features={features} busyKey={chipBusy} onToggle={toggleChip} />
+        {card && card.members === null && !membersAskHidden ? (
+          <div className="bd-ask" role="group" aria-labelledby="bd-ask-members">
+            <p id="bd-ask-members">
+              <b>손님 회원 가입을 받을까요?</b>
+              <span>받으면 손님이 전화번호 인증으로 가입하고 이 가게에서의 내 예약·주문·스탬프를 볼 수 있어요. 나중에 아래 &lsquo;회원&rsquo; 칩에서 바꿀 수 있어요.</span>
+            </p>
+            <div className="ed-sheet-row">
+              <button type="button" className="ed-btn" disabled={chipBusy !== null} onClick={() => void sendChip('members', false)}>
+                받지 않음
+              </button>
+              <button type="button" className="ed-btn ed-btn--primary" disabled={chipBusy !== null} onClick={() => void sendChip('members', true)}>
+                회원 가입 받기
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {membersOpen ? (
+          <div className="bd-notice-sheet" role="dialog" aria-label="손님 회원 가입">
+            <div className="bd-info-top">
+              <h2 className="bd-info-title">손님 회원 가입</h2>
+              <button type="button" className="bd-info-close" aria-label="닫기" onClick={() => setMembersOpen(false)}>
+                ✕
+              </button>
+            </div>
+            <ul className="bd-members-list">
+              <li>공개 사이트 메뉴에 <b>내 정보</b>가 생겨요.</li>
+              <li>손님은 <b>전화번호 인증</b>과 개인정보 동의로 가입하고, 이 가게에서의 <b>내 예약·주문·스탬프를 볼 수만</b> 있어요(바꾸기·취소는 가게에 연락).</li>
+              <li>가입한 손님은 <b>사장님 화면 &gt; 손님</b> 탭에서 볼 수 있어요(번호 가운데는 가림).</li>
+              <li>인증 문자: 가게 문자 키를 넣었으면 가게 비용, 없으면 무료로 <b>하루 30건</b>까지 보내요.</li>
+            </ul>
+            <p className="bd-msg">{features.find((f) => f.key === 'members')?.on ? '지금: 받는 중' : '지금: 받지 않음'}</p>
+            <div className="ed-sheet-row">
+              <button type="button" className="ed-btn" onClick={() => setMembersOpen(false)}>
+                닫기
+              </button>
+              {features.find((f) => f.key === 'members')?.on ? (
+                <button type="button" className="ed-btn bd-btn-off" disabled={chipBusy !== null} onClick={() => void sendChip('members', false)}>
+                  회원 가입 그만 받기
+                </button>
+              ) : (
+                <button type="button" className="ed-btn ed-btn--primary" disabled={chipBusy !== null} onClick={() => void sendChip('members', true)}>
+                  회원 가입 받기
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
         {noticeCoach ? (
           <div className="bd-coach" role="status">
             <span aria-hidden="true" className="bd-coach__arrow" />

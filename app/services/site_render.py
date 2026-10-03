@@ -19,6 +19,7 @@ from urllib.parse import quote
 import chevron
 
 from app.config import settings
+from app.security import sanitize_token
 from app.services import components as COMP
 from app.services.video_links import parse_video_url
 
@@ -266,8 +267,9 @@ def _og_tags(sections: list, site_key: str, page_title: str) -> list:
 
 # 하단 탭 아이콘 (선 그림, 24칸). 탭 이름의 낱말로 고른다.
 def _is_my_link(href: str) -> bool:
-    """내 스탬프 화면 링크 (/api/orders/<키>/my). 구역이 아니라도 내비·탭에 둔다."""
-    return isinstance(href, str) and href.startswith("/api/orders/") and href.endswith("/my")
+    """내 스탬프(/api/orders/<키>/my)·내 정보(/api/members/<키>) 링크. 구역이 아니라도 내비·탭에 둔다."""
+    return isinstance(href, str) and (
+        (href.startswith("/api/orders/") and href.endswith("/my")) or href.startswith("/api/members/"))
 
 
 _TAB_ICONS = (
@@ -1701,6 +1703,10 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
     need_season_script = False
     need_event_script = False
     nav = spec.get("navbar")
+    if spec.get("members") is True and site_key and (public or edit) and isinstance(nav, dict):
+        # 손님 회원(FEATURE_PLATFORM_PLAN §7.1): 메뉴·하단 탭에 '내 정보'. 스탬프 링크는 그 자리를 내준다(내 정보에 스탬프도 보임)
+        kept = [l for l in (nav.get("links") or []) if isinstance(l, dict) and not (l.get("href") or "").endswith("/my")]
+        nav = {**nav, "links": kept[:4] + [{"label": "내 정보", "href": f"/api/members/{sanitize_token(site_key)}"}]}
     for pos, section in enumerate(sections):
         if not isinstance(section, dict):
             raise SiteSpecError(f"{pos}번째 섹션이 dict 형태가 아님")

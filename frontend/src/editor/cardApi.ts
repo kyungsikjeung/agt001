@@ -43,6 +43,8 @@ export interface RoomCard {
   staff?: StaffMember[];
   /** 주변 안내 (app/services/nearby.py). 예전 서버는 없다 */
   nearby?: CardNearby;
+  /** 손님 회원 가입. null이면 아직 안 정함(빌더 첫 화면에서 묻는다), 예전 서버는 키가 없다 */
+  members?: { signup: boolean; method: 'phone' } | null;
 }
 
 export type NearbyUnit = 'walk' | 'car' | 'km' | 'text';
@@ -424,6 +426,8 @@ export interface FeatureChip {
   locked?: boolean;
   needs_text?: boolean;
   after_publish?: boolean;
+  /** 손님 회원 칩(누르면 설명 창에서 켜고 끈다, FEATURE_PLATFORM_PLAN §7.1) */
+  members?: boolean;
 }
 
 /** GET features 응답 (BUILDER_CONTRACT §2.2). */

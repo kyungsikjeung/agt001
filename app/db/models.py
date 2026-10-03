@@ -273,6 +273,8 @@ class CustomerRow(Base):
     last_seen: Mapped[datetime.datetime] = _now_col()
     phone_verified_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
     user_id: Mapped[Optional[str]] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))  # 로그인한 손님이면(SALES_DB_PLAN §2.2 R-3)
+    # 손님 회원 가입 시각(번호 인증 + 동의). 비어 있으면 회원 아님 (app/services/members.py)
+    member_since: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class PhoneVerificationRow(Base):

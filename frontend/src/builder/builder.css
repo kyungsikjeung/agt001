@@ -362,6 +362,17 @@
   @keyframes bd-coach-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 }
 
+/* 손님 회원: 첫 화면 질문(한 번) · 설명 창 목록 */
+.bd-ask {
+  display: grid; gap: 8px; padding: 12px; border-radius: 12px;
+  border: 1px solid var(--ed-accent-line, #c9a35a); background: var(--ed-card, #232427);
+}
+.bd-ask p { margin: 0; display: grid; gap: 4px; }
+.bd-ask p b { font-size: 16px; }
+.bd-ask p span { font-size: 14px; color: var(--ed-note, #a9a59c); line-height: 1.5; }
+.bd-members-list { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; font-size: 14px; line-height: 1.5; }
+.bd-members-list b { color: var(--ed-slot-ink, #f0d9a8); }
+
 /* 공개 뒤 기능 안내 창 (J5): 공지 창과 같은 자리·모양, 제목과 ✕는 한 줄. */
 .bd-info-top {
   display: flex;
