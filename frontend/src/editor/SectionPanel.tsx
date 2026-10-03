@@ -5,6 +5,7 @@
 import { useEffect, useState } from 'react';
 import AddressSearch from '../builder/AddressSearch';
 import AroundEditor from './AroundEditor';
+import GallerySettings from './GallerySettings';
 import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
@@ -19,6 +20,7 @@ import {
   saveCard,
   uploadPhoto,
   type CardLayoutEdit,
+  type GallerySettings as GallerySettingsValue,
   type PreviewAddable,
   type PreviewItem,
   type PreviewSection,
@@ -203,6 +205,22 @@ export default function SectionPanel({
     void sendLayout(layout);
   }
 
+  /** 사진 구역 설정(사진 수·움직임): 미리보기에 먼저 그리고 저장한다. 기본값(전체·기본)은 빼서 보낸다. */
+  function changeSettings(next: GallerySettingsValue) {
+    const settings: Record<string, GallerySettingsValue> = {};
+    for (const s of sections) {
+      if (s.settings && Object.keys(s.settings).length > 0) settings[s.id] = s.settings;
+    }
+    const clean: GallerySettingsValue = {};
+    if (next.count) clean.count = next.count;
+    if (next.motion) clean.motion = next.motion;
+    if (Object.keys(clean).length > 0) settings[selId] = clean;
+    else delete settings[selId];
+    const layout: CardLayoutEdit = { variant, order: orderIds, hidden: hiddenIds, added: addedIds, settings };
+    onPreviewLayout?.(layout);
+    void sendLayout(layout);
+  }
+
   async function sendLayout(layout: CardLayoutEdit) {
     setSaving(true);
     setError('');
@@ -356,6 +374,10 @@ export default function SectionPanel({
               ))}
             </div>
           </fieldset>
+        ) : null}
+
+        {kind === 'photos' ? (
+          <GallerySettings value={selected.settings ?? {}} disabled={saving} onChange={changeSettings} />
         ) : null}
 
         {kind === 'chat' ? <p>이 구역의 내용은 채팅으로 말해 주세요.</p> : null}

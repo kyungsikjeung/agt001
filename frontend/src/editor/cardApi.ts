@@ -111,6 +111,14 @@ export interface PreviewSection {
   base_variant?: string;
   /** 같은 데이터로 바꿔 쓸 수 있는 모양들. 한 개 이하면 모양 바꾸기를 보이지 않는다 */
   shapes?: PreviewShape[];
+  /** 사진 구역 설정 (10/4). 기본값이면 빈 묶음 */
+  settings?: GallerySettings;
+}
+
+/** 사진 구역 설정: count 보일 사진 수(없으면 전체), motion 움직임(없으면 지금 그대로) */
+export interface GallerySettings {
+  count?: 3 | 6 | 9 | 12;
+  motion?: 'calm' | 'lively' | 'still';
 }
 
 /** 구역 모양 하나 (templates/components.json). */
@@ -211,6 +219,8 @@ export interface CardLayoutEdit {
   reset?: boolean;
   /** 구역별 모양 {구역 id: 변형}. 빼면 지금 값 그대로, {}면 모두 기본 모양으로 */
   variants?: Record<string, string>;
+  /** 사진 구역 설정 {구역 id: 설정}. 빼면 지금 값 그대로 */
+  settings?: Record<string, GallerySettings>;
 }
 
 /** 스타일 축 고르기 (안별). 기본값이거나 빼면 그 축은 기본 모양. */

@@ -95,3 +95,20 @@ section[class^="s-"][data-tone="inverse"] .s-board__price { color: color-mix(in 
 }
 section[class^="s-"] .s-quote p { margin: 0; }
 section[class^="s-"][data-tone="inverse"] .s-quote::before { color: color-mix(in oklch, var(--c-accent) 45%, #fff); }
+
+/* ---- 사진 구역 움직임 (구역 설정 data-motion, 10/4) ----
+   calm 잔잔하게: 자동 흐름 천천히(48초), 사진에 손대도 커지지 않음
+   lively 생동감 있게: 자동 흐름 빠르게(16초), 손대면 조금 더 커짐
+   still 움직임 없음: 나타나기·자동 흐름·확대 모두 끔, 자동 흐름은 옆으로 넘기는 띠로 */
+section[data-motion="calm"] .s-marquee__track { animation-duration: 48s; }
+section[data-motion="lively"] .s-marquee__track { animation-duration: 16s; }
+@media (hover: hover) and (pointer: fine) {
+  section[data-motion="calm"] figure:hover img { transform: none; }
+  section[data-motion="lively"] figure:hover img { transform: scale(1.07); }
+}
+section[data-motion="still"],
+section[data-motion="still"] * { animation: none !important; transition: none !important; }
+section[data-motion="still"] figure:hover img { transform: none !important; }
+section[data-motion="still"] .s-marquee { overflow-x: auto; scrollbar-width: thin; }
+section[data-motion="still"] .s-marquee__track { width: auto; }
+section[data-motion="still"] .s-marquee__repeat { display: none; }

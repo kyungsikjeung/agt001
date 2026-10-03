@@ -10,6 +10,9 @@ from app.services import components as COMP
 LOCKED = ("hero", "inquiry")
 # 한 안에 더할 수 있는 구역 상한
 MAX_ADDED = 3
+# 사진 구역 설정 (10/4): 보일 사진 수(없으면 전체)·움직임(없으면 지금 그대로)
+GALLERY_COUNTS = (3, 6, 9, 12)
+GALLERY_MOTIONS = ("calm", "lively", "still")
 
 
 def _strategies(blueprint: dict) -> list:
@@ -99,6 +102,27 @@ def _clean_variants(raw, blueprint: dict, pos: int, ids: set) -> dict:
     return out
 
 
+def _clean_settings(raw, blueprint: dict, pos: int, ids: set) -> dict:
+    """{구역 id: {count, motion}} 중 이 안의 사진 구역(gallery)이고 아는 값만. 기본값(전체·그대로)은 뺀다."""
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for sid, one in raw.items():
+        if not isinstance(sid, str) or sid not in ids or not isinstance(one, dict):
+            continue
+        if _node_for(blueprint, pos, sid).get("type") != "gallery":
+            continue
+        kept = {}
+        count = one.get("count")
+        if isinstance(count, int) and not isinstance(count, bool) and count in GALLERY_COUNTS:
+            kept["count"] = count
+        if one.get("motion") in GALLERY_MOTIONS:
+            kept["motion"] = one["motion"]
+        if kept:
+            out[sid] = kept
+    return out
+
+
 def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
     """{order, hidden, added, variants}를 이 청사진·안 기준으로 정리. 아무 효과 없으면 None.
 
@@ -139,11 +163,14 @@ def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
             cursor += 1
 
     variants = _clean_variants(edits.get("variants"), blueprint, pos, effective_set)
-    if not added and not hidden and order == effective and not variants:
+    settings = _clean_settings(edits.get("settings"), blueprint, pos, effective_set)
+    if not added and not hidden and order == effective and not variants and not settings:
         return None
     out = {"order": order, "hidden": hidden, "added": added}
     if variants:
         out["variants"] = variants
+    if settings:
+        out["settings"] = settings
     return out
 
 
@@ -186,6 +213,7 @@ def apply(skeleton: dict, blueprint: dict, pos: int, edits: dict | None) -> dict
             by_id[aid] = sec
     hidden = set(cleaned["hidden"])
     shapes = cleaned.get("variants") or {}
+    settings = cleaned.get("settings") or {}
     ordered = []
     for sid in cleaned["order"]:
         if sid in hidden:
@@ -195,6 +223,9 @@ def apply(skeleton: dict, blueprint: dict, pos: int, edits: dict | None) -> dict
             if sid in shapes:
                 # 모양만 바꾼다. 데이터 채우기(site_data.resolve)가 이 모양을 보고 내용 모양을 맞춘다.
                 sec["variant"] = shapes[sid]
+            if sid in settings:
+                # 사진 수·움직임은 렌더러가 읽는다(site_render: 사진 자르기·data-motion)
+                sec["settings"] = dict(settings[sid])
             ordered.append(sec)
     # hero는 항상 0번
     hero = [s for s in ordered if s.get("id") == "hero"]
@@ -213,6 +244,7 @@ def sections(blueprint: dict, pos: int, edits: dict | None) -> list[dict]:
     order = cleaned["order"] if cleaned else base
     hidden = set(cleaned["hidden"]) if cleaned else set()
     shapes = (cleaned or {}).get("variants") or {}
+    settings = (cleaned or {}).get("settings") or {}
     out = []
     for sid in order:
         if sid == "hero":
@@ -227,6 +259,7 @@ def sections(blueprint: dict, pos: int, edits: dict | None) -> list[dict]:
                     "hidden": sid in hidden, "node": copy.deepcopy(node) if isinstance(node, dict) else {},
                     # 구역 모양 바꾸기 (COMPONENT_ENGINE_PLAN §6): 지금 모양·기본 모양·바꿀 수 있는 모양
                     "type": stype, "variant": shapes.get(sid) or base_node.get("variant") or "",
+                    "settings": dict(settings.get(sid) or {}),
                     "base_variant": base_node.get("variant") or "",
                     "shapes": COMP.shapes(stype, bind) if stype else []})
     return out

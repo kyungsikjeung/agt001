@@ -1,6 +1,23 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/51  [기능 · claude/jolly-hamilton-rg8hfa] 사진 구역 설정: 보일 사진 수 · 움직임
+  - 빌더 사진 구역(space_photos·style_photos) 칸에 '사진 보이기': 사진 수(전체·3·6·9·12장), 움직임(기본·잔잔하게·생동감 있게·움직임 없음)
+      모양(격자·넘기기·자동 흐름·벽돌 쌓기)은 기존 '모양' 카드. 누르면 미리보기에 먼저 그리고(draft) 저장
+      frontend/src/editor/GallerySettings.tsx(신규), SectionPanel.tsx changeSettings, cardApi.ts(GallerySettings 타입)
+  - 서버: 구역 편집에 settings {구역 id: {count, motion}} (사진 구역·아는 값만, 기본값은 뺌). 순서만 바꿔도 설정 유지
+      app/services/layout_edits.py _clean_settings·apply·sections, app/api/card.py LayoutIn.settings·미리보기 sections[].settings
+  - 렌더: 사진 수만큼 앞에서 자름, 섹션 뿌리에 data-motion. 설정이 없으면 출력 바이트 그대로
+      app/services/site_render.py _apply_motion (예시 사진첩에도)
+  - 효과(CSS, templates/css/60-components.css section[data-motion]):
+      잔잔하게 = 자동 흐름 48초·손대도 확대 없음 / 생동감 있게 = 자동 흐름 16초·손대면 1.07배 /
+      움직임 없음 = 나타나기·흐름·확대 끔, 자동 흐름은 옆으로 넘기는 띠(복사본 숨김)
+  - UI 요소·디자인 토큰: 새 CSS .ed-gallery-set·__row·__name (editor.css), 기존 .ed-seg 칩(줄바꿈) 재사용,
+      기존 --ed-note·--ed-ink만 사용(새 토큰 없음)
+  - 문서: docs/product/COMPONENT_ENGINE_PLAN.md 변경 이력에 10/4 이어서 한 일
+  - 테스트: 파이썬 tests/unit/test_gallery_settings.py 4개, 프런트 SectionPanel.gallery.test.tsx 3개
+      전체: pytest 1564, vitest 166, tsc·vite build 통과
+
 10/04/02/43  [기능 · claude/jolly-hamilton-rg8hfa] 주변 안내 직접 편집 (장소 + 도보·차로·거리, 크게 보일 것 고르기)
   - 빌더 '오시는 길' 구역 아래 '주변 안내' 칸: 한 줄 = 장소 + 어떻게(도보·차로·거리·직접 쓰기) + 값
       숫자만 넣으면 단위를 붙임(도보 3 → 도보 3분, 거리 1.2 → 1.2km, 800m는 그대로). 최대 8줄

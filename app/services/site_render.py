@@ -1631,6 +1631,22 @@ def _apply_tone(part: str, section: dict) -> str:
     return part[:end] + ' data-tone="inverse"' + part[end:]
 
 
+_SECTION_MOTIONS = ("calm", "lively", "still")
+
+
+def _apply_motion(part: str, section: dict) -> str:
+    """사진 구역 움직임 설정(10/4)을 섹션 뿌리 첫 여는 태그에 data-motion으로 (CSS: 60-components.css)."""
+    settings = section.get("settings") if isinstance(section, dict) else None
+    motion = settings.get("motion") if isinstance(settings, dict) else None
+    if motion not in _SECTION_MOTIONS:
+        return part
+    start = part.find("<")
+    end = part.find(">", start) if start >= 0 else -1
+    if end < 0 or "data-motion" in part[start:end]:
+        return part
+    return part[:end] + f' data-motion="{motion}"' + part[end:]
+
+
 def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
                 title: str = "", kind: str = "other", public: bool = False,
                 edit: bool = False) -> str:
@@ -1718,6 +1734,12 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
             # 이름 없는 항목은 공개본에서 뺀다("가격 문의"만 남은 빈 카드 방지, 품질 점검 Q-5)
             content = {**content, "items": [i for i in content["items"]
                                              if isinstance(i, dict) and str(i.get("name") or "").strip()]}
+        settings = section.get("settings") if isinstance(section.get("settings"), dict) else {}
+        count = settings.get("count")
+        if (section_type == "gallery" and isinstance(count, int) and not isinstance(count, bool) and count > 0
+                and isinstance(content.get("items"), list)):
+            # 사진 구역 설정(10/4): 보일 사진 수만큼 앞에서부터
+            content = {**content, "items": content["items"][:count]}
         ctx = _section_context(
             section_type, variant, str(section_id), content,
             site_key=site_key, retention_days=retention_days,
@@ -1731,8 +1753,8 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
         if section_type == "event" and ctx.get("has_date") or section_type == "gift" and ctx.get("has_sides"):
             need_event_script = True
         if ctx.pop("is_example", False):
-            parts.append((str(section_id), _apply_tone(
-                _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section)))
+            parts.append((str(section_id), _apply_motion(_apply_tone(
+                _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section), section)))
             continue
         if section_type == "guestbook":
             ctx["public"] = public
@@ -1748,7 +1770,7 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
             # 사진 없음: 빈 자리 표시를 업종별 예시 그림으로 갈아끼운다.
             # 사진 있음: 그림을 쓰지 않는다.
             part = part.replace(_HERO_EMPTY_MARK, _illustration_block(kind, "hero"), 1)
-        parts.append((str(section_id), _apply_tone(part, section)))
+        parts.append((str(section_id), _apply_motion(_apply_tone(part, section), section)))
     section_keys = [k for k, _ in parts]
 
     def _body() -> str:

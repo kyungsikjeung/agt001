@@ -1469,3 +1469,10 @@
 .ed-around__add > .ed-btn { justify-self: start; }
 /* 마우스로는 가로로 밀 수 없으니 칩이 넘치면 줄을 바꾼다 */
 .ed-around .ed-seg { flex-wrap: wrap; overflow-x: visible; }
+
+/* ---- 사진 보이기 (GallerySettings, 10/4): 사진 수·움직임 칩 두 줄 + 고른 움직임 설명 ---- */
+.ed-gallery-set { display: grid; gap: 10px; margin: 4px 0 12px; padding: 0; border: 0; }
+.ed-gallery-set > legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--ed-note); }
+.ed-gallery-set__row { display: grid; gap: 6px; }
+.ed-gallery-set__name { font-size: 14px; color: var(--ed-ink); font-weight: 600; }
+.ed-gallery-set .ed-seg { flex-wrap: wrap; overflow-x: visible; }
