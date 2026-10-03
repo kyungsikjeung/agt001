@@ -103,7 +103,7 @@ def _concept_board(requirement_id: str, title: str, items: list[dict], notes: li
         for i, v in enumerate(items))
     note_html = "".join(f"<li>{e(n)}</li>" for n in notes)
     ph = f'<p class="ph">빈 자리 {placeholders}곳은 공개 전에 채우면 좋아요.</p>' if placeholders else ""
-    by = "AI(NVIDIA NIM)가 정한 컨셉" if concept.get("source") == "ai" else "업종에 맞춘 기본 컨셉"
+    by = {"ai": "AI(NVIDIA NIM)가 정한 컨셉", "tone": "실시간 대화에서 고른 컨셉"}.get(concept.get("source"), "업종에 맞춘 기본 컨셉")
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>{e(title)} 디자인 컨셉</title>{links}
 <style>

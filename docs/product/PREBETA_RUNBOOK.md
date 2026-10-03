@@ -44,3 +44,12 @@
 | 날짜 | 내용 |
 |---|---|
 | 2026-10-01 | 처음 작성 (PR #3 배포 뒤) |
+
+
+## 청첩장 장면 사진 미리 만들기 (10/2, EVENT_INVITE_PLAN)
+첫 청첩장·돌잔치·칠순 요청 때 Gemini 장면 사진 5장을 만드느라 시안 사진이 40초쯤 늦게 채워진다. 서버에서 한 번 미리 만든다(종류당 최대 5장, 장당 약 $0.039).
+
+```bash
+cd ~/agt001 && sudo docker compose exec -T backend python scripts/prefill_art_lib.py --scenes          # 미리 보기 (LLM·생성 없음)
+cd ~/agt001 && sudo docker compose exec -T backend python scripts/prefill_art_lib.py --scenes --apply  # 만들기
+```

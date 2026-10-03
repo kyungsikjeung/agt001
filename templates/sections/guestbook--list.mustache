@@ -1,0 +1,26 @@
+<section class="s-guestbook s-guestbook--list" data-section-id="{{id}}" aria-labelledby="guestbook-title-{{id}}">
+  <h2 id="guestbook-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}방명록{{/label}}</h2>
+  <form class="s-form s-guestbook__form" method="post" action="/api/guestbook/{{site_key}}" enctype="application/x-www-form-urlencoded">
+    <p class="s-form__row">
+      <label for="guestbook-name-{{id}}">이름</label>
+      <input id="guestbook-name-{{id}}" name="name" type="text" maxlength="20" required autocomplete="name">
+    </p>
+    <p class="s-form__row">
+      <label for="guestbook-message-{{id}}">축하의 말</label>
+      <textarea id="guestbook-message-{{id}}" name="message" rows="3" maxlength="300" required></textarea>
+    </p>
+    <p class="s-form__notice">남긴 이름과 글은 이 페이지에 그대로 보여요. 1년 뒤 지워져요.</p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="guestbook-website-{{id}}">웹사이트는 비워 두세요</label>
+      <input id="guestbook-website-{{id}}" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">남기기</button></p>
+  </form>
+  {{#public}}<!--agt-guestbook-->{{/public}}
+  {{^public}}
+  <ul class="s-guestbook__list" aria-label="방명록 예시">
+    <li class="s-guestbook__item"><p class="s-guestbook__who"><b>하객</b><span class="s-guestbook__date">예시</span></p><p class="s-guestbook__text">결혼 축하해요! 오래오래 행복하세요.</p></li>
+  </ul>
+  <p class="s-guestbook__empty">공개하면 하객이 남긴 글이 여기에 최신순으로 보여요.</p>
+  {{/public}}
+</section>

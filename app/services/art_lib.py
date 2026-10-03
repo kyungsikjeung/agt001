@@ -205,6 +205,14 @@ def _has_own_photo(card: dict, name: str) -> bool:
     return isinstance(ai, dict) and str(ai.get("url") or "").startswith("/uploads/")
 
 
+def _has_site_photos(card: dict) -> bool:
+    try:
+        from app.services import photos as PH
+        return bool(PH.site_photos(card))
+    except Exception:
+        return False
+
+
 def prefetch(card: dict, room_id: str = "", requirement_id: str = "") -> None:
     """항목마다 태그를 정하고 창고에 없는 사진을 뒤에서 만든다. 하나라도 새로 생기면 시안·공개본을 다시 그린다."""
     if not isinstance(card, dict):
@@ -222,12 +230,17 @@ def prefetch(card: dict, room_id: str = "", requirement_id: str = "") -> None:
     except Exception:
         return
     names = [n for n in names if not _has_own_photo(card, n)]
-    if not names:
+    # 장면 사진: 기본 그림이 없는 종류이고 사장님 사진이 아직 없을 때만
+    want_scenes = industry in SCENE_KINDS and not _has_site_photos(card) and len(_scene_key(card)) >= 2
+    if not names and not want_scenes:
         return
 
     def run():
         made = False
         with _workers:
+            for tag in (scene_tags(card) if want_scenes else []):
+                if not url(tag) and ensure(tag, "scene"):
+                    made = True
             for name in names:
                 tag = tag_for(name, industry)
                 if tag and not url(tag) and ensure(tag, industry):
@@ -235,9 +248,93 @@ def prefetch(card: dict, room_id: str = "", requirement_id: str = "") -> None:
         if made and room_id and requirement_id:
             from app.services import photos
             photos._refresh_designs_async(room_id, requirement_id,
-                                          "메뉴 예시 사진을 넣었어요(예시 표시가 붙어요). 사진을 올리면 그 사진이 먼저예요.")
+                                          "예시 사진을 넣었어요(예시 표시가 붙어요). 사진을 올리면 그 사진이 먼저예요.")
 
     threading.Thread(target=run, daemon=True, name="art-lib-prefetch").start()
+
+
+# ---- 장면 사진 (첫 화면·사진첩): 처음 보는 종류(청첩장 등)도 그 종류에 맞는 예시 사진을 보인다 ----
+# 6업종은 목업·기본 그림이 있다. 그 밖(other·개인·단체·웹서비스)은 기본 그림이 카페 판화라
+# 청첩장에 카페 그림이 나왔다(10/2 대표 지적) → 종류 낱말로 장면 5개(첫 장 = 대표)를 정해 만들어 둔다.
+SCENE_KINDS = ("other", "individual", "group", "webservice", "event")
+SCENE_COUNT = 5
+
+
+def _scene_key(card: dict) -> str:
+    """장면 묶음 이름 = 종류의 대표 낱말(가게 이름·사실은 쓰지 않는다).
+    '결혼 청첩장'·'모바일 청첩장'이 같은 묶음('청첩장')을 쓰게 종류 별칭이 들어 있으면 그 별칭, 없으면 말한 낱말 그대로."""
+    slot = ((card or {}).get("slots") or {}).get("business_type") or {}
+    value = slot.get("value") if isinstance(slot, dict) else ""
+    if isinstance(value, list):
+        value = " ".join(str(v) for v in value)
+    text = str(value or "")
+    from app.services import prd_schema as S
+    squeezed = text.replace(" ", "")
+    hit = max((a for a in S.industry_for(text).aliases if a in squeezed), key=len, default="")
+    return normalize(hit or text)[:40]
+
+
+def _ask_scenes(kind_words: str, known: list) -> list:
+    """종류 → 방문자가 기대할 장면 사진 5개 [(tag, prompt)]. 첫 장은 대표(첫 화면)용. 종류 낱말만 보낸다."""
+    from app import llm
+    # 10/2 실측: '결혼청첩장'을 종이 청첩장으로 읽어 카드·봉투 사진만 골랐다 → 사이트가 다루는 '주제'를 그리게 한다
+    system = ("You plan example photos for a small Korean website. site_kind says what the website is for. "
+              "Picture the SUBJECT that the site's visitors care about, not the website, paper or card itself "
+              "(e.g. a wedding invitation site shows the wedding: rings, bouquet, ceremony venue, aisle, reception table; "
+              "a first-birthday party site shows the party table and decorations). "
+              f"List {SCENE_COUNT} clearly different scenes, the first one being the hero image. "
+              "Each scene must show objects or places only: no people, no faces, no hands, no text, no lettering, "
+              "no letters or characters on banners or signs. "
+              # 10/2 운영 실측: 칠순 장면에 제사상(향·빈 액자)이 나와 추모처럼 보였다
+              "For celebrations (weddings, birthdays, 70th birthdays) keep every scene festive: never memorial, "
+              "funeral or ancestral-rite imagery (no incense, no empty portrait frames, no jesa table). "
+              'Reply JSON only: {"scenes": [{"tag": "<topic-scene, lowercase words with hyphens>", '
+              '"prompt": "<one English line describing the photo>"}]}. '
+              "Tags must start with one shared topic word (e.g. wedding-rings, wedding-bouquet). "
+              "Reuse an existing tag only if it is exactly the same scene.")
+    user = json.dumps({"site_kind": kind_words, "existing_tags": known[:200]}, ensure_ascii=False)
+    try:
+        raw = llm.chat_json(system, user, timeout_sec=15.0, max_tokens=500)
+        data = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        log.warning("장면 정하기(LLM) 실패")
+        return []
+    out = []
+    for row in (data or {}).get("scenes") or []:
+        if not isinstance(row, dict):
+            continue
+        tag = str(row.get("tag") or "").strip().lower()
+        prompt = str(row.get("prompt") or "").strip()[:300]
+        if TAG_RE.match(tag) and len(tag) <= 40 and prompt and tag not in (t for t, _ in out):
+            out.append((tag, prompt))
+    return out[:SCENE_COUNT]
+
+
+def scene_tags(card: dict, *, use_llm: bool = True) -> list:
+    """이 카드의 장면 태그들(처음 정한 걸 다시 쓴다). 못 정하면 []."""
+    key = _scene_key(card)
+    if len(key) < 2:
+        return []
+    known = _load()
+    tags = known.get("scenes", {}).get(key)
+    if tags or not use_llm:
+        return list(tags or [])
+    got = _ask_scenes(key, sorted(set(_table()) | set(known["tags"])))
+    if not got:
+        return []
+
+    def save(data):
+        data.setdefault("scenes", {})[key] = [t for t, _ in got]
+        for tag, prompt in got:
+            if tag not in _table() and tag not in data["tags"]:
+                data["tags"][tag] = {"words": [key], "industry": "scene", "prompt": prompt, "made": "", "src": ""}
+    _update(save)
+    return [t for t, _ in got]
+
+
+def pick_scenes(card: dict) -> list:
+    """그리기용: 만들어 둔 장면 사진 주소들(첫 장 = 대표). LLM·생성은 부르지 않는다."""
+    return [u for u in (url(t) for t in scene_tags(card, use_llm=False)) if u]
 
 
 def pick(card: dict, name: str) -> dict:

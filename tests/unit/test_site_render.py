@@ -163,11 +163,12 @@ def test_tabs_index와_has_불리언():
 
 def test_list_variants_26종():
     variants = list_variants()
-    assert len(variants) == 48  # + 앱형 2(hero--app, tabbar--app, D56) + 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN) + 편집형 7(2026-09-27 시범) + 내비·마퀴 2 + 적합성 7(DESIGN_FIT_PLAN: 분류 메뉴판·담당자 2·예시 지도·예약 현황·주문 준비 중·하단 바)
+    assert len(variants) == 54  # + 영상 표지형 첫 화면 1(hero--video, COMPOSE_INTERVIEW_CONTRACT C-4) + 초대·기념 5(event--date, family--contacts, gift--accounts, rsvp--form, guestbook--list: 청첩장) + 앱형 2(hero--app, tabbar--app, D56) + 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN) + 편집형 7(2026-09-27 시범) + 내비·마퀴 2 + 적합성 7(DESIGN_FIT_PLAN: 분류 메뉴판·담당자 2·예시 지도·예약 현황·주문 준비 중·하단 바)
     assert "hero--photo-overlay" in variants
     assert "contact--form" in variants
     assert "reviews--slot-only" in variants
     assert "video--card" in variants
+    assert "hero--video" in variants
     assert variants == sorted(variants)
     assert "contact--form" in site_render.list_variants()
 
@@ -409,3 +410,54 @@ def test_카드형_메뉴_예시사진은_그림위에_예시표시(variant):
     assert out.count('<figure class="s-card__media">') == 2
     assert out.count("예시 이미지") == 1  # 사장님 사진에는 붙이지 않는다
     assert re.search(r'coffee-americano\.webp"[^>]*><span class="s-illu-badge">예시 이미지</span></figure>', out)
+
+
+# ---- 움직임 토큰·영상 표지형 (COMPOSE_INTERVIEW_CONTRACT §3·C-4) ----
+
+def _spec_motion(motion=None, hero=None):
+    tokens = {"palette": "coffee", "font_pair": "serif-warm", "density": "comfortable",
+              "radius": "soft", "image_style": "card"}
+    if motion:
+        tokens["motion"] = motion
+    return {"version": 3, "tokens": tokens,
+            "sections": [hero or {"id": "hero", "type": "hero", "variant": "text-only",
+                                  "content": {"title": "가게", "subtitle": "소개"}}]}
+
+
+def test_motion_token_adds_timing_vars_only_when_given():
+    assert "--m-dur" not in render_site(_spec_motion())  # 기존 시안·공개본은 그대로
+    html = render_site(_spec_motion("bouncy"))
+    assert "--m-dur:560ms" in html and "cubic-bezier(0.34, 1.56, 0.64, 1)" in html
+    assert "prefers-reduced-motion" in html
+    assert "--m-dur" not in render_site(_spec_motion("없는값"))
+
+
+def test_video_cover_hero_uses_thumbnail_and_play_link():
+    hero = {"id": "hero", "type": "hero", "variant": "video",
+            "content": {"title": "바다카페", "subtitle": "카페", "image": "/art/x.webp",
+                        "video_url": "https://youtu.be/dQw4w9WgXcQ"}}
+    html = render_site(_spec_motion(hero=hero), public=True)
+    # 유튜브(공개본): 썸네일 위에 소리 없는 배경 영상 틀 + 소리 켜고 보기 (YOUTUBE_EMBED_POLICY)
+    assert "s-hero--video" in html and "i.ytimg.com" in html and "s-hero__sound" in html
+    assert html.count("<iframe") == 1 and "youtube-nocookie.com/embed/dQw4w9WgXcQ" in html
+    # 인스타그램: 틀 없이 썸네일 표지 + 재생 단추
+    hero["content"]["video_url"] = "https://www.instagram.com/reel/AbCdEf12345/"
+    html = render_site(_spec_motion(hero=hero))
+    assert 'class="s-hero__play"' in html and "<iframe" not in html
+    hero["content"]["video_url"] = "javascript:alert(1)"
+    html = render_site(_spec_motion(hero=hero))
+    assert "javascript:" not in html and "/art/x.webp" in html and "s-hero__play is-empty" in html
+
+
+def test_item_cards_carry_id_price_and_action():
+    sec = {"id": "menu", "type": "offerings", "variant": "cards",
+           "content": {"label": "메뉴", "items": [
+               {"name": "라떼", "price": "5,000원", "price_won": 5000, "item_id": "i-0123456789",
+                "action": {"kind": "order", "label": "주문하기", "href": "#contact-title-inquiry"}},
+               {"name": "케이크", "price": "6,000원", "item_id": "bad id",
+                "action": {"kind": "steal", "label": "x", "href": "javascript:alert(1)"}}]}}
+    html = render_site(_spec_motion(hero=sec))
+    assert 'data-item-id="i-0123456789"' in html and 'data-price-won="5000"' in html
+    assert 'data-action="order"' in html and 'href="#contact-title-inquiry"' in html
+    assert 'data-review-slot="i-0123456789"' in html
+    assert "bad id" not in html and "javascript:" not in html and html.count("data-action=") == 1

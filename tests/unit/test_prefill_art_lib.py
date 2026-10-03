@@ -60,3 +60,24 @@ def test_failure_exit_code(gen, capsys):
     gen["ok"] = False
     assert prefill.main(["--apply", "--limit", "1"]) == 1
     assert "실패" in capsys.readouterr().out
+
+
+def test_scenes_dry_run_does_not_call_llm_and_apply_makes_missing(gen, capsys, monkeypatch):
+    """--scenes: 미리 보기는 LLM·생성 없이, --apply는 장면을 정하고 없는 것만 만든다(청첩장·돌잔치·칠순 기본)."""
+    import json
+    from app import llm
+    asked = []
+
+    def fake_llm(system, user, timeout_sec=20.0, max_tokens=700):
+        kind = json.loads(user)["site_kind"]
+        asked.append(kind)
+        return json.dumps({"scenes": [{"tag": f"k{len(asked)}-a", "prompt": "a"}, {"tag": f"k{len(asked)}-b", "prompt": "b"}]})
+
+    monkeypatch.setattr(llm, "chat_json", fake_llm)
+    assert prefill.main(["--scenes"]) == 0
+    assert asked == [] and gen["n"] == 0 and "장면 아직 안 정함" in capsys.readouterr().out
+    assert prefill.main(["--scenes", "--apply", "--kind", "결혼 청첩장"]) == 0
+    assert asked == ["청첩장"] and gen["n"] == 2 and "만듦 2, 실패 0" in capsys.readouterr().out
+    gen["n"] = 0
+    assert prefill.main(["--scenes", "--apply", "--kind", "모바일 청첩장"]) == 0  # 같은 묶음 → 다시 안 만든다
+    assert asked == ["청첩장"] and gen["n"] == 0

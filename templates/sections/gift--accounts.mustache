@@ -1,0 +1,23 @@
+<section class="s-gift s-gift--accounts" data-section-id="{{id}}" aria-labelledby="gift-title-{{id}}">
+  <h2 id="gift-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}마음 전하실 곳{{/label}}{{#example}} <span class="s-example" title="예시 계좌: 공개할 때 빠져요">예시</span>{{/example}}</h2>
+  {{#note}}<p class="s-gift__note">{{note}}</p>{{/note}}
+  {{#has_sides}}
+  {{#sides}}
+  <details class="s-gift__side">
+    <summary>{{side}} 계좌번호</summary>
+    <ul class="s-gift__list">
+      {{#accounts}}
+      <li class="s-gift__account">
+        <span class="s-gift__who">{{#role}}<span class="s-gift__role">{{role}}</span> {{/role}}{{holder}}</span>
+        <span class="s-gift__num">{{bank}} {{number}}</span>
+        <button type="button" class="s-btn s-btn--ghost s-btn--sm s-gift__copy" data-copy="{{bank}} {{number}}" aria-label="{{holder}} 계좌번호 복사" hidden>복사</button>
+      </li>
+      {{/accounts}}
+    </ul>
+  </details>
+  {{/sides}}
+  {{/has_sides}}
+  {{^has_sides}}
+  <p><span class="is-placeholder" aria-label="계좌번호: 아직 입력되지 않음">[양가 계좌번호 입력]</span></p>
+  {{/has_sides}}
+</section>

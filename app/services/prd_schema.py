@@ -28,17 +28,17 @@ class Slot:
 
 
 SLOTS: dict[str, Slot] = {s.key: s for s in [
-    Slot("business_type", "업종", "하는 일·업종·다루는 분야. 가게가 아니어도 된다. 예: 펜션, 카페, 한식당, 미용실, 도자기 공방, 영어 학원, 첼로 레슨, 악기 수리, 개인 연주자, 사진 스튜디오. 'OO사이트를 만들고 싶어요'의 OO도 업종이다. '염색 및 클리닉'처럼 품목 나열은 업종이 아니라 offerings다"),
+    Slot("business_type", "업종", "하는 일·업종·다루는 분야. 가게가 아니어도 된다. 예: 펜션, 카페, 한식당, 미용실, 도자기 공방, 영어 학원, 첼로 레슨, 악기 수리, 개인 연주자, 사진 스튜디오. 'OO사이트를 만들고 싶어요'의 OO도 업종이다. '커피요', '네일이요'처럼 한 단어로 답해도 업종이다. '염색 및 클리닉'처럼 품목 나열은 업종이 아니라 offerings다"),
     Slot("shop_name", "가게 이름", "간판에 쓰는 가게 이름. 업종이나 품목(예: '도자기', '영어')은 가게 이름이 아니다. 품목만 말한 것(예: '네일', '커피')도 가게 이름이 아니다"),
     Slot("goal", "사이트 목적", "사이트로 이루고 싶은 것. 예: 예약·문의 늘리기, 가게 알리기, 메뉴·가격 안내, 수강 신청 받기. 대상 손님이나 품목은 목적이 아니다. 반례: '초등 영어'(대상+품목), '아이들이 많이 와요'(대상 손님 얘기)는 목적이 아니다"),
-    Slot("target", "대상 손님", "주로 오는 손님·수강생. 예: 가족 여행객, 초등학생, 직장인. 자랑·품목이 섞여 있으면('파마 잘해요, 중년 아주머니가 많이 와요') 손님 부분만 target에 넣는다"),
+    Slot("target", "대상 손님", "주로 오는 손님·수강생. 예: 가족 여행객, 초등학생, 직장인. 자랑·품목이 섞여 있으면('파마 잘해요, 중년 아주머니가 많이 와요') 손님 부분만 target에 넣는다. '초보도 돼요'의 초보처럼 받는 손님의 수준도 대상이다"),
     Slot("offerings", "상품·객실·메뉴·수업", "파는 것의 구성. 예: 객실 3개, 대표 메뉴 아메리카노·라떼, 원데이 클래스, 초등 영어 반. 가격까지 붙어 있으면('아메리카노 5천원') 메뉴는 offerings에, 가격은 price에 나눠서 넣는다. 주력 품목('염색 및 클리닉')은 업종이 아니라 offerings다", multi=True),
     Slot("sections", "담을 내용", "사이트에 넣고 싶은 부분. 예: 객실 소개, 바비큐장, 주변 맛집, 오시는 길, 가격표", multi=True),
     Slot("features", "필요한 기능", "사이트에서 동작해야 하는 기능·연동(섹션 이름이 아님). 예: 카카오톡으로 문의 받기, 온라인 예약, 수강 신청, 지도, 가격표, 공지사항", multi=True),
     Slot("exclude", "뺄 것", "넣지 말라고 한 것. 예: '바비큐는 빼주세요' → 바비큐", multi=True),
     Slot("contact_method", "연락 방법", "손님이 연락·예약하는 방법. 예: 전화, 카카오톡 채널, 네이버 예약, 문자"),
     Slot("phone", "전화번호", "사장님이 직접 말한 전화번호만. 말하지 않았으면 넣지 않는다", fact=True),
-    Slot("hours", "영업시간", "사장님이 직접 말한 영업시간·체크인 시간·수업 시간만", fact=True),
+    Slot("hours", "영업시간", "사장님이 직접 말한 영업시간·체크인 시간·수업 시간만. 쉬는 날도 말했으면 함께 넣는다. 예: '매주 월요일 쉬고 열 시부터 여덟 시까지' → 10시~20시, 월요일 휴무. 체크인·체크아웃처럼 시간이 둘이면 한 값에 둘 다 넣는다", fact=True),
     Slot("location", "위치", "사장님이 직접 말한 지역·주소만. 예: 강릉 경포, 부산 해운대구 우동 123", fact=True),
     Slot("price", "가격", "사장님이 직접 말한 가격만. 예: 원데이 클래스 3만5천원. 메뉴 이름이 붙어 있으면('젤네일 5만원', '컷트 2만원') 메뉴는 offerings로 나누고 가격만 price에 넣는다", fact=True),
     Slot("detail", "특징", "가게만의 특징이나 자랑. 예: 바다가 보이는 객실, 직접 로스팅. 대상이 섞여 있으면('중년 아주머니가 많이 와요') 그 부분은 target으로 나눈다"),
@@ -84,7 +84,9 @@ COMMON_QUESTIONS: dict[str, Question] = {
     "offerings": Question("offerings", "어떤 것을 소개하고 싶으세요?"),
     "contact_method": Question("contact_method", "손님 연락은 어떻게 받으실까요?",
                                options=("전화", "카카오톡 채널", "예약 사이트 링크")),
-    "hours": Question("hours", "영업시간은 어떻게 되나요?", options=("매일 같은 시간", "요일마다 달라요", "나중에 넣을게요")),
+    # 시간을 바로 묻는다: "매일 같은 시간"을 고르면 "몇 시부터?"를 또 물어 질문 하나가 늘던 문제(T3 z3 salon-terse 9회).
+    "hours": Question("hours", "몇 시부터 몇 시까지 여나요? 쉬는 날도 있으면 함께 알려 주세요. 예: 매일 10시~21시, 월요일 휴무",
+                      options=("요일마다 달라요", "나중에 넣을게요")),
     "phone": Question("phone", "연락받을 전화번호를 알려 주세요.", options=("나중에 넣을게요",)),
     "location": Question("location", "가게는 어디에 있나요? 지역만 알려 주셔도 돼요.", options=("나중에 넣을게요",)),
 }
@@ -199,7 +201,8 @@ def _load_profiles() -> dict:
 
 PROFILES = _load_profiles()
 
-for _key in ("individual", "group", "webservice"):
+_PROFILE_KINDS = ("individual", "group", "webservice", "event")  # event: 초대·기념(청첩장 등, EVENT_INVITE_PLAN)
+for _key in _PROFILE_KINDS:
     _p = PROFILES[_key]
     _qs = {}
     for _slot, _q in (_p.get("questions") or {}).items():
@@ -215,7 +218,7 @@ for _key in ("individual", "group", "webservice"):
     )
 
 # 질문 예산(§6): 가게 8(D20), 개인 7, 단체 8, 웹서비스 12. 확인이 필요한 기능마다 +1, 최대 +4.
-BUDGETS = {k: PROFILES[k].get("budget", MAX_QUESTIONS) for k in ("individual", "group", "webservice")}
+BUDGETS = {k: PROFILES[k].get("budget", MAX_QUESTIONS) for k in _PROFILE_KINDS}
 FEATURE_BONUS_MAX = 4
 KIND_QUESTION = PROFILES["ambiguous"]["ask"]
 KIND_OPTIONS = tuple(PROFILES["ambiguous"]["options"])

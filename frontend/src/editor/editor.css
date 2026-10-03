@@ -3,17 +3,20 @@
    토큰 출발값: SECTION_LIBRARY_SPEC §1.6 forest(펜션 기본). */
 
 .ed-page {
-  --ed-ground: #faf7f2;
-  --ed-card: #ffffff;
-  --ed-ink: #1f2622;
-  --ed-primary: #2f5d50;
-  --ed-on-primary: #ffffff;
-  --ed-accent-line: #8a6d2b;
-  --ed-slot-bg: #fff6df;
-  --ed-slot-ink: #4f3f00;
-  --ed-note: #33413c;
-  --ed-line: rgba(31, 38, 34, 0.14);
-  --ed-focus: #0f7aa8;
+  /* 기본 다크 (10/2 대표 결정: 빌더 작업대와 같은 색. 빌더는 builder.css에서 금색·작업대 바탕을 더한다) */
+  color-scheme: dark;
+  --ed-ground: #17181a;
+  --ed-card: #232427;
+  --ed-ink: #ecebe6;
+  --ed-primary: #ebe5d6;
+  --ed-on-primary: #1a1b1d;
+  --ed-accent-line: #c9a35a;
+  --ed-slot-bg: rgba(201, 163, 90, 0.16);
+  --ed-slot-ink: #f0d9a8;
+  --ed-note: #a9a59c;
+  --ed-line: rgba(235, 229, 214, 0.12);
+  --ed-focus: #8cc8ff;
+  --ed-field: #2a2b2f;
   min-height: 100dvh;
   background: var(--ed-ground);
   color: var(--ed-ink);
@@ -134,8 +137,8 @@
   margin: 12px 0 0;
   padding: 12px 14px;
   border-radius: 12px;
-  background: #e7f2ea;
-  color: #1e4d38;
+  background: rgba(120, 190, 150, 0.14);
+  color: #b9e3c8;
   font-size: 15px;
   font-weight: 600;
 }
@@ -340,9 +343,9 @@
   min-height: 44px;
   font: inherit;
   padding: 10px 12px;
-  border: 1.5px solid var(--ed-primary);
+  border: 1.5px solid var(--ed-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--ed-field);
   color: var(--ed-ink);
 }
 
@@ -422,16 +425,16 @@
   min-height: 44px;
   font: inherit;
   padding: 10px 12px;
-  border: 1.5px solid var(--ed-primary);
+  border: 1.5px solid var(--ed-line);
   border-radius: 10px;
-  background: #fff;
+  background: var(--ed-field);
   color: var(--ed-ink);
 }
 
 .ed-card-field input:disabled {
   opacity: 0.7;
   border-color: var(--ed-line);
-  background: #f4f1ea;
+  background: #2f3034;
 }
 
 .ed-badge {
@@ -714,51 +717,236 @@
 
 @media (min-width: 760px) {
   .ed-site {
-    max-width: 1024px;
+    max-width: 1200px;
   }
 
+  /* 휴대폰 미리보기: 기기를 가운데(가운데 칸), 고치기 칸은 오른쪽 칸 */
   .ed-site-body {
-    grid-template-columns: 390px 1fr;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     align-items: start;
+    gap: 24px;
   }
-
   .ed-site-view {
+    grid-column: 2;
+    grid-row: 1;
     position: sticky;
     top: 12px;
   }
 
-  .ed-site-frame {
-    width: 390px;
-    height: 78dvh;
+  /* 휴대폰↔데스크톱 바꿀 때 기기가 살짝 커지며 나타난다. 이름이 다른 키프레임이라 바꿀 때마다 다시 돈다 */
+  .ed-dev--mobile {
+    animation: ed-dev-in-m 0.22s ease-out;
+  }
+  .ed-dev--desktop {
+    animation: ed-dev-in-d 0.22s ease-out;
+  }
+  @keyframes ed-dev-in-m {
+    from { opacity: 0; transform: scale(0.97); }
+  }
+  @keyframes ed-dev-in-d {
+    from { opacity: 0; transform: scale(0.97); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ed-dev--mobile,
+    .ed-dev--desktop {
+      animation: none;
+    }
+    .ed-outline button {
+      transition: none;
+    }
+  }
+  .ed-site-body > .ed-site-panel {
+    grid-column: 3;
+    grid-row: 1;
+    max-width: 380px;
   }
 
-  /* 데스크톱 미리보기: 미리보기를 가득(사이트의 760px 이상 배치), 고치기 칸은 아래로 */
+  /* 구역 바로가기 (빌더, 왼쪽 칸): 기기 쪽으로 붙여 세운 가는 목록 */
+  .ed-outline {
+    grid-column: 1;
+    grid-row: 1;
+    justify-self: end;
+    position: sticky;
+    top: 12px;
+    width: min(100%, 200px);
+    /* 기기 왼쪽에 매단 크기 버튼(44px + 간격)과 겹치지 않게 */
+    margin-right: 56px;
+  }
+  .ed-outline h2 {
+    margin: 4px 0 8px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--ed-note);
+  }
+  .ed-outline ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 2px;
+  }
+  .ed-outline button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ed-ink);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s ease-out, color 0.15s ease-out;
+  }
+  .ed-outline button:hover {
+    background: var(--ed-line);
+  }
+  .ed-outline button[aria-current='true'] {
+    background: var(--ed-primary);
+    color: var(--ed-on-primary);
+    font-weight: 600;
+  }
+  .ed-outline-hidden {
+    font-size: 11px;
+    opacity: 0.6;
+  }
+  .ed-site-body--desktop .ed-outline {
+    display: none;
+  }
+  /* 크기 버튼은 기기 왼쪽 바깥에 세로로 매단다: 기기 자체가 정가운데 오고, 위에 두면 그만큼 기기가 작아졌다 */
+  .ed-site-view .ed-device {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 12px);
+    flex-direction: column;
+    margin: 0;
+  }
+
+  /* 데스크톱 미리보기: 브라우저 창을 칸 가득, 크기 버튼은 창 위 가운데, 고치기 칸은 아래로 */
   .ed-site-body--desktop {
     grid-template-columns: minmax(0, 1fr);
   }
-  .ed-site-body--desktop .ed-site-view {
+  .ed-site-body--desktop .ed-site-view,
+  .ed-site-body--desktop > .ed-site-panel {
+    grid-column: auto;
     position: static;
-  }
-  /* 노트북 모양: 어두운 테두리 안에 1280×800 화면을 줄여 넣는다(크기는 SiteEditor가 style로 준다) */
-  .ed-site-body--desktop .ed-site-screen {
-    overflow: hidden;
-    border: 10px solid #1f2326;
-    border-radius: 14px 14px 4px 4px;
-    box-sizing: content-box;
-    background: #fff;
-  }
-  .ed-site-body--desktop .ed-site-frame {
-    border: 0;
-    border-radius: 0;
-    display: block;
     max-width: none;
   }
-  .ed-site-body--desktop .ed-site-view::after {
-    content: '';
+  .ed-site-body--desktop .ed-site-view .ed-device {
+    position: static;
+    flex-direction: row;
+    margin: 0 auto 10px;
+  }
+
+  /* 기기 테두리 (크기·줄임은 SiteEditor DEVICES가 style로 준다. 테두리 두께를 바꾸면 거기 chromeW·chromeH도) */
+  .ed-site-screen {
+    display: flex;
+    justify-content: center;
+    padding-bottom: 8px;
+  }
+  .ed-dev {
+    box-sizing: content-box;
+    background: #fff;
+    box-shadow:
+      0 1px 2px rgba(20, 28, 24, 0.12),
+      0 28px 60px -16px rgba(20, 28, 24, 0.38);
+  }
+  .ed-dev-glass {
+    overflow: hidden;
+  }
+  .ed-dev .ed-site-frame {
     display: block;
-    height: 10px;
-    border-radius: 0 0 10px 10px;
-    background: linear-gradient(#d6d8da, #b9bcbf);
+    max-width: none;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+  }
+
+  /* 휴대폰: 검은 베젤 12px + 상태줄 28px(시각·카메라 섬) */
+  .ed-dev--mobile {
+    border: 12px solid #16181a;
+    border-radius: 52px;
+    overflow: hidden;
+  }
+  .ed-dev--mobile .ed-dev-glass {
+    border-radius: 0 0 40px 40px;
+  }
+  .ed-dev-status {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 28px;
+    padding: 0 28px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #111;
+  }
+  .ed-dev-status b {
+    position: absolute;
+    top: 3px;
+    left: 50%;
+    width: 92px;
+    height: 22px;
+    border-radius: 999px;
+    background: #16181a;
+    transform: translateX(-50%);
+  }
+
+  /* 데스크톱: 브라우저 창 (1px 테두리 + 머리줄 36px: 창 버튼 셋·주소 칸) */
+  .ed-dev--desktop {
+    border: 1px solid rgba(20, 28, 24, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .ed-dev-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-sizing: border-box;
+    height: 36px;
+    padding: 0 14px;
+    background: #eceeed;
+    border-bottom: 1px solid rgba(20, 28, 24, 0.1);
+  }
+  .ed-dev-bar i {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #ff5f57;
+  }
+  .ed-dev-bar i:nth-child(2) {
+    background: #febc2e;
+  }
+  .ed-dev-bar i:nth-child(3) {
+    background: #28c840;
+  }
+  .ed-dev-bar span {
+    flex: 0 1 420px;
+    min-width: 0;
+    margin: 0 auto;
+    padding: 2px 12px;
+    border-radius: 6px;
+    background: #fff;
+    font-size: 12px;
+    color: #56605b;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* 좁은 화면(휴대폰으로 열었을 때)은 테두리 없이 미리보기 그대로 */
+@media (max-width: 759.98px) {
+  .ed-dev-bar,
+  .ed-dev-status {
+    display: none;
   }
 }
 
@@ -837,3 +1025,90 @@
 .ed-notice-photos__list .ed-btn { min-height: 44px; padding: 6px 12px; }
 .ed-hint { margin: 4px 0; font-size: 14px; color: var(--ed-muted, #52525b); }
 
+
+/* 청첩장 양가 연락처·계좌 고치기 (EventEditor): 측마다 묶음, 줄마다 칸 2열(넓으면 한 줄) */
+.ed-event {
+  display: grid;
+  gap: 12px;
+}
+.ed-event__side {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+}
+.ed-event__side legend {
+  padding: 0 4px;
+  font-weight: 700;
+}
+.ed-event__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed var(--ed-line);
+}
+.ed-event__cell {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+.ed-event__cell .ed-input {
+  min-height: 44px;
+}
+.ed-event__remove {
+  grid-column: 1 / -1;
+  justify-self: end;
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 13px;
+}
+
+/* 청첩장 방명록 관리 (GuestbookAdmin) */
+.ed-guestbook__list {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ed-guestbook__item {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--ed-line);
+  border-radius: 10px;
+}
+.ed-guestbook__item .ed-btn { justify-self: end; min-height: 36px; padding: 4px 12px; font-size: 13px; }
+.ed-guestbook__who { margin: 0; }
+.ed-guestbook__who span { font-size: 12px; color: var(--ed-note); }
+.ed-guestbook__text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+/* 청첩장 참석 여부 집계 (RsvpSummary) */
+.ed-rsvp { display: grid; gap: 10px; }
+.ed-rsvp__totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+}
+.ed-rsvp__totals div {
+  padding: 8px;
+  border: 1px solid var(--ed-line);
+  border-radius: 10px;
+  text-align: center;
+}
+.ed-rsvp__totals dt { font-size: 12px; color: var(--ed-note); }
+.ed-rsvp__totals dd { margin: 2px 0 0; font-size: 18px; font-weight: 700; }
+.ed-rsvp__sides { margin: 0; font-size: 14px; color: var(--ed-note); }
+.ed-rsvp__filter { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 14px; }
+.ed-rsvp__list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.ed-rsvp__item { padding: 8px 10px; border: 1px solid var(--ed-line); border-radius: 10px; }
+.ed-rsvp__item.is-declined { opacity: 0.6; }
+.ed-rsvp__who { display: flex; flex-wrap: wrap; gap: 4px 8px; margin: 0; align-items: baseline; }
+.ed-rsvp__who span { font-size: 13px; color: var(--ed-note); }
+.ed-rsvp__state { margin-left: auto; font-weight: 600; color: var(--ed-ink) !important; }
+.ed-rsvp__note, .ed-rsvp__contact { margin: 2px 0 0; font-size: 13px; color: var(--ed-note); }

@@ -3,6 +3,8 @@
 낱말표(app/data/art_tags.json)의 태그 중 창고에 없는 것만 하나씩 만든다(Gemini, 장당 약 $0.039).
 기본은 미리 보기(아무것도 만들지 않음). 키 값·가게 정보는 출력하지 않는다.
 사용법: python scripts/prefill_art_lib.py [--apply] [--industry cafe] [--limit N]
+장면 사진(첫 화면·사진첩, 청첩장 등 예시 팩이 없는 종류): --scenes [--kind 청첩장 --kind 돌잔치 …]
+  종류마다 LLM이 장면 5개를 정하고(--apply 때만) 없는 사진을 만든다. 기본 종류는 청첩장·돌잔치·칠순.
 """
 import sys
 from pathlib import Path
@@ -16,8 +18,45 @@ def _arg(argv: list[str], name: str):
     return argv[argv.index(name) + 1] if name in argv and argv.index(name) + 1 < len(argv) else None
 
 
+SCENE_KINDS = ("청첩장", "돌잔치", "칠순")
+
+
+def _scenes(argv: list[str]) -> int:
+    """장면 사진 미리 만들기. 미리 보기에서는 LLM도 부르지 않는다(정해 둔 묶음만 보인다)."""
+    from app.services import art_lib
+    kinds = [argv[i + 1] for i, a in enumerate(argv) if a == "--kind" and i + 1 < len(argv)] or list(SCENE_KINDS)
+    apply = "--apply" in argv
+    made = failed = 0
+    for kind in kinds:
+        card = {"slots": {"business_type": {"value": kind, "status": "filled"}}}
+        tags = art_lib.scene_tags(card, use_llm=apply)
+        if not tags:
+            print(f"{kind}: 장면을 정하지 못함" if apply else f"{kind}: 장면 아직 안 정함 (--apply 때 LLM으로 정함)")
+            failed += int(apply)
+            continue
+        missing = [t for t in tags if not art_lib.url(t)]
+        print(f"{kind}: 장면 {len(tags)}개, 없는 사진 {len(missing)}개 {missing}")
+        if not apply:
+            continue
+        for t in missing:
+            if art_lib.ensure(t, "scene"):
+                made += 1
+                print(f"  만듦 {t}")
+            else:
+                failed += 1
+                print(f"  실패 {t}")
+    if apply:
+        print(f"만듦 {made}, 실패 {failed}, 추정 비용 ${made * COST:.2f}")
+    else:
+        print("미리 보기. 만들려면 --apply (종류당 최대 5장)")
+    return 0 if failed == 0 else 1
+
+
 def main(argv: list[str]) -> int:
     from app.services import art_lib
+
+    if "--scenes" in argv:
+        return _scenes(argv)
 
     industry = _arg(argv, "--industry")
     limit = _arg(argv, "--limit")

@@ -27,7 +27,7 @@
   존재하는 조합만 허용한다(26종: SPEC §2 20종 + 문의 공용 2종 + 영상 1종 + P2 새 부품 2종 + 예약 신청 1종). 새 조합을 쓰려면 먼저 mustache 파일을 만든다.
 - 금지(소유 파일 공통): 삼중 중괄호, 스크립트 태그, 아이프레임 태그,
   `http:` 평문 URL 없음. 외부 링크는 `https://`만.
-  폼 태그는 `contact--form` 1종에만 허용(§5 서버 계약의 일반 HTML form 전송용).
+  폼 태그는 `contact--form`·`booking--form`·`rsvp--form`·`guestbook--list`에만 허용(§5 서버 계약의 일반 HTML form 전송용, 참석 여부는 `/api/rsvp/`, 방명록은 `/api/guestbook/`).
   Mustache는 `{{ }}` 이중 중괄호만 쓴다(HTML 이스케이프 유지).
 
 ## 2. 토큰 → CSS 변수 (렌더러 주입, site.css가 소비)
@@ -48,7 +48,7 @@
 - `hero--photo-overlay`: `id`, `image_src`, `image_alt`, `title`, `subtitle`, `cta_label`, `cta_href`
 - `hero--photo-side`: `id`, `image_src`, `image_alt`, `title`, `subtitle`, `cta_label`, `cta_href`
 - `hero--text-only`: `id`, `title`, `subtitle`, `cta_label`, `cta_href` (이미지 변수 없음)
-- `intro--short`: `id`, `body`
+- `intro--short`: `id`, `body`, `label`(선택, 비면 "소개")
 - `intro--owner`: `id`, `body`, `owner_name`
 - `intro--stats`: `id`, `body`, `has_stats`, `stats[].label`, `stats[].value`
 - `offerings--list-price`: `id`, `label`, `has_items`, `items[].name`, `items[].desc`, `items[].price`
@@ -75,6 +75,19 @@
   `items[].icon_star`, `items[].icon_pin`, `items[].icon_clock`,
   `items[].icon_phone`, `items[].icon_leaf`, `items[].icon_heart`
   (렌더 분기용 불리언. 렌더러가 `icon` 값에 맞는 1개만 참으로 넘긴다. 모르는 값은 `star`로 둔다)
+- `event--date` (초대·기념, 청첩장): `id`, `label`(비면 "날짜와 장소"), `example`, `has_date`, `iso`(YYYY-MM-DD),
+  `date_text`("2026년 11월 14일 토요일"), `time`, `venue`, `month_label`, `weekdays[].label/cls`, `weeks[].days[].n/on/cls`.
+  content는 `date`(YYYY-MM-DD, 틀리면 빈칸), `time`, `venue`. D-day는 공용 스크립트가 `data-dday`로 채운다(편집 미리보기 제외)
+- `family--contacts` (초대·기념): `id`, `label`(비면 "연락하기"), `example`, `has_sides`, `sides[].side`,
+  `sides[].people[].role/name/digits`. content는 `sides: [{side, people: [{role, name, phone}]}]` 최대 2묶음×4명.
+  맞는 전화번호일 때만 전화·문자 단추
+- `guestbook--list` (초대·기념, 방명록): `id`, `label`(비면 "방명록"), `site_key`, `public`. 공개본은 `<!--agt-guestbook-->` 자리만 두고
+  공개 페이지를 보낼 때 최신 글 30개(최신순, 이스케이프)로 바꾼다(`app/services/guestbook.inject`). 시안은 예시 글 1개
+- `rsvp--form` (초대·기념, 참석 여부): `id`, `label`(비면 "참석 여부 알려 주기"), `site_key`, `retention_days`, `has_sides`, `sides[].side`(신랑측·신부측만).
+  `/api/rsvp/{site_key}`로 이름·측·참석·인원·식사·연락처(선택)·남길 말을 보내면 문의 저장소에 "[참석 여부] …" 한 줄로 들어간다
+- `gift--accounts` (초대·기념): `id`, `label`(비면 "마음 전하실 곳"), `note`, `example`, `has_sides`, `sides[].side`,
+  `sides[].accounts[].role/holder/bank/number`. content는 `sides: [{side, accounts: [{role, holder, bank, number}]}]`.
+  번호는 숫자·하이픈만(숫자 6~20자리), 주민등록번호 모양은 버린다. 측마다 `<details>`로 접고, 복사 단추는 클립보드가 될 때만 보인다
 - `stats--band` (P2 새 부품): `id`, `title` (선택. 비면 제목 없이 `aria-label="가게 숫자 안내"`),
   `has_items`, `items[].value` (예: "10년". 사장님이 말한 값만), `items[].label` (예: "운영").
   `has_items`가 거짓이면 부품 전체를 렌더하지 않는다(빈 띠를 두지 않음)

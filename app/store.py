@@ -387,4 +387,4 @@ def purge_chat_turns(now: Optional[datetime.datetime] = None) -> int:
 def reset_all() -> None:
     """테스트 전용: 모든 행을 지운다."""
     with get_sessionmaker()() as db, db.begin():
-        db.execute(text("TRUNCATE agent_threads, booking_events, booking_closures, bot_specs, shop_members, shops, secrets, secret_versions, admin_audit, attachments, room_invites, inquiries, bookings, user_rooms, login_sessions, oauth_states, oauth_accounts, users, chat_turns, funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))
+        db.execute(text("TRUNCATE agent_threads, booking_events, booking_closures, bot_specs, shop_members, shops, secrets, secret_versions, admin_audit, attachments, room_invites, inquiries, guestbook, bookings, user_rooms, login_sessions, oauth_states, oauth_accounts, users, chat_turns, funnel_events, room_votes, room_messages, room_members, rooms, sessions RESTART IDENTITY CASCADE"))
