@@ -1,0 +1,23 @@
+<section class="s-family s-family--contacts" data-section-id="{{id}}" aria-labelledby="family-title-{{id}}">
+  <h2 id="family-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}연락하기{{/label}}{{#example}} <span class="s-example" title="예시 연락처: 공개할 때 빠져요">예시</span>{{/example}}</h2>
+  {{#has_sides}}
+  <div class="s-family__sides">
+    {{#sides}}
+    <div class="s-family__side">
+      <h3>{{side}}</h3>
+      <ul class="s-family__list">
+        {{#people}}
+        <li class="s-family__person">
+          <span class="s-family__who">{{#role}}<span class="s-family__role">{{role}}</span> {{/role}}{{name}}</span>
+          {{#digits}}<span class="s-family__acts"><a class="s-btn s-btn--ghost s-btn--sm" href="tel:{{digits}}" aria-label="{{role}} {{name}}에게 전화">전화</a><a class="s-btn s-btn--ghost s-btn--sm" href="sms:{{digits}}" aria-label="{{role}} {{name}}에게 문자">문자</a></span>{{/digits}}
+        </li>
+        {{/people}}
+      </ul>
+    </div>
+    {{/sides}}
+  </div>
+  {{/has_sides}}
+  {{^has_sides}}
+  <p><span class="is-placeholder" aria-label="연락처: 아직 입력되지 않음">[신랑측·신부측 연락처 입력]</span></p>
+  {{/has_sides}}
+</section>

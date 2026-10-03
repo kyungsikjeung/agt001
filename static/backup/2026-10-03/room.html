@@ -1,0 +1,2643 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>한마디 공유방</title>
+<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js"></script>
+<style>
+  :root {
+    --accent: #6366f1;
+    --accent-dark: #4338ca;
+    --bg: #f7f7f8;
+    --surface: #ffffff;
+    --border: #e5e7eb;
+    --text: #1f2328;
+    --text-muted: #52525b;
+    --warn: #c62828; /* 사장님이 챙겨야 할 곳(미정·입력 필요) */
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    margin: 0; background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; height: 100dvh;
+  }
+  header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  header h1 { font-size: 1.25rem; margin: 0; font-weight: 700; }
+  #memberCount {
+    font-size: 0.8125rem; color: var(--text-muted);
+    background: none; border: 1px solid transparent; border-radius: 8px;
+    padding: 8px 10px; min-height: 44px; cursor: pointer;
+  }
+  #settingsLink {
+    font-size: 0.8125rem; color: var(--accent-dark); font-weight: 600;
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 10px; min-height: 44px; display: inline-flex; align-items: center;
+    text-decoration: none; white-space: nowrap;
+  }
+  #settingsLink[hidden] { display: none; }
+  #memberCount:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 2px;
+  }
+  #statusBar {
+    padding: 8px 16px; font-size: 0.875rem; color: var(--accent-dark);
+    background: #eef2ff; border-bottom: 1px solid var(--border);
+    display: none; align-items: center; gap: 8px;
+  }
+  #statusBar.show { display: flex; }
+  #statusBar .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .4; } 50% { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { #statusBar .dot { animation: none; } }
+  /* 시안 생성 진행 바 (GENERATING 동안 상태 막대 아래에 보인다) */
+  #genProgress { display: flex; align-items: center; gap: 8px; padding: 8px 16px; font-size: 0.875rem; color: var(--accent-dark); background: #eef2ff; border-bottom: 1px solid var(--border); }
+  #genProgress[hidden] { display: none; }
+  #genTrack { flex: 1; height: 8px; border-radius: 4px; background: #c7d2fe; overflow: hidden; }
+  #genFill { height: 100%; width: 100%; background: var(--accent); border-radius: 4px; transform: scaleX(0); transform-origin: left; transition: transform 1s linear; }
+  #genText { white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { #genFill { transition: none; } }
+
+  #log { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .row { display: flex; gap: 10px; align-items: flex-start; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%; flex: none;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff; font-size: 0.8125rem; font-weight: 600;
+  }
+  .bubble { max-width: 78%; }
+  .meta { font-size: 0.8125rem; margin-bottom: 2px; }
+  .meta .name { font-weight: 600; }
+  .meta .time { color: var(--text-muted); font-size: 0.75rem; margin-left: 6px; }
+  .text { font-size: 0.9375rem; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+  .kind-ai_reply .bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kind-ai_reply .avatar { background: var(--accent); }
+  .kind-chat .avatar { background: #64748b; }
+  .kind-system, .kind-vote { justify-content: center; }
+  .kind-system .text, .kind-vote .text {
+    color: var(--text-muted); font-size: 0.8125rem; text-align: center; background: none;
+  }
+  /* 타이머 사전 경고 (노란 톤 시스템 메시지) */
+  .kind-warning { justify-content: center; }
+  .kind-warning .bubble { max-width: 90%; background: #fef9c3; border: 1px solid #f5c26b; border-radius: 10px; padding: 10px 12px; }
+  .kind-warning .text { color: #713f12; font-size: 0.8125rem; text-align: center; white-space: pre-wrap; }
+  /* 사진 메시지 썸네일 */
+  .kind-photo .bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+  .kind-photo .avatar { background: #64748b; }
+  .photo-thumb { display: block; margin-top: 8px; border-radius: 8px; overflow: hidden; max-width: 240px; }
+  .photo-thumb img { width: 100%; height: auto; display: block; background: #e5e7eb; }
+  /* 사이트 문의 알림 (플랫폼 공용 ①) */
+  .kind-inquiry { justify-content: center; }
+  .kind-inquiry .bubble { max-width: 90%; background: #fff7e6; border: 1px solid #f5c26b; border-radius: 10px; padding: 10px 12px; color: #3d2a00; }
+  .kind-inquiry .text { white-space: pre-wrap; }
+  /* 예약 신청 알림 (플랫폼 공용 ②, 문의 노란색과 구별되는 연한 초록) */
+  .kind-booking { justify-content: center; }
+  .kind-booking .bubble { max-width: 90%; background: #e9f7ef; border: 1px solid #8fd0a4; border-radius: 10px; padding: 10px 12px; color: #123d22; }
+  .kind-booking .text { white-space: pre-wrap; }
+  .kind-booking .text a[href^="tel:"] { color: var(--accent-dark); }
+  .booking-result { margin-top: 10px; display: flex; gap: 8px; }
+  .booking-result button { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  .booking-result button.go { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  .booking-note { margin-top: 10px; font-size: 0.8125rem; color: #14532d; }
+  .badge-bot { font-size: 0.6875rem; background: var(--accent-dark); color: #fff; padding: 2px 8px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+  /* 시안 3안 고르기 카드 */
+  .design-pick { display: flex; gap: 8px; overflow-x: auto; margin-top: 10px; padding-bottom: 4px; scroll-snap-type: x mandatory; }
+  .design-card { flex: 0 0 78%; max-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px; scroll-snap-align: start; }
+  .design-card.on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .design-thumb { width: 100%; aspect-ratio: 390 / 780; border-radius: 6px; overflow: hidden; background: #e5e7eb; display: flex; align-items: center; justify-content: center; }
+  .design-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .design-fallback { font-size: 0.8125rem; color: var(--text-muted); }
+  .design-title { font-size: 0.875rem; font-weight: 600; margin: 8px 0; }
+  .design-badge { display: none; font-size: 0.75rem; font-weight: 700; color: var(--accent-dark); margin-left: 6px; }
+  .design-card.on .design-badge { display: inline; }
+  .design-row { display: flex; gap: 8px; align-items: center; }
+  .design-pick-btn { flex: 1; min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 8px; font-size: 0.875rem; cursor: pointer; }
+  .design-card.on .design-pick-btn { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  .design-open { font-size: 0.8125rem; color: var(--accent-dark); }
+  .design-pick-btn:focus-visible, .design-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* P0: 시안별 차이 1줄 (D43 역할고정 사용자 언어) */
+  .design-diff { font-size: 0.75rem; color: var(--text-muted); margin: 0 0 8px; }
+  /* P0: 질문 진행바 (얇은 바 + 한 줄 안내, 360px 1줄) */
+  #progressWrap { display: flex; align-items: center; gap: 8px; padding: 6px 16px; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--text-muted); }
+  #progressWrap[hidden] { display: none; }
+  #progressTrack { flex: none; width: 72px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+  #progressFill { height: 100%; width: 100%; background: var(--accent); border-radius: 2px; transform: scaleX(0); transform-origin: left; transition: transform .2s ease-out; }
+  #progressText { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* P0: 출처 라벨 (AI 정리) · 견적 고지 (참고용) · 문의 보관 안내 */
+  .src-note, .quote-note, .inquiry-note { font-size: 0.75rem; border-radius: 6px; padding: 8px 12px; margin-top: 8px; }
+  .src-note { background: #eef2ff; color: var(--accent-dark); }
+  .quote-note { background: #fff7e6; border: 1px solid #f5c26b; color: #713f12; }
+  .inquiry-note { background: none; color: var(--text-muted); padding: 4px 0 0; }
+  /* P0: 시안 썸네일 로딩 (종횡비 고정 + 쉬머, 로드 후 페이드인) */
+  .design-thumb img { opacity: 0; transition: opacity .2s ease-out; }
+  .design-thumb img.loaded { opacity: 1; }
+  .design-thumb.loading { background: linear-gradient(100deg, #e5e7eb 40%, #f3f4f6 50%, #e5e7eb 60%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+  @keyframes shimmer { to { background-position: -200% 0; } }
+  /* P0+P1: 시안 크게 보기 바텀시트 (문맥 유지 1순위, 새 탭은 시트 안 2순위) */
+  #designSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 28; display: flex; align-items: flex-end; justify-content: center; }
+  #designSheetWrap[hidden] { display: none; }
+  #designSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 88dvh; }
+  #designSheet h2 { margin: 0; font-size: 1rem; }
+  #designSheetDiff { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
+  #designSheetImg { width: 100%; aspect-ratio: 390 / 780; object-fit: cover; border-radius: 8px; background: #e5e7eb; }
+  #designSheetRow { display: flex; gap: 8px; }
+  #designSheetPick { flex: 1; min-height: 44px; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; font-weight: 600; cursor: pointer; }
+  #designSheetOpen { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--accent-dark); font-weight: 600; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 0.875rem; }
+  #designSheetClose { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-weight: 600; cursor: pointer; }
+  /* P1: 말풍선·선택 마이크로모션 (줄인 움직임 선호 존중) */
+  @media (prefers-reduced-motion: no-preference) {
+    .row { animation: rise .12s ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    .design-card { transition: border-color .15s ease-out, box-shadow .15s ease-out; }
+    #choiceBar button:active { transform: scale(0.97); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .design-thumb.loading { animation: none; }
+    #progressFill { transition: none; }
+    .design-thumb img { transition: none; }
+  }
+
+  #voteBar, #proceedBar {
+    display: none; padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border);
+    gap: 8px; align-items: center; font-size: 0.875rem;
+  }
+  #voteBar.show, #proceedBar.show { display: flex; }
+  /* 요구사항 질문의 선택지 버튼 (누르면 그 답이 바로 전송된다) */
+  #choiceBar { display: none; padding: 10px 16px; background: var(--surface); border-top: 1px solid var(--border); }
+  #choiceBar.show { display: block; }
+  #choiceBar .choices { display: flex; flex-wrap: wrap; gap: 8px; }
+  #choiceBar button { min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.9375rem; cursor: pointer; }
+  #choiceBar button.on { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  #choiceBar button.done { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); font-weight: 600; }
+  #choiceBar .hint { margin: 0 0 8px; font-size: 0.8125rem; color: var(--muted, #666); }
+  /* 고칠 곳 한 줄 (입력칸 위, 고른 곳 표시) */
+  #fixBar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--surface); border-top: 1px solid var(--border); font-size: 0.875rem; }
+  #fixBar[hidden] { display: none; }
+  #fixText { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #fixCancel { flex: none; min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 0.9375rem; cursor: pointer; }
+  #voteBar button, #proceedBar button {
+    border: 1px solid var(--border); background: var(--bg); border-radius: 8px;
+    padding: 8px 14px; font-size: 0.875rem; cursor: pointer;
+  }
+  #voteBar button.approve, #proceedBar button.go { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  #voteBar button:active, #proceedBar button:active { transform: scale(0.97); }
+  #voteBar button:disabled { opacity: 0.6; cursor: default; }
+  #voteBar #voteText { flex: 1; min-width: 0; }
+  #voteBar button { flex: none; white-space: nowrap; min-height: 44px; }
+  /* D52: 공유방 보낼 곳 전환 (AI에게 / 우리끼리) */
+  #talkModeBar { display: flex; gap: 8px; align-items: center; padding: 8px 16px 0; background: var(--surface); border-top: 1px solid var(--border); font-size: 0.8125rem; }
+  #talkModeBar[hidden] { display: none; }
+  #talkModeBar button { min-height: 36px; padding: 0 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); font-size: 0.8125rem; cursor: pointer; }
+  #talkModeBar button[aria-pressed="true"] { background: var(--accent-dark); color: #fff; border-color: var(--accent-dark); }
+  .row.aside .bubble { background: transparent; border: 1px dashed var(--border); border-radius: 12px; padding: 8px 12px; }
+  .aside-tag { font-size: 0.6875rem; color: var(--text-muted); margin-left: 6px; }
+
+  #row {
+    display: flex; gap: 8px; padding: 12px 16px; background: var(--surface);
+    border-top: 1px solid var(--border);
+  }
+  #input { flex: 1; min-width: 0; padding: 10px 12px; font-size: 1rem; border: 1px solid var(--border); border-radius: 8px; }
+  #sendBtn { padding: 10px 16px; font-size: 0.9375rem; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; cursor: pointer; white-space: nowrap; }
+  #sendBtn:active { transform: scale(0.97); }
+
+  #toolBar {
+    display: flex; gap: 8px; padding: 8px 12px; background: var(--surface);
+    border-top: 1px solid var(--border); align-items: center; min-height: 60px;
+    flex-wrap: nowrap; overflow: hidden;
+  }
+  #inviteOpenBtn {
+    flex: 1; min-width: 0; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: #fee500; color: #191919; font-weight: 600;
+    font-size: 0.875rem; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #inviteOpenBtn[hidden] { display: none; }
+  #moreBtn {
+    flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--bg); font-size: 0.875rem; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  /* 공개된 방의 방장에게 보이는 입력줄 위 고치기 버튼 */
+  #editSiteBtn {
+    flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--bg); color: var(--accent-dark); font-size: 0.875rem; font-weight: 600;
+    display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap;
+  }
+  #editSiteBtn[hidden] { display: none; }
+  /* 시안을 고른 뒤·공개 전 방장에게: 다듬기(편집 화면)·공개하기 (EDIT_PUBLISH_PLAN §4-7) */
+  #refineBtn, #publishBtn {
+    flex: none; min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 0.875rem; font-weight: 600; display: inline-flex; align-items: center; white-space: nowrap; cursor: pointer;
+  }
+  #refineBtn { background: var(--bg); color: var(--accent-dark); text-decoration: none; }
+  #publishBtn { background: var(--accent-dark); border-color: var(--accent-dark); color: #fff; }
+  #refineBtn[hidden], #publishBtn[hidden] { display: none; }
+  .site-share { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .site-share button { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--accent-dark); font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  /* 무전기 줄은 더보기 안으로 옮기므로 본문에서는 숨긴다 (voice.js가 만든다) */
+  #walkieRow { display: none !important; }
+  #walkieSlot { display: flex; flex-direction: column; gap: 8px; }
+  #walkieSlot:empty { display: none; }
+  /* 더보기 펼침은 아래에서 올라오는 겹침 패널 (본문 높이에 더하지 않는다) */
+  #moreSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 25; display: flex; align-items: flex-end; justify-content: center; }
+  #moreSheetWrap[hidden] { display: none; }
+  #moreSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 70dvh; overflow-y: auto; }
+  #moreSheet h2 { margin: 0; font-size: 1rem; }
+  #moreSheet button, #moreSheet a.more-item { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; color: var(--text); text-decoration: none; display: flex; align-items: center; justify-content: center; }
+  #moreSheet a.more-item { background: var(--surface); color: var(--accent-dark); }
+  #moreSheet [hidden] { display: none !important; }
+  #talkNotifyBtn[disabled] { opacity: 0.7; cursor: default; }
+  #moreLeaveBtn { border-color: #f5c26b !important; background: #fff7e6 !important; color: #713f12 !important; }
+  #inviteNotice { margin: 0; font-size: 0.8125rem; color: var(--text-muted); text-align: center; }
+  /* 초대 대화상자는 화면 가운데 겹침 (본문 높이에 더하지 않는다) */
+  #inviteDialogWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #inviteDialogWrap[hidden] { display: none; }
+  #inviteDialog { background: var(--surface); border-radius: 12px; padding: 20px; max-width: 360px; width: 100%; display: flex; flex-direction: column; gap: 12px; max-height: 80dvh; overflow-y: auto; }
+  #inviteDialog h2 { margin: 0; font-size: 1rem; }
+  #inviteFormRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  #inviteDays { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 10px; font-size: 0.875rem; background: var(--bg); }
+  #inviteCreateBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 14px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  #inviteLastRow { display: flex; gap: 8px; }
+  #inviteLastRow button { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); font-size: 0.8125rem; font-weight: 600; cursor: pointer; }
+  #inviteList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #inviteList li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 0.8125rem; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+  #inviteList li .info { flex: 1; min-width: 0; color: var(--text-muted); word-break: break-word; }
+  #inviteList li button { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 0 12px; font-size: 0.8125rem; cursor: pointer; }
+  #inviteMsg { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
+  #inviteDialogClose { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-weight: 600; cursor: pointer; }
+  #photoBtn { width: 44px; height: 44px; flex: none; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); cursor: pointer; font-size: 1rem; padding: 0; }
+  #photoStatus { padding: 8px 16px; font-size: 0.8125rem; color: var(--text-muted); background: var(--surface); border-top: 1px solid var(--border); display: none; }
+  #photoStatus.show { display: block; }
+  /* 사진 태그 고르기 (어느 사진인가요?) */
+  #photoTagChooser { padding: 8px 16px; font-size: 0.875rem; background: var(--surface); border-top: 1px solid var(--border); }
+  #photoTagChooser p { margin: 0 0 8px; font-weight: 600; }
+  #photoTagChooser .photo-tag-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+  #photoTagChooser button { min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.875rem; cursor: pointer; }
+  /* 참여자 목록 패널 (머리글 인원 수 버튼으로 열림) */
+  #memberPanelWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 20; display: flex; justify-content: flex-end; padding: 0; }
+  #memberPanelWrap[hidden] { display: none; }
+  #memberPanel { background: var(--surface); width: min(320px, 100%); height: 100%; padding: 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
+  #memberPanelHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  #memberPanelHead h2 { margin: 0; font-size: 1rem; }
+  #memberPanelClose { min-width: 44px; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: pointer; }
+  #memberList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  #memberList li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 0.875rem; }
+  #memberList .nick { flex: 1; min-width: 0; font-weight: 600; word-break: break-word; }
+  #memberList .transferBtn { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); padding: 0 12px; font-size: 0.8125rem; cursor: pointer; }
+  #leaveBtn { min-height: 44px; border: 1px solid #f5c26b; border-radius: 8px; background: #fff7e6; color: #713f12; font-weight: 600; cursor: pointer; }
+  /* 화면 안 대화상자 (방장 넘기기 확인용, window.confirm 대신) */
+  #ownerDialogWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 30; display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #ownerDialogWrap[hidden] { display: none; }
+  #ownerDialog { background: var(--surface); border-radius: 12px; padding: 20px; max-width: 320px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+  #ownerDialog h2 { margin: 0; font-size: 1rem; }
+  #ownerDialog p { margin: 0; font-size: 0.875rem; color: var(--text-muted); }
+  #ownerDialogBtns { display: flex; gap: 8px; }
+  #ownerDialogBtns button { flex: 1; min-height: 44px; border-radius: 8px; cursor: pointer; font-size: 0.875rem; font-weight: 600; }
+  #ownerConfirmBtn { border: 1px solid var(--accent-dark); background: var(--accent-dark); color: #fff; }
+  #ownerCancelBtn { border: 1px solid var(--border); background: var(--bg); }
+
+  #nicknameOverlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); display: flex; align-items: center; justify-content: center; z-index: 10; padding: 16px;
+  }
+  #nicknameCard {
+    background: var(--surface); border-radius: 12px; padding: 24px; max-width: 320px; width: 100%;
+  }
+  #nicknameCard h2 { margin: 0 0 8px; font-size: 1.125rem; }
+  #nicknameCard p { margin: 0 0 16px; font-size: 0.875rem; color: var(--text-muted); }
+  #nicknameInput { width: 100%; padding: 10px 12px; font-size: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
+  #nicknameJoinBtn { width: 100%; padding: 10px; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; font-weight: 600; cursor: pointer; }
+
+  @media (max-width: 480px) {
+    header { padding: 10px 12px; }
+    header h1 { font-size: 1.1875rem; } /* 본문 15px 대비 1.27배: 제목이 본문과 구분되게 */
+    #log { padding: 12px; }
+    .bubble { max-width: 86%; }
+    #row { padding: 10px 12px; gap: 6px; }
+    #sendBtn { padding: 10px 12px; }
+    #toolBar { padding: 8px 12px; min-height: 56px; }
+    #memberPanel { width: 100%; }
+    .photo-thumb { max-width: 200px; }
+  }
+  /* 답장 강조: 챙길 곳은 빨간 굵은 글씨, 흐름의 핵심 낱말(시안·공개)은 굵은 강조색 */
+  .t-warn { color: var(--warn); font-weight: 700; }
+  .t-key { color: var(--accent-dark); font-weight: 800; }
+  /* 요약 주소 줄 옆 단추 + 주소 검색 시트 (MAP_CONTRACT §3) */
+  .addr-search-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  .addr-search-btn[hidden] { display: none; }
+  #addrSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 28; display: flex; align-items: flex-end; justify-content: center; }
+  #addrSheetWrap[hidden] { display: none; }
+  #addrSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 88dvh; overflow-y: auto; overflow-x: hidden; }
+  #addrSheet h2 { margin: 0; font-size: 1rem; }
+  #addrPost { width: 100%; height: min(60dvh, 470px); min-height: 300px; }
+  #addrPicked { margin: 0; font-size: 0.875rem; font-weight: 600; }
+  #addrPicked[hidden] { display: none; }
+  #addrDetailLabel { display: flex; flex-direction: column; gap: 4px; font-size: 0.8125rem; font-weight: 600; }
+  #addrDetailLabel[hidden] { display: none; }
+  #addrDetail { min-height: 44px; border: 1px solid var(--border); border-radius: 8px; padding: 0 12px; font-size: 0.9375rem; }
+  #addrSheetRow { display: flex; gap: 8px; }
+  #addrSave { flex: 1; min-height: 44px; border: none; border-radius: 8px; background: var(--accent-dark); color: #fff; font-weight: 600; cursor: pointer; }
+  #addrSave[hidden] { display: none; }
+  #addrClose { flex: 1; min-height: 44px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-weight: 600; cursor: pointer; }
+  #addrMsg { margin: 0; font-size: 0.8125rem; color: var(--text-muted); }
+  #addrMsg:empty { display: none; }
+</style>
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <script src="/pwa.js" defer></script>
+</head>
+<body>
+  <header>
+    <h1>한마디 · 요구사항 채팅방</h1>
+    <a id="settingsLink" href="/settings" hidden>가게 설정</a>
+    <button id="memberCount" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="memberPanelWrap" aria-label="참여자 목록 열기"></button>
+  </header>
+  <div id="statusBar"><span class="dot"></span><span id="statusText"></span></div>
+  <div id="genProgress" hidden role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-valuetext="시안을 생성 중입니다"><div id="genTrack" aria-hidden="true"><div id="genFill"></div></div><span id="genText"></span></div>
+  <div id="progressWrap" hidden><div id="progressTrack" aria-hidden="true"><div id="progressFill"></div></div><span id="progressText" role="status"></span></div>
+  <div id="log"></div>
+  <div id="voteBar">
+    <span id="voteText">이 내용으로 시안을 만들까요?</span>
+    <button class="approve" id="voteYesBtn" onclick="vote('승인')">👍 동의</button>
+    <button onclick="openFixTags()">고칠 게 있어요</button>
+  </div>
+  <div id="proceedBar">
+    <span>이대로 시안을 만들까요?</span>
+    <button class="go" onclick="proceed('진행')">🚀 진행</button>
+    <button onclick="proceed('취소')">취소</button>
+  </div>
+  <div id="choiceBar" aria-live="polite"><p class="hint" id="choiceHint"></p><div class="choices" id="choices"></div></div>
+  <div id="talkModeBar" role="group" aria-label="보낼 곳" hidden>
+    <span>보낼 곳</span>
+    <button type="button" id="talkAiBtn" aria-pressed="true" onclick="setTalkMode(true)">AI에게</button>
+    <button type="button" id="talkUsBtn" aria-pressed="false" onclick="setTalkMode(false)">우리끼리</button>
+  </div>
+  <div id="fixBar" hidden>
+    <span id="fixText" role="status"></span>
+    <button id="fixCancel" type="button" aria-label="고른 곳 취소">✕</button>
+  </div>
+  <div id="row">
+    <button id="photoBtn" type="button" aria-label="사진 올리기">사진</button>
+    <input id="photoInput" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+    <input id="input" placeholder="메시지를 입력하세요..." autocomplete="off">
+    <button id="micBtn" type="button" aria-label="말로 입력" style="width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;gap:0;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text);cursor:pointer;padding:0;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><line x1="12" y1="17" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg></button>
+    <button id="sendBtn" onclick="send()">보내기</button>
+  </div>
+  <div id="photoStatus" role="status" aria-live="polite"></div>
+  <div id="toolBar">
+    <button id="inviteOpenBtn" type="button" hidden>초대하기</button>
+    <a id="editSiteBtn" href="#" hidden>사이트 고치기</a>
+    <a id="refineBtn" href="#" hidden>다듬기</a>
+    <button id="publishBtn" type="button" hidden>공개하기</button>
+    <button id="moreBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreSheetWrap">⋯ 더보기</button>
+  </div>
+  <div id="moreSheetWrap" hidden>
+    <div id="moreSheet" role="dialog" aria-modal="true" aria-label="더보기">
+      <h2>더보기</h2>
+      <p id="inviteNotice" hidden>방장에게 초대 링크를 받아 주세요</p>
+      <button id="talkNotifyBtn" type="button" hidden>문의를 카톡으로 받기</button>
+      <button id="aiImageBtn" type="button" hidden>AI 예시 이미지 만들기</button>
+      <a id="editorLink" class="more-item" href="#" hidden>직접 고치기</a>
+      <a id="ownerLink" class="more-item" href="/owner" hidden>사장님 화면 (예약·주문·채팅·스탬프)</a>
+      <div id="walkieSlot"></div>
+      <button id="moreLeaveBtn" type="button">방에서 나가기</button>
+      <button id="moreCloseBtn" type="button">닫기</button>
+    </div>
+  </div>
+  <div id="designSheetWrap" hidden>
+    <div id="designSheet" role="dialog" aria-modal="true" aria-labelledby="designSheetTitle">
+      <h2 id="designSheetTitle">시안 미리보기</h2>
+      <p id="designSheetDiff"></p>
+      <img id="designSheetImg" alt="시안 크게 보기">
+      <div id="designSheetRow">
+        <button id="designSheetPick" type="button">이걸로 할게요</button>
+        <a id="designSheetOpen" href="#" target="_blank" rel="noopener">새 탭으로 열기</a>
+      </div>
+      <button id="designSheetClose" type="button">닫기</button>
+    </div>
+  </div>
+  <div id="addrSheetWrap" hidden>
+    <div id="addrSheet" role="dialog" aria-modal="true" aria-labelledby="addrSheetTitle">
+      <h2 id="addrSheetTitle">주소 검색</h2>
+      <div id="addrPost"></div>
+      <p id="addrPicked" hidden></p>
+      <label id="addrDetailLabel" for="addrDetail" hidden>상세 주소(층·호)<input id="addrDetail" type="text" maxlength="100" placeholder="예: 2층 201호" autocomplete="off"></label>
+      <div id="addrSheetRow">
+        <button id="addrSave" type="button" hidden>저장</button>
+        <button id="addrClose" type="button">닫기</button>
+      </div>
+      <p id="addrMsg" role="status"></p>
+    </div>
+  </div>
+  <div id="inviteDialogWrap" hidden>
+    <div id="inviteDialog" role="dialog" aria-modal="true" aria-labelledby="inviteDialogTitle">
+      <h2 id="inviteDialogTitle">초대하기</h2>
+      <div id="inviteFormRow">
+        <label for="inviteDays">초대 기간</label>
+        <select id="inviteDays">
+          <option value="1">1일</option>
+          <option value="7" selected>7일</option>
+          <option value="30">30일</option>
+          <option value="0">무기한</option>
+        </select>
+        <button id="inviteCreateBtn" type="button">링크 만들기</button>
+      </div>
+      <div id="inviteLastRow">
+        <button id="inviteShareLastBtn" type="button">카카오톡 공유</button>
+        <button id="inviteCopyLastBtn" type="button">링크 복사</button>
+      </div>
+      <ul id="inviteList"></ul>
+      <p id="inviteMsg" role="status" aria-live="polite"></p>
+      <button id="inviteDialogClose" type="button">닫기</button>
+    </div>
+  </div>
+
+  <div id="memberPanelWrap" hidden>
+    <div id="memberPanel" role="dialog" aria-modal="true" aria-label="참여자 목록">
+      <div id="memberPanelHead">
+        <h2 id="memberPanelTitle">참여자</h2>
+        <button id="memberPanelClose" type="button" aria-label="참여자 목록 닫기">닫기</button>
+      </div>
+      <ul id="memberList"></ul>
+      <button id="leaveBtn" type="button">방에서 나가기</button>
+    </div>
+  </div>
+
+  <div id="ownerDialogWrap" hidden>
+    <div id="ownerDialog" role="dialog" aria-modal="true" aria-labelledby="ownerDialogTitle">
+      <h2 id="ownerDialogTitle">방장 넘기기</h2>
+      <p id="ownerDialogText"></p>
+      <div id="ownerDialogBtns">
+        <button id="ownerConfirmBtn" type="button">넘기기</button>
+        <button id="ownerCancelBtn" type="button">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="nicknameOverlay">
+    <div id="nicknameCard">
+      <h2>공유방 입장</h2>
+      <p>닉네임을 입력하면 다른 참여자에게 그 이름으로 보입니다.</p>
+      <input id="nicknameInput" placeholder="닉네임" maxlength="20">
+      <button id="nicknameJoinBtn" onclick="joinRoom()">입장하기</button>
+    </div>
+  </div>
+
+<script>
+const KAKAO_JS_KEY = 'db5e5247ff48a792df0cc393b4453c6d';
+if (window.Kakao && !Kakao.isInitialized()) Kakao.init(KAKAO_JS_KEY);
+
+const log = document.getElementById('log');
+const statusBar = document.getElementById('statusBar');
+const statusText = document.getElementById('statusText');
+const voteBar = document.getElementById('voteBar');
+const proceedBar = document.getElementById('proceedBar');
+const memberCountEl = document.getElementById('memberCount');
+
+// 일부 환경(카카오톡 인앱 브라우저의 data: URL 렌더링 등)에서는 localStorage 접근 자체가
+// SecurityError를 던진다. 이게 최상위에서 잡히지 않으면 스크립트 전체가 죽어서 이후
+// 모든 버튼이 먹통이 된다 — 반드시 try/catch로 감싸고, 실패하면 메모리로만 동작(새로고침 시
+// 닉네임 재입력)하게 degrade한다.
+function safeGet(key) {
+  try { return localStorage.getItem(key); } catch (e) { return null; }
+}
+function safeSet(key, value) {
+  try { localStorage.setItem(key, value); } catch (e) { /* storage 사용 불가 — 무시하고 계속 진행 */ }
+}
+
+// crypto.randomUUID()는 "secure context"(HTTPS/localhost)에서만 지원된다.
+// OCI 배포본은 평문 HTTP(http://144.24.91.250:8643)라서 이 함수 자체가 없을 수 있다 —
+// 없으면 폴백으로 직접 UUID v4 형태 문자열을 만든다 (암호학적으로 엄밀하지 않아도 충분 —
+// 방 참여자 구분용 ID일 뿐이다).
+function makeMemberId() {
+  if (window.crypto && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return 'm-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+}
+
+let roomId = new URLSearchParams(location.search).get('room');
+let memberId = safeGet('agt001_member_id');
+let nickname = safeGet('agt001_nickname');
+let lastSeq = 0;
+let pollTimer = null;
+// 첫 조회를 마친 뒤 새로 도착한 ai_reply만 읽는다. 그 전 말풍선은 지난 답장으로 본다.
+let historyDone = false;
+let onboardingShown = false;
+// 초대 토큰은 주소창 invite 값으로 들어오고 첫 입장 메시지에 한 번만 붙인다.
+let inviteToken = new URLSearchParams(location.search).get('invite') || '';
+let inviteAttached = false;
+// 방 조회에서 받은 참여자·내 정보·시안 여부 (계약 §1, 서버가 아직 안 주면 빈 값으로 둔다).
+let roomMembers = [];
+let roomMe = null;
+let hasDesign = false;
+let sitePublished = false;
+let designChosen = false;  // 서버가 "N안(…)으로 정했어요"라고 답한 뒤 (공개 전 다듬기·공개하기 버튼)
+let invitesUnsupported = false;
+let ownerApiUnsupported = false;
+let leaveUnsupported = false;
+let notifyUnsupported = false;
+let invitesLoaded = false;
+let notifyChecked = false;
+let claimTried = false;
+
+const STATUS_LABEL = {
+  IDLE: '', RAG_SEARCHING: '과거 사례를 찾는 중...', THINKING: 'AI가 정리 중...',
+  QUOTING: '참고 견적을 계산 중...', GENERATING: '시안을 생성 중입니다… (최대 3분, 나갔다 와도 돼요)', DONE: '완료',
+};
+
+function hueFromString(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360;
+  return h;
+}
+
+  // 시안 3안 이름 + 차이 1줄 (P0: 고르는 기준을 말로. D43 역할고정)
+  // 이름은 안내 글에 적힌 실제 안 이름으로 바뀐다(원형이면 '객실 선택형' 등). 차이 1줄은 고정 이름일 때만.
+  const DESIGN_NAMES = { 1: '기본형', 2: '사진 강조형', 3: '앱형' };
+  const DESIGN_DIFFS_BY_NAME = { '기본형': '정석형 · 메뉴·가격 중심', '사진 강조형': '사진형 · 첫화면 사진 큼', '간결형': '간결형 · 글자 크고 버튼 1개', '앱형': '앱형 · 아래 탭으로 오가요' };
+  const DESIGN_DIFFS = {};
+  const GUIDE_RE = /1안 (.+?) · 2안 (.+?) · 3안 (.+?) 중 마음에 드는 번호/;
+  let pickedDesignNo = 0;
+  let designSheetOpener = null;
+  // 시안 안내 글에서 /design/<id> 찾기 (안 이름도 여기서 읽는다)
+  function findDesignId(t) {
+    const s = t || '';
+    const g = GUIDE_RE.exec(s);
+    if (!g) return null;
+    const mm = /\/design\/([A-Za-z0-9-]+)(?![\/\w])/.exec(s);
+    if (!mm) return null;
+    for (let n = 1; n <= 3; n++) {
+      DESIGN_NAMES[n] = g[n];
+      DESIGN_DIFFS[n] = DESIGN_DIFFS_BY_NAME[g[n]] || '';
+    }
+    return mm[1];
+  }
+  // 사용자가 보낸 "N안으로 할게요" 찾기
+  function findPickedNo(t) {
+    const mm = /([123])안으로 할게요/.exec(t || '');
+    return mm ? Number(mm[1]) : 0;
+  }
+  // AI 확정 답장 "N안(이름)으로 정했어요" 찾기
+  function findConfirmedNo(t) {
+    const mm = /([123])안\(.*?\)으로 정했어요/.exec(t || '');
+    return mm ? Number(mm[1]) : 0;
+  }
+  // 카드 선택 표시 갱신
+  function refreshDesignMarks() {
+    const cards = document.querySelectorAll('.design-card');
+    for (const c of cards) {
+      const n = Number(c.getAttribute('data-pick'));
+      const on = n === pickedDesignNo;
+      c.classList.toggle('on', on);
+      const btn = c.querySelector('.design-pick-btn');
+      if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  // 시안 크게 보기 바텀시트 (P0: 문맥 유지 1순위. 새 탭 링크는 시트 안에 2순위로 둔다)
+  function openDesignSheet(n, id, opener) {
+    const wrap = document.getElementById('designSheetWrap');
+    const img = document.getElementById('designSheetImg');
+    const title = document.getElementById('designSheetTitle');
+    const diff = document.getElementById('designSheetDiff');
+    const pick = document.getElementById('designSheetPick');
+    const open = document.getElementById('designSheetOpen');
+    if (!wrap || !img) return;
+    designSheetOpener = opener || null;
+    title.textContent = n + '안 · ' + DESIGN_NAMES[n];
+    diff.textContent = DESIGN_DIFFS[n] || '';
+    img.alt = n + '안 ' + DESIGN_NAMES[n] + ' 크게 보기';
+    img.src = '/design/' + id + '/v' + n + '/';
+    open.href = '/design/' + id + '/v' + n + '/';
+    pick.onclick = () => {
+      sendRoomMessage(n + '안으로 할게요');
+      pickedDesignNo = n;
+      refreshDesignMarks();
+      closeDesignSheet();
+    };
+    wrap.hidden = false;
+    const closeBtn = document.getElementById('designSheetClose');
+    if (closeBtn) closeBtn.focus();
+  }
+  function closeDesignSheet() {
+    const wrap = document.getElementById('designSheetWrap');
+    if (!wrap || wrap.hidden) return;
+    wrap.hidden = true;
+    if (designSheetOpener && document.contains(designSheetOpener)) designSheetOpener.focus();
+    designSheetOpener = null;
+  }
+  // 시안 카드 3개 묶음 만들기
+  function buildDesignCards(bubble, id) {
+    const wrap = document.createElement('div');
+    wrap.className = 'design-pick';
+    for (let n = 1; n <= 3; n++) {
+      const card = document.createElement('div');
+      card.className = 'design-card';
+      card.setAttribute('data-pick', String(n));
+      if (n === pickedDesignNo) card.classList.add('on');
+      const thumb = document.createElement('div');
+      thumb.className = 'design-thumb loading';
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.alt = n + '안 ' + DESIGN_NAMES[n] + ' 미리보기';
+      // 카드별 대기 상태: 만든 시각부터 180초까지 작은 바 + 5초마다 다시 불러오기
+      const cardBuiltAt = Date.now();
+      let waitBox = null;
+      let waitFill = null;
+      let retryTimer = null;
+      let tickTimer = null;
+      const clearCardTimers = () => {
+        if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+        if (tickTimer) { clearInterval(tickTimer); tickTimer = null; }
+      };
+      const tickWait = () => {
+        const t = Math.floor((Date.now() - cardBuiltAt) / 1000);
+        if (t >= 180) {
+          clearCardTimers();
+          if (waitBox) {
+            waitBox.replaceChildren();
+            const fb = document.createElement('div');
+            fb.className = 'design-fallback';
+            fb.textContent = '미리보기를 만들지 못했어요 · \'크게 보기\'로 확인해 주세요';
+            waitBox.appendChild(fb);
+          }
+          return;
+        }
+        if (waitFill) waitFill.style.transform = 'scaleX(' + Math.min(0.95, t / 180) + ')';
+      };
+      const showWaiting = () => {
+        if (waitBox) return;
+        // 숨긴 lazy 그림은 브라우저가 다시 불러오지 않으므로 바로 불러오게 바꾼다
+        img.loading = 'eager';
+        img.style.display = 'none';
+        waitBox = document.createElement('div');
+        waitBox.style.cssText = 'display:flex;flex-direction:column;gap:8px;align-items:center;padding:0 12px;width:100%;';
+        const wt = document.createElement('div');
+        wt.className = 'design-fallback';
+        wt.textContent = '시안을 생성 중입니다';
+        waitBox.appendChild(wt);
+        const track = document.createElement('div');
+        track.style.cssText = 'width:80%;height:6px;border-radius:3px;background:var(--border);overflow:hidden;';
+        track.setAttribute('aria-hidden', 'true');
+        waitFill = document.createElement('div');
+        waitFill.style.cssText = 'height:100%;width:100%;background:var(--accent);border-radius:3px;transform:scaleX(0);transform-origin:left;';
+        track.appendChild(waitFill);
+        waitBox.appendChild(track);
+        thumb.appendChild(waitBox);
+        tickWait();
+        tickTimer = setInterval(tickWait, 1000);
+        retryTimer = setInterval(() => {
+          const t = Math.floor((Date.now() - cardBuiltAt) / 1000);
+          if (t >= 180) { tickWait(); return; }
+          img.src = '/design/' + id + '/v' + n + '.png?t=' + Date.now();
+        }, 5000);
+      };
+      img.onload = () => {
+        clearCardTimers();
+        if (waitBox) { waitBox.remove(); waitBox = null; waitFill = null; }
+        img.style.display = '';
+        img.classList.add('loaded');
+        thumb.classList.remove('loading');
+      };
+      img.onerror = () => { showWaiting(); };
+      img.src = '/design/' + id + '/v' + n + '.png';
+      thumb.appendChild(img);
+      // 썸네일을 누르면 바텀시트로 크게 본다 (방을 떠나지 않음)
+      thumb.style.cursor = 'pointer';
+      thumb.setAttribute('role', 'button');
+      thumb.setAttribute('tabindex', '0');
+      thumb.setAttribute('aria-label', n + '안 ' + DESIGN_NAMES[n] + ' 크게 보기');
+      thumb.onclick = (e) => openDesignSheet(n, id, e.currentTarget);
+      thumb.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDesignSheet(n, id, e.currentTarget); } };
+      card.appendChild(thumb);
+      const title = document.createElement('div');
+      title.className = 'design-title';
+      title.textContent = n + '안 · ' + DESIGN_NAMES[n];
+      const badge = document.createElement('span');
+      badge.className = 'design-badge';
+      badge.textContent = '선택됨';
+      title.appendChild(badge);
+      card.appendChild(title);
+      const diff = document.createElement('p');
+      diff.className = 'design-diff';
+      diff.textContent = DESIGN_DIFFS[n] || '';
+      card.appendChild(diff);
+      const row = document.createElement('div');
+      row.className = 'design-row';
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'design-pick-btn';
+      pick.textContent = '이걸로 할게요';
+      pick.setAttribute('aria-label', n + '안 ' + DESIGN_NAMES[n] + '으로 할게요');
+      pick.setAttribute('aria-pressed', n === pickedDesignNo ? 'true' : 'false');
+      pick.onclick = () => {
+        sendRoomMessage(n + '안으로 할게요');
+        pickedDesignNo = n;
+        refreshDesignMarks();
+      };
+      row.appendChild(pick);
+      const open = document.createElement('a');
+      open.className = 'design-open';
+      open.textContent = '크게 보기';
+      open.href = '/design/' + id + '/v' + n + '/';
+      open.target = '_blank';
+      open.rel = 'noopener';
+      row.appendChild(open);
+      card.appendChild(row);
+      wrap.appendChild(card);
+    }
+    bubble.appendChild(wrap);
+  }
+
+// 예약 알림 말풍선 작은 함수들 (플랫폼 공용 ②, BOOKING_PLAN §2.4)
+function isBookingOwner() {
+  // 방장 판단은 기존 isOwner를 먼저 쓰고, 서버가 아직 안 주면 첫 참여자와 내 표시를 견준다.
+  if (typeof isOwner === 'function' && roomMe && typeof roomMe.is_owner === 'boolean') return isOwner();
+  if (roomMe && roomMe.member_handle && roomMembers.length) {
+    return roomMembers[0].member_handle === roomMe.member_handle;
+  }
+  return false;
+}
+// 방장·결정 여부에 따라 보여줄 한 줄 글자
+function bookingStatusText(status, mine) {
+  if (status === 'confirmed') return mine ? '확정했어요' : '확정됐어요';
+  if (status === 'declined') return mine ? '거절했어요' : '거절됐어요';
+  return mine ? '예약 신청이에요. 확정하거나 거절해 주세요.' : '사장님이 확인 중이에요';
+}
+// 본문을 그대로 두되 전화번호는 tel:, 우리 사이트 주소는 누를 수 있는 고리로 만든다. innerHTML은 쓰지 않는다.
+// 다른 사이트 주소는 글자로 둔다(누가 적은 주소가 봇 답에 섞여도 낚시 고리가 되지 않게).
+// 주소 글자 대신 보일 말 (시안 주소는 사장님이 알 필요가 없다). 공개 사이트 주소는 알리려고 그대로 보인다.
+const LINK_LABELS = [[/^\/auth\/kakao\/start$/, '카카오로 로그인하기'], [/^\/auth\/google\/start$/, '구글로 로그인하기'],
+  [/^\/design\/[^/]+\/?$/, '열어 보기'], [/^\/editor$/, '열기']];
+function ownLink(shown) {
+  let url = null;
+  try { url = new URL(shown, location.origin); } catch (e) { return null; }
+  if (url.origin !== location.origin) return null;
+  const link = document.createElement('a');
+  link.href = url.href;
+  const label = LINK_LABELS.find(([re]) => re.test(url.pathname));
+  link.textContent = label ? label[1] : shown;
+  if (!url.pathname.startsWith('/auth/')) { link.target = '_blank'; link.rel = 'noopener'; }  // 로그인은 이 창에서, 시안·사이트는 새 창
+  return link;
+}
+// 답장 글자에 강조를 입힌다 (글자 노드·span만, innerHTML 없음).
+// 챙길 곳: [… 입력 필요]·가격 미정·미정·입력 필요 → 빨강. 핵심 낱말: 시안·공개본·공개 → 굵은 강조색.
+const MARK_RE = /(\[[^\]\n]{1,20}입력 필요\]|가격 미정|미정|입력 필요)|(시안|공개본|공개)/g;
+function appendMarked(box, s) {
+  let last = 0;
+  let mm = null;
+  MARK_RE.lastIndex = 0;
+  while ((mm = MARK_RE.exec(s)) !== null) {
+    if (mm.index > last) box.appendChild(document.createTextNode(s.slice(last, mm.index)));
+    const span = document.createElement('span');
+    span.className = mm[1] ? 't-warn' : 't-key';
+    span.textContent = mm[0];
+    box.appendChild(span);
+    last = mm.index + mm[0].length;
+  }
+  if (last < s.length) box.appendChild(document.createTextNode(s.slice(last)));
+}
+function appendPhoneLinkedText(box, raw) {
+  const s = raw || '';
+  const re = /https?:\/\/[^\s]+|(?<!\S)\/(?:design|editor|site)\/[^\s]+|\d{2,4}-\d{3,4}-\d{4}|\d{10,11}/g;
+  let last = 0;
+  let mm = null;
+  let found = false;
+  while ((mm = re.exec(s)) !== null) {
+    const shown = mm[0].replace(/[.,)'"]+$/, '');
+    let link = null;
+    if (/^\d/.test(shown)) {
+      link = document.createElement('a');
+      link.href = 'tel:' + shown.replace(/[^0-9]/g, '');
+      link.textContent = shown;
+    } else {
+      link = ownLink(shown);
+    }
+    if (!link) continue;
+    found = true;
+    if (mm.index > last) appendMarked(box, s.slice(last, mm.index));
+    box.appendChild(link);
+    last = mm.index + shown.length;
+  }
+  if (!found) {
+    box.textContent = '';
+    appendMarked(box, s);
+    return;
+  }
+  if (last < s.length) appendMarked(box, s.slice(last));
+}
+// 공개 답장 아래: 주소 복사·공유하기 (EDIT_PUBLISH_PLAN §3-2). 공유는 휴대폰 공유 창(카톡·문자 등)이 있을 때만.
+function buildSiteShare(bubble, url) {
+  const row = document.createElement('div');
+  row.className = 'site-share';
+  const copy = document.createElement('button');
+  copy.type = 'button';
+  copy.textContent = '주소 복사';
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      copy.textContent = '복사했어요';
+    } catch (e) {
+      window.prompt('주소를 길게 눌러 복사해 주세요', url);
+    }
+  };
+  row.appendChild(copy);
+  if (navigator.share) {
+    const share = document.createElement('button');
+    share.type = 'button';
+    share.textContent = '공유하기 (카톡·문자)';
+    share.onclick = () => { navigator.share({ title: '우리 가게 사이트', url }).catch(() => {}); };
+    row.appendChild(share);
+  }
+  bubble.appendChild(row);
+}
+
+// 주소 검색 (MAP_CONTRACT §3). 우편번호 스크립트는 단추를 누를 때만 한 번 받는다.
+// 가게 이름·전화는 어디에도 보내지 않는다. 저장 뒤 요약을 다시 받는다(pollMessages).
+let addrRoad = '';
+let addrJibun = '';
+let addrSheetReturnFocus = null;
+function loadPostcodeOnce() {
+  let tag = document.querySelector('script[src*="postcode.v2.js"]');
+  if (!tag) {
+    tag = document.createElement('script');
+    tag.src = '//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
+    tag.async = true;
+    document.head.appendChild(tag);
+  }
+  if (window.daum && window.daum.Postcode) return Promise.resolve();
+  const el = tag;
+  return new Promise((resolve) => {
+    el.addEventListener('load', () => resolve(), { once: true });
+    el.addEventListener('error', () => resolve(), { once: true });
+  });
+}
+function setAddrMsg(t) {
+  const m = document.getElementById('addrMsg');
+  if (m) m.textContent = t || '';
+}
+function openAddrSheet() {
+  const wrap = document.getElementById('addrSheetWrap');
+  if (!wrap) return;
+  addrSheetReturnFocus = document.activeElement;
+  wrap.hidden = false;
+  setAddrMsg('');
+  const closeBtn = document.getElementById('addrClose');
+  if (closeBtn) closeBtn.focus();
+  loadPostcodeOnce().then(() => {
+    if (wrap.hidden) return;
+    const box = document.getElementById('addrPost');
+    if (!box || !window.daum || !window.daum.Postcode) {
+      setAddrMsg('주소 창을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+      return;
+    }
+    box.replaceChildren();
+    try {
+      // 폭을 안 주면 500px로 들어와 좁은 화면에서 옆으로 넘친다
+      new window.daum.Postcode({ oncomplete: onPostcodeComplete, width: '100%', height: '100%' }).embed(box);
+    } catch (e) {
+      setAddrMsg('주소 창을 열지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    }
+  });
+}
+function closeAddrSheet() {
+  const wrap = document.getElementById('addrSheetWrap');
+  if (!wrap || wrap.hidden) return;
+  wrap.hidden = true;
+  if (addrSheetReturnFocus && document.contains(addrSheetReturnFocus)) addrSheetReturnFocus.focus();
+  addrSheetReturnFocus = null;
+}
+function onPostcodeComplete(d) {
+  addrRoad = (d && (d.roadAddress || d.jibunAddress || d.address)) || '';  // 지번을 고르면 도로명이 빌 수 있다
+  addrJibun = (d && d.jibunAddress) || '';
+  const p = document.getElementById('addrPicked');
+  if (p) { p.hidden = false; p.textContent = '고른 주소: ' + addrRoad; }
+  const lb = document.getElementById('addrDetailLabel');
+  if (lb) lb.hidden = false;
+  const inp = document.getElementById('addrDetail');
+  if (inp) { inp.value = ''; inp.focus(); }
+  const save = document.getElementById('addrSave');
+  if (save) save.hidden = false;
+}
+async function saveAddrGeo() {
+  const road = (addrRoad || '').trim();
+  if (!road) return;
+  const detailEl = document.getElementById('addrDetail');
+  const detail = detailEl ? detailEl.value.trim() : '';
+  const save = document.getElementById('addrSave');
+  if (save) save.disabled = true;
+  setAddrMsg('저장 중…');
+  try {
+    const res = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/geo/search?q=' + encodeURIComponent(road), {
+      headers: { 'X-Member-Id': memberId },
+    });
+    if (!res.ok) throw new Error('search');
+    const data = await res.json();
+    const cands = (data && data.candidates) || [];
+    if (cands.length && cands[0].x != null && cands[0].y != null) {
+      const put = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/geo', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+        body: JSON.stringify({ road: road, jibun: addrJibun, detail: detail, x: cands[0].x, y: cands[0].y, src: 'postcode' }),
+      });
+      if (!put.ok) throw new Error('save');
+      closeAddrSheet();
+      await pollMessages();
+      return;
+    }
+    if (!window.confirm('지도 위치를 찾지 못했어요. 주소만 저장할까요?')) return;
+    const location = detail ? road + ' ' + detail : road;
+    const put = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/card', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ fields: { location: location } }),
+    });
+    if (!put.ok) throw new Error('save');
+    closeAddrSheet();
+    await pollMessages();
+  } catch (e) {
+    setAddrMsg('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+  } finally {
+    if (save) save.disabled = false;
+  }
+}
+// 요약의 주소 줄 옆 단추 (방장만 보인다).
+function maybeAddAddrBtn(bubble, text) {
+  const s = text || '';
+  if (!/주소|위치/.test(s)) return;
+  if (!/이렇게 이해했어요|다시 읽어 보니|빠진 게 있어|요약|정리/.test(s)) return;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'addr-search-btn';
+  b.textContent = '주소 검색';
+  b.hidden = !isOwner();
+  b.onclick = openAddrSheet;
+  bubble.appendChild(b);
+}
+function refreshAddrBtns() {
+  const owner = isOwner();
+  const btns = document.querySelectorAll('.addr-search-btn');
+  for (const b of btns) b.hidden = !owner;
+}
+
+// 예약 말풍선 아래쪽: 방장이면 버튼, 아니면 글자만
+function buildBookingArea(bubble, m) {
+  const info = (m && m.booking) || {};
+  const mine = isBookingOwner();
+  const area = document.createElement('div');
+  area.className = 'booking-result';
+  if (info.id != null) area.setAttribute('data-booking-result', String(info.id));
+  const note = document.createElement('div');
+  note.className = 'booking-note';
+  if (info.id != null) note.setAttribute('data-booking-note', String(info.id));
+  if (info.status === 'requested' && mine) {
+    const ok = document.createElement('button');
+    ok.type = 'button';
+    ok.className = 'go';
+    ok.textContent = '확정';
+    ok.setAttribute('aria-label', '예약 확정하기');
+    const no = document.createElement('button');
+    no.type = 'button';
+    no.textContent = '거절';
+    no.setAttribute('aria-label', '예약 거절하기');
+    ok.onclick = () => decideBooking(info.id, 'confirm', area, note, ok, no);
+    no.onclick = () => decideBooking(info.id, 'decline', area, note, ok, no);
+    area.appendChild(ok);
+    area.appendChild(no);
+    note.textContent = bookingStatusText('requested', true);
+    bubble.appendChild(area);
+    bubble.appendChild(note);
+    return;
+  }
+  note.textContent = bookingStatusText(info.status || 'requested', mine);
+  bubble.appendChild(note);
+}
+// 확정·거절 누름 처리
+async function decideBooking(id, decision, area, note, okBtn, noBtn) {
+  if (okBtn) okBtn.disabled = true;
+  if (noBtn) noBtn.disabled = true;
+  try {
+    const res = await fetch('/room/' + encodeURIComponent(roomId) + '/bookings/' + encodeURIComponent(id) + '/decision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ decision }),
+    });
+    if (res.ok) {
+      let status = decision === 'confirm' ? 'confirmed' : 'declined';
+      try {
+        const data = await res.json();
+        if (data && data.status) status = data.status;
+      } catch (e) { /* 본문이 없어도 누른 값으로 표시 */ }
+      area.replaceChildren();
+      note.textContent = bookingStatusText(status, true);
+      return;
+    }
+    if (okBtn) okBtn.disabled = false;
+    if (noBtn) noBtn.disabled = false;
+    if (res.status === 403) note.textContent = '방장만 결정할 수 있어요.';
+    else if (res.status === 409) {
+      let detail = '';
+      try {
+        const errBody = await res.json();
+        if (errBody && errBody.detail) detail = errBody.detail;
+      } catch (e) { /* 본문이 없어도 기존 문구로 표시 */ }
+      if (detail === 'slot full') {
+        note.textContent = '이 시간은 이미 마감됐어요. 거절하거나 손님과 다른 시간을 잡아 주세요.';
+      } else {
+        note.textContent = '이미 결정된 예약이에요.';
+        area.replaceChildren();
+      }
+    } else note.textContent = '지금은 처리할 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+  } catch (e) {
+    if (okBtn) okBtn.disabled = false;
+    if (noBtn) noBtn.disabled = false;
+    note.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+// 들어올 때 한 번: 이미 결정된 예약은 버튼 대신 결과 글자로 바꾼다. 실패는 조용히.
+let bookingStatesLoaded = false;
+async function refreshBookingStates() {
+  if (!isBookingOwner()) return;
+  let data = null;
+  try {
+    const res = await fetch('/room/' + encodeURIComponent(roomId) + '/bookings', { headers: { 'X-Member-Id': memberId } });
+    if (!res.ok) return;
+    data = await res.json();
+  } catch (e) { return; }
+  const list = (data && data.bookings) || [];
+  const mine = isBookingOwner();
+  for (const b of list) {
+    if (b == null || b.id == null) continue;
+    if (b.status === 'requested') continue;
+    const sel = '[data-booking-result="' + String(b.id) + '"]';
+    const area = document.querySelector(sel);
+    if (area) area.replaceChildren();
+    const note = document.querySelector('[data-booking-note="' + String(b.id) + '"]');
+    if (note) note.textContent = bookingStatusText(b.status, mine);
+  }
+}
+
+// 방장에게만 입력줄 위 버튼: 시안을 고른 뒤 공개 전엔 '다듬기·공개하기', 공개 뒤엔 '사이트 고치기'.
+// (더보기 안 '직접 고치기' 링크는 그대로)
+function updateEditSiteBtn() {
+  const btn = document.getElementById('editSiteBtn');
+  const refine = document.getElementById('refineBtn');
+  const pub = document.getElementById('publishBtn');
+  if (!btn) return;
+  const editorUrl = '/editor?room=' + encodeURIComponent(roomId);
+  const owner = isOwner();
+  btn.hidden = !(owner && sitePublished);
+  btn.href = editorUrl;
+  const beforePublish = owner && designChosen && !sitePublished;
+  if (refine) { refine.hidden = !beforePublish; refine.href = editorUrl; }
+  if (pub) {
+    pub.hidden = !beforePublish;
+    pub.onclick = () => sendRoomMessage('공개');
+  }
+}
+
+function addMessage(m, isNew) {
+  const row = document.createElement('div');
+  row.className = 'row kind-' + m.kind;
+  // 예약 알림은 문의와 다른 연한 초록 말풍선으로 그린다. 읽어주기·투표 등 기존 동작은 손대지 않는다.
+  if (m.kind === 'booking') {
+    const info = (m && m.booking) || {};
+    if (info.id != null) row.setAttribute('data-booking-id', String(info.id));
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    const text = document.createElement('div');
+    text.className = 'text';
+    appendPhoneLinkedText(text, m.text || '');
+    bubble.appendChild(text);
+    buildBookingArea(bubble, m);
+    row.appendChild(bubble);
+    log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
+    return;
+  }
+  const safeName = (m.nickname || '').slice(0, 40);
+  if (m.kind === 'chat' || m.kind === 'ai_reply' || m.kind === 'photo') {
+    const av = document.createElement('div');
+    av.className = 'avatar';
+    if (m.kind === 'ai_reply') {
+      av.textContent = '🤖';
+    } else {
+      av.textContent = safeName.slice(0, 1);
+      av.style.background = `hsl(${hueFromString(safeName || '?')}, 55%, 45%)`;
+    }
+    row.appendChild(av);
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  if (m.kind === 'chat' || m.kind === 'ai_reply' || m.kind === 'photo') {
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = safeName;
+    meta.appendChild(nameSpan);
+    if (m.kind === 'ai_reply') {
+      const badge = document.createElement('span');
+      badge.className = 'badge-bot';
+      badge.textContent = 'BOT';
+      meta.appendChild(badge);
+    }
+    if (m.aside) {
+      row.classList.add('aside');
+      const tag = document.createElement('span');
+      tag.className = 'aside-tag';
+      tag.textContent = '우리끼리 · AI는 읽지 않아요';
+      meta.appendChild(tag);
+    }
+    bubble.appendChild(meta);
+  }
+  const text = document.createElement('div');
+  text.className = 'text';
+  // 봇 답 속 우리 사이트 주소·전화번호는 누를 수 있게 (F4)
+  if (m.kind === 'ai_reply') appendPhoneLinkedText(text, m.text || '');
+  else text.textContent = m.text || '';
+  bubble.appendChild(text);
+  // P0: 출처 라벨 — AI가 정리한 요구사항 되짚기에는 근거 표시를 붙인다
+  if (m.kind === 'ai_reply' && /이렇게 이해했어요|다시 읽어 보니|빠진 게 있어/.test(m.text || '')) {
+    const src = document.createElement('div');
+    src.className = 'src-note';
+    src.textContent = '사장님 말씀 기반 AI 정리 · 틀리면 고쳐주세요';
+    bubble.appendChild(src);
+  }
+  // P0: 견적 고지 — 참고용임을 카드 안에서 분명히 한다 (확정 금액 오해 방지)
+  if (/참고 견적:/.test(m.text || '')) {
+    const qn = document.createElement('div');
+    qn.className = 'quote-note';
+    qn.textContent = '참고용 · 확정 금액이 아니에요 · 베타 기간 무료';
+    bubble.appendChild(qn);
+  }
+  // P1: 문의 보관 안내 — 저장 기간을 알림 안에서 밝힌다
+  if (m.kind === 'inquiry') {
+    const iq = document.createElement('div');
+    iq.className = 'inquiry-note';
+    iq.textContent = '문의 내용은 30일간 보관돼요';
+    bubble.appendChild(iq);
+  }
+  // 사진 메시지는 썸네일로 보여주고 누르면 생성물 주소로 연다.
+  if (m.kind === 'photo' && m.photo && m.photo.url) {
+    const link = document.createElement('a');
+    link.className = 'photo-thumb';
+    link.href = m.photo.url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = '올린 사진';
+    img.src = m.photo.url;
+    link.appendChild(img);
+    bubble.appendChild(link);
+  }
+  // AI 답장 말풍선에만 작은 "듣기" 버튼을 단다. 재생은 voice.js의 window.speakAiText가 맡는다.
+  if (m.kind === 'ai_reply') {
+    const listenBtn = document.createElement('button');
+    listenBtn.type = 'button';
+    listenBtn.textContent = '듣기';
+    listenBtn.setAttribute('aria-label', '답장 듣기');
+    listenBtn.style.cssText = 'margin-top:8px;font-size:0.75rem;min-height:32px;padding:6px 12px;border:1px solid var(--border);border-radius:999px;background:var(--bg);color:var(--text);cursor:pointer;';
+    listenBtn.onclick = () => {
+      if (typeof window.speakAiText === 'function') window.speakAiText(m.text, listenBtn);
+    };
+    bubble.appendChild(listenBtn);
+    // 새로 도착한 답장만 자동으로 읽는다. 지난 답장과 첫 안내 글은 듣기 버튼으로만 듣는다.
+    if (isNew && typeof window.queueWalkieTts === 'function') {
+      try { window.queueWalkieTts(m.text, listenBtn); } catch (e) { /* 자동 읽기는 실패해도 말풍선 유지 */ }
+    }
+  }
+  // 시안 고르기: 선택 번호를 기억하고 AI 안내 글 아래에 카드 3개를 단다
+  const sayNo = findPickedNo(m.text);
+  if (sayNo) pickedDesignNo = sayNo;
+  const fixNo = findConfirmedNo(m.text);
+  if (fixNo) pickedDesignNo = fixNo;
+  if (fixNo && !designChosen) {
+    designChosen = true;
+    updateEditSiteBtn();
+  }
+  if (m.kind === 'ai_reply') {
+    const did = findDesignId(m.text);
+    if (did) buildDesignCards(bubble, did);
+    const opened = /사이트를 열었어요: (https?:\/\/\S+)/.exec(m.text || '');
+    if (opened) buildSiteShare(bubble, opened[1].replace(/[.,)'"]+$/, ''));
+    if ((m.text || '').indexOf('사이트를 열었어요') >= 0 && !sitePublished) {
+      sitePublished = true;
+      updateOwnerTools();
+    }
+    maybeAddAddrBtn(bubble, m.text);
+  }
+  row.appendChild(bubble);
+  log.appendChild(row);
+  log.scrollTop = log.scrollHeight;
+  if (pickedDesignNo) refreshDesignMarks();
+}
+
+function updateStatus(aiStatus) {
+  // 생성 중에는 동의 바를 눌러도 소용없으니 상태를 기억해 updateActionBars에서 숨긴다
+  lastAiStatus = aiStatus || '';
+  const label = STATUS_LABEL[aiStatus] || '';
+  const busy = !!label && aiStatus !== 'DONE' && aiStatus !== 'IDLE';
+  if (busy) {
+    statusText.textContent = label;
+    statusBar.classList.add('show');
+    statusBar.setAttribute('role', 'progressbar');
+    statusBar.setAttribute('aria-busy', 'true');
+  } else {
+    statusBar.classList.remove('show');
+    statusBar.removeAttribute('role');
+    statusBar.removeAttribute('aria-busy');
+  }
+  // 시안 생성 진행 바: GENERATING을 처음 본 시각부터 180초 기준으로 채운다
+  if (aiStatus === 'GENERATING') {
+    if (!genStartedAt) genStartedAt = Date.now();
+    const bar = document.getElementById('genProgress');
+    if (bar) bar.hidden = false;
+    tickGenProgress();
+    if (!genTimer) genTimer = setInterval(tickGenProgress, 1000);
+  } else {
+    const bar = document.getElementById('genProgress');
+    if (bar) bar.hidden = true;
+    if (genTimer) { clearInterval(genTimer); genTimer = null; }
+    genStartedAt = 0;
+  }
+}
+
+// 마지막 AI 상태 (GENERATING 동안 동의 바를 숨기기 위해 updateStatus가 기억한다)
+let lastAiStatus = '';
+// 생성 진행 바 1초 눈금: 너비 min(95, t/180*100)%, 글 "시안을 생성 중입니다 · {t}초 / 최대 3분"
+let genStartedAt = 0;
+let genTimer = null;
+function tickGenProgress() {
+  const bar = document.getElementById('genProgress');
+  const fill = document.getElementById('genFill');
+  const text = document.getElementById('genText');
+  if (!bar || !fill || !text || !genStartedAt) return;
+  const t = Math.floor((Date.now() - genStartedAt) / 1000);
+  const pct = Math.min(95, (t / 180) * 100);
+  fill.style.transform = 'scaleX(' + (pct / 100) + ')';
+  const label = '시안을 생성 중입니다 · ' + t + '초 / 최대 3분';
+  text.textContent = label;
+  bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+  bar.setAttribute('aria-valuetext', label);
+}
+
+// P0: 질문 진행바 (서버 asked/budget 없이 로컬 집계. 총합을 단정하지 않고 N번째만 보인다)
+let questionCount = 0;
+// 요약 뒤에는 윗줄 질문 바를 숨긴다 (updateActionBars가 매 폴링마다 갱신)
+let lastRoomState = '';
+function updateProgress() {
+  const wrap = document.getElementById('progressWrap');
+  const fill = document.getElementById('progressFill');
+  const text = document.getElementById('progressText');
+  if (!wrap || !fill || !text) return;
+  if (lastRoomState && lastRoomState !== 'GREETING' && lastRoomState !== 'GATHERING') { wrap.hidden = true; return; }
+  if (!questionCount) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  fill.style.transform = 'scaleX(' + Math.min(1, questionCount / 8) + ')';
+  text.textContent = '질문 ' + questionCount + ' · ‘시안 먼저’라고 하면 건너뜰 수 있어요';
+}
+
+// 요구사항 질문의 선택지를 버튼으로 그린다. 같은 질문이면 다시 그리지 않는다(누르던 선택이 사라지지 않게).
+const choiceBar = document.getElementById('choiceBar');
+const choicesEl = document.getElementById('choices');
+const choiceHint = document.getElementById('choiceHint');
+let choiceKey = '';
+function renderChoices(q) {
+  // 고칠 곳 칩을 보는 동안 새 질문이 오면 질문을 먼저 보인다. 질문이 없으면 칩을 둔다.
+  if (fixTagsActive || fixTarget) {
+    if (!q) return;
+    clearFix();
+  }
+  const key = q ? JSON.stringify(q) : '';
+  if (key === choiceKey) return;
+  choiceKey = key;
+  if (key) {
+    // 새 질문이 오면 진행바를 1 올린다 (같은 질문 다시 그리기는 위에서 걸러짐)
+    questionCount += 1;
+    updateProgress();
+  }
+  choicesEl.innerHTML = '';
+  const oldExtra = document.getElementById('choiceExtraWrap');
+  if (oldExtra) oldExtra.remove();
+  if (!q) { choiceBar.classList.remove('show'); return; }
+  const picked = new Set();
+  choiceHint.textContent = q.kind === 'multi' ? '해당되는 것을 모두 누른 뒤 "선택 완료"를 눌러 주세요'
+    : q.owner_only ? '방장님이 눌러 주세요' : '누르면 바로 답이 전송돼요. 직접 적어도 돼요';
+  // 여러 개 고르기용 토글 버튼 만들기 (처음 선택지와 더 보기 펼침이 같은 방식)
+  const makeMultiBtn = (opt) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = opt;
+    b.setAttribute('aria-pressed', 'false');
+    b.onclick = () => {
+      if (opt === '없음') { choiceBar.classList.remove('show'); sendRoomMessage('없음'); return; }
+      if (picked.has(opt)) { picked.delete(opt); b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
+      else { picked.add(opt); b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); }
+    };
+    return b;
+  };
+  for (const opt of q.options) {
+    if (q.kind === 'multi') { choicesEl.appendChild(makeMultiBtn(opt)); continue; }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = opt;
+    b.onclick = () => { choiceBar.classList.remove('show'); sendRoomMessage(opt); };
+    choicesEl.appendChild(b);
+  }
+  if (q.kind === 'multi') {
+    // 목록 밖 항목: 처음에는 q.options만 보이고, 더 보기를 누르면 q.more_options를 같은 토글 방식으로 펼친다
+    const moreOpts = Array.isArray(q.more_options) ? q.more_options.filter((o) => typeof o === 'string' && o && q.options.indexOf(o) < 0) : [];
+    if (moreOpts.length) {
+      const moreBtn = document.createElement('button');
+      moreBtn.type = 'button';
+      moreBtn.textContent = '더 보기';
+      moreBtn.setAttribute('aria-label', '선택지 더 보기');
+      moreBtn.setAttribute('aria-expanded', 'false');
+      moreBtn.onclick = () => {
+        for (const opt of moreOpts) choicesEl.appendChild(makeMultiBtn(opt));
+        moreBtn.remove();
+      };
+      choicesEl.appendChild(moreBtn);
+    }
+    const extraWrap = document.createElement('div');
+    extraWrap.id = 'choiceExtraWrap';
+    // 작은 화면(360px)에서도 가로로 넘치지 않게 입력칸은 세로로 쌓는다
+    extraWrap.style.cssText = 'margin-top:8px;display:flex;flex-direction:column;gap:8px;';
+    // 목록에 없는 것 추가 입력칸
+    const extraLabel = document.createElement('label');
+    extraLabel.setAttribute('for', 'choiceExtra');
+    extraLabel.textContent = '+ 목록에 없는 것 추가';
+    extraLabel.style.cssText = 'font-size:0.8125rem;color:var(--text-muted);';
+    extraWrap.appendChild(extraLabel);
+    const extra = document.createElement('input');
+    extra.id = 'choiceExtra';
+    extra.type = 'text';
+    extra.placeholder = '예: 바비큐, 테라스석';
+    extra.setAttribute('aria-label', '목록에 없는 항목 추가');
+    extra.autocomplete = 'off';
+    extra.maxLength = 200;
+    extra.style.cssText = 'width:100%;max-width:100%;min-width:0;min-height:44px;padding:0 12px;font-size:0.9375rem;border:1px solid var(--border);border-radius:8px;';
+    extraWrap.appendChild(extra);
+    // 덧붙일 말 입력칸
+    const noteLabel = document.createElement('label');
+    noteLabel.setAttribute('for', 'choiceNote');
+    noteLabel.textContent = '덧붙일 말';
+    noteLabel.style.cssText = 'font-size:0.8125rem;color:var(--text-muted);';
+    extraWrap.appendChild(noteLabel);
+    const noteInput = document.createElement('input');
+    noteInput.id = 'choiceNote';
+    noteInput.type = 'text';
+    noteInput.placeholder = '예: 소형견만 가능해요';
+    noteInput.setAttribute('aria-label', '덧붙일 말');
+    noteInput.autocomplete = 'off';
+    noteInput.maxLength = 200;
+    noteInput.style.cssText = 'width:100%;max-width:100%;min-width:0;min-height:44px;padding:0 12px;font-size:0.9375rem;border:1px solid var(--border);border-radius:8px;';
+    extraWrap.appendChild(noteInput);
+    choiceBar.appendChild(extraWrap);
+    const done = document.createElement('button');
+    done.type = 'button';
+    done.className = 'done';
+    done.textContent = '선택 완료';
+    done.style.cssText = 'min-height:44px;border:1px solid var(--border);background:var(--accent-dark);color:#fff;border-radius:999px;padding:0 16px;font-size:0.9375rem;cursor:pointer;white-space:nowrap;';
+    const submitMulti = () => {
+      // 화면에서 서버로 보내는 여러 개 고르기 답 형식: 고른 항목 + 덧붙일 말 + 목록 밖 추가 항목
+      const base = picked.size ? [...picked].join(', ') : '';
+      const note = noteInput.value.trim();
+      const added = extra.value.split(',').map((s) => s.trim()).filter(Boolean).join(', ');
+      let msg = '없음';
+      if (base && note && added) msg = base + ' — ' + note + ' / 추가: ' + added;
+      else if (base && note) msg = base + ' — ' + note;
+      else if (base && added) msg = base + ' / 추가: ' + added;
+      else if (base) msg = base;
+      else if (note && added) msg = '— ' + note + ' / 추가: ' + added;
+      else if (note) msg = '— ' + note;  // 고른 것 없이 덧붙일 말만: 앞의 "—"로 추가 항목과 구분한다
+      else if (added) msg = '추가: ' + added;
+      choiceBar.classList.remove('show'); sendRoomMessage(msg);
+    };
+    done.onclick = submitMulti;
+    extra.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMulti(); });
+    noteInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitMulti(); });
+    extraWrap.appendChild(done);
+  } else {
+    const direct = document.createElement('button');
+    direct.type = 'button';
+    direct.textContent = '직접 적기';
+    direct.setAttribute('aria-label', '직접 적기');
+    direct.onclick = () => {
+      const inp = document.getElementById('input');
+      if (inp) inp.focus();
+    };
+    choicesEl.appendChild(direct);
+  }
+  choiceBar.classList.add('show');
+}
+
+function updateActionBars(state, votes, fillFirst) {
+  // 방 상태를 기억해 updateProgress가 요약 뒤 윗줄 바를 숨기게 한다
+  lastRoomState = state || '';
+  if (state && state !== 'GREETING' && state !== 'GATHERING') {
+    const wrap = document.getElementById('progressWrap');
+    if (wrap) wrap.hidden = true;
+  }
+  // 빈칸이 남았으면 동의 바를 숨긴다 (먼저 채우고 동의)
+  voteBar.classList.toggle('show', state === 'AWAIT_APPROVAL' && !fillFirst && lastAiStatus !== 'GENERATING');
+  // D52: 공유방은 전원 동의해야 다음 단계. 몇 명이 동의했는지 보여 준다.
+  const total = roomMembers.length;
+  const agreed = Object.values(votes || {}).filter(v => v === 'approve').length;
+  const mine = roomMe && votes ? votes[roomMe.member_handle] : null;
+  document.getElementById('voteText').textContent = total > 1
+    ? `모두 동의하면 다음 단계로 넘어가요 · 동의 ${agreed}/${total}`
+    : '이 내용으로 시안을 만들까요?';
+  const yes = document.getElementById('voteYesBtn');
+  yes.disabled = mine === 'approve';
+  yes.textContent = mine === 'approve' ? '✓ 동의함' : '👍 동의';
+  proceedBar.classList.toggle('show', state === 'QUOTED');
+}
+
+// 4초 간격 setInterval 폴링과, 메시지 전송 직후 수동 호출(sendRoomMessage → pollMessages)이
+// 동시에 겹치면 둘 다 같은 lastSeq 값으로 조회를 시작해 같은 메시지를 중복 렌더링하는
+// 경쟁 상태(race condition)가 생긴다 — 실측 재현됨("자신이 보낸 메시지가 자신에게 중복").
+// 진행 중인 호출이 있으면 새 호출은 건너뛰어(no-op) 한 번에 하나만 실행되게 한다.
+let pollInFlight = false;
+async function pollMessages() {
+  if (!roomId || pollInFlight) return;
+  pollInFlight = true;
+  try {
+    const res = await fetch(`/room/${roomId}/messages?since=${lastSeq}`, { headers: { 'X-Member-Id': memberId } });
+    if (!res.ok) return;
+    const data = await res.json();
+    const freshBatch = !historyDone;
+    for (const m of data.messages) {
+      addMessage(m, !freshBatch);
+      if (m.kind === 'ai_reply' && findDesignId(m.text)) hasDesign = true;
+    }
+    if (!historyDone) {
+      historyDone = true;
+      try { window.__agtHistoryDone = true; } catch (e) { /* 무시 */ }
+      // 들어오자마자 마지막 AI 답(없고 안내를 봤으면 첫 안내 글)을 한 번 읽는다
+      try {
+        if (typeof window.speakOnEnter === 'function') {
+          let lastAi = null;
+          for (let i = data.messages.length - 1; i >= 0; i--) {
+            const dm = data.messages[i];
+            if (dm && dm.kind === 'ai_reply' && dm.text) { lastAi = dm.text; break; }
+          }
+          if (!lastAi && onboardingShown) lastAi = ONBOARDING_TEXT;
+          if (lastAi) window.speakOnEnter(lastAi);
+        }
+      } catch (e) { /* 입장 읽기는 실패해도 목록 유지 */ }
+    }
+    if (data.messages.length) lastSeq += data.messages.length;
+    updateStatus(data.ai_status);
+    renderChoices(data.question || null);
+    if (Array.isArray(data.members)) roomMembers = data.members;
+    if (data.me) roomMe = data.me;
+    updateActionBars(data.state, data.votes, data.fill_first);
+    document.getElementById('talkModeBar').hidden = roomMembers.length < 2;
+    if (roomMembers.length < 2 && !sendToAi) setTalkMode(true);
+    if (data.design_url) hasDesign = true;
+    memberCountEl.textContent = roomMembers.length ? `${roomMembers.length}명 참여 중` : '';
+    memberCountEl.setAttribute('aria-label', roomMembers.length ? `참여자 목록 열기, ${roomMembers.length}명 참여 중` : '참여자 목록 열기');
+    renderMembers();
+    // 전화로 답하기 버튼(callbot.js)이 참여자·방장·단계를 보고 보이고 숨긴다
+    try { window.dispatchEvent(new CustomEvent('agt:room', { detail: { roomId, members: roomMembers, me: roomMe, state: data.state } })); } catch (e) { /* 무시 */ }
+    updateShareUI();
+    updateOwnerTools();
+    // 초대 목록·카톡 상태는 폴링마다 부르지 않고 방장 확인 뒤 한 번만 조회한다.
+    if (isOwner() && !invitesUnsupported && !invitesLoaded) {
+      invitesLoaded = true;
+      refreshInvites();
+    }
+    if (isOwner() && !notifyUnsupported && !notifyChecked) {
+      notifyChecked = true;
+      checkNotify();
+    }
+    // 예약 현재 상태는 들어올 때 한 번만 조회한다. 실패는 조용히 둔다.
+    if (!bookingStatesLoaded && isBookingOwner()) {
+      bookingStatesLoaded = true;
+      refreshBookingStates();
+    }
+  } finally {
+    pollInFlight = false;
+  }
+}
+
+async function sendRoomMessage(text, toAi = true) {
+  // 보내거나 고르는 순간 읽던 소리를 바로 끊는다.
+  try { if (typeof window.stopAllSpeech === 'function') window.stopAllSpeech(); } catch (e) { /* 무시 */ }
+  try { if (typeof window.cancelHandsfreeListen === 'function') window.cancelHandsfreeListen(); } catch (e) { /* 무시 */ }
+  try { if (typeof window.unlockSpeech === 'function') window.unlockSpeech(); } catch (e) { /* 무시 */ }
+  // 첫 입장 메시지에만 주소창 invite 값을 함께 보낸다 (계약 §3).
+  const body = { member_id: memberId, nickname, message: text };
+  if (!toAi) body.to_ai = false;
+  if (!inviteAttached && inviteToken) body.invite = inviteToken;
+  const res = await fetch(`/room/${roomId}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+    body: JSON.stringify(body),
+  });
+  inviteAttached = true;
+  // 입장·전송 거절은 쉬운 말로 안내한다 (계약 §3).
+  if (res.status === 403 || res.status === 423) {
+    let detail = '';
+    try { detail = (await res.clone().json()).detail || ''; } catch (e) { /* 본문이 없어도 기본 안내로 */ }
+    let msg;
+    if (res.status === 423 || detail === 'room closed') {
+      msg = '방이 닫혔어요. 방장이 메시지를 보내면 다시 열려요.';
+    } else if (detail === 'invite required') {
+      msg = '초대 링크가 필요해요. 방장에게 초대 링크를 받아 주세요.';
+    } else if (detail === 'invite invalid') {
+      msg = '초대 링크가 만료됐거나 폐기됐어요. 방장에게 새 링크를 요청해 주세요.';
+    } else {
+      msg = '방이 꽉 찼어요(최대 10명). 방장에게 문의해 주세요.';
+    }
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = msg;
+    return null;
+  }
+  await pollMessages();
+  return res.ok ? res.json() : null;
+}
+
+// D52: 공유방에서 '우리끼리'로 보내면 AI가 읽지 않는다. 선택지·투표 버튼은 늘 AI에게 간다.
+let sendToAi = true;
+function setTalkMode(toAi) {
+  sendToAi = toAi;
+  document.getElementById('talkAiBtn').setAttribute('aria-pressed', String(toAi));
+  document.getElementById('talkUsBtn').setAttribute('aria-pressed', String(!toAi));
+  document.getElementById('input').placeholder = toAi ? '메시지를 입력하세요...' : '우리끼리 이야기 (AI는 읽지 않아요)';
+}
+
+function send() {
+  const input = document.getElementById('input');
+  const text = input.value.trim();
+  if (!text) return;
+  // 고칠 곳을 골랐으면 한 문장으로 합쳐서 보낸다.
+  if (fixTarget) {
+    const msg = compose(fixTarget, fixPart, text);
+    if (!msg) return;
+    input.value = '';
+    const toAi = sendToAi;
+    clearFix();
+    sendRoomMessage(msg, toAi);
+    return;
+  }
+  input.value = '';
+  sendRoomMessage(text, sendToAi);
+}
+
+function vote(choice) { sendRoomMessage(choice); }
+function proceed(choice) { sendRoomMessage(choice); }
+
+// 고칠 곳 태그 (계약서 §2~§4.1). 목록 1개만 새로 받고 보내기는 기존 고치기 경로로 합친다.
+let fixTarget = null;
+let fixPart = null;
+let fixTagsActive = false;
+let fixDefaultPlaceholder = '';
+// 한 문장 만들기 (채팅방·빌더 같은 규칙)
+function compose(target, part, text) {
+  const t = (text || '').trim();
+  if (!t) return '';
+  const label = (target && target.label || '').trim();
+  // 새 항목: "{label}에 {text} 추가"
+  if (part && part.isNew) {
+    if (label && t.indexOf(label) === 0) return t;
+    return label ? label + '에 ' + t + ' 추가' : t;
+  }
+  // 항목 고치기: "{part.key} {text}"
+  if (part && part.key) {
+    const pk = String(part.key).trim();
+    if (pk && t.indexOf(pk) === 0) return t;
+    if (label && t.indexOf(label) === 0) return t;
+    return pk ? pk + ' ' + t : t;
+  }
+  // 일반 칸: "{label} {text}" (이름 중복 방지)
+  if (label && t.indexOf(label) === 0) return t;
+  return label ? label + ' ' + t : t;
+}
+// 칩 한 개 만들기 (기존 #choiceBar 모양 그대로)
+function makeFixChip(label, aria, onclick) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.textContent = label;
+  if (aria) b.setAttribute('aria-label', aria);
+  b.onclick = onclick;
+  return b;
+}
+function closeFixChips() {
+  fixTagsActive = false;
+  choiceBar.classList.remove('show');
+}
+function clearFix() {
+  fixTarget = null;
+  fixPart = null;
+  fixTagsActive = false;
+  const bar = document.getElementById('fixBar');
+  if (bar) bar.hidden = true;
+  const inp = document.getElementById('input');
+  if (inp) {
+    if (fixDefaultPlaceholder) inp.placeholder = fixDefaultPlaceholder;
+    updateFixSendBtn();
+  }
+  choiceBar.classList.remove('show');
+}
+// 고른 곳 표시 + 예시 글 + 보내기 단추 상태
+function enterFixInput(target, part) {
+  fixTarget = target;
+  fixPart = part || null;
+  fixTagsActive = false;
+  choiceBar.classList.remove('show');
+  const bar = document.getElementById('fixBar');
+  const txt = document.getElementById('fixText');
+  const inp = document.getElementById('input');
+  if (!bar || !txt || !inp) return;
+  let name = target.label || '';
+  if (part && part.isNew) name = (target.label || '') + ' 새 항목';
+  else if (part && (part.label || part.key)) name = part.label || part.key;
+  txt.textContent = '고칠 곳: ' + name;
+  if (!fixDefaultPlaceholder) fixDefaultPlaceholder = inp.placeholder || '메시지를 입력하세요...';
+  let hint = '';
+  if (part && !part.isNew) hint = part.label || part.key || '';
+  else if (target.current) hint = target.current;
+  inp.placeholder = hint || fixDefaultPlaceholder;
+  bar.hidden = false;
+  updateFixSendBtn();
+  inp.focus();
+}
+// 빈 입력은 보내지 않는다 (보내기 단추 꺼짐)
+function updateFixSendBtn() {
+  const inp = document.getElementById('input');
+  const btn = document.getElementById('sendBtn');
+  if (!inp || !btn) return;
+  if (!fixTarget) { btn.disabled = false; return; }
+  btn.disabled = !inp.value.trim();
+}
+// 항목 칩 + 새 항목 칩
+function renderFixParts(target) {
+  const parts = (target && target.parts) || [];
+  choicesEl.innerHTML = '';
+  const oldExtra = document.getElementById('choiceExtraWrap');
+  if (oldExtra) oldExtra.remove();
+  choiceHint.textContent = '고칠 항목을 골라 주세요';
+  for (const p of parts) {
+    const b = makeFixChip(p.label || p.key, (p.label || p.key) + ' 고치기', () => enterFixInput(target, p));
+    choicesEl.appendChild(b);
+  }
+  if (target.key === 'items') {
+    choicesEl.appendChild(makeFixChip('+ 새 항목', '새 항목 추가하기', () => enterFixInput(target, { isNew: true })));
+  }
+  choicesEl.appendChild(makeFixChip('직접 말하기', '직접 말하기', () => { clearFix(); vote('거절'); }));
+  choiceBar.classList.add('show');
+  fixTagsActive = true;
+}
+// 고칠 곳 칩 그리기 (끝에 직접 말하기)
+function renderFixTargets(targets) {
+  choicesEl.innerHTML = '';
+  const oldExtra = document.getElementById('choiceExtraWrap');
+  if (oldExtra) oldExtra.remove();
+  choiceHint.textContent = '고칠 곳을 골라 주세요';
+  for (const t of targets) {
+    const b = makeFixChip(t.label, t.label + ' 고치기', () => selectFixTarget(t));
+    choicesEl.appendChild(b);
+  }
+  choicesEl.appendChild(makeFixChip('직접 말하기', '직접 말하기', () => { clearFix(); vote('거절'); }));
+  choiceBar.classList.add('show');
+  fixTagsActive = true;
+}
+// 칩 하나 고르기 (사진은 올리기 단추와 같게)
+function selectFixTarget(t) {
+  if (!t) return;
+  if (t.key === 'photo') {
+    clearFix();
+    const btn = document.getElementById('photoBtn');
+    if (btn) btn.click();
+    return;
+  }
+  const parts = (t && t.parts) || [];
+  if (parts.length) { renderFixParts(t); return; }
+  enterFixInput(t, null);
+}
+// "고칠 게 있어요" → 목록을 받아 칩으로. 실패하면 예전처럼 거절로 간다.
+async function openFixTags() {
+  if (!roomId) { vote('거절'); return; }
+  try {
+    const res = await fetch('/api/rooms/' + encodeURIComponent(roomId) + '/fix-targets', { headers: { 'X-Member-Id': memberId } });
+    if (!res.ok) { vote('거절'); return; }
+    const data = await res.json();
+    const targets = (data && data.targets) || [];
+    renderFixTargets(targets);
+  } catch (e) { vote('거절'); }
+}
+
+function shareInviteUrl(absUrl) {
+  if (!window.Kakao || !Kakao.isInitialized()) {
+    // 초대 대화상자가 열려 있으면 그 안 안내에, 아니면 입력창 아래 안내에 남긴다.
+    const box = document.getElementById('inviteDialogWrap');
+    const inline = document.getElementById('inviteMsg');
+    if (inline && box && !box.hidden) {
+      inline.textContent = '카카오 SDK 로딩에 실패했어요. 링크를 복사해 공유해 주세요.';
+      return;
+    }
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = '카카오 SDK 로딩에 실패했어요. 방 주소를 복사해 공유해 주세요.';
+    return;
+  }
+  // 클릭 안에서 바로 호출해야 팝업이 막히지 않는다. 실패하면 링크 복사로 넘긴다.
+  try {
+    Kakao.Share.sendDefault({
+      objectType: 'feed',
+      content: {
+        title: '한마디 요구사항 채팅방 초대',
+        description: '함께 요구사항을 정리해봐요! AI가 시안까지 만들어 드려요.',
+        imageUrl: 'https://placehold.co/600x400?text=Hanmadi',
+        link: { mobileWebUrl: absUrl, webUrl: absUrl },
+      },
+      buttons: [{ title: '방 입장하기', link: { mobileWebUrl: absUrl, webUrl: absUrl } }],
+    });
+  } catch (e) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(absUrl).catch(() => {});
+      }
+    } catch (ignored) { /* 복사는 안 돼도 안내는 남긴다 */ }
+    const box = document.getElementById('inviteDialogWrap');
+    const inline = document.getElementById('inviteMsg');
+    if (inline && box && !box.hidden) {
+      inline.textContent = '카카오톡 공유 창을 열지 못했어요. 링크를 복사했어요. 카톡 대화방에 붙여 넣어 주세요.';
+      return;
+    }
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = '카카오톡 공유 창을 열지 못했어요. 링크를 복사했어요. 카톡 대화방에 붙여 넣어 주세요.';
+  }
+}
+
+function shareInvite() {
+  // 클릭 안에서 바로 공유해야 팝업이 막히지 않아서 방 주소만 바로 공유한다.
+  const url = new URL(location.href);
+  url.search = `?room=${roomId}`;
+  shareInviteUrl(url.href);
+}
+
+// 내가 방장인지 (계약 §1 me. 서버가 아직 안 주면 방장 기능을 숨긴다).
+function isOwner() {
+  return !!(roomMe && roomMe.is_owner);
+}
+
+// 참여자 목록 그리기. 서버·사용자 글은 textContent로만 넣는다.
+function renderMembers() {
+  const list = document.getElementById('memberList');
+  if (!list) return;
+  list.replaceChildren();
+  const title = document.getElementById('memberPanelTitle');
+  if (title) title.textContent = roomMembers.length ? `참여자 ${roomMembers.length}명` : '참여자';
+  for (let i = 0; i < roomMembers.length; i++) {
+    const m = roomMembers[i];
+    const li = document.createElement('li');
+    const nick = document.createElement('span');
+    nick.className = 'nick';
+    nick.textContent = m.nickname || '익명';
+    li.appendChild(nick);
+    // 서버가 is_owner를 아직 안 주면 가장 먼저 들어온 사람이 방장이다.
+    const owner = typeof m.is_owner === 'boolean' ? m.is_owner : i === 0;
+    if (owner) {
+      const badge = document.createElement('span');
+      badge.className = 'owner-badge';
+      badge.textContent = '방장';
+      badge.style.cssText = 'font-size:0.6875rem;background:var(--accent-dark);color:#fff;padding:2px 8px;border-radius:999px;';
+      li.appendChild(badge);
+    }
+    // 내가 방장이면 다른 참여자에게 방장을 넘길 수 있다.
+    if (isOwner() && !ownerApiUnsupported && m.member_handle && (!roomMe || m.member_handle !== roomMe.member_handle)) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'transferBtn';
+      btn.textContent = '방장 넘기기';
+      btn.setAttribute('aria-label', (m.nickname || '익명') + '에게 방장 넘기기');
+      btn.onclick = () => openOwnerDialog(m);
+      li.appendChild(btn);
+    }
+    list.appendChild(li);
+  }
+  const leaveBtn = document.getElementById('leaveBtn');
+  if (leaveBtn) leaveBtn.hidden = leaveUnsupported;
+  const moreLeaveBtn = document.getElementById('moreLeaveBtn');
+  if (moreLeaveBtn) moreLeaveBtn.hidden = leaveUnsupported;
+}
+
+function openMemberPanel() {
+  const wrap = document.getElementById('memberPanelWrap');
+  if (!wrap) return;
+  renderMembers();
+  wrap.hidden = false;
+  memberCountEl.setAttribute('aria-expanded', 'true');
+  const closeBtn = document.getElementById('memberPanelClose');
+  if (closeBtn) closeBtn.focus();
+}
+
+function closeMemberPanel() {
+  const wrap = document.getElementById('memberPanelWrap');
+  if (!wrap) return;
+  wrap.hidden = true;
+  memberCountEl.setAttribute('aria-expanded', 'false');
+  memberCountEl.focus();
+}
+
+// 화면 안 대화상자로 방장 넘기기 확인 (window.confirm 대신).
+let ownerTransferTarget = null;
+let ownerTransferReturnFocus = null;
+function openOwnerDialog(m) {
+  ownerTransferTarget = m;
+  ownerTransferReturnFocus = document.activeElement;
+  const wrap = document.getElementById('ownerDialogWrap');
+  const text = document.getElementById('ownerDialogText');
+  if (!wrap || !text) return;
+  text.textContent = (m.nickname || '익명') + '님에게 방장을 넘길까요? 넘기면 초대·폐기는 새 방장이 맡아요.';
+  wrap.hidden = false;
+  document.getElementById('ownerConfirmBtn').focus();
+}
+
+function closeOwnerDialog() {
+  const wrap = document.getElementById('ownerDialogWrap');
+  if (wrap) wrap.hidden = true;
+  ownerTransferTarget = null;
+  if (ownerTransferReturnFocus && ownerTransferReturnFocus.focus) ownerTransferReturnFocus.focus();
+}
+
+async function confirmOwnerTransfer() {
+  if (!ownerTransferTarget) { closeOwnerDialog(); return; }
+  try {
+    const res = await fetch(`/room/${roomId}/owner`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ to: ownerTransferTarget.member_handle }),
+    });
+    if (res.status === 404) {
+      ownerApiUnsupported = true;
+      closeOwnerDialog();
+      renderMembers();
+      return;
+    }
+    if (res.status === 403) {
+      const text = document.getElementById('ownerDialogText');
+      if (text) text.textContent = '방장만 넘길 수 있어요.';
+      return;
+    }
+    if (!res.ok) {
+      const text = document.getElementById('ownerDialogText');
+      if (text) text.textContent = '지금은 넘길 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    closeOwnerDialog();
+    await pollMessages();
+  } catch (e) {
+    const text = document.getElementById('ownerDialogText');
+    if (text) text.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+
+async function leaveRoom() {
+  try {
+    const res = await fetch(`/room/${roomId}/leave`, {
+      method: 'POST',
+      headers: { 'X-Member-Id': memberId },
+    });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 버튼을 숨긴다.
+      leaveUnsupported = true;
+      renderMembers();
+      return;
+    }
+    if (!res.ok) return;
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    const wrap = document.getElementById('memberPanelWrap');
+    if (wrap) wrap.hidden = true;
+    let note = document.getElementById('roomNotice');
+    if (!note) {
+      note = document.createElement('p');
+      note.id = 'roomNotice';
+      note.setAttribute('role', 'status');
+      note.style.cssText = 'margin:6px 16px;font-size:0.8125rem;color:var(--text-muted);';
+      document.getElementById('row').after(note);
+    }
+    note.textContent = '방에서 나갔어요.';
+  } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
+}
+
+// 초대 도구막대 보이기·숨기기. 방장이 아니면 초대 버튼 대신 더보기 안 안내만 보여준다.
+function updateShareUI() {
+  const owner = isOwner();
+  const openBtn = document.getElementById('inviteOpenBtn');
+  const notice = document.getElementById('inviteNotice');
+  if (!openBtn || !notice) return;
+  if (!roomMe) {
+    openBtn.hidden = false;
+    notice.hidden = true;
+    return;
+  }
+  if (owner) {
+    openBtn.hidden = false;
+    notice.hidden = true;
+  } else {
+    openBtn.hidden = true;
+    notice.hidden = false;
+  }
+}
+
+function inviteExpiryText(inv) {
+  if (!inv.expires_at) return '무기한';
+  const d = new Date(inv.expires_at);
+  if (isNaN(d.getTime())) return '기간 있음';
+  return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일까지';
+}
+
+async function refreshInvites() {
+  if (!isOwner() || invitesUnsupported) return;
+  const list = document.getElementById('inviteList');
+  if (!list) return;
+  try {
+    const res = await fetch(`/room/${roomId}/invites`, { headers: { 'X-Member-Id': memberId } });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 숨긴다.
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    list.replaceChildren();
+    for (const inv of data.invites || []) {
+      if (inv.revoked) continue;
+      const li = document.createElement('li');
+      const info = document.createElement('span');
+      info.className = 'info';
+      const uses = typeof inv.uses === 'number' ? ' · ' + inv.uses + '명 입장' : '';
+      info.textContent = inviteExpiryText(inv) + uses;
+      li.appendChild(info);
+      const copyBtn = document.createElement('button');
+      copyBtn.type = 'button';
+      copyBtn.textContent = '복사';
+      copyBtn.setAttribute('aria-label', '초대 링크 복사');
+      copyBtn.onclick = () => copyInviteLink(inv);
+      li.appendChild(copyBtn);
+      const shareBtn = document.createElement('button');
+      shareBtn.type = 'button';
+      shareBtn.textContent = '카톡 공유';
+      shareBtn.setAttribute('aria-label', '초대 링크 카톡 공유');
+      shareBtn.onclick = () => shareInviteLink(inv);
+      li.appendChild(shareBtn);
+      const revokeBtn = document.createElement('button');
+      revokeBtn.type = 'button';
+      revokeBtn.textContent = '폐기';
+      revokeBtn.setAttribute('aria-label', '초대 링크 폐기');
+      revokeBtn.onclick = () => revokeInvite(inv.invite_id);
+      li.appendChild(revokeBtn);
+      list.appendChild(li);
+    }
+  } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
+}
+
+// 목록에는 토큰 원문이 없어 방금 발급한 링크만 바로 공유·복사한다.
+let lastIssuedInviteUrl = '';
+// 대화상자를 열 때 미리 발급해 둬서 첫 공유 클릭이 바로 카톡을 부르게 한다.
+let inviteIssuing = false;
+async function ensureInviteUrl() {
+  if (lastIssuedInviteUrl || inviteIssuing || invitesUnsupported || !roomId) return;
+  inviteIssuing = true;
+  try {
+    const res = await fetch(`/room/${roomId}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ days: 7 }),
+    });
+    if (res.status === 404) {
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) {
+      const msg = document.getElementById('inviteMsg');
+      if (msg) msg.textContent = '지금은 초대 링크를 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    const data = await res.json();
+    lastIssuedInviteUrl = new URL(data.url, location.href).href;
+    refreshInvites();
+  } catch (e) {
+    const msg = document.getElementById('inviteMsg');
+    if (msg) msg.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  } finally {
+    inviteIssuing = false;
+  }
+}
+async function createInvite() {
+  const msg = document.getElementById('inviteMsg');
+  const daysEl = document.getElementById('inviteDays');
+  const days = daysEl ? Number(daysEl.value) : 7;
+  try {
+    const res = await fetch(`/room/${roomId}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ days }),
+    });
+    if (res.status === 404) {
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) {
+      if (msg) msg.textContent = '지금은 초대 링크를 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    const data = await res.json();
+    lastIssuedInviteUrl = new URL(data.url, location.href).href;
+    // 카톡 공유는 버튼 클릭 안에서 바로 부르게 하고 여기서는 링크만 만든다.
+    if (msg) msg.textContent = '초대 링크를 만들었어요. \'카카오톡 공유\'를 누르면 카톡으로 보낼 수 있어요.';
+    try {
+      await navigator.clipboard.writeText(lastIssuedInviteUrl);
+      if (msg) msg.textContent = '초대 링크를 복사했어요. \'카카오톡 공유\'를 누르거나 카톡에 붙여 넣어 주세요.';
+    } catch (e) { /* 클립보드 실패면 안내만 둔다 */ }
+    refreshInvites();
+  } catch (e) {
+    if (msg) msg.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+
+async function copyInviteLink(inv) {
+  const msg = document.getElementById('inviteMsg');
+  // 목록 조회에는 주소가 없으므로 방금 발급한 링크만 복사한다.
+  if (!lastIssuedInviteUrl) {
+    if (msg) msg.textContent = '방금 발급한 링크만 복사할 수 있어요. 초대하기를 눌러 새로 발급해 주세요.';
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(lastIssuedInviteUrl);
+    if (msg) msg.textContent = '초대 링크를 복사했어요.';
+  } catch (e) {
+    if (msg) msg.textContent = '복사에 실패했어요. 초대하기를 눌러 새 링크로 공유해 주세요.';
+  }
+}
+
+function shareInviteLink(inv) {
+  if (lastIssuedInviteUrl) {
+    shareInviteUrl(lastIssuedInviteUrl);
+    return;
+  }
+  const msg = document.getElementById('inviteMsg');
+  if (inviteIssuing) {
+    if (msg) msg.textContent = '링크를 만드는 중이에요. 잠시 뒤 다시 눌러 주세요.';
+    return;
+  }
+  if (msg) msg.textContent = '링크를 만드는 중이에요. 잠시 뒤 다시 눌러 주세요.';
+  ensureInviteUrl();
+}
+
+async function revokeInvite(inviteId) {
+  const msg = document.getElementById('inviteMsg');
+  try {
+    const res = await fetch(`/room/${roomId}/invites/${inviteId}`, {
+      method: 'DELETE',
+      headers: { 'X-Member-Id': memberId },
+    });
+    if (res.status === 404) {
+      invitesUnsupported = true;
+      updateShareUI();
+      return;
+    }
+    if (!res.ok) {
+      if (msg) msg.textContent = '지금은 폐기할 수 없어요. 잠시 뒤에 다시 시도해 주세요.';
+      return;
+    }
+    if (msg) msg.textContent = '초대 링크를 폐기했어요.';
+    refreshInvites();
+  } catch (e) {
+    if (msg) msg.textContent = '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  }
+}
+
+// 사진 올리기 (계약 §4). 성공하면 폴링으로 photo 메시지가 보인다.
+const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+function setPhotoStatus(text) {
+  const el = document.getElementById('photoStatus');
+  if (!el) return;
+  el.textContent = text || '';
+  el.classList.toggle('show', !!text);
+}
+
+async function uploadPhoto(file, tag) {
+  const btn = document.getElementById('photoBtn');
+  if (!file) return;
+  if (file.size > PHOTO_MAX_BYTES) {
+    setPhotoStatus('사진이 너무 커요. 10MB 이하로 올려 주세요.');
+    return;
+  }
+  setPhotoStatus('사진을 올리는 중…');
+  if (btn) btn.disabled = true;
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    if (typeof tag === 'string' && tag) form.append('tag', tag);
+    const res = await fetch(`/room/${roomId}/photos`, {
+      method: 'POST',
+      headers: { 'X-Member-Id': memberId },
+      body: form,
+    });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 버튼을 숨긴다.
+      if (btn) btn.style.display = 'none';
+      setPhotoStatus('');
+      return;
+    }
+    if (res.status === 413) {
+      setPhotoStatus('사진이 너무 커요. 10MB 이하로 올려 주세요.');
+      return;
+    }
+    if (!res.ok) {
+      setPhotoStatus('지금은 사진을 올릴 수 없어요. 잠시 뒤에 다시 시도해 주세요.');
+      return;
+    }
+    setPhotoStatus('');
+    await pollMessages();
+  } catch (e) {
+    setPhotoStatus('인터넷 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+    const input = document.getElementById('photoInput');
+    if (input) input.value = '';
+  }
+}
+
+// 사진 태그 고르기: 2개 이상일 때만 파일 보내기 전에 어느 사진인지 묻는다.
+function clearPhotoTagChooser() {
+  const old = document.getElementById('photoTagChooser');
+  if (old) old.remove();
+}
+function showPhotoTagChooser(file, tags) {
+  clearPhotoTagChooser();
+  const row = document.getElementById('row');
+  if (!row) { uploadPhoto(file); return; }
+  const box = document.createElement('div');
+  box.id = 'photoTagChooser';
+  box.setAttribute('role', 'group');
+  box.setAttribute('aria-label', '어느 사진인가요?');
+  const q = document.createElement('p');
+  q.textContent = '어느 사진인가요?';
+  box.appendChild(q);
+  const btns = document.createElement('div');
+  btns.className = 'photo-tag-btns';
+  for (const t of tags) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = t.label;
+    b.onclick = () => { clearPhotoTagChooser(); uploadPhoto(file, t.tag); };
+    btns.appendChild(b);
+  }
+  const none = document.createElement('button');
+  none.type = 'button';
+  none.textContent = '고르지 않음';
+  none.onclick = () => { clearPhotoTagChooser(); uploadPhoto(file); };
+  btns.appendChild(none);
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.textContent = '취소';
+  cancel.onclick = () => {
+    clearPhotoTagChooser();
+    const inp = document.getElementById('photoInput');
+    if (inp) inp.value = '';
+  };
+  btns.appendChild(cancel);
+  box.appendChild(btns);
+  row.before(box);
+  const first = btns.querySelector('button');
+  if (first) first.focus();
+}
+async function maybeAskPhotoTag(file) {
+  let tags = null;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/card`, { headers: { 'X-Member-Id': memberId } });
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.photo_tags)) tags = data.photo_tags;
+    }
+  } catch (e) { /* 조회 실패면 태그 없이 바로 올린다 */ }
+  const valid = Array.isArray(tags) ? tags.filter((t) => t && typeof t.label === 'string' && t.label) : [];
+  if (valid.length >= 2) showPhotoTagChooser(file, valid);
+  else uploadPhoto(file);
+}
+
+// 방장 도구: 더보기 안에서 카톡 알림·직접 고치기·나가기 (계약 §5·§6). 방장에게만 보인다.
+function updateOwnerTools() {
+  updateEditSiteBtn();
+  const talkBtn = document.getElementById('talkNotifyBtn');
+  const editor = document.getElementById('editorLink');
+  const moreLeave = document.getElementById('moreLeaveBtn');
+  const aiBtn = document.getElementById('aiImageBtn');
+  if (!talkBtn || !editor) return;
+  const ownerLink = document.getElementById('ownerLink');
+  if (ownerLink) ownerLink.hidden = !(isOwner() && sitePublished);  // 공개한 방장만 예약 관리 (D55 B4)
+  if (!isOwner()) {
+    talkBtn.hidden = true;
+    editor.hidden = true;
+    if (aiBtn) aiBtn.hidden = true;
+    if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
+    refreshAddrBtns();
+    return;
+  }
+  if (aiBtn) aiBtn.hidden = false;
+  talkBtn.hidden = !!notifyUnsupported;
+  if (hasDesign) {
+    editor.hidden = false;
+    editor.href = '/editor?room=' + encodeURIComponent(roomId);
+  } else {
+    editor.hidden = true;
+  }
+  if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
+  refreshAddrBtns();
+}
+
+async function checkNotify() {
+  const talkBtn = document.getElementById('talkNotifyBtn');
+  if (!talkBtn) return;
+  try {
+    const res = await fetch(`/api/rooms/${roomId}/notify`, { headers: { 'X-Member-Id': memberId } });
+    if (res.status === 404) {
+      // 서버가 아직 없으면 조용히 숨긴다.
+      notifyUnsupported = true;
+      talkBtn.hidden = true;
+      updateOwnerTools();
+      return;
+    }
+    if (!res.ok) return;
+    const data = await res.json();
+    const on = !!(data && data.kakao && data.kakao.owner_linked);
+    // P1: 실제 수신 실측 전이라 '테스트 중'을 함께 밝힌다 (허위 신뢰 방지)
+    talkBtn.textContent = on ? '카톡 알림 켜짐' : '문의를 카톡으로 받기 (테스트 중)';
+    talkBtn.disabled = on;
+  } catch (e) { /* 네트워크 실패면 그대로 둔다 */ }
+}
+
+function startTalkNotify() {
+  const next = '/room.html?room=' + encodeURIComponent(roomId);
+  location.href = '/auth/kakao/start?talk=1&next=' + encodeURIComponent(next);
+}
+
+// 카카오 로그인에서 돌아왔을 때 방을 계정에 한 번만 옮긴다 (계약 §6).
+async function claimRoomOnce() {
+  if (claimTried || !roomId || !memberId) return;
+  claimTried = true;
+  let key = '';
+  try { key = 'agt001_claimed_' + roomId; } catch (e) { return; }
+  try {
+    if (sessionStorage.getItem(key)) return;
+  } catch (e) { /* 저장소를 못 쓰면 한 번만 시도하고 끝낸다 */ }
+  let me = null;
+  try {
+    const res = await fetch('/api/me', { credentials: 'same-origin' });
+    if (res.status === 404) return;
+    if (!res.ok) return;
+    me = await res.json();
+  } catch (e) { return; }
+  if (!me || !me.user) return;
+  const settingsLink = document.getElementById('settingsLink');
+  if (settingsLink) settingsLink.hidden = false;
+  try {
+    await fetch('/api/me/claim', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ room_ids: [roomId] }),
+    });
+  } catch (e) { /* 실패해도 방 사용은 계속된다 */ }
+  try { sessionStorage.setItem(key, '1'); } catch (e) { /* 무시 */ }
+}
+
+async function ensureRoom() {
+  if (roomId) return;
+  const res = await fetch('/room', { method: 'POST' });
+  const data = await res.json();
+  roomId = data.room_id;
+  const url = new URL(location.href);
+  url.searchParams.set('room', roomId);
+  history.replaceState(null, '', url);
+}
+
+function joinRoom() {
+  const input = document.getElementById('nicknameInput');
+  const value = input.value.trim();
+  if (!value) { input.focus(); return; }
+  nickname = value;
+  safeSet('agt001_nickname', nickname);
+  document.getElementById('nicknameOverlay').remove();
+  startRoom();
+}
+
+// 이 기기에서 들어간 방을 기억한다("내 프로젝트" 화면이 읽는다, /projects). 최근 50개까지.
+function rememberRoom(id) {
+  try {
+    const list = JSON.parse(localStorage.getItem('agt001_rooms') || '[]').filter((r) => r !== id);
+    list.unshift(id);
+    localStorage.setItem('agt001_rooms', JSON.stringify(list.slice(0, 50)));
+  } catch (e) { /* 저장소를 못 쓰면 목록만 비어 있다 */ }
+}
+
+async function startRoom() {
+  await ensureRoom();
+  if (!memberId) {
+    memberId = makeMemberId();
+    safeSet('agt001_member_id', memberId);
+  }
+  // 온보딩 안내: 서버에 남기지 않는 프론트 1회성 표시. 정말 새 방일 때만 보여준다.
+  // 참여자가 아니면 기록을 조회할 수 없으므로(ROOM_POLICY.md R-0), 새 방인지는
+  // 입장 응답의 fresh(입장 전 메시지가 하나도 없었는지)로 판단한다.
+  rememberRoom(roomId);
+  const joined = await sendRoomMessage('');
+  claimRoomOnce();
+  if (pending) {
+    // 랜딩에서 적은 내용을 첫 메시지로 보낸다. 사용자가 이미 설명했으므로 안내 메시지는 생략한다.
+    await sendRoomMessage(pending.text);
+  } else if (joined && joined.fresh) {
+    showOnboarding();
+  }
+  pollTimer = setInterval(pollMessages, 4000);
+}
+
+// 새 방 첫 입장 시 1회만 보여주는 온보딩 안내.
+// kind=ai_reply로 렌더링해서 AI가 직접 소개하는 느낌으로 보여준다.
+// 서버 messages 배열에는 저장하지 않는다(프론트 표시 전용이므로 seq/lastSeq와
+// 무관하고, 이후 폴링·투표·진행 등 기존 기능에 영향을 주지 않는다).
+const ONBOARDING_TEXT =
+  '안녕하세요! 저는 웹사이트 제작을 돕는 AI 어시스턴트입니다. 🤖\n\n' +
+  '원하는 걸 편하게 말씀해 보세요. 함께 요구사항을 정리하고, ' +
+  '실제로 열리는 시안 페이지를 만들어 드립니다.\n\n' +
+  '예를 들면 이런 것들이에요:\n' +
+  '• 카페/스터디카페 예약 페이지 (날짜·시간 예약, 메뉴 소개)\n' +
+  '• 회사·가게 소개 랜딩페이지\n' +
+  '• 상품 소개 + 문의 폼 페이지\n\n' +
+  '먼저 만들고 싶은 것을 한 문장으로 적어주세요. (예: "카페 예약 웹사이트 만들고 싶어요")';
+
+function showOnboarding() {
+  onboardingShown = true;
+  addMessage({ kind: 'ai_reply', nickname: 'AI 어시스턴트', text: ONBOARDING_TEXT });
+  // 새 방은 첫 조회 때 읽을 AI 답이 없으므로 안내 글을 입장 읽기로 넘긴다(한 번만 돈다)
+  try { if (typeof window.speakOnEnter === 'function') window.speakOnEnter(ONBOARDING_TEXT); } catch (e) { /* 무시 */ }
+}
+
+document.getElementById('input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+document.getElementById('input').addEventListener('input', updateFixSendBtn);
+document.getElementById('fixCancel').addEventListener('click', () => {
+  clearFix();
+  document.getElementById('input').focus();
+});
+
+// 입력줄 아래 1줄 정리: 초대 대화상자·더보기 펼침 (window.confirm/alert 사용 금지).
+let inviteReturnFocus = null;
+let moreReturnFocus = null;
+function focusablesIn(root) {
+  if (!root) return [];
+  const els = root.querySelectorAll('button, a[href], select, input');
+  const out = [];
+  for (const el of els) {
+    if (el.hidden || el.disabled) continue;
+    try {
+      if (el.getClientRects && el.getClientRects().length === 0) continue;
+    } catch (e) { /* 보이면 둔다 */ }
+    out.push(el);
+  }
+  return out;
+}
+function trapTab(e, root) {
+  if (!e || e.key !== 'Tab' || !root || root.hidden) return;
+  const f = focusablesIn(root);
+  if (!f.length) return;
+  const first = f[0];
+  const last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+}
+function openInviteDialog() {
+  if (invitesUnsupported) { shareInvite(); return; }
+  inviteReturnFocus = document.activeElement;
+  const wrap = document.getElementById('inviteDialogWrap');
+  if (!wrap) return;
+  wrap.hidden = false;
+  refreshInvites();
+  // 첫 공유 클릭이 바로 카톡을 부르게 미리 발급해 둔다 (뒤에서 조용히).
+  if (!lastIssuedInviteUrl) ensureInviteUrl();
+  const sel = document.getElementById('inviteDays');
+  const closeBtn = document.getElementById('inviteDialogClose');
+  const target = sel || closeBtn;
+  if (target) target.focus();
+}
+function closeInviteDialog() {
+  const wrap = document.getElementById('inviteDialogWrap');
+  if (wrap) wrap.hidden = true;
+  if (inviteReturnFocus && inviteReturnFocus.focus) inviteReturnFocus.focus();
+}
+function openMoreSheet() {
+  moreReturnFocus = document.activeElement;
+  const wrap = document.getElementById('moreSheetWrap');
+  if (!wrap) return;
+  relocateWalkie();
+  updateOwnerTools();
+  updateShareUI();
+  wrap.hidden = false;
+  const btn = document.getElementById('moreBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'true');
+  const sheet = document.getElementById('moreSheet');
+  const f = focusablesIn(sheet);
+  if (f.length) f[0].focus();
+  else {
+    const closeBtn = document.getElementById('moreCloseBtn');
+    if (closeBtn) closeBtn.focus();
+  }
+}
+function closeMoreSheet() {
+  const wrap = document.getElementById('moreSheetWrap');
+  if (wrap) wrap.hidden = true;
+  const btn = document.getElementById('moreBtn');
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+  if (moreReturnFocus && moreReturnFocus.focus) moreReturnFocus.focus();
+}
+// voice.js가 입력줄 위에 만드는 무전기·읽어주기 스위치를 더보기 안으로 옮긴다 (fetch 변경 없음).
+function relocateWalkie() {
+  try {
+    const row = document.getElementById('walkieRow');
+    if (row) row.style.display = 'none';
+    const sw = document.getElementById('walkieSwitch');
+    const slot = document.getElementById('walkieSlot');
+    if (sw && slot && sw.parentNode !== slot) slot.appendChild(sw);
+    const ar = document.getElementById('autoreadSwitch');
+    if (ar && slot && ar.parentNode !== slot) slot.appendChild(ar);
+    const hf = document.getElementById('handsfreeSwitch');
+    if (hf && slot && hf.parentNode !== slot) slot.appendChild(hf);
+  } catch (e) { /* 스위치 이동 실패해도 입력은 유지 */ }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', relocateWalkie);
+window.addEventListener('load', relocateWalkie);
+try {
+  const walkieObs = new MutationObserver(() => relocateWalkie());
+  walkieObs.observe(document.documentElement, { childList: true, subtree: true });
+  setTimeout(relocateWalkie, 500);
+  setTimeout(relocateWalkie, 1500);
+} catch (e) { /* 관찰자 실패해도 계속 진행 */ }
+
+// 참여자 패널·초대·사진·방장 도구 연결
+memberCountEl.addEventListener('click', () => {
+  const wrap = document.getElementById('memberPanelWrap');
+  if (wrap && !wrap.hidden) closeMemberPanel();
+  else openMemberPanel();
+});
+document.getElementById('memberPanelClose').addEventListener('click', closeMemberPanel);
+document.getElementById('memberPanelWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'memberPanelWrap') closeMemberPanel();
+});
+document.getElementById('leaveBtn').addEventListener('click', leaveRoom);
+document.getElementById('ownerConfirmBtn').addEventListener('click', confirmOwnerTransfer);
+document.getElementById('ownerCancelBtn').addEventListener('click', closeOwnerDialog);
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const addrWrap = document.getElementById('addrSheetWrap');
+  if (addrWrap && !addrWrap.hidden) { closeAddrSheet(); return; }
+  const chooser = document.getElementById('photoTagChooser');
+  if (chooser) {
+    clearPhotoTagChooser();
+    const inp = document.getElementById('photoInput');
+    if (inp) inp.value = '';
+    return;
+  }
+  const inviteWrap = document.getElementById('inviteDialogWrap');
+  if (inviteWrap && !inviteWrap.hidden) { closeInviteDialog(); return; }
+  const moreWrap = document.getElementById('moreSheetWrap');
+  if (moreWrap && !moreWrap.hidden) { closeMoreSheet(); return; }
+  const designWrap = document.getElementById('designSheetWrap');
+  if (designWrap && !designWrap.hidden) { closeDesignSheet(); return; }
+  const ownerWrap = document.getElementById('ownerDialogWrap');
+  if (ownerWrap && !ownerWrap.hidden) { closeOwnerDialog(); return; }
+  const memberWrap = document.getElementById('memberPanelWrap');
+  if (memberWrap && !memberWrap.hidden) closeMemberPanel();
+});
+document.getElementById('inviteCreateBtn').addEventListener('click', createInvite);
+document.getElementById('inviteOpenBtn').addEventListener('click', openInviteDialog);
+document.getElementById('inviteDialogClose').addEventListener('click', closeInviteDialog);
+document.getElementById('inviteDialogWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'inviteDialogWrap') closeInviteDialog();
+});
+document.getElementById('inviteDialogWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('inviteDialogWrap');
+  trapTab(e, wrap);
+});
+document.getElementById('inviteShareLastBtn').addEventListener('click', () => shareInviteLink());
+document.getElementById('inviteCopyLastBtn').addEventListener('click', () => copyInviteLink());
+document.getElementById('moreBtn').addEventListener('click', () => {
+  const wrap = document.getElementById('moreSheetWrap');
+  if (wrap && !wrap.hidden) closeMoreSheet();
+  else openMoreSheet();
+});
+document.getElementById('moreCloseBtn').addEventListener('click', closeMoreSheet);
+document.getElementById('moreSheetWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'moreSheetWrap') closeMoreSheet();
+});
+document.getElementById('moreSheetWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('moreSheetWrap');
+  trapTab(e, wrap);
+});
+// P0: 시안 바텀시트 닫기 연결 (기존 대화상자들과 같은 규칙: 바깥 누름·Esc·탭 가두기·포커스 복귀)
+document.getElementById('designSheetClose').addEventListener('click', closeDesignSheet);
+document.getElementById('designSheetWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'designSheetWrap') closeDesignSheet();
+});
+document.getElementById('designSheetWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('designSheetWrap');
+  trapTab(e, wrap);
+});
+// 주소 검색 시트 닫기 연결 (바깥 누름·Esc·탭 가두기, 저장 뒤 요약을 다시 받는다)
+document.getElementById('addrClose').addEventListener('click', closeAddrSheet);
+document.getElementById('addrSave').addEventListener('click', saveAddrGeo);
+document.getElementById('addrSheetWrap').addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'addrSheetWrap') closeAddrSheet();
+});
+document.getElementById('addrSheetWrap').addEventListener('keydown', (e) => {
+  const wrap = document.getElementById('addrSheetWrap');
+  trapTab(e, wrap);
+});
+document.getElementById('moreLeaveBtn').addEventListener('click', () => { closeMoreSheet(); leaveRoom(); });
+document.getElementById('photoBtn').addEventListener('click', () => {
+  document.getElementById('photoInput').click();
+});
+document.getElementById('photoInput').addEventListener('change', (e) => {
+  const f = e.target && e.target.files && e.target.files[0];
+  if (f) maybeAskPhotoTag(f);
+});
+document.getElementById('talkNotifyBtn').addEventListener('click', startTalkNotify);
+
+// AI 예시 이미지 만들기 (방장만, 버튼식. 뒤에서 만들고 끝나면 방에 알린다).
+async function makeAiImages() {
+  const btn = document.getElementById('aiImageBtn');
+  if (btn) btn.disabled = true;
+  setPhotoStatus('AI 예시 이미지를 만들고 있어요(1~2분). 끝나면 알려 드릴게요.');
+  try {
+    const res = await fetch(`/room/${roomId}/ai-image`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Member-Id': memberId },
+      body: JSON.stringify({ slot: 'all' }),
+    });
+    if (res.status === 403) {
+      setPhotoStatus('방장만 만들 수 있어요.');
+      return;
+    }
+    if (!res.ok) {
+      setPhotoStatus('지금은 AI 이미지를 만들 수 없어요. 잠시 뒤에 다시 시도해 주세요.');
+      return;
+    }
+    closeMoreSheet();
+    await pollMessages();
+  } catch (e) {
+    setPhotoStatus('인터넷 연결을 확인하고 다시 시도해 주세요.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+document.getElementById('aiImageBtn').addEventListener('click', makeAiImages);
+
+// 랜딩(frontend/src/api.ts)에서 넘어온 첫 메시지. 이 방의 것일 때만 한 번 쓰고 지운다.
+let pending = null;
+try {
+  const raw = sessionStorage.getItem('agt001_pending_message');
+  if (raw) {
+    const p = JSON.parse(raw);
+    if (p && p.roomId === roomId && typeof p.text === 'string') pending = p;
+    sessionStorage.removeItem('agt001_pending_message');
+  }
+} catch (e) { /* 저장소를 못 쓰면 평소처럼 시작 */ }
+// 랜딩에서 바로 온 사람은 닉네임 입력 없이 시작한다(저장하지 않아 다른 방에는 영향 없음).
+if (!nickname && pending) nickname = '사장님';
+
+if (nickname) {
+  document.getElementById('nicknameOverlay').remove();
+  startRoom();
+}
+// nickname 없을 때는 #nicknameJoinBtn의 inline onclick="joinRoom()"이 처리한다 (중복 리스너 금지).
+</script>
+<script src="/backup/2026-10-03/voice.js" defer></script>
+<script src="/backup/2026-10-03/callbot.js" defer></script>
+</body>
+</html>

@@ -81,6 +81,81 @@ def submit(site_key: str, name: Optional[str], contact: Optional[str], message: 
     return True
 
 
+def submit_rsvp(site_key: str, name: Optional[str], side: Optional[str], attend: Optional[str],
+                count: Optional[str], meal: Optional[str], contact: Optional[str], message: Optional[str],
+                agree: Optional[str], website: Optional[str]) -> bool:
+    """청첩장 참석 여부 (EVENT_INVITE_PLAN). 문의 저장소에 '[참석 여부] …' 한 줄로 넣어
+    사장님 알림·목록·보관 기간을 그대로 쓴다. 연락처는 선택. 저장했으면 True, 스팸이면 False."""
+    key = sanitize_token(site_key or "")
+    if not key or not site_exists(key):
+        raise InquiryError("사이트를 찾을 수 없어요.")
+    if website:
+        return False
+    name_c = _clean(name, MAX_NAME)
+    contact_c = _clean(contact, MAX_CONTACT)
+    note = _clean(message, 300)
+    if not name_c:
+        raise InquiryError("이름을 적어 주세요.")
+    if attend not in ("yes", "no"):
+        raise InquiryError("참석·불참을 골라 주세요.")
+    if contact_c and not (_PHONE.match(contact_c) or _EMAIL.match(contact_c)):
+        raise InquiryError("연락처는 전화번호나 이메일로 적어 주세요.")
+    if agree != "yes":
+        raise InquiryError("개인정보 수집·이용에 동의해 주세요.")
+    try:
+        people = max(1, min(int(count or 1), 20))
+    except ValueError:
+        people = 1
+    parts = [_clean(side, 10)] if _clean(side, 10) in ("신랑측", "신부측") else []
+    parts.append(f"참석 · {people}명" if attend == "yes" else "불참")
+    if attend == "yes" and meal in ("yes", "no"):
+        parts.append("식사함" if meal == "yes" else "식사 안 함")
+    text = RSVP_PREFIX + " · ".join(parts) + (f"\n{note}" if note else "")
+    with get_sessionmaker()() as db, db.begin():
+        db.add(InquiryRow(site_key=key, name=name_c, contact=contact_c, message=text))
+        room_id = db.scalar(select(RoomRow.id).join(SessionRow, RoomRow.session_id == SessionRow.id)
+                            .where(SessionRow.requirement_id == key))
+    if room_id:
+        _notify_room(room_id, name_c, contact_c or "(적지 않음)", text)
+        from app.services import notify
+        notify.owner_kakao(room_id, f"청첩장에 참석 여부가 왔어요.\n{name_c}: {text[8:120]}")
+    return True
+
+
+RSVP_PREFIX = "[참석 여부] "
+_RSVP_COUNT = re.compile(r"참석 · (\d+)명")
+
+
+def rsvp_summary(site_key: str) -> dict:
+    """참석 여부 집계 (빌더 '참석 여부' 칸). submit_rsvp가 쓴 한 줄 형식을 읽는다(최신순).
+    {entries: [{id, name, side, attend, count, meal, note, contact, ts}], total: {...}, sides: {측: 참석 인원}}"""
+    key = sanitize_token(site_key or "")
+    entries = []
+    if key:
+        with get_sessionmaker()() as db:
+            rows = db.scalars(select(InquiryRow).where(InquiryRow.site_key == key,
+                                                       InquiryRow.message.startswith(RSVP_PREFIX))
+                              .order_by(InquiryRow.id.desc()).limit(500)).all()
+            for r in rows:
+                head, _, note = r.message[len(RSVP_PREFIX):].partition("\n")
+                parts = head.split(" · ")
+                side = parts[0] if parts and parts[0] in ("신랑측", "신부측") else ""
+                attend = "불참" not in parts
+                found = _RSVP_COUNT.search(head)
+                entries.append({"id": r.id, "name": r.name or "", "side": side, "attend": attend,
+                                "count": int(found.group(1)) if attend and found else 0,
+                                "meal": "식사함" in parts, "note": note.strip(), "contact": r.contact or "",
+                                "ts": r.ts.isoformat() if r.ts else ""})
+    coming = [e for e in entries if e["attend"]]
+    sides: dict = {}
+    for e in coming:
+        if e["side"]:
+            sides[e["side"]] = sides.get(e["side"], 0) + e["count"]
+    total = {"replies": len(entries), "people": sum(e["count"] for e in coming),
+             "declined": len(entries) - len(coming), "meal": sum(e["count"] for e in coming if e["meal"])}
+    return {"entries": entries, "total": total, "sides": sides}
+
+
 def _notify_room(room_id: str, name: str, contact: str, message: str, line: Optional[str] = None) -> None:
     text = (f"사이트로 새 문의가 왔어요.\n이름: {name or '(적지 않음)'}\n연락처: {contact}\n내용: {message}\n"
             + (f"{line}\n" if line else "")

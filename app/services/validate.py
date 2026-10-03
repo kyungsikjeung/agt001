@@ -8,7 +8,7 @@
 import re
 from typing import Optional
 
-from app.services.numbers import numbers_in
+from app.services.numbers import _NATIVE_HOURS, _NATIVE_RE, numbers_in
 
 # 전화번호 자리수가 맞지 않을 때 돌려주는 말
 _PHONE_LEN_MSG = "전화번호 자리수가 맞지 않아요"
@@ -109,6 +109,13 @@ def _hours_in_order(text: str) -> list:
             if any(begin <= start < end for begin, end in spans):
                 continue
             found.append((_hour_with_ampm(int(match.group(1)), text[:start]), start))
+    # 말로 한 시각 ("열 시부터 여덟 시까지"). "두 시간"은 걸리는 시간이라 뺀다.
+    # 이게 없으면 숫자 없는 시간으로 막혀 저장되지 않았다(T2 e037·e045).
+    for match in _NATIVE_RE.finditer(text):
+        if text[match.end():match.end() + 1] == "간":
+            continue
+        start = match.start()
+        found.append((_hour_with_ampm(_NATIVE_HOURS[match.group(1)], text[:start]), start))
     found.sort(key=lambda item: item[1])
     return [hour for hour, _ in found]
 

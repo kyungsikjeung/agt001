@@ -1,0 +1,19 @@
+<section class="s-event s-event--date" data-section-id="{{id}}" aria-labelledby="event-title-{{id}}">
+  <h2 id="event-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}날짜와 장소{{/label}}{{#example}} <span class="s-example" title="예시 날짜: 공개할 때 빠져요">예시</span>{{/example}}</h2>
+  {{#has_date}}
+  <p class="s-event__when"><time datetime="{{iso}}">{{date_text}}</time>{{#time}}<span class="s-event__time">{{time}}</span>{{/time}}</p>
+  {{#venue}}<p class="s-event__venue">{{venue}}</p>{{/venue}}
+  <table class="s-event__cal">
+    <caption>{{month_label}}</caption>
+    <thead><tr>{{#weekdays}}<th scope="col" class="{{cls}}">{{label}}</th>{{/weekdays}}</tr></thead>
+    <tbody>
+      {{#weeks}}<tr>{{#days}}<td class="{{cls}}">{{#on}}<span class="s-event__day" aria-label="{{n}}일, 예식 날">{{n}}</span>{{/on}}{{^on}}{{n}}{{/on}}</td>{{/days}}</tr>
+      {{/weeks}}
+    </tbody>
+  </table>
+  <p class="s-event__dday" data-dday="{{iso}}" hidden></p>
+  {{/has_date}}
+  {{^has_date}}
+  <p><span class="is-placeholder" aria-label="예식 날짜: 아직 입력되지 않음">[예식 날짜·시간·장소 입력]</span></p>
+  {{/has_date}}
+</section>

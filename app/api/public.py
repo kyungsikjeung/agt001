@@ -194,4 +194,24 @@ def serve_site(requirement_id: str, filename: str = ""):
         target = target / "index.html"
     if not target.is_file():
         raise HTTPException(status_code=404)
-    return FileResponse(target, headers=_SITE_HEADERS)
+    headers = _site_headers(target)
+    if target.name == "index.html":
+        # 청첩장 방명록: 공개본은 고정 파일이라 보낼 때 최신 글을 끼운다(스크립트·다른 출처 요청 없이)
+        from app.services import guestbook
+        page = target.read_text(encoding="utf-8")
+        if guestbook.MARK in page:
+            return HTMLResponse(guestbook.inject(page, requirement_id), headers=headers)
+    return FileResponse(target, headers=headers)
+
+
+def _site_headers(target) -> dict:
+    """유튜브 배경 영상이 있는 페이지만 유튜브 전용 헤더 (YOUTUBE_EMBED_POLICY). 그 밖은 기존 격리 그대로."""
+    if target.suffix.lower() in (".html", ".htm"):
+        try:
+            text = target.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            return _SITE_HEADERS
+        from app.services import youtube_embed
+        if youtube_embed.page_uses_youtube(text):
+            return {**_SITE_HEADERS, "Content-Security-Policy": youtube_embed.SITE_CSP_YOUTUBE}
+    return _SITE_HEADERS

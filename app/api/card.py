@@ -60,6 +60,12 @@ class LayoutIn(BaseModel):
     reset: bool = False
 
 
+class EventIn(BaseModel):
+    """초대·기념(청첩장) 양가 연락처·계좌 (EVENT_INVITE_PLAN). 빈 목록이면 예시로 되돌린다. 검사는 site_data.clean_event."""
+    family: Optional[list[dict]] = Field(default=None, max_length=2)
+    gift: Optional[list[dict]] = Field(default=None, max_length=2)
+
+
 class CardIn(BaseModel):
     fields: dict[str, str] = {}
     notice: Optional[NoticeIn] = None  # 공지 띠·팝업 (D56). 빈 글이면 공지를 끈다
@@ -67,6 +73,7 @@ class CardIn(BaseModel):
     layout: Optional[LayoutIn] = None
     choice: Optional[Literal["v1", "v2", "v3"]] = None  # 빌더 모양 바꾸기 (B1)
     groups: Optional[GroupsIn] = None  # 그룹 목록 (GROUP_CARDS_CONTRACT §2-2), items보다 먼저 적용
+    event: Optional[EventIn] = None  # 청첩장 양가 연락처·계좌
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -98,7 +105,19 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "published": card.get("published"), "site_url": session.get("deploy_url") if card.get("published") else None,
         "can_edit": rooms.owner_id(room) == member_id,
         "quota": _quota(session),
+        **_event_view(card, ind),
     }
+
+
+def _event_view(card: dict, ind) -> dict:
+    """초대·기념이면 빌더 고치기 칸용 양가 연락처·계좌(넣은 값 또는 시안 기본 묶음)."""
+    if ind.key != "event":
+        return {}
+    from app.services import site_data
+    try:
+        return {"event": site_data.event_lists(card)}
+    except Exception:
+        return {}
 
 
 def _quota(session: dict):
@@ -542,6 +561,23 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
         if body.layout is not None:
             if _apply_layout(card, body.layout):
                 changed.append("layout")
+        if body.event is not None:
+            from app.services import site_data
+            for kind in ("family", "gift"):
+                raw = getattr(body.event, kind)
+                if raw is None:
+                    continue
+                sides, errors = site_data.clean_event(kind, raw)
+                if errors:
+                    raise HTTPException(status_code=400, detail="; ".join(errors[:3]))
+                saved = card.setdefault("event", {})
+                if (saved.get(kind) or []) != sides:
+                    if sides:
+                        saved[kind] = sides
+                    else:
+                        saved.pop(kind, None)
+                    if "event" not in changed:
+                        changed.append("event")
         if body.choice is not None:
             if card.get("design_choice") != body.choice:
                 card["design_choice"] = body.choice
@@ -561,6 +597,8 @@ def _changed_label(ind, key: str) -> str:
         return "구역"
     if key == "choice":
         return "모양"
+    if key == "event":
+        return "연락처·계좌"
     if key == "items":
         return S.label_for(ind, "offerings")
     return S.label_for(ind, key)
@@ -624,6 +662,46 @@ def post_change_followup(room: dict, session: dict, safe: str, changed: list, me
         store.after_commit(lambda: photos._refresh_designs_async(rid, req, "고친 내용을 시안에 넣었어요."))
     if changed:
         rooms._append(room, "system", "시스템", message, kind="system")
+
+
+def _owner_site_key(room_id: str, x_member_id: Optional[str], request: Request) -> str:
+    """방장만. 이 방 사이트 키(requirement_id)."""
+    safe, member_id = _member_room(room_id, x_member_id, request)
+    room = store.read_room(safe)
+    if rooms.owner_id(room) != member_id:
+        raise HTTPException(status_code=403, detail="owner only")
+    return (store.read_session(room["session_id"]) or {}).get("requirement_id") or ""
+
+
+@router.get("/api/rooms/{room_id}/rsvp")
+def rsvp_summary(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """청첩장 참석 여부 집계·명단 (방장만). 연락처가 있어 저장하지 않게 한다."""
+    from fastapi.responses import JSONResponse
+    from app.services import inquiries
+    key = _owner_site_key(room_id, x_member_id, request)
+    data = inquiries.rsvp_summary(key) if key else {"entries": [], "total": {}, "sides": {}}
+    return JSONResponse(content=data, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/api/rooms/{room_id}/guestbook")
+def list_guestbook(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """청첩장 방명록 (방장만, 최신순 100개). 빌더 고치기 칸에서 지울 때 본다."""
+    from fastapi.responses import JSONResponse
+    from app.services import guestbook
+    key = _owner_site_key(room_id, x_member_id, request)
+    items = [{"id": e["id"], "name": e["name"], "message": e["message"], "ts": e["ts"].isoformat()}
+             for e in guestbook.latest(key, 100)] if key else []
+    return JSONResponse(content={"entries": items}, headers={"Cache-Control": "no-store"})
+
+
+@router.delete("/api/rooms/{room_id}/guestbook/{entry_id}", status_code=204)
+def delete_guestbook(room_id: str, entry_id: int, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    from fastapi.responses import Response
+    from app.services import guestbook
+    key = _owner_site_key(room_id, x_member_id, request)  # 쿠키 로그인이면 _member_room이 출처를 본다
+    if not key or not guestbook.remove(key, entry_id):
+        raise HTTPException(status_code=404)
+    return Response(status_code=204)
 
 
 @router.get("/api/rooms/{room_id}/card/preview")

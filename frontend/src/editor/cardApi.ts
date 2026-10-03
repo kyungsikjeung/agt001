@@ -37,6 +37,28 @@ export interface RoomCard {
   layout?: Record<string, { order?: string[]; hidden?: string[]; added?: string[] }>;
   /** 무료 디자인 남은 횟수 (USAGE_QUOTA_CONTRACT §2-6). 예전 서버는 없다 */
   quota?: CardQuota | null;
+  /** 초대·기념(청첩장)만: 양가 연락처·계좌 (넣은 값 또는 시안 기본 묶음) */
+  event?: CardEvent;
+}
+
+export interface EventPerson {
+  role: string;
+  name: string;
+  phone?: string;
+}
+
+export interface EventAccount {
+  role: string;
+  holder: string;
+  bank: string;
+  number: string;
+}
+
+export interface CardEvent {
+  family: { side: string; people: EventPerson[] }[];
+  gift: { side: string; accounts: EventAccount[] }[];
+  /** 사장님이 넣은 값인가 (아니면 시안 기본·예시) */
+  saved: { family: boolean; gift: boolean };
 }
 
 export interface CardQuota {
@@ -117,6 +139,7 @@ export interface CardLayoutEdit {
 
 /** PUT /card에 fields·notice 말고 더 보낼 것. choice는 고른 안 바꾸기(빌더 "모양 바꾸기"). */
 export interface CardSaveExtra {
+  event?: Partial<Pick<CardEvent, 'family' | 'gift'>>;
   items?: CardItemEdit[];
   groups?: CardGroupsEdit;
   layout?: CardLayoutEdit;
@@ -186,13 +209,18 @@ export async function saveCard(
   if (extra?.groups) body.groups = extra.groups;
   if (extra?.layout) body.layout = extra.layout;
   if (extra?.choice) body.choice = extra.choice;
+  if (extra?.event) body.event = extra.event;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`저장하지 못했습니다 (${res.status})`);
+  if (!res.ok) {
+    // 400이면 서버가 틀린 곳을 한 줄로 알려 준다(예: "김민준 전화번호: 전화번호 자리수가 맞지 않아요")
+    const detail = res.status === 400 ? await res.json().then((d) => d?.detail).catch(() => '') : '';
+    throw new Error(typeof detail === 'string' && detail ? detail : `저장하지 못했습니다 (${res.status})`);
+  }
   const data = (await res.json()) as RoomCard;
   if (!data || !Array.isArray(data.fields)) throw new Error('카드 모양이 맞지 않아요.');
   return data;
@@ -471,4 +499,59 @@ export async function getFixTargets(
     if (typeof v.current !== 'string' || !Array.isArray(v.parts)) throw new Error('고칠 곳 모양이 맞지 않아요.');
   }
   return data.targets as import('../builder/fixTags').FixTarget[];
+}
+
+/** 청첩장 방명록 (방장만, 최신순). */
+export interface GuestbookEntry {
+  id: number;
+  name: string;
+  message: string;
+  ts: string;
+}
+
+export async function listGuestbook(roomId: string, memberId: string | null): Promise<GuestbookEntry[]> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/guestbook`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`방명록을 불러오지 못했어요 (${res.status})`);
+  const data = (await res.json()) as { entries?: GuestbookEntry[] };
+  return Array.isArray(data.entries) ? data.entries : [];
+}
+
+export async function deleteGuestbook(roomId: string, memberId: string | null, id: number): Promise<void> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/guestbook/${id}`, {
+    method: 'DELETE',
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok && res.status !== 404) throw new Error(`지우지 못했어요 (${res.status})`);
+}
+
+/** 청첩장 참석 여부 집계 (방장만). */
+export interface RsvpEntry {
+  id: number;
+  name: string;
+  side: string;
+  attend: boolean;
+  count: number;
+  meal: boolean;
+  note: string;
+  contact: string;
+  ts: string;
+}
+
+export interface RsvpSummary {
+  entries: RsvpEntry[];
+  total: { replies?: number; people?: number; declined?: number; meal?: number };
+  sides: Record<string, number>;
+}
+
+export async function getRsvp(roomId: string, memberId: string | null): Promise<RsvpSummary> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/rsvp`, {
+    credentials: 'same-origin',
+    headers: memberHeaders(memberId),
+  });
+  if (!res.ok) throw new Error(`참석 여부를 불러오지 못했어요 (${res.status})`);
+  return (await res.json()) as RsvpSummary;
 }

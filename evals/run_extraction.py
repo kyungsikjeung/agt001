@@ -137,7 +137,14 @@ def actual_from_card(card: dict) -> dict[str, list[str]]:
 
 # ── 채점 (순수 함수: 외부 의존 없음) ────────────────────────────
 
-_SYNONYMS = (("카카오톡", "카톡"), ("카카오", "카톡"))
+_SYNONYMS = (("카카오톡", "카톡"), ("카카오", "카톡"), ("컷트", "커트"), ("파마", "펌"))
+
+# 가게 이름 뒤에 붙는 업종 꼬리말: '바다정원'과 '바다정원 펜션'은 같은 이름이다(T2 r3 e005).
+if _SCHEMA is not None:
+    _KIND_TAILS = tuple(sorted({a for ind in _SCHEMA.INDUSTRIES.values() for a in ind.aliases if len(a) >= 2},
+                               key=len, reverse=True))
+else:  # pragma: no cover
+    _KIND_TAILS = ("펜션", "카페", "공방", "학원", "미용실")
 
 
 def _norm_match(s: str) -> str:
@@ -147,9 +154,24 @@ def _norm_match(s: str) -> str:
     return s
 
 
+def _strip_kind_tail(s: str) -> str:
+    for tail in _KIND_TAILS:
+        if s.endswith(tail) and len(s) - len(tail) >= 2:
+            return s[: -len(tail)]
+    return s
+
+
 def value_matches(expected: str, actual: str) -> bool:
-    """채점용 일치 판정(평가 1차에서 '카톡'≠'카카오톡', '세 시'≠'3시'로 억울하게 틀리던 것)."""
+    """채점용 일치 판정(평가 1차에서 '카톡'≠'카카오톡', '세 시'≠'3시'로 억울하게 틀리던 것).
+
+    기대 값에 'A|B'로 대안 표기를 둘 수 있다. 하나라도 맞으면 일치다.
+    """
+    if "|" in expected:
+        return any(value_matches(e.strip(), actual) for e in expected.split("|") if e.strip())
     if expected in actual or _norm_match(expected) in _norm_match(actual):
+        return True
+    ne, na = _norm_match(expected), _norm_match(actual)
+    if na and _strip_kind_tail(ne) == _strip_kind_tail(na) and len(_strip_kind_tail(na)) >= 2:
         return True
     try:
         from app.services.numbers import numbers_in, value_numbers

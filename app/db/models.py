@@ -189,6 +189,22 @@ class UserRoomRow(Base):
     claimed_at: Mapped[datetime.datetime] = _now_col()
 
 
+class GuestbookRow(Base):
+    """청첩장 방명록 (EVENT_INVITE_PLAN 3단계, 0021). 공개 사이트에 이름·글이 그대로 보인다. 1년 보관."""
+
+    __tablename__ = "guestbook"
+    __table_args__ = (
+        Index("ix_guestbook_site", "site_key", "id"),
+        Index("ix_guestbook_ts", "ts"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    ts: Mapped[datetime.datetime] = _now_col()
+
+
 class InquiryRow(Base):
     """생성 사이트의 "문의하기" 폼으로 들어온 문의 (플랫폼 공용 ①, D31·D32). 30일 보관."""
 

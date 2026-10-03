@@ -1041,6 +1041,7 @@ section[class^="s-"] h2::after,
 .s-booking .s-form__row input[type="date"],
 .s-booking .s-form__row input[type="time"],
 .s-booking .s-form__row input[type="number"],
+.s-rsvp .s-form__row input[type="number"],
 .s-booking .s-form__row input[type="tel"] {
   display: block;
   width: 100%;

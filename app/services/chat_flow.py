@@ -517,6 +517,9 @@ def _restyle(session: dict, text: str) -> str:
     if kept:
         said += " 고른 안의 색·글꼴은 그대로 뒀어요."
     card["concept"] = new
+    if isinstance(card.get("compose"), dict):
+        # 말로 고친 디자인은 "말로 고른 안"(1안)에도 반영한다 (대화 때 고른 분위기보다 나중 말이 이긴다)
+        card["compose"]["restyled"] = True
     design_log.restyled(session["requirement_id"], card, current, new)  # D45
     design.render_variants(session["requirement_id"], card)
     from app.services import usage  # 무료 디자인 고치기 장부 (D40)
@@ -661,6 +664,10 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
     # 시안을 코드생성보다 먼저 만들어 고객이 먼저 확인하게 한다 (시안 → 최종 순서 보장).
     amount, basis = quote.recommended_option(session.get("quote") or {"ok": False, "raw": ""})
     card = session.get("prd")
+    if card:
+        # 실시간 대화에서 고른 구성을 1안 구역 편집으로 심어, 편집기·말로 고치기도 같은 구성을 보게 한다
+        from app.services import compose
+        compose.seed_v1_edits(card)
     if card and card.get("slots") and room:
         from app.services import art_lib  # 항목의 태그 사진을 뒤에서 (ART_LIB_CONTRACT §2-4)
         art_lib.prefetch(card, room["room_id"], session.get("requirement_id") or "")
@@ -675,7 +682,8 @@ def _start_design(session_id: str, session: dict, room: Optional[dict]) -> str:
         card["copy"] = copywriter.generate(card)
     if card and card.get("slots") and not card.get("concept") and _time_left():
         # 디자인 컨셉 잡기: NIM이 색·글꼴·구성을 정하고(목록 안에서만), 그 컨셉으로 3안을 그린다
-        card["concept"] = design_concept.make(card)
+        # 실시간 대화에서 분위기를 골랐으면 그 분위기가 곧 컨셉이다 (1안 "말로 고른 안"과 같은 색·글꼴)
+        card["concept"] = design_concept.from_tone(card) or design_concept.make(card)
         design_log.unmet(session["requirement_id"], card)  # D44: 부품으로 못 담은 요구를 센다
     if (card and card.get("slots") and settings.ui_agent_enabled and not card.get("archetype_override")
             and _time_left()):

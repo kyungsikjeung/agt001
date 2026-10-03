@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
+import Mascot from '../Mascot';
 import { claim, me, startLogin, type MeUser } from '../auth';
+import { useScrolled } from '../useScrolled';
 
 export interface Project {
   room_id: string;
@@ -72,6 +74,7 @@ async function fetchSummary(roomIds: string[], memberId: string | null, loggedIn
 }
 
 export default function ProjectsPage() {
+  const scrolled = useScrolled();
   const [user, setUser] = useState<MeUser | null>(null);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,8 +110,9 @@ export default function ProjectsPage() {
 
   return (
     <div className="page">
-      <header className="topbar">
+      <header className={scrolled ? 'topbar topbar--solid' : 'topbar'}>
         <a className="brand" href="/">
+          <img className="brand-mark" src="/icons/kkachi.svg" alt="" width={30} height={30} />
           한마디
         </a>
         <nav className="top-links">
@@ -141,11 +145,12 @@ export default function ProjectsPage() {
         )}
 
         {projects === null ? (
-          <p className="loading" role="status">
-            불러오는 중…
-          </p>
+          <Mascot mood="wait" role="status" className="loading">
+            <p>불러오는 중…</p>
+          </Mascot>
         ) : projects.length === 0 ? (
           <section className="empty" aria-label="빈 목록">
+            <img className="mascot__img" src="/icons/kkachi.svg" alt="" width={72} height={72} />
             <p>아직 만든 사이트가 없어요</p>
             <a className="send" href="/">
               새로 만들기

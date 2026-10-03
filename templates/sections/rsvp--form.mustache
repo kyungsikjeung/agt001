@@ -1,0 +1,48 @@
+<section class="s-rsvp s-rsvp--form" data-section-id="{{id}}" aria-labelledby="rsvp-title-{{id}}">
+  <h2 id="rsvp-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}참석 여부 알려 주기{{/label}}</h2>
+  <p class="s-rsvp__lead">식사와 자리를 준비할 수 있게 미리 알려 주시면 고맙겠어요.</p>
+  <form class="s-form" method="post" action="/api/rsvp/{{site_key}}" enctype="application/x-www-form-urlencoded">
+    {{#has_sides}}
+    <fieldset class="s-form__row s-rsvp__choice">
+      <legend>어느 쪽 손님이세요?</legend>
+      {{#sides}}<label><input type="radio" name="side" value="{{side}}" required> {{side}}</label>{{/sides}}
+    </fieldset>
+    {{/has_sides}}
+    <p class="s-form__row">
+      <label for="rsvp-name-{{id}}">이름 (필수)</label>
+      <input id="rsvp-name-{{id}}" name="name" type="text" maxlength="40" required autocomplete="name">
+    </p>
+    <fieldset class="s-form__row s-rsvp__choice">
+      <legend>참석하시나요? (필수)</legend>
+      <label><input type="radio" name="attend" value="yes" required> 참석해요</label>
+      <label><input type="radio" name="attend" value="no"> 어려워요</label>
+    </fieldset>
+    <p class="s-form__row">
+      <label for="rsvp-count-{{id}}">함께 오는 인원 (본인 포함)</label>
+      <input id="rsvp-count-{{id}}" name="count" type="number" min="1" max="20" value="1" inputmode="numeric">
+    </p>
+    <fieldset class="s-form__row s-rsvp__choice">
+      <legend>식사하시나요?</legend>
+      <label><input type="radio" name="meal" value="yes"> 식사해요</label>
+      <label><input type="radio" name="meal" value="no"> 안 해요</label>
+    </fieldset>
+    <p class="s-form__row">
+      <label for="rsvp-contact-{{id}}">연락처 (선택)</label>
+      <input id="rsvp-contact-{{id}}" name="contact" type="text" maxlength="100" autocomplete="tel">
+    </p>
+    <p class="s-form__row">
+      <label for="rsvp-message-{{id}}">남기실 말 (선택)</label>
+      <textarea id="rsvp-message-{{id}}" name="message" rows="3" maxlength="300"></textarea>
+    </p>
+    <p class="s-form__notice">적어 주신 이름·연락처·참석 여부는 혼주에게 전달되며, {{retention_days}}일 동안 보관한 뒤 지웁니다.</p>
+    <p class="s-form__row s-form__agree">
+      <input id="rsvp-agree-{{id}}" name="agree" type="checkbox" value="yes" required>
+      <label for="rsvp-agree-{{id}}">개인정보 수집·이용에 동의합니다 (필수)</label>
+    </p>
+    <p class="s-form__hp" aria-hidden="true">
+      <label for="rsvp-website-{{id}}">웹사이트는 비워 두세요</label>
+      <input id="rsvp-website-{{id}}" name="website" type="text" tabindex="-1" autocomplete="off">
+    </p>
+    <p class="s-form__submit"><button class="s-btn" type="submit">보내기</button></p>
+  </form>
+</section>

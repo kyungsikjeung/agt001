@@ -40,6 +40,9 @@ class PublishBlockedError(ValueError):
 def check_html(html_text: str) -> list[str]:
     """위반 사유 목록. 비어 있으면 게시해도 된다."""
     text = _MAP_SDK_SCRIPT.sub("", html_text or "")
+    # YOUTUBE_EMBED_POLICY: 렌더러가 그린 정해진 모양의 유튜브 배경 틀 하나만 예외. 다른 틀은 아래에서 그대로 본다.
+    from app.services import youtube_embed
+    text = youtube_embed.strip_allowed(text)
     reasons = []
     if _EXTERNAL_SCRIPT.search(text):
         reasons.append("외부 스크립트가 들어 있어요")
