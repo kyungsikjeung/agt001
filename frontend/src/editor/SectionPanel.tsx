@@ -1,9 +1,11 @@
 // 보며 고치기 구역 패널 (EDIT_WAVE2_CONTRACT §4).
 // bind별로 칸을 열고, 아래에 구역 위로·아래로·숨기기를 둔다. locked면 공통 버튼을 그리지 않는다.
 import { useEffect, useState } from 'react';
+import AddressSearch from '../builder/AddressSearch';
 import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
+import StaffEditor from './StaffEditor';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -23,7 +25,7 @@ const NO_GROUPS: string[] = [];
 /** 항목 목록을 쓰는 bind (계약 §4 2번). */
 const CATALOG_BINDS = ['catalog', 'classes', 'rooms', 'signature', 'menu_photos'];
 
-type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook' | 'rsvp';
+type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook' | 'rsvp' | 'staff';
 
 /** bind를 패널 종류로 묶는다 (계약 §4 표). */
 function kindOf(bind: string): BindKind {
@@ -40,6 +42,8 @@ function kindOf(bind: string): BindKind {
   if (bind === 'family' || bind === 'gift') return 'event';
   if (bind === 'guestbook') return 'guestbook';
   if (bind === 'rsvp') return 'rsvp';
+  // 공방·학원 선생님 구역 (BUILDER_FIX_1003_CONTRACT S2)
+  if (bind === 'staff') return 'staff';
   return 'chat';
 }
 
@@ -290,6 +294,10 @@ export default function SectionPanel({
 
         {kind === 'chat' ? <p>이 구역의 내용은 채팅으로 말해 주세요.</p> : null}
 
+        {kind === 'location' || kind === 'when' ? (
+          <AddressSearch roomId={roomId} onSaved={(c) => onSaved(c, selected.id)} />
+        ) : null}
+
         {keys.map((k) => (
           <label key={k} className="ed-site-field" htmlFor={`ed-site-${selected.id}-${k}`}>
             {fieldLabel(card, k)}
@@ -353,6 +361,8 @@ export default function SectionPanel({
         {kind === 'event' ? (
           <EventEditor roomId={roomId} card={card} kind={selected.bind === 'gift' ? 'gift' : 'family'} onSaved={(c) => onSaved(c, selId)} />
         ) : null}
+
+        {kind === 'staff' ? <StaffEditor roomId={roomId} card={card} onSaved={(c) => onSaved(c, selId)} /> : null}
 
         {kind === 'hero' || kind === 'catalog' || kind === 'location' || kind === 'contact' || kind === 'greeting' || kind === 'when' ? (
           <div className="ed-site-save">

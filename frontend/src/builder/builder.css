@@ -32,6 +32,23 @@
   gap: 8px;
 }
 
+/* 처음 화면으로 까치 링크 (J7): 누르는 면 44×44px 이상, 포커스는 위 공통 테두리. */
+.bd-home {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.bd-home img {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
 .bd-title {
   flex: 1;
   min-width: 0;
@@ -324,6 +341,33 @@
   border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
   border-radius: 12px;
   background: var(--ed-card, #fff);
+}
+
+/* 공개 뒤 기능 안내 창 (J5): 공지 창과 같은 자리·모양, 제목과 ✕는 한 줄. */
+.bd-info-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.bd-info-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.bd-info-close {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--ed-line, rgba(31, 38, 34, 0.14));
+  background: var(--ed-card, #fff);
+  color: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1;
 }
 
 @media (min-width: 760px) {

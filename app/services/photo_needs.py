@@ -182,6 +182,14 @@ def valid_tag(card: dict, tag) -> bool:
             return True  # notice 태그는 공지 사진용(D58)
         if isinstance(tag, str) and tag.startswith("item:"):
             return tag[5:] in [i["name"] for i in items(card)]
+        if isinstance(tag, str) and tag.startswith("staff:"):
+            # 선생님 사진 (S1): staff_edit에 있는 이름이면 받는다
+            name = tag[len("staff:"):].strip()
+            if not name:
+                return False
+            edited = (card or {}).get("staff_edit") or []
+            return any(isinstance(e, dict) and str(e.get("name") or "") == name
+                       for e in edited)
         return False
     except Exception:
         return False

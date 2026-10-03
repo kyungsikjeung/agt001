@@ -70,6 +70,13 @@ export default function Landing() {
     setCanInstall(false);
   }
 
+  // 뒤로 가기로 돌아오면 잠금을 푼다. 떠날 때 busy 그대로 bfcache에 남아 버튼이 막힌다.
+  useEffect(() => {
+    const onPageShow = () => setBusy(false);
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
   // 비어 있을 때만 안내 문구를 돌린다. 입력 중에는 바꾸지 않는다.
   useEffect(() => {
     if (text) return;

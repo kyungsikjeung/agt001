@@ -25,6 +25,22 @@ import type { SayResponse, UndoResponse } from '../editor/cardApi';
 const CHOICES = ['v1', 'v2', 'v3'] as const;
 const TOP_KEYS = ['shop_name', 'phone', 'location'] as const;
 
+// 공개 뒤 기능 안내 글 (J5: after_publish 칩은 PUT 없이 이 안내 창만 연다).
+const AFTER_PUBLISH_INFO: Record<string, { title: string; body: string }> = {
+  chat: {
+    title: '손님 채팅',
+    body: "공개 사이트에 '채팅하기' 버튼이 생겨 손님이 바로 물어볼 수 있어요. 답은 사장님 화면 > 채팅에서 해요.",
+  },
+  stamps: {
+    title: '스탬프 적립',
+    body: '손님이 결제하면 스탬프가 자동으로 쌓여요. 몇 개에 무엇을 줄지는 사장님 화면 > 스탬프에서 정해요.',
+  },
+  order: {
+    title: '온라인 주문',
+    body: '손님이 사이트에서 포장 주문을 넣을 수 있어요. 사장님 화면 > 주문에서 켜고 받아요.',
+  },
+};
+
 function validChoice(v: string | null): string {
   return v === 'v1' || v === 'v2' || v === 'v3' ? v : 'v1';
 }
@@ -53,6 +69,7 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   const [chipBusy, setChipBusy] = useState<string | null>(null);
   const [chipMsg, setChipMsg] = useState('');
   const [noticeKey, setNoticeKey] = useState<string | null>(null);
+  const [infoKey, setInfoKey] = useState<string | null>(null);
   const [noticeText, setNoticeText] = useState('');
   const [noticePhotos, setNoticePhotos] = useState<string[]>([]);
   const [pubBusy, setPubBusy] = useState(false);
@@ -83,6 +100,16 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       alive = false;
     };
   }, [roomId]);
+
+  // 안내 창이 열려 있으면 Esc로 닫는다.
+  useEffect(() => {
+    if (!infoKey) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setInfoKey(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [infoKey]);
 
   function handleSaved(updated: RoomCard) {
     setCard(updated);
@@ -153,9 +180,10 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   }
 
   function toggleChip(chip: FeatureChip) {
-    // 공개 뒤에 켜는 기능은 안내만 한다(PUT 없음).
+    // 공개 뒤에 켜는 기능은 안내 창만 연다(PUT 없음).
     if (chip.after_publish) {
-      setChipMsg('공개한 뒤 사장님 화면에서 켤 수 있어요');
+      setNoticeKey(null);
+      setInfoKey(chip.key);
       return;
     }
     // 공지는 글을 적고 켠다.
@@ -240,11 +268,18 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
 
   const choice = validChoice(card.choice);
   const noticeChip = noticeKey ? features.find((f) => f.key === noticeKey) ?? null : null;
+  const infoChip = infoKey ? features.find((f) => f.key === infoKey) ?? null : null;
+  const infoText = infoChip
+    ? (AFTER_PUBLISH_INFO[infoChip.key] ?? { title: infoChip.label, body: '공개한 뒤 사장님 화면에서 켜고 끌 수 있어요.' })
+    : null;
 
   return (
     <div className="bd-page ed-page">
       <header className="bd-top">
         <div className="bd-top-row">
+          <a className="bd-home" href="/" aria-label="처음 화면으로">
+            <img src="/icons/kkachi.svg" alt="" width={28} height={28} />
+          </a>
           <h1 className="bd-title">{fieldVal(card, 'shop_name') || card.title}</h1>
           <PublishBar view={{ busy: pubBusy, result: pubResult, siteUrl }} onPublish={(force) => void publish(force)} />
         </div>
@@ -350,6 +385,25 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
                 켜기
               </button>
             </div>
+          </div>
+        ) : null}
+        {infoChip && infoText ? (
+          <div className="bd-notice-sheet" role="dialog" aria-label={infoChip.label}>
+            <div className="bd-info-top">
+              <h2 className="bd-info-title">{infoText.title}</h2>
+              <button type="button" className="bd-info-close" aria-label="닫기" onClick={() => setInfoKey(null)}>
+                ✕
+              </button>
+            </div>
+            <p className="bd-msg">{infoText.body}</p>
+            <p className="bd-msg">{infoChip.on ? '지금: 켜짐' : '지금: 꺼짐'}</p>
+            {card.published ? (
+              <a className="bd-chat-link" href="/owner">
+                사장님 화면 열기
+              </a>
+            ) : (
+              <p className="bd-msg">사이트를 공개하면 바로 쓸 수 있어요.</p>
+            )}
           </div>
         ) : null}
         {chipMsg ? <p className="bd-msg" role="status">{chipMsg}</p> : null}

@@ -3,7 +3,7 @@
 // iframe이 알린 구역의 패널을 옆(휴대폰은 아래)에 연다.
 import Mascot from '../Mascot';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getPreview, readMemberId, type CardPreview, type RoomCard } from './cardApi';
+import { getPreview, readMemberId, saveCard, type CardPreview, type RoomCard } from './cardApi';
 import SectionPanel from './SectionPanel';
 
 const VARIANTS = ['v1', 'v2', 'v3'] as const;
@@ -41,6 +41,29 @@ function photoOf(data: AgtEditMessage): PickPhoto | null {
   return { src: p.src, index: typeof p.index === 'number' ? p.index : 0 };
 }
 
+/** 끌어서 바꾼 새 순서. locked 구역은 원래 자리(index)에 둔다. 같으면 null. */
+export function reorderOutline(
+  sections: Pick<CardPreview['sections'][number], 'id' | 'locked'>[],
+  fromId: string,
+  toId: string,
+): string[] | null {
+  if (fromId === toId) return null;
+  const orderIds = sections.map((s) => s.id);
+  const movable = sections.filter((s) => !s.locked).map((s) => s.id);
+  if (!movable.includes(fromId)) return null;
+  const targetIdx = orderIds.indexOf(toId);
+  if (targetIdx < 0) return null;
+  const without = movable.filter((id) => id !== fromId);
+  const lockedBefore = sections.slice(0, targetIdx).filter((s) => s.locked).length;
+  const insertAt = Math.max(0, Math.min(without.length, targetIdx - lockedBefore));
+  const reordered = [...without.slice(0, insertAt), fromId, ...without.slice(insertAt)];
+  const out: string[] = [];
+  let mi = 0;
+  for (const s of sections) {
+    out.push(s.locked ? s.id : (reordered[mi++] ?? s.id));
+  }
+  return out.join(',') === orderIds.join(',') ? null : out;
+}
 /** 빌더 화면이 미리보기를 다루는 손잡이 (BUILDER_CONTRACT §3).
  * reload는 미리보기를 다시 그리고 다 그린 뒤 focus 구역으로 스크롤·반짝한다. */
 export interface BuilderControl {
@@ -246,6 +269,37 @@ export default function SiteEditor({
     void load(variant);
   }
 
+  // 왼쪽 구역 끌어서 순서 바꾸기 (BUILDER_FIX_1003 J4). locked는 끌 수 없고 원래 자리에 둔다.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dropId, setDropId] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState('');
+  const [ordering, setOrdering] = useState(false);
+  const dragRef = useRef<string | null>(null);
+
+  async function commitOutlineDrop(targetId: string) {
+    const fromId = dragRef.current;
+    setDropId(null);
+    if (!fromId || !preview || ordering) return;
+    const order = reorderOutline(preview.sections, fromId, targetId);
+    dragRef.current = null;
+    setDragId(null);
+    if (!order) return;
+    const hidden = preview.sections.filter((s) => s.hidden).map((s) => s.id);
+    const added = preview.layout?.added ?? [];
+    setOrdering(true);
+    setOrderError('');
+    try {
+      const updated = await saveCard(roomId, readMemberId(), {}, undefined, {
+        layout: { variant, order, hidden, added },
+      });
+      handleSaved(updated, fromId);
+    } catch {
+      setOrderError('순서를 바꾸지 못했어요. 잠시 뒤 다시 해 주세요.');
+    } finally {
+      setOrdering(false);
+    }
+  }
+
   function onFrameLoad() {
     const section = pendingScroll.current;
     pendingScroll.current = null;
@@ -293,7 +347,52 @@ export default function SiteEditor({
               <h2>구역</h2>
               <ul>
                 {preview.sections.map((s) => (
-                  <li key={s.id}>
+                  <li
+                    key={s.id}
+                    draggable={!s.locked}
+                    className={dropId === s.id && dragId ? 'ed-outline-drop' : undefined}
+                    onDragStart={(e) => {
+                      if (s.locked) {
+                        e.preventDefault();
+                        return;
+                      }
+                      dragRef.current = s.id;
+                      setDragId(s.id);
+                      setOrderError('');
+                      if (e.dataTransfer) {
+                        try {
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', s.id);
+                        } catch {
+                          /* 끌기 모양이 안 잡혀도 순서는 바뀐다 */
+                        }
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (!dragRef.current || dragRef.current === s.id) return;
+                      e.preventDefault();
+                      setDropId(s.id);
+                      if (e.dataTransfer) {
+                        try {
+                          e.dataTransfer.dropEffect = 'move';
+                        } catch {
+                          /* 무시 */
+                        }
+                      }
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      void commitOutlineDrop(s.id);
+                    }}
+                    onDragEnd={() => {
+                      dragRef.current = null;
+                      setDragId(null);
+                      setDropId(null);
+                    }}
+                  >
+                    <span className="ed-outline-grip" aria-hidden="true">
+                      ⋮⋮
+                    </span>
                     <button
                       type="button"
                       aria-current={pick.id === s.id}
@@ -309,6 +408,7 @@ export default function SiteEditor({
                   </li>
                 ))}
               </ul>
+              {orderError ? <p role="alert">{orderError}</p> : null}
             </nav>
           ) : null}
           <div className="ed-site-view">

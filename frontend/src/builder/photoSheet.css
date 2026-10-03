@@ -34,6 +34,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--ed-card, #fff);
+  padding-block: 4px;
 }
 
 .ph-title {
@@ -96,6 +101,17 @@
 .ph-btn--primary {
   background: var(--ed-primary, #2f5d50);
   color: var(--ed-on-primary, #fff);
+}
+
+/* 닫기 버튼. 누르는 면 44×44px 이상. */
+.ph-close {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
 }
 
 .ph-notice,

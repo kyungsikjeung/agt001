@@ -816,6 +816,28 @@
     font-size: 11px;
     opacity: 0.6;
   }
+  /* 끌어서 순서 바꾸기 (BUILDER_FIX_1003 J4): 놓을 자리 위 선, 줄 앞 손잡이 */
+  .ed-outline li {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    border-radius: 8px;
+  }
+  .ed-outline li[draggable='true'] {
+    cursor: grab;
+  }
+  .ed-outline-grip {
+    flex: none;
+    padding: 0 2px 0 6px;
+    color: var(--ed-note);
+    font-size: 12px;
+    letter-spacing: -2px;
+    user-select: none;
+  }
+  .ed-outline li.ed-outline-drop {
+    box-shadow: 0 -2px 0 var(--ed-accent-line);
+    background: var(--ed-slot-bg);
+  }
   .ed-site-body--desktop .ed-outline {
     display: none;
   }

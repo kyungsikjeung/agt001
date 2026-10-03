@@ -1,0 +1,30 @@
+<section class="s-staff s-staff--cards" data-section-id="{{id}}" aria-labelledby="staff-title-{{id}}">
+  <h2 id="staff-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}선생님{{/label}}</h2>
+  <ul class="s-tcard__grid">
+    {{#members}}
+    <li class="s-tcard__cell">
+      <button type="button" class="s-tcard" popovertarget="{{popover_id}}">
+        <span class="s-tcard__body">
+          {{#tagline}}<span class="s-tcard__tagline">{{tagline}}</span>{{/tagline}}
+          {{#subject}}<span class="s-tcard__subject">{{subject}}</span>{{/subject}}
+          <span class="s-tcard__name">{{name}}</span>
+          <span class="s-tcard__role">{{#role}}{{role}}{{/role}}{{^role}}선생님{{/role}}</span>
+          {{#example}}<span class="s-example">예시</span>{{/example}}{{^example}}{{#image_example}}<span class="s-example s-example--keep">예시 사진</span>{{/image_example}}{{/example}}
+        </span>
+        {{#image_src}}<img class="s-tcard__photo" src="{{image_src}}" alt="{{image_alt}}" loading="lazy">{{/image_src}}
+        {{^image_src}}<span class="s-tcard__mono" aria-hidden="true">{{initial}}</span>{{/image_src}}
+      </button>
+      <div class="s-tcard__pop" id="{{popover_id}}" popover>
+        {{#image_src}}<img class="s-tcard__pop-photo" src="{{image_src}}" alt="{{image_alt}}" loading="lazy">{{/image_src}}
+        {{#subject}}<p class="s-tcard__pop-subject">{{subject}}</p>{{/subject}}
+        <p class="s-tcard__pop-who"><strong class="s-tcard__pop-name">{{name}}</strong> <span class="s-tcard__pop-role">{{#role}}{{role}}{{/role}}{{^role}}선생님{{/role}}</span></p>
+        {{#tagline}}<p class="s-tcard__pop-tagline">{{tagline}}</p>{{/tagline}}
+        {{#has_specialties}}<ul class="s-tags" aria-label="{{name}} 전문 분야">{{#specialties}}<li>{{text}}</li>{{/specialties}}</ul>{{/has_specialties}}
+        {{#bio}}<p class="s-tcard__pop-bio">{{bio}}</p>{{/bio}}
+        {{#booking_href}}<p class="s-tcard__pop-cta"><a class="s-btn" href="{{booking_href}}">상담 신청</a></p>{{/booking_href}}
+        <button type="button" class="s-btn s-btn--ghost s-tcard__close" popovertarget="{{popover_id}}" popovertargetaction="hide" aria-label="닫기">닫기</button>
+      </div>
+    </li>
+    {{/members}}
+  </ul>
+</section>

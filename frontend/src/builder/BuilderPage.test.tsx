@@ -23,6 +23,7 @@ const FEATURES = [
   { key: 'section:menu', label: '메뉴', kind: 'section', on: true, locked: false },
   { key: 'section:space', label: '공간', kind: 'section', on: false, locked: false },
   { key: 'notice', label: '공지', kind: 'shop', on: false, needs_text: true },
+  { key: 'chat', label: '채팅', kind: 'shop', on: true, after_publish: true },
   { key: 'stamps', label: '스탬프', kind: 'shop', on: false, after_publish: true },
 ];
 
@@ -132,6 +133,17 @@ describe('BuilderPage', () => {
     expect(await screen.findByText('무료 디자인 고치기 18번 남음 · 11월 1일에 다시 채워져요')).toBeInTheDocument();
   });
 
+  it('까치를 누르면 처음 화면으로 간다 (J7)', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    await screen.findByTitle('사이트 미리보기');
+    expect(screen.getByRole('link', { name: '처음 화면으로' }).getAttribute('href')).toBe('/');
+  });
+
   it('빌더 모드에서는 구역 목록을 접는다', async () => {
     stubFetch(async (url) => {
       if (url.includes('/card/preview')) return okJson(PREVIEW);
@@ -145,7 +157,25 @@ describe('BuilderPage', () => {
     expect(screen.getByRole('group', { name: '기능 켜고 끄기' })).toBeInTheDocument();
   });
 
-  it('after_publish 칩은 PUT 없이 안내만 보인다', async () => {
+  it('after_publish 채팅 칩은 PUT 없이 안내 창을 연다', async () => {
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    fireEvent.click(await screen.findByRole('button', { name: '채팅' }));
+    expect(await screen.findByRole('dialog', { name: '채팅' })).toBeInTheDocument();
+    expect(screen.getByText('손님 채팅')).toBeInTheDocument();
+    expect(screen.getByText('지금: 켜짐')).toBeInTheDocument();
+    expect(screen.getByText('사이트를 공개하면 바로 쓸 수 있어요.')).toBeInTheDocument();
+    expect(callsTo('/features', 'PUT')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: '닫기' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '채팅' })).not.toBeInTheDocument());
+    expect(callsTo('/features', 'PUT')).toHaveLength(0);
+  });
+
+  it('스탬프 칩 안내에는 꺼짐 상태가 보인다 (PUT 없음)', async () => {
     stubFetch(async (url) => {
       if (url.includes('/card/preview')) return okJson(PREVIEW);
       if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
@@ -153,7 +183,24 @@ describe('BuilderPage', () => {
     });
     render(<BuilderPage roomId="r1" />);
     fireEvent.click(await screen.findByRole('button', { name: '스탬프' }));
-    expect(await screen.findByText('공개한 뒤 사장님 화면에서 켤 수 있어요')).toBeInTheDocument();
+    expect(await screen.findByText('스탬프 적립')).toBeInTheDocument();
+    expect(screen.getByText('지금: 꺼짐')).toBeInTheDocument();
+    expect(callsTo('/features', 'PUT')).toHaveLength(0);
+  });
+
+  it('안내 창은 Esc로 닫히고 공개 뒤에는 사장님 화면 링크를 보인다', async () => {
+    const published = { ...CARD, published: '2026-10-03', site_url: 'https://example.com/s1' };
+    stubFetch(async (url) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(published);
+    });
+    render(<BuilderPage roomId="r1" />);
+    fireEvent.click(await screen.findByRole('button', { name: '채팅' }));
+    const link = await screen.findByRole('link', { name: '사장님 화면 열기' });
+    expect(link.getAttribute('href')).toBe('/owner');
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: '채팅' })).not.toBeInTheDocument());
     expect(callsTo('/features', 'PUT')).toHaveLength(0);
   });
 

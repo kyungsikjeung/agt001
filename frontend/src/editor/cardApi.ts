@@ -39,6 +39,18 @@ export interface RoomCard {
   quota?: CardQuota | null;
   /** 초대·기념(청첩장)만: 양가 연락처·계좌 (넣은 값 또는 시안 기본 묶음) */
   event?: CardEvent;
+  /** 선생님·담당자 (BUILDER_FIX_1003_CONTRACT S2, 서버 S1). 없으면 대화에서 받은 값·예시 */
+  staff?: StaffMember[];
+}
+
+/** 선생님·담당자 1명 (BUILDER_FIX_1003_CONTRACT S2). specialties는 최대 4개 */
+export interface StaffMember {
+  name: string;
+  role: string;
+  subject: string;
+  tagline: string;
+  bio: string;
+  specialties: string[];
 }
 
 export interface EventPerson {
@@ -144,6 +156,7 @@ export interface CardSaveExtra {
   groups?: CardGroupsEdit;
   layout?: CardLayoutEdit;
   choice?: string;
+  staff?: StaffMember[];
 }
 
 export const MEMBER_KEY = 'agt001_member_id';
@@ -210,6 +223,7 @@ export async function saveCard(
   if (extra?.layout) body.layout = extra.layout;
   if (extra?.choice) body.choice = extra.choice;
   if (extra?.event) body.event = extra.event;
+  if (extra?.staff) body.staff = extra.staff;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',

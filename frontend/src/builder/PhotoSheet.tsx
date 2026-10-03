@@ -95,6 +95,18 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
     };
   }, [roomId, pick?.section, pick?.src, pick?.index]);
 
+  /** 시트가 열려 있는 동안 Esc 키로 닫는다. */
+  useEffect(() => {
+    if (!pick) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [pick, onClose]);
+
   if (!pick) return null;
 
   /** 후보를 만든다. 늦게 오면 무시된다(취소). */
@@ -177,12 +189,24 @@ export default function PhotoSheet({ roomId, pick, onClose, onApplied }: PhotoSh
   const aiOn = info !== null && info.kind !== 'owner' && info.ai_allowed;
 
   return (
-    <div className="ph-scrim">
+    <div
+      className="ph-scrim"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="ph-sheet" role="dialog" aria-label="사진 고치기">
         <div className="ph-top">
           <h2 className="ph-title">사진 고치기</h2>
-          <button type="button" className="ph-btn" onClick={onClose}>
-            닫기
+          <button type="button" className="ph-btn ph-close" aria-label="닫기" onClick={onClose}>
+            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+              <path
+                d="M2 2l12 12M14 2L2 14"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
           </button>
         </div>
         {targetBusy && <p className="ph-msg">사진을 불러오는 중이에요.</p>}
