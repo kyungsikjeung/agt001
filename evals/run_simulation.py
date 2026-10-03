@@ -205,7 +205,10 @@ def run_dialogue(scenario, engine, owner_llm_fn, *, max_turns: int = MAX_TURNS) 
         if q:
             questions.append({"turn": turn_no, "slot": q.get("slot"),
                               "kind": q.get("kind"), "text": q.get("text", ""),
-                              "options": list(q.get("options") or [])})
+                              "options": list(q.get("options") or []),
+                              # 도중 변경 말만 듣고 같은 질문을 다시 보인 것: 새 질문이 아니다
+                              "reshown": bool(questions and transcript and transcript[-1].get("change")
+                                              and all(questions[-1].get(k) == q.get(k) for k in ("slot", "kind", "text")))})
             transcript.append({"role": "엔진", "name": "엔진",
                                "text": format_question_local(card, q)})
         if out.get("done"):
@@ -441,7 +444,8 @@ def score_dialogue(scenario, result) -> dict:
     critical = sorted({i["slot"] for i in invented if i["slot"] in CRITICAL_SLOTS})
 
     # 질문 수·최대 상한·TKQR용 첫 질문 턴.
-    n_q = len(questions)
+    # 답하지 않고 도중 변경 말만 한 뒤 같은 질문을 다시 보인 것(reshown)은 새 질문이 아니다.
+    n_q = sum(1 for q in questions if not q.get("reshown"))
     first_turn = {}
     for q in questions:
         if q.get("slot") and q["slot"] not in first_turn:
