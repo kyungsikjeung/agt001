@@ -849,7 +849,11 @@ def v1_skeleton(card: dict, base: dict, edits: Optional[dict]) -> Optional[dict]
     if edits:
         spec = copy.deepcopy(base)
         chosen = state(card)["chosen"]
+        # 빌더에서 직접 고른 구역 모양(layout_edits variants)은 대화에서 고른 것보다 나중이라 그대로 둔다
+        shaped = edits.get("variants") if isinstance(edits.get("variants"), dict) else {}
         for sec in spec.get("sections") or []:
+            if sec.get("id") in shaped:
+                continue
             want = chosen.get(sec.get("id"))
             if want and want != sec.get("variant") and _variant_ok(sec.get("type"), want):
                 sec["variant"] = want

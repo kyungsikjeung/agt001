@@ -1,5 +1,5 @@
 <section class="s-around s-around--map" data-section-id="{{id}}" aria-labelledby="around-title-{{id}}">
-  <h2 id="around-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}오시는 길{{/label}}</h2>
+  <h2 id="around-title-{{id}}">{{> label}}</h2>
   <div class="s-map">
 {{#has_geo}}
     <div class="s-map__live" data-x="{{geo_x}}" data-y="{{geo_y}}" role="img" aria-label="지도: {{address}}"></div>

@@ -1,5 +1,5 @@
 <section class="s-booking s-booking--slots" data-section-id="{{id}}" aria-labelledby="booking-title-{{id}}">
-  <h2 id="booking-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}예약{{/label}}</h2>
+  <h2 id="booking-title-{{id}}">{{> label}}</h2>
   {{#note}}<p class="s-booking__note">{{note}}</p>{{/note}}
   {{#chat_url}}<p class="s-booking__chat"><a class="s-btn" href="{{chat_url}}">채팅으로 예약하기</a> 시술·인원에 맞는 빈 시간을 바로 보여 드려요.</p>{{/chat_url}}
   <form class="s-form" method="post" action="/api/bookings/{{site_key}}" enctype="application/x-www-form-urlencoded">

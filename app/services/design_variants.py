@@ -415,9 +415,9 @@ def _second_type(spec: dict) -> str:
 
 
 def _spec_distance(a: dict, b: dict) -> int:
-    """두 명세가 눈에 얼마나 다른지 0~17 가점 (D42-4 최소차이 8의 판정 기준).
+    """두 명세가 눈에 얼마나 다른지 0~19 가점 (D42-4 최소차이 8의 판정 기준).
     픽셀 평가와 같은 단위가 아니라 명세 차이의 근사치다:
-    색 계열 4·글꼴 2·첫 화면 3·상품형 2·바로 다음 부품 2·사진첩 1·여백 1·모서리 1·사진처리 1."""
+    색 계열 4·글꼴 2·첫 화면 3·상품형 2·바로 다음 부품 2·사진첩 1·여백 1·모서리 1·사진처리 1·스타일 축 2."""
     score = 0
     ta, tb = a.get("tokens", {}), b.get("tokens", {})
     pa, pb = ta.get("palette"), tb.get("palette")
@@ -443,6 +443,12 @@ def _spec_distance(a: dict, b: dict) -> int:
         score += 1
     if ta.get("image_style") != tb.get("image_style"):
         score += 1
+    # 스타일 축(카드 면·구역 제목): 다르면 1점씩. 비어 있으면 기본값과 같다.
+    from app.services import components as COMP
+    for axis, spec in COMP.style_axes().items():
+        default = (spec or {}).get("default")
+        if (ta.get(axis) or default) != (tb.get(axis) or default):
+            score += 1
     return score
 
 
@@ -673,7 +679,26 @@ def variants(card: dict) -> list[dict]:
     if items and items[0].get("name") == SPOKEN_NAME and polished:
         # 사장님이 말로 고른 1안은 다듬기 에이전트가 색·순서·숨김을 바꾸지 않는다
         polished = [items[0]] + list(polished[1:])
-    return polished
+    return _with_style_axes(card, polished)
+
+
+def _with_style_axes(card: dict, items: list) -> list:
+    """사장님이 빌더에서 고른 스타일 축(카드 면·구역 제목)을 안별로 토큰에 얹는다 (COMPONENT_ENGINE_PLAN §6).
+
+    고른 것이 없으면 그대로(기본값 = 지금 모양). 3안 기본 모양은 바꾸지 않는다: 공개본은 고칠 때마다
+    다시 그려지므로 기본값을 바꾸면 사장님이 모르는 사이 공개 사이트 모양이 바뀐다."""
+    from app.services import components as COMP
+    chosen = (card or {}).get("style_axes") if isinstance((card or {}).get("style_axes"), dict) else {}
+    if not chosen:
+        return items
+    out = []
+    for item in items:
+        axes = COMP.clean_style(chosen.get(item.get("id")))
+        if axes and isinstance(item.get("spec"), dict):
+            spec = {**item["spec"], "tokens": {**(item["spec"].get("tokens") or {}), **axes}}
+            item = {**item, "spec": spec}
+        out.append(item)
+    return out
 
 
 def _legacy_variants(card: dict) -> list[dict]:

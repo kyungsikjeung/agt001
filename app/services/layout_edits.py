@@ -1,8 +1,10 @@
-"""구역 순서·숨기기·추가 편집 (EDIT_WAVE2_CONTRACT §3.1).
+"""구역 순서·숨기기·추가·모양 편집 (EDIT_WAVE2_CONTRACT §3.1, COMPONENT_ENGINE_PLAN §6).
 
-순수 함수만 둔다. DB·파일 접근 없음.
+순수 함수만 둔다. DB 접근 없음(모양 묶음은 컴포넌트 등록표 components.json을 읽는다).
 """
 import copy
+
+from app.services import components as COMP
 
 # 옮기기·숨기기 불가 구역
 LOCKED = ("hero", "inquiry")
@@ -66,8 +68,41 @@ def _str_list(value) -> list:
     return out
 
 
+def _node_for(blueprint: dict, pos: int, sid: str) -> dict:
+    """이 안의 구역 노드(없으면 다른 안에서 더한 노드). hero는 전략의 hero 변형으로 만든다."""
+    if sid == "hero":
+        strategies = _strategies(blueprint)
+        strategy = strategies[pos] if isinstance(pos, int) and 0 <= pos < len(strategies) else {}
+        hero = strategy.get("hero") if isinstance(strategy, dict) else None
+        return {"id": "hero", "type": "hero", "bind": "hero", "variant": hero if isinstance(hero, str) else ""}
+    for node in _strategy_nodes(blueprint, pos):
+        if node.get("id") == sid:
+            return node
+    node = pool(blueprint).get(sid)
+    return node if isinstance(node, dict) else {}
+
+
+def _clean_variants(raw, blueprint: dict, pos: int, ids: set) -> dict:
+    """{구역 id: 모양} 중 이 안에 있고 같은 데이터로 바꿀 수 있는 것만 (기본 모양과 같으면 뺀다)."""
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for sid, variant in raw.items():
+        if not isinstance(sid, str) or sid not in ids or not isinstance(variant, str):
+            continue
+        node = _node_for(blueprint, pos, sid)
+        stype, bind = node.get("type"), node.get("bind", "none")
+        if not isinstance(stype, str) or variant == node.get("variant"):
+            continue
+        if COMP.can_switch(stype, bind, variant):
+            out[sid] = variant
+    return out
+
+
 def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
-    """{order, hidden, added}를 이 청사진·안 기준으로 정리. 아무 효과 없으면 None."""
+    """{order, hidden, added, variants}를 이 청사진·안 기준으로 정리. 아무 효과 없으면 None.
+
+    variants(구역별 모양)는 바꾼 것이 있을 때만 키를 둔다(예전 편집 모양 그대로)."""
     if not isinstance(edits, dict):
         return None
     base = _base_ids(blueprint, pos)
@@ -103,9 +138,13 @@ def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
             order.append(movable[cursor])
             cursor += 1
 
-    if not added and not hidden and order == effective:
+    variants = _clean_variants(edits.get("variants"), blueprint, pos, effective_set)
+    if not added and not hidden and order == effective and not variants:
         return None
-    return {"order": order, "hidden": hidden, "added": added}
+    out = {"order": order, "hidden": hidden, "added": added}
+    if variants:
+        out["variants"] = variants
+    return out
 
 
 def _skeleton_shape(node: dict) -> dict:
@@ -146,12 +185,16 @@ def apply(skeleton: dict, blueprint: dict, pos: int, edits: dict | None) -> dict
             sec = _skeleton_shape(nodes[aid])
             by_id[aid] = sec
     hidden = set(cleaned["hidden"])
+    shapes = cleaned.get("variants") or {}
     ordered = []
     for sid in cleaned["order"]:
         if sid in hidden:
             continue
         sec = by_id.get(sid)
         if sec is not None:
+            if sid in shapes:
+                # 모양만 바꾼다. 데이터 채우기(site_data.resolve)가 이 모양을 보고 내용 모양을 맞춘다.
+                sec["variant"] = shapes[sid]
             ordered.append(sec)
     # hero는 항상 0번
     hero = [s for s in ordered if s.get("id") == "hero"]
@@ -169,6 +212,7 @@ def sections(blueprint: dict, pos: int, edits: dict | None) -> list[dict]:
     cleaned = normalize(edits, blueprint, pos) if isinstance(edits, dict) else None
     order = cleaned["order"] if cleaned else base
     hidden = set(cleaned["hidden"]) if cleaned else set()
+    shapes = (cleaned or {}).get("variants") or {}
     out = []
     for sid in order:
         if sid == "hero":
@@ -177,8 +221,14 @@ def sections(blueprint: dict, pos: int, edits: dict | None) -> list[dict]:
         else:
             node = nodes.get(sid) or {}
             bind = node.get("bind", "none") if isinstance(node, dict) else "none"
+        base_node = _node_for(blueprint, pos, sid)
+        stype = base_node.get("type") if isinstance(base_node.get("type"), str) else ""
         out.append({"id": sid, "bind": bind, "locked": sid in LOCKED,
-                    "hidden": sid in hidden, "node": copy.deepcopy(node) if isinstance(node, dict) else {}})
+                    "hidden": sid in hidden, "node": copy.deepcopy(node) if isinstance(node, dict) else {},
+                    # 구역 모양 바꾸기 (COMPONENT_ENGINE_PLAN §6): 지금 모양·기본 모양·바꿀 수 있는 모양
+                    "type": stype, "variant": shapes.get(sid) or base_node.get("variant") or "",
+                    "base_variant": base_node.get("variant") or "",
+                    "shapes": COMP.shapes(stype, bind) if stype else []})
     return out
 
 

@@ -1,5 +1,5 @@
 <section class="s-offerings s-offerings--tabs" data-section-id="{{id}}" aria-labelledby="offerings-title-{{id}}">
-  <h2 id="offerings-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}메뉴{{/label}}</h2>
+  <h2 id="offerings-title-{{id}}">{{> label}}</h2>
   {{#has_items}}
   <nav class="s-tabs__nav" aria-label="분류">
     {{#items}}<a class="s-tabs__tab" href="#tab-{{id}}-{{index}}">{{#name}}{{name}}{{/name}}{{^name}}항목 {{index}}{{/name}}</a>{{/items}}

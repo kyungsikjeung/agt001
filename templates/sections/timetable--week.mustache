@@ -1,9 +1,9 @@
 <section class="s-timetable s-timetable--week" data-section-id="{{id}}" aria-labelledby="timetable-title-{{id}}">
-  <h2 id="timetable-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}시간표{{/label}}{{#example}} <span class="s-example" title="예시 시간표: 공개할 때 빠져요">예시</span>{{/example}}</h2>
+  <h2 id="timetable-title-{{id}}">{{> label}}{{#example}} <span class="s-example" title="예시 시간표: 공개할 때 빠져요">예시</span>{{/example}}</h2>
   {{#has_rows}}
   <div class="s-timetable__scroll">
     <table class="s-timetable__table">
-      <caption>{{#label}}{{label}}{{/label}}{{^label}}시간표{{/label}}</caption>
+      <caption>{{> label}}</caption>
       <thead>
         <tr><th scope="col">시간</th>{{#days}}<th scope="col">{{label}}</th>{{/days}}</tr>
       </thead>

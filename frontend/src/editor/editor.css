@@ -1218,3 +1218,121 @@
 .ed-rsvp__who span { font-size: 13px; color: var(--ed-note); }
 .ed-rsvp__state { margin-left: auto; font-weight: 600; color: var(--ed-ink) !important; }
 .ed-rsvp__note, .ed-rsvp__contact { margin: 2px 0 0; font-size: 13px; color: var(--ed-note); }
+
+/* ---- 실시간 미리보기 조작 (COMPONENT_ENGINE_PLAN §5·§6) ----
+ * 스타일 고르기: 접힌 '스타일' 한 줄 → 펼치면 축마다 나눔 버튼(카드 면·구역 제목). 누르는 즉시 미리보기에 보인다.
+ * 구역 모양: 같은 데이터로 바꿔 쓸 수 있는 모양을 이름·한 줄 설명 카드로. 새 모양에는 '새' 표시. */
+.ed-style {
+  margin: 8px 0 0;
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+  background: var(--ed-card);
+}
+.ed-style > summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 14px;
+  font-weight: 700;
+  cursor: pointer;
+  list-style: none;
+}
+.ed-style > summary::-webkit-details-marker { display: none; }
+.ed-style > summary::after {
+  content: '▾';
+  margin-left: auto;
+  transition: transform 0.15s ease-out;
+}
+.ed-style[open] > summary::after { transform: rotate(180deg); }
+.ed-style__row {
+  display: grid;
+  gap: 6px;
+  padding: 0 14px 12px;
+}
+.ed-style__label {
+  font-size: 13px;
+  color: var(--ed-note);
+}
+/* 나눔 버튼: 한 줄에 넘치면 옆으로 밀어 본다(360px에서도 줄바꿈 없이) */
+.ed-seg {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.ed-seg::-webkit-scrollbar { display: none; }
+.ed-seg button {
+  flex: none;
+  min-height: 44px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--ed-line);
+  background: transparent;
+  color: var(--ed-ink);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ed-seg button[aria-pressed='true'] {
+  background: var(--ed-primary);
+  border-color: var(--ed-primary);
+  color: var(--ed-on-primary);
+}
+.ed-seg button:disabled { opacity: 0.55; }
+
+.ed-shapes {
+  margin: 4px 0 12px;
+  padding: 0;
+  border: 0;
+}
+.ed-shapes > legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+.ed-shapes__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.ed-shape {
+  display: grid;
+  gap: 2px;
+  min-height: 64px;
+  padding: 10px 12px;
+  text-align: start;
+  border-radius: 12px;
+  border: 1px solid var(--ed-line);
+  background: var(--ed-card);
+  color: var(--ed-ink);
+}
+.ed-shape[aria-pressed='true'] {
+  border-color: var(--ed-accent-line);
+  box-shadow: inset 0 0 0 1px var(--ed-accent-line);
+  background: var(--ed-slot-bg);
+}
+.ed-shape:disabled { opacity: 0.55; }
+.ed-shape__name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.ed-shape__new {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--ed-accent-line);
+  color: var(--ed-on-primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+.ed-shape__desc {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--ed-note);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-style > summary::after { transition: none; }
+}

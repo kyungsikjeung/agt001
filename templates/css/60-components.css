@@ -1,0 +1,97 @@
+/* ==== 컴포넌트 엔진 층 (docs/product/COMPONENT_ENGINE_PLAN.md, 2026-10-04) ====
+ * 1) 기초 토큰: 흩어진 그림자 값(15가지)·글자 크기(25가지)를 단계로 묶는다. 새 부품은 이 단계만 쓴다.
+ *    기존 부품은 고칠 때마다 이 단계로 옮긴다(한 번에 바꾸면 3안·공개본 모양이 흔들린다).
+ * 2) 새 변형 3종: gallery--masonry · offerings--compact · intro--quote.
+ *    같은 데이터로 바꿔 쓰는 형제 변형(components.json groups)이라 빌더 '모양 바꾸기'에서 바로 보인다.
+ * 색은 팔레트 변수(--c-*, --card, --line, --muted)만 쓴다. 어두운 띠(data-tone="inverse")가
+ * 이 변수들을 다시 정의하므로 따로 맞출 필요가 없다. */
+
+:root {
+  /* 높이(그림자) 3단 */
+  --elev-1: 0 1px 2px var(--line);
+  --elev-2: 0 1px 2px var(--line), 0 14px 30px -22px var(--line);
+  --elev-3: 0 2px 6px var(--line), 0 24px 40px -24px color-mix(in srgb, var(--c-ink) 32%, transparent);
+  /* 글자 크기 단계: 본문 보조도 14px 이상(작은 글자 규칙) */
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: clamp(20px, 4.6vw, 24px);
+  --fs-quote: clamp(22px, 5.8vw, 30px);
+}
+
+/* ---- gallery--masonry: 사진 비율대로 엇갈려 쌓기 (CSS 열, 스크립트 없음) ---- */
+.s-masonry {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 2;
+  column-gap: 12px;
+}
+.s-masonry li { break-inside: avoid; margin: 0 0 12px; }
+/* 예시·같은 비율 사진도 엇갈려 보이게 세 가지 비율을 돌린다 */
+.s-gallery .s-masonry img { height: auto; aspect-ratio: 4 / 5; }
+.s-gallery .s-masonry li:nth-child(3n + 2) img { aspect-ratio: 1; }
+.s-gallery .s-masonry li:nth-child(3n) img { aspect-ratio: 3 / 4; }
+.s-masonry .s-media__empty { display: flex; width: 100%; aspect-ratio: 4 / 5; align-items: center; justify-content: center; }
+.s-gallery--masonry h2::after { width: 44px; }
+@media (min-width: 760px) {
+  .s-masonry { columns: 3; column-gap: 16px; }
+  .s-masonry li { margin-bottom: 16px; }
+}
+
+/* ---- offerings--compact: 점선으로 이은 촘촘한 메뉴판 (넓은 화면 두 줄) ---- */
+.s-board {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px 32px;
+}
+.s-board__row {
+  display: grid;
+  gap: 2px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+  break-inside: avoid;
+}
+.s-board__line { display: flex; align-items: baseline; gap: 8px; }
+.s-board__name { font-size: var(--fs-lg); font-weight: 700; letter-spacing: -0.01em; }
+.s-board__dots {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 2px dotted color-mix(in srgb, currentColor 30%, transparent);
+  transform: translateY(-4px);
+}
+.s-board__price {
+  font-weight: 800;
+  color: var(--c-primary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.s-board__desc { font-size: var(--fs-sm); color: var(--muted); }
+section[class^="s-"][data-tone="inverse"] .s-board__price { color: color-mix(in oklch, var(--c-accent) 45%, #fff); }
+@media (min-width: 760px) {
+  .s-board { grid-template-columns: 1fr 1fr; }
+}
+
+/* ---- intro--quote: 소개를 큰 인용문으로 ---- */
+.s-quote {
+  position: relative;
+  margin: 0;
+  padding: 8px 0 0 0;
+  font-family: var(--font-display);
+  font-size: var(--fs-quote);
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  text-wrap: pretty;
+}
+.s-quote::before {
+  content: "\201C";
+  display: block;
+  font-size: 2.6em;
+  line-height: 0.6;
+  height: 0.42em;
+  color: var(--c-accent);
+}
+section[class^="s-"] .s-quote p { margin: 0; }
+section[class^="s-"][data-tone="inverse"] .s-quote::before { color: color-mix(in oklch, var(--c-accent) 45%, #fff); }

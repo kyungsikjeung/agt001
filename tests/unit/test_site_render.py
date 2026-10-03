@@ -163,12 +163,13 @@ def test_tabs_index와_has_불리언():
 
 def test_list_variants_26종():
     variants = list_variants()
-    assert len(variants) == 55  # + 선생님 카드 1(staff--cards, BUILDER_FIX_1003) + 영상 표지형 첫 화면 1(hero--video, COMPOSE_INTERVIEW_CONTRACT C-4) + 초대·기념 5(event--date, family--contacts, gift--accounts, rsvp--form, guestbook--list: 청첩장) + 앱형 2(hero--app, tabbar--app, D56) + 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN) + 편집형 7(2026-09-27 시범) + 내비·마퀴 2 + 적합성 7(DESIGN_FIT_PLAN: 분류 메뉴판·담당자 2·예시 지도·예약 현황·주문 준비 중·하단 바)
+    assert len(variants) == 58  # + 새 변형 3(gallery--masonry, offerings--compact, intro--quote: COMPONENT_ENGINE_PLAN) + 선생님 카드 1(staff--cards, BUILDER_FIX_1003) + 영상 표지형 첫 화면 1(hero--video, COMPOSE_INTERVIEW_CONTRACT C-4) + 초대·기념 5(event--date, family--contacts, gift--accounts, rsvp--form, guestbook--list: 청첩장) + 앱형 2(hero--app, tabbar--app, D56) + 20 + 문의 2 + 영상 1 + P2 새 부품 2(features--icons, stats--band) + 예약 신청 1(BOOKING_PLAN) + 편집형 7(2026-09-27 시범) + 내비·마퀴 2 + 적합성 7(DESIGN_FIT_PLAN: 분류 메뉴판·담당자 2·예시 지도·예약 현황·주문 준비 중·하단 바)
     assert "hero--photo-overlay" in variants
     assert "contact--form" in variants
     assert "reviews--slot-only" in variants
     assert "video--card" in variants
     assert "hero--video" in variants
+    assert {"gallery--masonry", "offerings--compact", "intro--quote"} <= set(variants)
     assert variants == sorted(variants)
     assert "contact--form" in site_render.list_variants()
 

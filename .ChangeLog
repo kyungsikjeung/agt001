@@ -1,6 +1,27 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/00/29  [컴포넌트 엔진 · claude/sweet-noether-jo25f0] 공통 부분 정리 · 디자인 다양화 · 실시간 렌더링 (COMPONENT_ENGINE_PLAN)
+  - 분석·결정: docs/product/COMPONENT_ENGINE_PLAN.md (신규). 테일윈드는 도입 안 함(CSS 변수 토큰 층으로 충분, 이유 §2)
+  - 공통 부분: 구역 제목 기본값 조각을 공용 조각으로 → templates/partials/label.mustache (신규),
+      템플릿 23개가 {{> label}} 사용. 기본 제목은 등록표로
+  - 컴포넌트 등록표: templates/components.json (신규, 부품 58·모양 묶음 5·스타일 축 2), app/services/components.py (신규)
+  - 렌더 엔진: app/services/site_render.py render_page (구역 조각·해시·뼈대·토큰), render_site는 그 html.
+      편집 미리보기 스크립트에 agt-patch(구역 바꿔 끼우기)·agt-theme(토큰·스타일 축) 수신, 부모 창 것만
+  - 실시간 API: app/api/card.py POST /card/preview/draft (저장 없이 바뀐 구역만), preview 응답에 shell·parts·theme·shapes,
+      PUT /card style(안별 스타일 축)·layout.variants(구역별 모양, 빼면 유지)
+  - 구역 모양 편집: app/services/layout_edits.py variants (같은 데이터 묶음만, 채우기 전에 적용)
+  - 스타일 반영: app/services/design_variants.py (사장님이 고른 축을 안별 토큰에, 3안 차이 점수에 축 2점)
+  - 말로 고른 1안(compose.v1_skeleton)도 빌더에서 고른 구역 모양을 대화 모양보다 우선 (검토 중 찾은 덮어쓰기)
+  - 새 변형 3종: templates/sections/gallery--masonry·offerings--compact·intro--quote.mustache,
+      templates/css/60-components.css (단계 토큰 --elev·--fs + 새 변형), templates/css/65-style-axes.css (surface·heading)
+  - 빌더: frontend/src/editor/livePatch.ts (신규, 바꿔 끼우기 계획), SiteEditor.tsx(저장·입력 때 새로 불러오지 않고 조각 교체,
+      스타일 고르기), SectionPanel.tsx(입력 중 미리 그리기, 구역 '모양' 카드), cardApi.ts, editor.css(스타일·모양 고르기 모양)
+  - 도구: scripts/component_gallery.py (신규, 모양 묶음·스타일 축을 휴대폰 폭으로 나란히 + 캡처)
+  - 기본값 = 지금 모양: 골든 528개 렌더에서 시안·공개 출력 바이트 동일 확인, 공개 사이트는 사장님이 고를 때만 바뀜
+  - 테스트: 파이썬 +22(test_component_engine 14, test_live_preview 7, test_compose_v1 1), 프런트 +7(livePreview.test.tsx).
+      test_site_render 부품 수 55→58. 전체: pytest 1499·vitest 145·tsc·vite build 통과
+
 10/04/00/04  [테스트 수정 · main CI #266 빨강] 예약 61일 테스트가 한국 자정을 넘기면 실패하던 것
   - 원인: tests/unit/test_bookings.py test_invalid_input_400의 날짜(오늘+61일)를 테스트를 '모을 때' 계산했다.
       23:59(KST)에 모으고 00:00이 지나 돌면 서버 기준으로는 60일째가 돼 400 대신 303.
