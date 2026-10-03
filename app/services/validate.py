@@ -8,7 +8,7 @@
 import re
 from typing import Optional
 
-from app.services.numbers import _NATIVE_HOURS, _NATIVE_RE, numbers_in
+from app.services.numbers import _NATIVE_HOURS, _NATIVE_RE, native_hours_to_digits, numbers_in
 
 # 전화번호 자리수가 맞지 않을 때 돌려주는 말
 _PHONE_LEN_MSG = "전화번호 자리수가 맞지 않아요"
@@ -130,8 +130,9 @@ def check_hours(value: str) -> Optional[str]:
     - 체크인·체크아웃처럼 순서가 반대인 게 정상인 말은 통과시킨다.
     - 시간 숫자가 없으면 막는다.
     """
-    text = value or ""
-    nums = numbers_in(text)  # 말로 한 시각 근거 확인용
+    # 말로 한 시각("오후 세 시")도 숫자 시각으로 읽는다. 전에는 숫자 모양만 읽어서 말로 한 영업시간을 모두 막았다(T2 9/30 재생).
+    text = native_hours_to_digits(value or "")
+    nums = numbers_in(text)
     hours = _hours_in_order(text)
     if not hours and not nums:
         return "영업시간 숫자가 없어요"
