@@ -142,7 +142,7 @@ flowchart LR
 
 | 기술 | 용도 | 코드·문서 위치 | 상태 |
 |---|---|---|---|
-| NIM 대화 모델 `nvidia/nemotron-3-super-120b-a12b` (주) | 요구사항 추출(`chat_json`), 리뷰어 에이전트(요약 직전 원문↔카드 대조, D34), 대화 응답 | `app/llm.py` (`chat`, `chat_json`), `app/services/prd_engine.py` (`extract_detail`, `review`), `app/services/chat_flow.py` | 동작 |
+| NIM 대화 모델 `nvidia/nemotron-3-ultra-550b-a55b` (주, super는 10/3 종료) | 요구사항 추출(`chat_json`), 리뷰어 에이전트(요약 직전 원문↔카드 대조, D34), 대화 응답 | `app/llm.py` (`chat`, `chat_json`), `app/services/prd_engine.py` (`extract_detail`, `review`), `app/services/chat_flow.py` | 동작 |
 | NIM 대비 모델 `nvidia/nemotron-3-ultra-550b-a55b` → `nvidia/nemotron-3.5-lightning-30b-a3b` | 주 모델 과부하(503)·요청 제한·시간 초과 때 차례로 대신 응답. 실패 모델 60초 건너뛰기, 세 모델 동시 실패면 2초 쉬고 한 바퀴 더 | `app/llm.py` (`_with_fallback`), `app/config.py` (`nim_chat_fallback_models`) | 동작 (9/26 운영 과부하를 실제로 넘김. ultra 실측 2.2초) |
 | NIM 임베딩 `nvidia/nemotron-3-embed-1b` | 비슷한 사례 찾기(RAG): 기능 사례집 42개 + 업종·종류 프로필 9개를 한 번에 임베딩(2.4초), 기준 0.76 | `app/llm.py` (`embed`, `embed_many`), `app/services/rag.py` | 동작 |
 | Parakeet 1.1B RNNT 다국어 음성 인식 (NVIDIA 호스팅) | 채팅방 마이크 버튼: 녹음 → 16kHz 변환 → 한국어 전사 → 한글 숫자("공일공…")를 숫자로 → 입력창에 넣고 사장님이 고친 뒤 전송 | `app/services/stt.py`, `app/api/stt.py`(`POST /api/stt`), `static/voice.js`, `static/room.html` | 동작 |

@@ -19,6 +19,9 @@ KO_RULE = ("사람에게 보이는 글(값·설명·이유·답·문구)은 모�
 
 # 다음 모델로 넘어갈 오류: 과부하·요청 제한·서버 오류·시간 초과·연결 실패. 요청이 틀린 경우(400 등)는 넘기지 않는다.
 _RETRYABLE = (openai.APITimeoutError, openai.APIConnectionError, openai.RateLimitError, openai.InternalServerError)
+# 없어진 모델(404·410, 예: 2026-10-03 nemotron-3-super 서비스 종료)도 다음 모델로 넘기고 하루 쉬게 한다.
+_GONE_STATUS = (404, 410)
+_GONE_COOLDOWN_SEC = 86400.0
 _cooldown: dict[str, float] = {}
 _lock = threading.Lock()
 
@@ -63,10 +66,13 @@ def _with_fallback(call: Callable[[str], str]) -> str:
             continue
         try:
             out = call(model)
-        except _RETRYABLE as e:
+        except openai.APIError as e:
+            gone = isinstance(e, openai.APIStatusError) and e.status_code in _GONE_STATUS
+            if not (gone or isinstance(e, _RETRYABLE)):
+                raise
             last_exc = e
             with _lock:
-                _cooldown[model] = time.monotonic() + settings.nim_fallback_cooldown_sec
+                _cooldown[model] = time.monotonic() + (_GONE_COOLDOWN_SEC if gone else settings.nim_fallback_cooldown_sec)
             log.warning("NIM 모델 %s 실패(%s) → 다음 모델", model, type(e).__name__)
             continue
         if model != settings.nim_chat_model:

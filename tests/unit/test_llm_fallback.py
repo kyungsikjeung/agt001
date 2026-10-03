@@ -61,3 +61,17 @@ def test_all_fail_raises_last_error():
     with pytest.raises(openai.RateLimitError):
         llm._with_fallback(lambda m: seen.append(m) or (_ for _ in ()).throw(_err(openai.RateLimitError, 429)))
     assert seen == ["primary", "second", "third"] * 2
+
+
+def test_retired_model_falls_back_and_rests_a_day():
+    # 2026-10-03 nemotron-3-super 서비스 종료: 410 Gone도 다음 모델로 넘기고 하루 건너뛴다
+    calls = []
+
+    def call(model):
+        calls.append(model)
+        if model == "primary":
+            raise _err(openai.APIStatusError, 410)
+        return f"ok:{model}"
+
+    assert llm._with_fallback(call) == "ok:second"
+    assert llm._cooldown["primary"] - llm.time.monotonic() > 3600

@@ -10,10 +10,10 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=PROJECT_ROOT / ".env", extra="ignore")
 
     nim_api_key: str
-    nim_chat_model: str = "nvidia/nemotron-3-super-120b-a12b"
+    nim_chat_model: str = "nvidia/nemotron-3-ultra-550b-a55b"  # super는 2026-10-03 서비스 종료
     # 주 모델이 과부하(503)·요청 제한(429)·시간 초과일 때 차례로 쓸 대비 모델 (D28). 실측 2026-09-26:
     # ultra 2.2초(기능 칸까지 정확), lightning 1.7초. 쉼표로 구분.
-    nim_chat_fallback_models: str = "nvidia/nemotron-3-ultra-550b-a55b,nvidia/nemotron-3.5-lightning-30b-a3b"
+    nim_chat_fallback_models: str = "nvidia/nemotron-3.5-lightning-30b-a3b"
     # 실패한 모델은 이 시간 동안 건너뛰고 다음 모델로 바로 간다(매 요청마다 실패를 기다리지 않게).
     nim_fallback_cooldown_sec: float = 60.0
     # 모든 모델이 실패했을 때 한 번 더 돌기 전에 쉬는 시간
