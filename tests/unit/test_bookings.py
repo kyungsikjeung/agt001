@@ -101,10 +101,13 @@ def test_honeypot_looks_ok_but_not_saved(client):
 
 
 @pytest.mark.parametrize("over", [
-    {"date": ""}, {"date": "2020-01-01"}, {"date": _day(61)}, {"time": "25:00"}, {"party": "0"},
+    {"date": ""}, {"date": "2020-01-01"}, {"date": 61}, {"time": "25:00"}, {"party": "0"},
     {"party": "21"}, {"party": "두명"}, {"phone": ""}, {"phone": "abc"}, {"agree": ""},
 ])
 def test_invalid_input_400(client, over):
+    # 날짜 칸의 숫자 = 오늘부터 며칠 뒤. 모을 때가 아니라 돌 때 계산한다:
+    # 모을 때 계산하면 실행이 한국 자정을 넘길 때 61일째가 60일째가 돼 통과해 버린다(CI #266).
+    over = {k: _day(v) if k == "date" and isinstance(v, int) else v for k, v in over.items()}
     _, key = _site(client)
     r = _send(client, key, **over)
     assert r.status_code == 400 and "<script" not in r.text

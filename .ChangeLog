@@ -1,7 +1,13 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
-10/04/00/05  [버그 수정 · claude/sweet-noether-jo25f0] 10/3 선생님 구역 검토 뒤 고친 것 5건
+10/04/00/04  [테스트 수정 · main CI #266 빨강] 예약 61일 테스트가 한국 자정을 넘기면 실패하던 것
+  - 원인: tests/unit/test_bookings.py test_invalid_input_400의 날짜(오늘+61일)를 테스트를 '모을 때' 계산했다.
+      23:59(KST)에 모으고 00:00이 지나 돌면 서버 기준으로는 60일째가 돼 400 대신 303.
+      실패 재현: 서버 오늘을 하루 넘긴 상태에서 옛 방식 303, 새 방식 400 확인
+  - 수정: 날짜 칸은 '며칠 뒤' 숫자로 두고 돌 때 _day()로 계산. 앱 코드 변경 없음
+
+10/03/23/57  [버그 수정 · claude/sweet-noether-jo25f0] 10/3 선생님 구역 검토 뒤 고친 것 5건
   - 선생님 사진을 다시 올려도 옛 사진이 계속 보이던 것 → 가장 최근에 올린 장을 쓴다
       app/services/photos.py staff_photo_url, app/services/site_data.py _staff_photo
   - 선생님 사진이 첫 화면 배경·사진첩에도 깔리던 것 → site_photos에서 staff: 태그를 뺀다(공지 사진과 같은 방식)
@@ -16,7 +22,7 @@
   - 테스트: 파이썬 +4(tests/unit/test_staff_edit.py 3, test_card_api.py 1), 프런트 +2(StaffEditor.test.tsx). 모두 옛 코드에서 실패 확인
       전체: pytest 1477 통과, vitest 138 통과, tsc·vite build 통과
 
-10/03/23/58  [계획 · main] 사이트 채팅·휴대폰 알림, 기능 통합 관리 + BaaS 수익 아키텍처
+10/03/23/56  [계획 · main] 사이트 채팅·휴대폰 알림, 기능 통합 관리 + BaaS 수익 아키텍처
   - docs/product/OWNER_NOTIFY_PLAN.md (신규)
       사이트 채팅은 이미 있음(공개 시 '채팅하기' 자동, /owner 채팅 탭). 떠 있는 채팅 버튼(스크립트 없는 링크) 추천.
       문자 말고 휴대폰 알림: 웹 푸시(무료·기본) + 카카오 알림톡(유료·솔라피) + 카톡 나에게 보내기(보조), 문자는 대체만.
