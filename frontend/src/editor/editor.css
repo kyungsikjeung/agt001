@@ -1343,3 +1343,72 @@
 @media (prefers-reduced-motion: reduce) {
   .ed-style > summary::after { transition: none; }
 }
+
+/* ---- 시간 칸 빠르게 고르기 (TimeRangeField, 10/4): 이름 | 자주 쓰는 시각 버튼 + 30분 고르기, 아래 글 칸 ---- */
+.ed-time {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 0;
+  border: 0;
+}
+.ed-time > legend {
+  padding: 0;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+.ed-time__row {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+}
+.ed-time__name {
+  padding-top: 12px; /* 버튼 첫 줄 가운데에 맞춤 (버튼이 두 줄로 넘어가도 이름은 위에) */
+  font-size: 14px;
+  color: var(--ed-note);
+}
+.ed-time__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ed-time__chips button {
+  min-height: 44px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--ed-line);
+  background: transparent;
+  color: var(--ed-ink);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ed-time__chips button[aria-pressed='true'] {
+  background: var(--ed-primary);
+  border-color: var(--ed-primary);
+  color: var(--ed-on-primary);
+}
+.ed-time__chips button:disabled,
+.ed-time__select:disabled { opacity: 0.55; }
+.ed-time__select {
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ed-line);
+  background: var(--ed-field);
+  color: var(--ed-ink);
+  font-size: 14px;
+}
+.ed-time__chips button:focus-visible,
+.ed-time__select:focus-visible { outline: 2px solid var(--ed-focus); outline-offset: 2px; }
+.ed-time__text {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+@media (max-width: 360px) {
+  .ed-time__row { grid-template-columns: 1fr; gap: 4px; }
+  .ed-time__name { padding-top: 0; }
+}

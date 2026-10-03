@@ -1,6 +1,20 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/35  [기능 · claude/jolly-hamilton-rg8hfa] 체크인·아웃 / 영업·수업 시간 빠르게 고르기
+  - 빌더 구역 칸의 시간 칸(hours)을 글 칸 하나 → 버튼 고르기 + 글 칸으로
+      숙박(라벨에 '체크인'): 체크인 14·15·16시, 체크아웃 10·11·12시 버튼 + 30분 간격 '다른 시각'
+      가게·수업(영업/수업/운영/이용 시간): 요일(매일·평일·주말), 여는·닫는 시간, 쉬는 날(월~일 여러 개)
+      고르면 "체크인 15:00 · 체크아웃 11:00", "매일 10:00~21:00, 월요일 휴무"로 글 칸이 채워짐(직접 고쳐도 됨)
+      채팅으로 들어온 글("15시 / 11시", "10~21시", "오후 3시 반")도 읽어 버튼을 맞춤. 시간대가 셋 이상이면 버튼을 막고 글 칸으로
+      날짜·장소 구역(when)의 시간은 글 칸 그대로
+      frontend/src/editor/timeRange.ts·TimeRangeField.tsx(신규), SectionPanel.tsx
+  - UI 요소·디자인 토큰: 새 CSS .ed-time·.ed-time__row·__name·__chips·__select·__text (editor.css)
+      기존 --ed-primary·--ed-on-primary·--ed-line·--ed-ink·--ed-note·--ed-field·--ed-focus만 사용(새 토큰 없음)
+      버튼 높이 44px, 숫자 고정폭(tabular-nums), 360px 이하에서는 이름 위·버튼 아래 한 줄로
+  - 테스트: 프런트 timeRange.test.ts 4개, TimeRangeField.test.tsx 4개. 전체 vitest 158 통과, tsc 통과
+      390·340px 스크린숏으로 가로 넘침 없음 확인
+
 10/04/02/33  [기능 · claude/jolly-hamilton-rg8hfa] 전화번호 자동 하이픈 + 저장 형식 맞추기
   - 빌더 전화번호 칸: 치는 동안 010-1234-5678로 나눔(02·지역번호·1588·0507·+82도). 하이픈 뒤 백스페이스는 숫자까지 지움
       글이 섞이면("카톡으로 문의") 손대지 않음. 덜 들어가면 "번호가 덜 들어간 것 같아요" 안내(막지는 않음)

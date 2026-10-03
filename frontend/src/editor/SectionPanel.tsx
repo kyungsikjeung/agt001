@@ -9,6 +9,8 @@ import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
 import StaffEditor from './StaffEditor';
 import { nextPhone, phoneLooksOk } from './phone';
+import TimeRangeField from './TimeRangeField';
+import { timeModeOf } from './timeRange';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -361,28 +363,45 @@ export default function SectionPanel({
           <AddressSearch roomId={roomId} onSaved={(c) => onSaved(c, selected.id)} />
         ) : null}
 
-        {keys.map((k) => (
-          <label key={k} className="ed-site-field" htmlFor={`ed-site-${selected.id}-${k}`}>
-            {fieldLabel(card, k)}
-            <input
-              id={`ed-site-${selected.id}-${k}`}
-              className="ed-input"
-              type={k === 'phone' ? 'tel' : 'text'}
-              inputMode={k === 'phone' ? 'tel' : undefined}
-              autoComplete={k === 'phone' ? 'tel' : undefined}
-              placeholder={k === 'phone' ? '010-0000-0000' : undefined}
-              value={drafts[k] ?? ''}
-              disabled={saving}
-              aria-describedby={k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? `ed-site-${selected.id}-phone-hint` : undefined}
-              onChange={(e) => editField(k, e.target.value)}
-            />
-            {k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? (
-              <span id={`ed-site-${selected.id}-phone-hint`} className="ed-site-hint ed-site-hint--warn">
-                번호가 덜 들어간 것 같아요. 예: 010-1234-5678
-              </span>
-            ) : null}
-          </label>
-        ))}
+        {keys.map((k) => {
+          // 체크인·아웃 / 영업·수업 시간은 버튼으로 빠르게 고른다(날짜·장소 칸의 시간은 글 그대로)
+          const timeMode = k === 'hours' && kind !== 'when' ? timeModeOf(fieldLabel(card, k)) : null;
+          if (timeMode) {
+            return (
+              <TimeRangeField
+                key={k}
+                id={`ed-site-${selected.id}-${k}`}
+                label={fieldLabel(card, k)}
+                mode={timeMode}
+                value={drafts[k] ?? ''}
+                disabled={saving}
+                onChange={(v) => editField(k, v)}
+              />
+            );
+          }
+          return (
+            <label key={k} className="ed-site-field" htmlFor={`ed-site-${selected.id}-${k}`}>
+              {fieldLabel(card, k)}
+              <input
+                id={`ed-site-${selected.id}-${k}`}
+                className="ed-input"
+                type={k === 'phone' ? 'tel' : 'text'}
+                inputMode={k === 'phone' ? 'tel' : undefined}
+                autoComplete={k === 'phone' ? 'tel' : undefined}
+                placeholder={k === 'phone' ? '010-0000-0000' : undefined}
+                value={drafts[k] ?? ''}
+                disabled={saving}
+                aria-describedby={k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? `ed-site-${selected.id}-phone-hint` : undefined}
+                onChange={(e) => editField(k, e.target.value)}
+              />
+              {k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? (
+                <span id={`ed-site-${selected.id}-phone-hint`} className="ed-site-hint ed-site-hint--warn">
+                  번호가 덜 들어간 것 같아요. 예: 010-1234-5678
+                </span>
+              ) : null}
+            </label>
+          );
+        })}
 
         {kind === 'hero' ? (
           <label className="ed-site-field ed-file" htmlFor={`ed-site-${selected.id}-photo`}>
