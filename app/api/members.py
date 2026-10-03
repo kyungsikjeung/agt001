@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.api.inquiries import _allow
 from app.security import sanitize_token
-from app.services import availability, customers, members, phone_verify
+from app.services import availability, customers, members, phone_verify, sms
 
 router = APIRouter()
 
@@ -134,6 +134,12 @@ def _mine(key: str, shop: str, shop_phone: str, phone: str, data: dict) -> str:
     return "".join(parts)
 
 
+def _no_sms(key: str, shop: str) -> HTMLResponse:
+    """문자 키가 하나도 없으면 인증번호가 실제로 가지 않는다(개발 모드는 기록만) → 가입을 열지 않는다."""
+    return _doc(f"{shop or '가게'} 회원", f"<h1>지금은 회원 가입을 받을 수 없어요</h1>"
+                f'<p class="m">문자 인증 준비가 아직 안 됐어요. 예약·문의는 그대로 할 수 있어요.</p>{_back(key)}', 503)
+
+
 @router.get("/api/members/{site_key}", include_in_schema=False)
 def member_home(site_key: str, request: Request):
     key, shop, shop_phone, on = _ctx(site_key)
@@ -142,6 +148,8 @@ def member_home(site_key: str, request: Request):
     phone = _cookie_phone(request, key)
     data = members.history(key, phone) if phone else None
     if data is None:
+        if not sms.available(key):
+            return _no_sms(key, shop)
         return _doc(f"{shop or '가게'} 회원", _join_form(key, shop))
     return _doc("내 정보", _mine(key, shop, shop_phone, phone, data))
 
@@ -153,6 +161,8 @@ def member_start(site_key: str, request: Request, phone: str = Form(default=""),
         return _off(key)
     if not _allow(request.client.host if request.client else "unknown"):
         return _doc("잠시 뒤에", _join_form(key, shop, "짧은 시간에 요청이 많았어요. 잠시 뒤 다시 해 주세요."), 429)
+    if not sms.available(key):
+        return _no_sms(key, shop)
     if agree != "1":
         return _doc("동의가 필요해요", _join_form(key, shop, "개인정보 수집·이용에 동의해야 가입할 수 있어요."), 400)
     if customers.normalize_phone(phone) is None:

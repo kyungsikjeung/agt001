@@ -556,5 +556,7 @@ def set_chat_settings(site_key: str, body: ChatSettingsIn, request: Request):
 def list_members(site_key: str, request: Request):
     """손님 회원 목록 (FEATURE_PLATFORM_PLAN §7.1). 번호는 가운데를 가린다. 회원 기능이 꺼져 있으면 on=False."""
     _shop(request, site_key)
-    from app.services import availability, members
-    return {"on": members.enabled(availability._card_for_site(site_key)), "members": members.owner_list(site_key)}
+    from app.services import availability, members, sms
+    return {"on": members.enabled(availability._card_for_site(site_key)), "members": members.owner_list(site_key),
+            # 문자 키(가게 또는 플랫폼)가 없으면 손님이 인증번호를 못 받는다 → 화면에 알린다
+            "sms_ready": sms.available(site_key)}

@@ -772,6 +772,10 @@
       $("m-count").textContent = data.members.length + "명";
       if (!data.on) {
         box.append(el("p", "회원 기능이 꺼져 있어요. 사이트 고치기(빌더) 아래 '회원' 칩에서 켤 수 있어요.", "warn"));
+      } else if (data.sms_ready === false) {
+        const w = el("p", "문자 키가 없어 손님이 인증번호를 받을 수 없어요. 지금은 '내 정보'에서 가입을 받지 않아요. ", "warn");
+        const a = el("a", "문자 키 넣기"); a.href = "/settings"; w.append(a);
+        box.append(w);
       }
       if (!data.members.length) { box.append(el("p", "아직 가입한 손님이 없어요.", "sub")); return; }
       for (const m of data.members) {

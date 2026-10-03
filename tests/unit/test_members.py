@@ -27,6 +27,7 @@ def _sms(monkeypatch):
     monkeypatch.setattr(settings, "solapi_api_secret", None)
     monkeypatch.setattr(settings, "sms_sender", None)
     monkeypatch.setattr(settings, "token_enc_key", "test-enc-key-0123456789abcdef")
+    monkeypatch.setattr(settings, "sms_dev_mode", True)  # 문자 키 없이도 인증 흐름을 본다(보내기는 아래 가짜)
     with get_sessionmaker()() as db, db.begin():
         db.execute(delete(PhoneVerificationRow))
     sent = []
@@ -175,3 +176,20 @@ def test_without_signing_key_shows_once_instead_of_bouncing(client, _sms, monkey
     code = re.search(r"인증번호 (\d{6})", _sms[-1]).group(1)
     r = client.post(r.headers["location"], data={"code": code}, follow_redirects=False)
     assert r.status_code == 200 and "내 정보" in r.text and "다시 인증해 주세요" in r.text
+
+
+def test_no_sms_keys_means_no_signup(client, monkeypatch):
+    """문자 키가 하나도 없으면(개발 모드도 아님) 인증번호가 실제로 안 가므로 가입을 열지 않고, 사장님 탭에 알린다."""
+    rid, h, key = _pension(client)
+    client.put(f"/api/rooms/{rid}/features", json={"key": "members", "on": True}, headers=h)
+    monkeypatch.setattr(settings, "sms_dev_mode", False)
+    r = client.get(f"/api/members/{key}")
+    assert r.status_code == 503 and "지금은 회원 가입을 받을 수 없어요" in r.text
+    assert client.post(f"/api/members/{key}", data={"phone": PHONE, "agree": "1"}).status_code == 503
+    uid = f"u-{secrets.token_hex(4)}"
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRow(id=uid, nickname="사장님"))
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRoomRow(user_id=uid, room_id=rid, member_id=h["X-Member-Id"]))
+    client.cookies.set(auth_svc.SESSION_COOKIE, auth_svc.create_session(uid))
+    assert client.get(f"/api/owner/shops/{key}/members").json()["sms_ready"] is False
