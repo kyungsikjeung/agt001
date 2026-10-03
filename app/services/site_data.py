@@ -556,7 +556,8 @@ def _staff_source(card: dict | None, data: dict) -> list:
 
 def staff_list(card: dict) -> list:
     """빌더 고치기 칸에 보일 선생님 목록: staff_edit이 있으면 그것,
-    없으면 대화에서 받은 값(이름·역할·전문, 빈 칸은 ""). 예시는 넣지 않는다."""
+    없으면 대화에서 받은 값(이름·역할·전문, 빈 칸은 ""). 예시는 넣지 않는다.
+    photo = 지금 선생님 카드에 쓰는 사진 주소(없으면 ""). 사진은 저장된 이름(staff_edit)에만 붙는다."""
     edited = (card or {}).get("staff_edit")
     if isinstance(edited, list) and any(
             isinstance(e, dict) and str(e.get("name") or "").strip() for e in edited):
@@ -565,12 +566,14 @@ def staff_list(card: dict) -> list:
             if not isinstance(entry, dict) or not str(entry.get("name") or "").strip():
                 continue
             tags = entry.get("specialties") if isinstance(entry.get("specialties"), list) else []
-            out.append({"name": str(entry.get("name") or ""),
+            name = str(entry.get("name") or "")
+            out.append({"name": name,
                         "role": str(entry.get("role") or ""),
                         "subject": str(entry.get("subject") or ""),
                         "tagline": str(entry.get("tagline") or ""),
                         "bio": str(entry.get("bio") or ""),
-                        "specialties": [t for t in tags if isinstance(t, str)][:4]})
+                        "specialties": [t for t in tags if isinstance(t, str)][:4],
+                        "photo": _staff_photo(card, name)})
         return out
     data = _structured(card or {})
     out = []
@@ -580,23 +583,19 @@ def staff_list(card: dict) -> list:
         tags = [t for t in (person.get("specialties") or [])
                 if isinstance(t, str) and t.strip()][:4]
         out.append({"name": str(person.get("name")), "role": str(person.get("role") or ""),
-                    "subject": "", "tagline": "", "bio": "", "specialties": tags})
+                    "subject": "", "tagline": "", "bio": "", "specialties": tags, "photo": ""})
     return out
 
 
 def _staff_photo(card: dict | None, name: str) -> str:
-    """사장님 사진 중 staff:<이름> 태그의 첫 장 (/uploads/만). 없으면 빈 글."""
+    """사장님 사진 중 staff:<이름> 태그의 마지막(최근) 장 (/uploads/만). 없으면 빈 글."""
     if not card or not name:
         return ""
     try:
         from app.services import photos as PH
-        for photo in PH.site_photos(card):
-            if (isinstance(photo, dict) and photo.get("tag") == "staff:" + name
-                    and str(photo.get("url") or "").startswith("/uploads/")):
-                return str(photo["url"])
+        return PH.staff_photo_url(card, name)
     except Exception:
-        pass
-    return ""
+        return ""
 
 
 def _fill_staff(sec: dict, data: dict, pack: dict, booking_href: str, card: dict | None = None) -> None:

@@ -86,7 +86,7 @@ def test_staff_list_falls_back_to_conversation_without_examples():
                                   "specialties": ["문법"]}]})
     got = SD.staff_list(card)
     assert got == [{"name": "대화선생", "role": "강사", "subject": "",
-                    "tagline": "", "bio": "", "specialties": ["문법"]}]
+                    "tagline": "", "bio": "", "specialties": ["문법"], "photo": ""}]
 
 
 def _academy_blueprint(section_id):
@@ -187,3 +187,44 @@ def test_section_context_cards_has_pos_and_popover():
     assert (first["subject"], first["tagline"], first["bio"]) == ("영어", "쉽게", "10년 차")
     assert (first["pos"], first["popover_id"]) == (1, "staff-teachers-1")
     assert (second["pos"], second["popover_id"]) == (2, "staff-teachers-2")
+
+
+# ---- 10/3 검토 뒤 고친 것: 사진 다시 올리기·첫 화면 섞임·12명 ----
+
+def test_staff_photo_latest_upload_wins():
+    """같은 선생님 사진을 다시 올리면 새 사진(마지막 장)이 보인다. staff_list에도 그 주소."""
+    card = _card(data={"catalog": [], "staff": []},
+                 photos=[{"url": "/uploads/r/old.jpg", "tag": "staff:김선생"},
+                         {"url": "/uploads/r/new.jpg", "tag": "staff:김선생"}])
+    card["staff_edit"] = [_person("김선생")]
+    spec = SD.resolve(SD.skeleton(_academy_blueprint("teachers"), 0), card, archetype="D")
+    sec = next(s for s in spec["sections"] if s.get("bind") == "staff")
+    assert sec["content"]["members"][0]["image"] == "/uploads/r/new.jpg"
+    assert SD.staff_list(card)[0]["photo"] == "/uploads/r/new.jpg"
+
+
+def test_staff_photos_stay_out_of_hero_and_gallery():
+    """선생님 얼굴 사진은 선생님 카드에만: 첫 화면·사진첩 후보(site_photos)에서 빠진다."""
+    from app.services import photos as PH
+    card = _card(data={"catalog": [], "staff": []},
+                 photos=[{"url": "/uploads/r/face.jpg", "tag": "staff:김선생"},
+                         {"url": "/uploads/r/room.jpg", "caption": "교실"}])
+    card["staff_edit"] = [_person("김선생")]
+    assert [p["url"] for p in PH.site_photos(card)] == ["/uploads/r/room.jpg"]
+    assert [p["url"] for p in SD._owner_photos(card)] == ["/uploads/r/room.jpg"]
+    # 선생님 사진만 있으면 첫 화면은 사장님 사진으로 치지 않는다
+    only_face = _card(photos=[{"url": "/uploads/r/face.jpg", "tag": "staff:김선생"}])
+    assert PH.site_photos(only_face) == []
+    assert SD._hero_image(only_face, "학원", {"photos": {}}).get("image") != "/uploads/r/face.jpg"
+
+
+def test_staff_cards_render_all_twelve():
+    """빌더가 12명까지 저장하므로 공개본도 12명을 다 그린다(전에는 8명에서 잘림)."""
+    card = _card(data={"catalog": [], "staff": []})
+    card["staff_edit"] = [_person(f"선생{i}") for i in range(1, 13)]
+    spec = SD.resolve(SD.skeleton(_academy_blueprint("teachers"), 0), card, archetype="D")
+    sec = next(s for s in spec["sections"] if s.get("bind") == "staff")
+    ctx = SR._section_context("staff", "cards", "teachers", sec["content"],
+                              site_key="", retention_days=30)
+    assert len(ctx["members"]) == 12
+    assert ctx["members"][-1]["popover_id"] == "staff-teachers-12"

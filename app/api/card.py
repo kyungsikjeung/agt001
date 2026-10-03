@@ -74,6 +74,7 @@ class StaffIn(BaseModel):
     tagline: Optional[str] = None
     bio: Optional[str] = None
     specialties: Optional[list[str]] = None
+    prev_name: Optional[str] = None  # 고치기 전 이름(저장 안 함). 바뀌면 사진 태그를 옮긴다
 
 
 class CardIn(BaseModel):
@@ -602,6 +603,14 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
             if errors:
                 raise HTTPException(status_code=400, detail="; ".join(errors[:3]))
             if people != (card.get("staff_edit") or []):
+                # 이름을 바꾼 선생님은 사진 태그도 새 이름으로 옮긴다 (항목 이름 바꾸기와 같은 방식).
+                # 옛 이름이 저장돼 있었고 새 목록에는 없을 때만: 다른 선생님 사진을 가져오지 않게.
+                old_names = {str(e.get("name") or "") for e in card.get("staff_edit") or [] if isinstance(e, dict)}
+                new_names = {p["name"] for p in people}
+                for line in body.staff:
+                    prev, new = " ".join((line.prev_name or "").split()), " ".join(line.name.split())
+                    if prev and prev != new and prev in old_names and prev not in new_names and new in new_names:
+                        photos_svc.rename_staff_tag(card, prev, new)
                 if people:
                     card["staff_edit"] = people
                 else:

@@ -1089,6 +1089,90 @@
   font-size: 13px;
 }
 
+/* 선생님·담당자 고치기 (StaffEditor, BUILDER_FIX_1003 S2): 한 사람 = 접히는 묶음, 짧은 칸 2열·긴 칸 한 줄.
+   사진 미리보기는 공개본 선생님 카드와 같은 4:5·위쪽 맞춤. 파일 칸은 숨기고 '사진 올리기' 버튼으로 연다 */
+.ed-staff {
+  display: grid;
+  gap: 12px;
+}
+.ed-staff__row {
+  display: grid;
+  gap: 10px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--ed-line);
+  border-radius: 12px;
+}
+.ed-staff__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  text-align: start;
+}
+.ed-staff__head::after {
+  content: '▾';
+  flex: none;
+  transition: transform 0.15s ease-out;
+}
+.ed-staff__head[aria-expanded='true']::after {
+  transform: rotate(180deg);
+}
+.ed-staff__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 8px;
+}
+.ed-staff__cell {
+  display: grid;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--ed-note);
+}
+.ed-staff__cell--wide {
+  grid-column: 1 / -1;
+}
+.ed-staff__cell .ed-input {
+  min-height: 44px;
+}
+.ed-staff__cell textarea.ed-input {
+  min-height: 88px;
+  resize: vertical;
+}
+.ed-staff__photo {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.ed-staff__photo .ed-site-hint {
+  flex-basis: 100%;
+  margin: 0;
+}
+.ed-staff__thumb {
+  width: 56px;
+  height: 70px;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 10px;
+  border: 1px solid var(--ed-line);
+}
+.ed-staff__file {
+  display: none;
+}
+.ed-staff__remove {
+  grid-column: 1 / -1;
+  justify-self: end;
+  padding: 4px 14px;
+  font-size: 13px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ed-staff__head::after {
+    transition: none;
+  }
+}
+
 /* 청첩장 방명록 관리 (GuestbookAdmin) */
 .ed-guestbook__list {
   display: grid;

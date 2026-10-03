@@ -51,6 +51,10 @@ export interface StaffMember {
   tagline: string;
   bio: string;
   specialties: string[];
+  /** 서버가 주는 지금 사진 주소(staff:이름 태그 중 최근 장). 없으면 "" */
+  photo?: string;
+  /** 저장할 때만: 고치기 전 이름. 이름이 바뀌면 서버가 사진을 새 이름으로 옮긴다 */
+  prev_name?: string;
 }
 
 export interface EventPerson {

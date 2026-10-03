@@ -1,6 +1,7 @@
 // 선생님 고치기 칸 테스트 (BUILDER_FIX_1003_CONTRACT S2, fetch 가짜).
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import StaffEditor from './StaffEditor';
 import type { RoomCard, StaffMember } from './cardApi';
@@ -26,6 +27,12 @@ function makeCard(staff: StaffMember[] | undefined): RoomCard {
     can_edit: true,
     staff,
   };
+}
+
+/** 실제 빌더처럼 저장 결과 카드를 다시 내려 주는 부모 (onSaved → setCard). */
+function Host({ initial }: { initial: RoomCard }) {
+  const [card, setCard] = useState(initial);
+  return <StaffEditor roomId="r1" card={card} onSaved={setCard} />;
 }
 
 function stubFetch(handler: (url: string, init?: RequestInit) => Promise<unknown>) {
@@ -131,5 +138,40 @@ describe('StaffEditor', () => {
     const form = photoCall!.init?.body as FormData;
     expect(form.get('tag')).toBe('staff:김민지');
     expect(saved).toHaveBeenCalled();
+  });
+
+  it('사진을 올려도 다른 줄에서 고치던 글은 그대로이고, 미리보기와 사진 바꾸기가 보인다', async () => {
+    const PARK: StaffMember = { ...MINJI, name: '박준', subject: '수학' };
+    const withPhoto = makeCard([{ ...MINJI, photo: '/uploads/r1/a.jpg' }, { ...PARK, photo: '' }]);
+    stubFetch(async (url) => (url.includes('/photos') ? okCard(withPhoto) : okCard(withPhoto)));
+    const { container } = render(<Host initial={makeCard([MINJI, PARK])} />);
+    // 박준 소개를 고치는 중(저장 전)
+    fireEvent.change(screen.getAllByLabelText('소개')[1], { target: { value: '고치던 소개' } });
+    const fileInput = container.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [new File(['사진'], 'a.png', { type: 'image/png' })] } });
+    expect(await screen.findByText('사진을 올렸어요.')).toBeInTheDocument();
+    expect(screen.getAllByLabelText('소개')[1]).toHaveValue('고치던 소개');
+    expect(screen.getByAltText('김민지 사진')).toHaveAttribute('src', '/uploads/r1/a.jpg');
+    expect(screen.getByRole('button', { name: '사진 바꾸기' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: '사진 올리기' })).toBeEnabled();
+  });
+
+  it('이름을 바꿔 저장하면 원래 이름(prev_name)을 같이 보내고, 저장했어요가 남는다', async () => {
+    const puts: Record<string, unknown>[] = [];
+    stubFetch(async (_url, init) => {
+      const body = JSON.parse(String(init?.body ?? '{}'));
+      puts.push(body);
+      const staff = (body.staff as StaffMember[]).map(({ prev_name: _p, ...m }) => ({ ...m, photo: '' }));
+      return okCard(makeCard(staff));
+    });
+    render(<Host initial={makeCard([MINJI])} />);
+    fireEvent.change(screen.getByLabelText('이름'), { target: { value: '김민아' } });
+    fireEvent.click(screen.getByRole('button', { name: '+ 선생님 더하기' }));
+    fireEvent.change(screen.getAllByLabelText('이름')[1], { target: { value: '박준' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    expect(await screen.findByText('저장했어요.')).toBeInTheDocument();
+    const staff = puts[0].staff as StaffMember[];
+    expect(staff[0]).toMatchObject({ name: '김민아', prev_name: '김민지' });
+    expect(staff[1].prev_name).toBeUndefined();
   });
 });

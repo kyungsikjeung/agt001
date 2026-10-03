@@ -21,6 +21,7 @@ ALLOWED_FORMATS = ("JPEG", "PNG", "WEBP")
 
 NOTICE_TAG = "notice"  # 공지 사진 태그 (NOTICE_PHOTO_CONTRACT §1-2)
 MAX_NOTICE = 5  # 공지 사진은 최대 5장
+STAFF_TAG_PREFIX = "staff:"  # 선생님 사진 태그 "staff:<이름>" (BUILDER_FIX_1003_CONTRACT S1)
 
 
 class PhotoError(Exception):
@@ -131,10 +132,15 @@ def add(room_id_raw: str, member_id_raw: str, data: bytes, caption: Optional[str
     return {"id": photo_id, "url": url}
 
 
+def _is_staff_tag(tag) -> bool:
+    return isinstance(tag, str) and tag.startswith(STAFF_TAG_PREFIX)
+
+
 def site_photos(card: dict) -> list:
-    """카드 photos 중 공지 사진(tag == "notice")을 뺀 목록.
+    """카드 photos 중 공지 사진(tag == "notice")과 선생님 사진(tag "staff:이름")을 뺀 목록.
 
     사이트·시안·사진 고치기가 사진 후보로 읽을 때 쓴다 (NOTICE_PHOTO_CONTRACT §1-2).
+    선생님 사진은 선생님 카드에만 쓴다(staff_photo_url). 첫 화면·사진첩에 얼굴 사진이 깔리지 않게.
     사진 개수 상한(MAX_PER_ROOM)과 채팅의 사진 질문은 전체 기준 그대로다.
     """
     try:
@@ -142,12 +148,38 @@ def site_photos(card: dict) -> list:
         for photo in (card or {}).get("photos") or []:
             if not isinstance(photo, dict):
                 continue
-            if photo.get("tag") == NOTICE_TAG:
+            if photo.get("tag") == NOTICE_TAG or _is_staff_tag(photo.get("tag")):
                 continue
             out.append(photo)
         return out
     except Exception:
         return []
+
+
+def staff_photo_url(card: dict, name: str) -> str:
+    """선생님 사진 주소: staff:<이름> 태그 중 마지막(가장 최근에 올린) 장, /uploads/만. 없으면 빈 글.
+
+    다시 올리면 새 사진이 보여야 하므로 첫 장이 아니라 마지막 장을 쓴다.
+    """
+    want = STAFF_TAG_PREFIX + str(name or "").strip()
+    if want == STAFF_TAG_PREFIX:
+        return ""
+    try:
+        for photo in reversed((card or {}).get("photos") or []):
+            if (isinstance(photo, dict) and photo.get("tag") == want
+                    and str(photo.get("url") or "").startswith("/uploads/")):
+                return str(photo["url"])
+    except Exception:
+        pass
+    return ""
+
+
+def rename_staff_tag(card: dict, old: str, new: str) -> None:
+    """선생님 이름을 바꾸면 그 선생님 사진 태그도 새 이름으로 옮긴다 (항목 이름 바꾸기와 같은 방식)."""
+    old_tag, new_tag = STAFF_TAG_PREFIX + old, STAFF_TAG_PREFIX + new
+    for photo in (card or {}).get("photos") or []:
+        if isinstance(photo, dict) and photo.get("tag") == old_tag:
+            photo["tag"] = new_tag
 
 
 def notice_urls(card: dict) -> list[str]:

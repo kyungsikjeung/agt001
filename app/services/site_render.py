@@ -741,12 +741,17 @@ def _menu_categories(content: dict) -> list:
     return cats
 
 
+_STAFF_MAX = 12  # site_data._STAFF_MAX와 같다
+
+
 def _staff_members(content: dict, section_id: str = "") -> list:
-    """담당자 카드: [{name, role, subject, tagline, bio, initial, specialties, image_*, pos, popover_id, example}] 최대 8명."""
+    """담당자 카드: [{name, role, subject, tagline, bio, initial, specialties, image_*, pos, popover_id, example}] 최대 12명.
+
+    빌더 선생님 고치기 칸(site_data.clean_staff)이 12명까지 저장하므로 같은 상한으로 그린다."""
     raw = content.get("members")
     members = []
     pos = 0
-    for entry in (raw if isinstance(raw, list) else [])[:8]:
+    for entry in (raw if isinstance(raw, list) else [])[:_STAFF_MAX]:
         if not isinstance(entry, dict) or not _text(entry, "name").strip():
             continue
         pos += 1

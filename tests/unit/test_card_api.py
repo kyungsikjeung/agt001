@@ -194,3 +194,27 @@ def test_put_layout_repaints_published_without_edit_flag(client):
     r = client.put(f"/api/rooms/{rid}/card", json={"layout": {"variant": "v1", "reset": True}}, headers=h)
     assert r.status_code == 200
     assert r.json()["layout"] == {}
+
+
+def test_put_staff_rename_moves_photo_tag(client):
+    """선생님 이름을 바꿔 저장하면 사진(staff:옛이름)도 새 이름으로 옮긴다. 다른 선생님 사진은 가져오지 않는다."""
+    rid = _room(client)
+    h = {"X-Member-Id": "owner"}
+    r = client.put(f"/api/rooms/{rid}/card", json={"staff": [{"name": "김선생"}, {"name": "이선생"}]}, headers=h)
+    assert r.status_code == 200
+    room = store.read_room(rid)
+    with store.session_tx(room["session_id"]) as s:
+        s["prd"].setdefault("photos", []).extend([
+            {"id": "a", "url": f"/uploads/{rid}/a.jpg", "caption": None, "tag": "staff:김선생"},
+            {"id": "b", "url": f"/uploads/{rid}/b.jpg", "caption": None, "tag": "staff:이선생"}])
+    # 이선생이 김선생 사진을 가져가려 해도(옛 이름이 새 목록에 남아 있음) 옮기지 않는다
+    r = client.put(f"/api/rooms/{rid}/card", json={"staff": [
+        {"name": "김민지", "prev_name": "김선생"},
+        {"name": "이선생", "prev_name": "김민지"}]}, headers=h)
+    assert r.status_code == 200
+    staff = {m["name"]: m["photo"] for m in r.json()["staff"]}
+    assert staff == {"김민지": f"/uploads/{rid}/a.jpg", "이선생": f"/uploads/{rid}/b.jpg"}
+    with store.session_tx(store.read_room(rid)["session_id"]) as s:
+        tags = [p.get("tag") for p in s["prd"]["photos"]]
+        assert "prev_name" not in s["prd"]["staff_edit"][0]  # 옛 이름은 저장하지 않는다
+    assert tags == ["staff:김민지", "staff:이선생"]
