@@ -131,6 +131,8 @@ def _bundle() -> dict:
     font_pairs = json.loads((tokens / "font_pairs.json").read_text(encoding="utf-8"))
     density = json.loads((tokens / "density.json").read_text(encoding="utf-8"))
     radius = json.loads((tokens / "radius.json").read_text(encoding="utf-8"))
+    motion_path = tokens / "motion.json"
+    motion = json.loads(motion_path.read_text(encoding="utf-8")) if motion_path.is_file() else {}
     site_css = (base / "site.css").read_text(encoding="utf-8")
     # 2주차 부품 CSS: site.css 뒤에 templates/css/*.css를 이름순으로 이어 붙인다 (C1).
     # 폴더가 없어도 동작한다 (glob 빈 목록 → site.css만).
@@ -145,6 +147,7 @@ def _bundle() -> dict:
         "font_pairs": font_pairs,
         "density": density,
         "radius": radius,
+        "motion": motion,
         "site_css": site_css,
     }
     _CACHE[key] = built
@@ -553,6 +556,27 @@ def _root_css(palette: dict, font_pair: dict, density: dict, radius: dict) -> st
         "}}",
     ]
     return "".join(lines)
+
+
+def _motion_css(motion) -> str:
+    """움직임 토큰 → 등장 애니메이션 시간·곡선 덮어쓰기. 움직임 줄이기 설정이면 끈다."""
+    if not isinstance(motion, dict):
+        return ""
+    try:
+        dur, rise, stagger = int(motion["dur"]), int(motion["rise"]), int(motion["stagger"])
+    except (KeyError, TypeError, ValueError):
+        return ""
+    ease = str(motion.get("ease") or "ease-out")
+    if not re.fullmatch(r"[a-z\-]+|cubic-bezier\([\d.,\s-]+\)", ease):
+        ease = "ease-out"
+    return (f":root{{--m-dur:{dur}ms;--m-ease:{ease};--m-rise:{rise}px;--m-stagger:{stagger}ms}}"
+            "@keyframes s-rise{from{opacity:0;transform:translateY(var(--m-rise))}to{opacity:1;transform:none}}"
+            ".s-hero,section[class^=\"s-\"]{animation-duration:var(--m-dur)!important;"
+            "animation-timing-function:var(--m-ease)!important}"
+            ".s-btn{transition:transform var(--m-dur) var(--m-ease),box-shadow var(--m-dur) var(--m-ease)}"
+            ".s-btn:hover{transform:translateY(-2px)}"
+            "@media (prefers-reduced-motion:reduce){.s-hero,section[class^=\"s-\"]{animation:none!important}"
+            ".s-btn{transition:none}}")
 
 
 def _hero_context(content: dict) -> dict:
@@ -977,6 +1001,18 @@ def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
             one["image_off"] = not one["image_src"] and entry.get("image_off") is True  # 사진 없음: 빈 칸도 안 그린다
         if with_index:
             one["index"] = pos
+        # 확장 칸 (COMPOSE_INTERVIEW_CONTRACT §10): 항목 고유 이름·가격 숫자·행동 단추. 나중에 주문·결제·후기를 이 항목에 붙인다.
+        item_id = entry.get("item_id", "")
+        one["item_id"] = item_id if isinstance(item_id, str) and re.fullmatch(r"i-[0-9a-f]{6,16}", item_id) else ""
+        won = entry.get("price_won")
+        one["price_won"] = won if isinstance(won, int) and not isinstance(won, bool) and 0 < won < 100_000_000 else ""
+        act = entry.get("action")
+        if (isinstance(act, dict) and act.get("kind") in ("order", "book", "inquire")
+                and isinstance(act.get("label"), str) and act["label"].strip()):
+            href = _clean_url(act.get("href", ""))
+            one["action"] = {"kind": act["kind"], "label": act["label"][:12], "href": href} if href else None
+        else:
+            one["action"] = None
         items.append(one)
     return items, bool(items)
 
@@ -1468,6 +1504,16 @@ def _section_context(
             ctx["title_mark"] = ""
             ctx["title_tail"] = ""
             ctx["has_mark"] = False
+    elif section_type == "hero" and variant == "video":
+        # 영상 표지형: 영상 주소(지원 주소만)와 썸네일. 썸네일이 없으면 첫 화면 사진을 그대로 쓴다.
+        info = parse_video_url(content.get("video_url", "")) if isinstance(content.get("video_url"), str) else None
+        ctx["video_href"] = info["url"] if info else ""
+        # 유튜브면 소리 없는 반복 배경 영상 틀 (YOUTUBE_EMBED_POLICY). 썸네일은 그 아래 깔려 막히면 그대로 보인다.
+        from app.services import youtube_embed
+        ctx["yt_id"] = youtube_embed.video_id(info)
+        if info and info.get("thumb"):
+            ctx["image_src"] = info["thumb"]
+            ctx["image_alt"] = "영상 썸네일"
     elif section_type == "hero" and variant == "arch":
         # C 로맨틱 에디토리얼: 작은 윗줄 + 세로 영문 라벨.
         ctx["eyebrow"] = _text(content, "eyebrow")
@@ -1567,6 +1613,8 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
     image_style = tokens.get("image_style", "")
     if image_style not in _IMAGE_STYLES:
         raise SiteSpecError(f"없는 image_style 토큰 ID: {image_style!r}")
+    # 움직임 토큰(선택, COMPOSE_INTERVIEW_CONTRACT §6): 분위기마다 등장 속도·곡선·높이를 맞춘다. 없으면 기존 그대로.
+    motion = (bundle.get("motion") or {}).get(tokens.get("motion")) if tokens.get("motion") else None
 
     sections = spec.get("sections", [])
     if not isinstance(sections, list):
@@ -1616,6 +1664,10 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         if section_type == "guestbook":
             ctx["public"] = public
         part = chevron.render(template, _safe(ctx))
+        if not public and "data-yt-bg" in part:
+            # 유튜브 배경 틀은 공개 사이트에서만 (YOUTUBE_EMBED_POLICY). 시안·미리보기는 격리돼 재생이 안 되니 썸네일만 둔다.
+            from app.services import youtube_embed
+            part = youtube_embed.strip_allowed(part)
         if (section_type == "hero" and variant in _HERO_PHOTO_VARIANTS
                 and not ctx.get("image_src")):
             # 사진 없음: 빈 자리 표시를 업종별 예시 그림으로 갈아끼운다.
@@ -1725,6 +1777,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         "<style>",
         _root_css(palette, font_pair, density, radius),
         bundle["site_css"],
+        _motion_css(motion),
         "</style>",
         "</head>",
         body_open,

@@ -313,8 +313,41 @@ def adjust(concept: dict, text: str) -> tuple[dict, str]:
     return _keyword_adjust(concept, text)
 
 
+# 분위기(실시간 대화) 색 중 AI 선택 목록(PALETTES)에 없는 것의 이름 — 한 줄 요약에만 쓴다
+_MORE_PALETTE_NAMES = {"espresso": "에스프레소 갈색", "cobalt": "코발트 파랑", "evergreen": "상록 초록",
+                       "ink-rose": "먹색·장미", "plum": "자두 보라"}
+_TONE_MOOD = {"warm": ["포근한", "편안한", "따뜻한"], "clean": ["깔끔한", "산뜻한", "반듯한"],
+              "elegant": ["고급스러운", "차분한", "여유로운"], "lively": ["밝은", "발랄한", "경쾌한"]}
+_MOTION_WORDS = {"gentle": "부드럽게 나타나는", "crisp": "또렷하게 나타나는", "slow": "천천히 나타나는",
+                 "bouncy": "통통 튀며 나타나는"}
+
+
+def from_tone(card: dict) -> Optional[dict]:
+    """실시간 대화에서 고른 분위기 → 컨셉 (1안 "말로 고른 안"과 같은 색·글꼴). 분위기를 안 골랐으면 None."""
+    from app.services import compose
+    tone_key = ((card or {}).get("compose") or {}).get("tone")
+    if tone_key not in compose.TONE_BY_KEY:
+        return None
+    tone = compose.TONE_BY_KEY[tone_key]
+    tokens = compose.tokens_for(card)
+    base = rule_concept(card)
+    first = next((t for t in [s.get("type") for s, _v in compose._picks(card)] if t in ("offerings", "gallery", "intro")),
+                 None) or ("offerings" if base.get("lead") not in LEADS else base["lead"])
+    lead = {"rooms": "offerings", "classes": "offerings"}.get(first, first)
+    palette_name = (PALETTES.get(tokens["palette"]) or _MORE_PALETTE_NAMES.get(tokens["palette"], tokens["palette"])).split(" — ")[0]
+    font_name = FONT_PAIRS.get(tokens["font_pair"], tokens["font_pair"]).split(" — ")[0]
+    return {**base, "name": f"{tone['label'].replace('하게', '한')} {E.industry_of(card).name}".strip(),
+            "mood": list(_TONE_MOOD[tone_key]), "palette": tokens["palette"], "font_pair": tokens["font_pair"],
+            "density": tokens["density"], "radius": tokens["radius"], "lead": lead if lead in LEADS else "offerings",
+            "reason": (f"실시간 대화에서 '{tone['label']}'를 고르셔서 1안을 {palette_name}에 {font_name} 글씨, "
+                       f"{_MOTION_WORDS.get(tokens.get('motion'), '부드럽게 나타나는')} 화면으로 만들었어요. "
+                       "2안·3안은 비교해 보시라고 다른 느낌으로 그렸어요."),
+            "source": "tone", "industry": E.industry_of(card).key}
+
+
 def summary_line(c: dict) -> str:
     """채팅에 보일 컨셉 한 줄."""
+    pal = PALETTES.get(c["palette"]) or _MORE_PALETTE_NAMES.get(c["palette"], c["palette"])
     return (f"디자인 컨셉: 「{c['name']}」 — {' · '.join(c['mood'])}\n"
-            f"{PALETTES[c['palette']].split(' — ')[0]} · {FONT_PAIRS[c['font_pair']].split(' — ')[0]} · "
+            f"{pal.split(' — ')[0]} · {FONT_PAIRS[c['font_pair']].split(' — ')[0]} · "
             f"{lead_text(c)}\n{c['reason']}")

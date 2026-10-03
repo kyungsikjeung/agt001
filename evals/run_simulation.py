@@ -14,6 +14,7 @@ IRE 정의: 사실표 hidden_facts에서 true인 항목 중 대화로 끌어낸(
   python -m evals.run_simulation --scenario-dir evals/scenarios_wrong [--only wrong_input]
   python -m evals.run_simulation --smoke            # 오프라인 자가 점검(규칙 기반 가짜 사장님, 비공식)
   python -m evals.run_simulation --live             # 실제 NIM 호출(Claude가 실행, .env는 읽지 않음)
+  python -m evals.run_simulation --offline          # AI 없이 사실표 기반 가짜 추출(키 없는 환경의 전후 비교, 비공식)
 
 원칙:
 - 표준 라이브러리 + app.services.prd_schema만 최상위에서 import한다.
@@ -112,6 +113,26 @@ class PrdEngineAdapter:
 
     def turn(self, card, text, by=None, is_owner=True) -> dict:
         return self._load().turn(card, text, by=by, is_owner=is_owner)
+
+
+class OfflineEngineAdapter(PrdEngineAdapter):
+    """--offline: 진짜 엔진 규칙 + 사실표 기반 가짜 추출(AI 호출 없음, 비공식)."""
+
+    def __init__(self):
+        super().__init__()
+        self._facts = {}
+
+    def _load(self):
+        if self._eng is None:
+            from app import llm
+            from evals import sim_offline
+            llm.chat_json = sim_offline.fake_chat_json(self._facts)
+        return super()._load()
+
+    def new_card(self, scenario) -> dict:
+        from evals import sim_offline
+        self._facts["facts"] = sim_offline.scenario_facts(scenario)
+        return super().new_card(scenario)
 
 
 def format_question_local(card, q) -> str:
@@ -843,6 +864,8 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default="", help="결과 md 경로")
     ap.add_argument("--smoke", action="store_true", help="오프라인 자가 점검(비공식)")
     ap.add_argument("--live", action="store_true", help="실제 NIM 호출(Claude 실행용)")
+    ap.add_argument("--offline", action="store_true",
+                    help="AI 없이 사실표 기반 가짜 추출로 실행(전후 비교용, 비공식)")
     ap.add_argument("--no-precheck", action="store_true", help="--live 전 한도 점검 생략")
     args = ap.parse_args(argv)
 
@@ -858,6 +881,10 @@ def main(argv=None) -> int:
             print("한도 미회복: 짧은 호출에서 주 모델이 대비 모델로 넘어갔다. 측정하지 않는다.", file=sys.stderr)
             return 4
         engine, owner = PrdEngineAdapter(), live_owner_llm
+    elif args.offline:
+        from evals import sim_offline
+        engine, owner = OfflineEngineAdapter(), sim_offline.offline_owner_llm(rule_fallback_owner_llm)
+        print("주의: --offline은 AI 없이 사실표로 추출한다. 규칙 변경 전후 비교용이며 공식 성적에 쓰지 말 것.")
     elif args.smoke:
         engine, owner = PrdEngineAdapter(), rule_fallback_owner_llm
         print("주의: --smoke는 규칙 기반 가짜 사장님이다. 공식 성적에 쓰지 말 것.")
@@ -875,6 +902,11 @@ def main(argv=None) -> int:
               file=sys.stderr)
         return 3
     path = write_markdown(results, args.out or default_out_path())
+    if args.offline:
+        with open(path, encoding="utf-8") as f:
+            body = f.read()
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("> **오프라인(비공식)**: AI 없이 사실표 기반 가짜 추출·규칙 사장님으로 돌린 결과. 전후 비교용.\n\n" + body)
     write_dialogues(results, os.path.splitext(path)[0] + ".dialogues.json")
     if stopped:
         with open(path, encoding="utf-8") as f:

@@ -156,5 +156,25 @@ class TestRunAll(unittest.TestCase):
         self.assertGreaterEqual(r["elapsed_sec"], 0.0)
 
 
+class TestValueMatchCalibration(unittest.TestCase):
+    """T2 표기 차이 보정 (2026-10-01): 같은 뜻인데 글자가 달라 틀린 것으로 세던 것."""
+
+    def test_alternatives_with_pipe(self):
+        case = {"expect": {"target": "가족 여행객|아이"}, "must_not": []}
+        self.assertTrue(score_case(case, {"target": ["아이들이랑 오는 집"]})["passed"])
+
+    def test_shop_name_without_kind_tail(self):
+        case = {"expect": {"shop_name": "바다정원 펜션"}, "must_not": []}
+        self.assertTrue(score_case(case, {"shop_name": ["바다정원"]})["passed"])
+
+    def test_kind_word_alone_is_not_a_name(self):
+        case = {"expect": {"shop_name": "바다정원 펜션"}, "must_not": []}
+        self.assertFalse(score_case(case, {"shop_name": ["펜션"]})["passed"])
+
+    def test_hair_synonyms(self):
+        case = {"expect": {"offerings": ["파마", "컷트"]}, "must_not": []}
+        self.assertTrue(score_case(case, {"offerings": ["펌", "커트"]})["passed"])
+
+
 if __name__ == "__main__":
     unittest.main()

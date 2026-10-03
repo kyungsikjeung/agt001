@@ -541,6 +541,10 @@ def _representative_photo_path(card: dict) -> Path | None:
     return None
 
 
+SPOKEN_NAME = "말로 고른 안"
+SPOKEN_SUMMARY = "실시간 대화에서 고른 분위기·부품"
+
+
 def _blueprint_variants(card: dict, blueprint: dict, archetype: str) -> list[dict]:
     """청사진 새 경로 (BUILD_W1_W2 J5): skeleton → tokens → resolve로 3안.
 
@@ -568,18 +572,26 @@ def _blueprint_variants(card: dict, blueprint: dict, archetype: str) -> list[dic
     base_tokens = blueprint.get("tokens") or {}
     out = []
     used: list = []
+    from app.services import compose as CP
     for pos, strategy in enumerate(blueprint.get("strategies") or []):
         spec = SD.skeleton(blueprint, pos)
-        spec = LE.apply(spec, blueprint, pos, (card.get("layout_edits") or {}).get(strategy.get("id") or f"v{pos + 1}"))
-        pal = PAL.pick(archetype, pos + 1, mood=mood, used=tuple(used), photo=photo)
-        used.append(pal)
-        tokens = dict(base_tokens)
-        tokens["palette"] = pal
-        spec["tokens"] = tokens
+        edits = (card.get("layout_edits") or {}).get(strategy.get("id") or f"v{pos + 1}")
+        spec = LE.apply(spec, blueprint, pos, edits)
+        spoken = CP.v1_skeleton(card, spec, edits) if pos == 0 else None
+        if spoken is not None:
+            # 1안 = 실시간 대화에서 말로 고른 분위기·부품 (COMPOSE_INTERVIEW_CONTRACT §11). 2·3안은 비교용 대안 그대로.
+            spec = spoken
+            used.append(spec["tokens"].get("palette"))
+        else:
+            pal = PAL.pick(archetype, pos + 1, mood=mood, used=tuple(used), photo=photo)
+            used.append(pal)
+            tokens = dict(base_tokens)
+            tokens["palette"] = pal
+            spec["tokens"] = tokens
         resolved = SD.resolve(spec, work, archetype=archetype)
         out.append({"id": strategy.get("id") or f"v{pos + 1}",
-                    "name": strategy.get("name") or f"{pos + 1}안",
-                    "summary": strategy.get("journey") or "",
+                    "name": SPOKEN_NAME if spoken is not None else (strategy.get("name") or f"{pos + 1}안"),
+                    "summary": SPOKEN_SUMMARY if spoken is not None else (strategy.get("journey") or ""),
                     "spec": resolved})
     if len(out) == 3 and min_distance([v["spec"] for v in out]) < MIN_DISTANCE:
         out[2]["spec"] = _recolor_v3(out, archetype)
@@ -657,7 +669,11 @@ def variants(card: dict) -> list[dict]:
     if len(items) >= 3 and arch != "I":
         # 초대·기념(청첩장)은 앱형 아래 탭이 어울리지 않아 청사진의 3안('날짜 먼저')을 그대로 쓴다
         items = items[:2] + [_to_app(items[2])] + items[3:]
-    return _agent_apply(card, items)
+    polished = _agent_apply(card, items)
+    if items and items[0].get("name") == SPOKEN_NAME and polished:
+        # 사장님이 말로 고른 1안은 다듬기 에이전트가 색·순서·숨김을 바꾸지 않는다
+        polished = [items[0]] + list(polished[1:])
+    return polished
 
 
 def _legacy_variants(card: dict) -> list[dict]:

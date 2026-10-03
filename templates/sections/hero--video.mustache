@@ -1,0 +1,19 @@
+<section class="s-hero s-hero--photo-overlay s-hero--video" data-section-id="{{id}}" aria-labelledby="hero-title-{{id}}">
+  <div class="s-media">
+    {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{/image_src}}
+    {{^image_src}}<div class="s-media__empty is-placeholder" aria-label="영상: 아직 입력되지 않음">[영상 주소 입력]</div>{{/image_src}}
+    {{#yt_id}}<iframe class="s-hero__yt" src="https://www.youtube-nocookie.com/embed/{{yt_id}}?autoplay=1&amp;mute=1&amp;loop=1&amp;playlist={{yt_id}}&amp;controls=0&amp;playsinline=1&amp;rel=0&amp;modestbranding=1&amp;iv_load_policy=3&amp;disablekb=1" title="배경 영상" allow="autoplay; encrypted-media; picture-in-picture" sandbox="allow-scripts allow-same-origin allow-presentation" referrerpolicy="strict-origin-when-cross-origin" tabindex="-1" aria-hidden="true" data-yt-bg></iframe>
+    <a class="s-hero__sound" href="{{video_href}}" target="_blank" rel="noopener">▶ 소리 켜고 보기</a>{{/yt_id}}
+    {{^yt_id}}{{#video_href}}<a class="s-hero__play" href="{{video_href}}" target="_blank" rel="noopener" aria-label="영상 보기"><span aria-hidden="true">▶</span></a>{{/video_href}}
+    {{^video_href}}<span class="s-hero__play is-empty" aria-hidden="true">▶</span>{{/video_href}}{{/yt_id}}
+  </div>
+  <div class="s-hero__body">
+    <h1 class="s-title" id="hero-title-{{id}}">
+      {{#title}}{{title}}{{/title}}{{^title}}<span class="is-placeholder" aria-label="가게 이름: 아직 입력되지 않음">[가게 이름 입력]</span>{{/title}}
+    </h1>
+    <p class="s-lead">
+      {{#subtitle}}{{subtitle}}{{/subtitle}}{{^subtitle}}<span class="is-placeholder" aria-label="소개 한 줄: 아직 입력되지 않음">[소개 한 줄 입력]</span>{{/subtitle}}
+    </p>
+    {{#cta_label}}<p class="s-hero__cta"><a class="s-btn" href="{{cta_href}}">{{cta_label}}</a>{{#video_href}}<a class="s-hero__link" href="{{video_href}}" target="_blank" rel="noopener">영상 보기</a>{{/video_href}}</p>{{/cta_label}}
+  </div>
+</section>
