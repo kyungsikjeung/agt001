@@ -1,0 +1,17 @@
+<section class="s-hero s-hero--photo-overlay s-hero--video" data-section-id="{{id}}" aria-labelledby="hero-title-{{id}}">
+  <div class="s-media">
+    {{#image_src}}<img src="{{image_src}}" alt="{{image_alt}}">{{/image_src}}
+    {{^image_src}}<div class="s-media__empty is-placeholder" aria-label="영상: 아직 입력되지 않음">[영상 주소 입력]</div>{{/image_src}}
+    {{#video_href}}<a class="s-hero__play" href="{{video_href}}" target="_blank" rel="noopener" aria-label="영상 보기"><span aria-hidden="true">▶</span></a>{{/video_href}}
+    {{^video_href}}<span class="s-hero__play is-empty" aria-hidden="true">▶</span>{{/video_href}}
+  </div>
+  <div class="s-hero__body">
+    <h1 class="s-title" id="hero-title-{{id}}">
+      {{#title}}{{title}}{{/title}}{{^title}}<span class="is-placeholder" aria-label="가게 이름: 아직 입력되지 않음">[가게 이름 입력]</span>{{/title}}
+    </h1>
+    <p class="s-lead">
+      {{#subtitle}}{{subtitle}}{{/subtitle}}{{^subtitle}}<span class="is-placeholder" aria-label="소개 한 줄: 아직 입력되지 않음">[소개 한 줄 입력]</span>{{/subtitle}}
+    </p>
+    {{#cta_label}}<p class="s-hero__cta"><a class="s-btn" href="{{cta_href}}">{{cta_label}}</a>{{#video_href}}<a class="s-hero__link" href="{{video_href}}" target="_blank" rel="noopener">영상 보기</a>{{/video_href}}</p>{{/cta_label}}
+  </div>
+</section>

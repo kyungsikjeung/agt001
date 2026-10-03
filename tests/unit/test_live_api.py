@@ -31,9 +31,13 @@ def test_live_flow_and_preview(client, monkeypatch):
     assert "어떤 사이트" in r["question_text"] and r["speech"]
     assert client.get(f"/api/rooms/{rid}/live/preview", headers=h).json()["html"] is None
     r = client.post(f"/api/rooms/{rid}/live/turn", json={"text": "카페요"}, headers=h).json()
-    assert r["phase"] == "compose" and "사진 크게" in r["options"]
+    assert r["phase"] == "compose" and r["options"][0] == "따뜻하고 아늑하게" and r["has_previews"]
+    opts = client.get(f"/api/rooms/{rid}/live/options", headers=h).json()
+    assert opts["component"] == "tone" and len(opts["options"]) == 4 and opts["options"][0]["html"]
+    r = client.post(f"/api/rooms/{rid}/live/turn", json={"text": "따뜻하게"}, headers=h).json()
+    assert "사진 크게" in r["options"] and r["speech_parts"][0].startswith("좋아요")
     r = client.post(f"/api/rooms/{rid}/live/turn", json={"text": "사진 크게"}, headers=h).json()
-    assert r["last"] == "hero" and r["components"][0]["id"] == "hero"
+    assert r["last"] == "hero" and [c["id"] for c in r["components"]] == ["tone", "hero"]
     client.post(f"/api/rooms/{rid}/live/turn", json={"text": "바다카페"}, headers=h)
     p = client.get(f"/api/rooms/{rid}/live/preview", headers=h).json()
     assert "바다카페" in p["html"] and p["last"] == "hero"
@@ -50,5 +54,6 @@ def test_live_owner_only(client, monkeypatch):
     assert client.post(f"/api/rooms/{rid}/live/turn", json={"text": "카페요"},
                        headers={"X-Member-Id": "guest"}).status_code == 403
     assert client.get(f"/api/rooms/{rid}/live/preview", headers={"X-Member-Id": "guest"}).status_code == 403
+    assert client.get(f"/api/rooms/{rid}/live/options", headers={"X-Member-Id": "guest"}).status_code == 403
     assert client.post("/api/rooms/nope/live/turn", json={"text": ""},
                        headers={"X-Member-Id": "owner"}).status_code == 404

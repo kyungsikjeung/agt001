@@ -6,10 +6,12 @@ GET  /api/rooms/{room_id}/live/preview                 확정된 부품으로 �
 대화는 채팅방 기록에도 그대로 남는다(사장님 말·AI 답). 부품을 다 정하고 엔진 질문까지 끝나면
 기존 요약·승인 흐름(chat_flow)으로 넘겨, 채팅방에서 시안 3안·공개로 이어 간다.
 """
+import gzip
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Header, HTTPException, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from app import store
@@ -37,6 +39,16 @@ def _owner_room(room_id: str, member_id_raw: Optional[str]) -> tuple[str, str]:
     return safe, member_id
 
 
+def _json(request: Request, content: dict) -> Response:
+    """미리보기·시안 HTML은 크고(선택지마다 CSS 포함) 잘 줄어서 gzip으로 보낸다. 전역 압축은 SSE 때문에 켜지 않는다."""
+    body = json.dumps(content, ensure_ascii=False).encode("utf-8")
+    headers = {"Cache-Control": "no-store", "Vary": "Accept-Encoding"}
+    if "gzip" in (request.headers.get("accept-encoding") or "") and len(body) > 2048:
+        body = gzip.compress(body, compresslevel=6)
+        headers["Content-Encoding"] = "gzip"
+    return Response(content=body, media_type="application/json", headers=headers)
+
+
 def _view(card: dict, out: dict) -> dict:
     q = out.get("question")
     return {
@@ -45,6 +57,9 @@ def _view(card: dict, out: dict) -> dict:
         "question_text": (q or {}).get("text", ""),
         "speech": " ".join(x for x in (out.get("reply") or "", compose.speech_text(q)) if x).strip(),
         "options": [o for o in (q or {}).get("options") or [] if o],
+        "option_desc": list((q or {}).get("option_desc") or []),
+        "speech_parts": ([out["reply"]] if out.get("reply") else []) + list((q or {}).get("speech_parts") or []),
+        "has_previews": (q or {}).get("kind") == "compose",
         "phase": out.get("phase"),
         "done": bool(out.get("done")),
         "last": out.get("last"),
@@ -69,14 +84,8 @@ def live_turn(room_id: str, body: LiveIn, x_member_id: Optional[str] = Header(de
         nickname = next((m["nickname"] for m in room["members"] if m["member_id"] == member_id), "사장님")
         if not text:
             # 처음 열었거나 다시 들어온 경우: 지금 물을 것만 보여 준다 (대화를 진전시키지 않는다).
-            st = compose.state(card)
-            if st.get("pending"):
-                step = next((s for s in st["steps"] if s["id"] == st["pending"]), None)
-                out = {"question": compose.question(card, step) if step else None, "phase": "compose"}
-            elif card.get("pending"):
-                out = {"question": card["pending"], "phase": "engine"}
-            else:
-                out = compose.next_step(card)
+            q = compose.pending_question(card)
+            out = {"question": q, "phase": "compose"} if q else compose.next_step(card)
             return _view(card, out)
         rooms._append(room, member_id, nickname, text, kind="chat", meta={"live": True})
         out = compose.live_turn(card, text, by=rooms.member_handle(safe, member_id), is_owner=True)
@@ -96,13 +105,23 @@ def live_turn(room_id: str, body: LiveIn, x_member_id: Optional[str] = Header(de
 
 
 @router.get("/api/rooms/{room_id}/live/preview")
-def live_preview(room_id: str, x_member_id: Optional[str] = Header(default=None)):
+def live_preview(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
     safe, _member_id = _owner_room(room_id, x_member_id)
     room = store.read_room(safe)
     session = store.read_session(room["session_id"]) or {}
     card = session.get("prd") or prd_engine.new_card()
     html = compose.preview_html(card, site_key=session.get("requirement_id") or "")
     st = compose.state(card)
-    return JSONResponse(content={"html": html, "components": compose.components(card),
-                                 "last": (st.get("order") or [None])[-1]},
-                        headers={"Cache-Control": "no-store"})
+    return _json(request, {"html": html, "components": compose.components(card),
+                           "tone": st.get("tone"), "last": (st.get("order") or [None])[-1]})
+
+
+@router.get("/api/rooms/{room_id}/live/options")
+def live_options(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """지금 질문의 선택지별 작은 시안 (지금 분위기 토큰으로 그린 부품 하나씩)."""
+    safe, _member_id = _owner_room(room_id, x_member_id)
+    room = store.read_room(safe)
+    session = store.read_session(room["session_id"]) or {}
+    card = session.get("prd") or prd_engine.new_card()
+    st = compose.state(card)
+    return _json(request, {"component": st.get("pending"), "options": compose.option_previews(card)})
