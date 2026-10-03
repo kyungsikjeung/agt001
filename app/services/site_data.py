@@ -1103,6 +1103,18 @@ def _fill_gallery(sec: dict, card: dict, pack: dict, prefix: str) -> None:
     sec["content"] = {"label": sec.get("label") or "", "items": items}
 
 
+def _fill_nearby(sec: dict, card: dict, pack: dict) -> None:
+    """nearby bind(펜션 '주변') → 주변 안내 줄(대제목·소제목·줄 사진). 줄이 없으면 예전처럼 공간 사진첩."""
+    from app.services import nearby
+    view = nearby.view(card)
+    if not view["items"]:
+        _fill_gallery(sec, card, pack, "space")
+        return
+    sec["content"] = {"label": sec.get("label") or "",
+                      "items": [{"src": i["photo"], "alt": i["name"], "title": i["name"], "sub": i["sub"],
+                                 "cap": view["style"]} for i in view["items"]]}
+
+
 def _fill_menu_photos(sec: dict, card: dict, data: dict, pack: dict) -> None:
     """menu_photos bind → 분류 대표 사진첩 (사장님 사진 우선, 없으면 예시 팩 + ai 표시)."""
     photos = _owner_photos(card)
@@ -1212,6 +1224,8 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             sec["content"] = {"phone": phone, "hours": hours, "address": address}
         elif bind in ("space_photos", "style_photos"):
             _fill_gallery(sec, card, pack, "space" if bind == "space_photos" else "style")
+        elif bind == "nearby":
+            _fill_nearby(sec, card, pack)
         elif bind == "menu_photos":
             _fill_menu_photos(sec, card, data, pack)
         elif bind == "order_soon":

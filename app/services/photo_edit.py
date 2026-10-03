@@ -37,7 +37,7 @@ UNCHANGED_DIFF = 3.0
 ACTIONS = ("brighter", "warmer", "sharper", "square", "wide")
 
 # 사진첩 구역 bind (gallery-N 칸)
-_GALLERY_BINDS = ("space_photos", "style_photos", "menu_photos")
+_GALLERY_BINDS = ("space_photos", "style_photos", "menu_photos", "nearby")
 
 # 말 거르기 금지 낱말 (§3)
 _FORBIDDEN_WORDS = ("얼굴", "사람", "인물", "글자", "글씨", "문구", "간판",

@@ -2,6 +2,7 @@
 // 상태는 SectionPanel이 갖고(저장 본문을 만든다), 여기서는 칸을 그린다.
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { CardGroupsEdit, CardItemEdit, PreviewItem } from './cardApi';
+import PriceField from './fields/PriceField';
 
 export type ItemPhoto = 'own' | 'auto' | 'none';
 
@@ -244,18 +245,8 @@ export default function ItemList({
                 onChange={(e) => patch(it.key, { name: e.target.value })}
               />
             </label>
-            <label className="ed-site-field">
-              가격
-              <input
-                className="ed-input"
-                type="text"
-                value={it.price}
-                maxLength={20}
-                placeholder="예: 4,500원"
-                disabled={saving}
-                onChange={(e) => patch(it.key, { price: e.target.value })}
-              />
-            </label>
+            {/* 가격: 공용 단위 칸(UnitValueField). 숫자로 적으면 4,500원 모양으로 저장 — 나중에 결제 금액으로 그대로 쓴다 */}
+            <PriceField price={it.price} disabled={saving} onChange={(price) => patch(it.key, { price })} />
             <label className="ed-site-field">
               설명
               <input

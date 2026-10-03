@@ -8,6 +8,7 @@ import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
 import StaffEditor from './StaffEditor';
+import NearbyEditor from './NearbyEditor';
 import PhoneField from './fields/PhoneField';
 import TimeRangeField from './fields/TimeRangeField';
 import { checkPhone, hasSpokenDigits } from './fields/phone';
@@ -30,7 +31,7 @@ const NO_GROUPS: string[] = [];
 /** 항목 목록을 쓰는 bind (계약 §4 2번). */
 const CATALOG_BINDS = ['catalog', 'classes', 'rooms', 'signature', 'menu_photos'];
 
-type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook' | 'rsvp' | 'staff';
+type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'nearby' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook' | 'rsvp' | 'staff';
 
 /** bind를 패널 종류로 묶는다 (계약 §4 표). */
 function kindOf(bind: string): BindKind {
@@ -41,6 +42,8 @@ function kindOf(bind: string): BindKind {
     return 'contact';
   }
   if (bind === 'space_photos' || bind === 'style_photos') return 'photos';
+  // 펜션 '주변': 장소 이름·거리 줄(NearbyEditor) + 줄이 없을 때 보일 공간 사진 올리기
+  if (bind === 'nearby') return 'nearby';
   // 초대·기념(청첩장): 인사말·날짜와 장소는 카드 칸, 양가 연락처·계좌는 EventEditor
   if (bind === 'greeting') return 'greeting';
   if (bind === 'event') return 'when';
@@ -408,7 +411,9 @@ export default function SectionPanel({
           </label>
         ) : null}
 
-        {kind === 'photos' ? (
+        {kind === 'nearby' ? <NearbyEditor roomId={roomId} card={card} onSaved={(c) => onSaved(c, selId)} /> : null}
+
+        {kind === 'photos' || kind === 'nearby' ? (
           <label className="ed-site-field ed-file" htmlFor={`ed-site-${selected.id}-photo`}>
             사진 올리기
             <input

@@ -41,6 +41,29 @@ export interface RoomCard {
   event?: CardEvent;
   /** 선생님·담당자 (BUILDER_FIX_1003_CONTRACT S2, 서버 S1). 없으면 대화에서 받은 값·예시 */
   staff?: StaffMember[];
+  /** 주변 안내 (app/services/nearby.py). 예전 서버는 없다 */
+  nearby?: CardNearby;
+}
+
+export type NearbyUnit = 'walk' | 'car' | 'km' | 'text';
+export type NearbyStyle = 'stack' | 'badge' | 'inline';
+
+/** 주변 안내 한 줄: 대제목(장소) + 소제목(도보 n분·차로 n분·n km·직접 글). 값은 숫자로 따로 둔다 */
+export interface NearbyItem {
+  name: string;
+  unit: NearbyUnit;
+  value?: number | null;
+  text?: string;
+  /** 서버가 주는 보이는 소제목 글과 줄 사진(nearby:이름 태그 최근 장) */
+  sub?: string;
+  photo?: string;
+  /** 저장할 때만: 고치기 전 이름(바뀌면 서버가 사진 태그를 옮긴다) */
+  prev_name?: string;
+}
+
+export interface CardNearby {
+  items: NearbyItem[];
+  style: NearbyStyle;
 }
 
 /** 선생님·담당자 1명 (BUILDER_FIX_1003_CONTRACT S2). specialties는 최대 4개 */
@@ -214,6 +237,7 @@ export interface CardSaveExtra {
   layout?: CardLayoutEdit;
   choice?: string;
   staff?: StaffMember[];
+  nearby?: { items: NearbyItem[]; style: NearbyStyle };
 }
 
 export const MEMBER_KEY = 'agt001_member_id';
@@ -281,6 +305,7 @@ export async function saveCard(
   if (extra?.choice) body.choice = extra.choice;
   if (extra?.event) body.event = extra.event;
   if (extra?.staff) body.staff = extra.staff;
+  if (extra?.nearby) body.nearby = extra.nearby;
   if (extra?.style) body.style = extra.style;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',

@@ -190,6 +190,11 @@ def valid_tag(card: dict, tag) -> bool:
             edited = (card or {}).get("staff_edit") or []
             return any(isinstance(e, dict) and str(e.get("name") or "") == name
                        for e in edited)
+        if isinstance(tag, str) and tag.startswith("nearby:"):
+            # 주변 안내 줄 사진: 저장된 줄 이름이면 받는다
+            from app.services import nearby
+            name = tag[len("nearby:"):].strip()
+            return bool(name) and any(i["name"] == name for i in nearby.of(card)["items"])
         return False
     except Exception:
         return False

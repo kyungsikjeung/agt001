@@ -1071,13 +1071,18 @@ def _gallery_items(content: dict) -> list:
         alt_raw = entry.get("alt", "") or entry.get("image_alt", "")
         alt = alt_raw if isinstance(alt_raw, str) and alt_raw else f"가게 사진 {pos}"
         caption = entry.get("caption", "")
+        title = entry.get("title") if isinstance(entry.get("title"), str) else ""
+        sub = entry.get("sub") if isinstance(entry.get("sub"), str) else ""
+        cap = entry.get("cap") if entry.get("cap") in ("stack", "badge", "inline") else "stack"
         items.append({
             "src": src,
             "alt": alt,
             "caption": caption if isinstance(caption, str) else "",
             "ai_badge": bool(src and entry.get("ai")),
+            # 대제목·소제목 글(주변 안내 등). 있으면 caption 대신 쓴다 (templates/partials/caption.mustache)
+            "title": title, "sub": sub, "cap": cap,
         })
-    return [one for one in items if one["src"] or one["caption"] or one["alt"].strip()]
+    return [one for one in items if one["src"] or one["caption"] or one["title"] or one["alt"].strip()]
 
 
 def _around_items(content: dict) -> tuple:
@@ -1219,7 +1224,8 @@ def _section_context(
         ctx["has_items"] = has_items
     elif section_type == "gallery":
         items = _gallery_items(content)
-        if not any(one.get("src") for one in items):
+        # 사진이 하나도 없으면 예시 그림. 단 제목 글이 있는 줄(주변 안내 등)은 글 칸으로 그린다
+        if not any(one.get("src") or one.get("title") for one in items):
             return {"id": section_id, "is_example": True, "label": _text(content, "label")}
         ctx["label"] = _text(content, "label")
         ctx["items"] = items

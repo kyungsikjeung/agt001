@@ -87,6 +87,20 @@ class StaffIn(BaseModel):
     prev_name: Optional[str] = None  # 고치기 전 이름(저장 안 함). 바뀌면 사진 태그를 옮긴다
 
 
+class NearbyItemIn(BaseModel):
+    """주변 안내 한 줄 (app/services/nearby.py). 값 검사는 nearby.clean이 400으로 막는다."""
+    name: str = Field("", max_length=60)
+    unit: str = "walk"
+    value: Optional[float | str] = None
+    text: Optional[str] = Field(None, max_length=60)
+    prev_name: Optional[str] = Field(None, max_length=60)  # 고치기 전 이름(저장 안 함). 바뀌면 사진 태그를 옮긴다
+
+
+class NearbyIn(BaseModel):
+    items: list[NearbyItemIn] = Field(default=[], max_length=12)
+    style: Optional[str] = None
+
+
 class CardIn(BaseModel):
     fields: dict[str, str] = {}
     notice: Optional[NoticeIn] = None  # 공지 띠·팝업 (D56). 빈 글이면 공지를 끈다
@@ -97,6 +111,15 @@ class CardIn(BaseModel):
     event: Optional[EventIn] = None  # 청첩장 양가 연락처·계좌
     staff: Optional[list[StaffIn]] = Field(default=None, max_length=12)  # 선생님 (S1). None=그대로, []=지우기
     style: Optional[StyleIn] = None  # 스타일 축(카드 면·구역 제목)
+    nearby: Optional[NearbyIn] = None  # 주변 안내(대제목·소제목). None=그대로, items=[]=지우기
+
+
+def _nearby_view(card: dict) -> dict:
+    try:
+        from app.services import nearby
+        return nearby.view(card)
+    except Exception:
+        return {"items": [], "style": "stack"}
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -134,6 +157,7 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "can_edit": rooms.owner_id(room) == member_id,
         "quota": _quota(session),
         "staff": staff,
+        "nearby": _nearby_view(card),
         **_event_view(card, ind),
     }
 
@@ -663,6 +687,24 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                     # 빈 목록이면 직접 고친 값을 지우고 대화에서 받은 값·예시로 돌아간다
                     card.pop("staff_edit", None)
                 changed.append("staff")
+        if body.nearby is not None:
+            from app.services import nearby
+            data, errors = nearby.clean([line.model_dump() for line in body.nearby.items], body.nearby.style)
+            if errors:
+                raise HTTPException(status_code=400, detail="; ".join(errors[:3]))
+            if data != nearby.of(card) or (not data["items"] and card.get("nearby")):
+                # 이름을 바꾼 줄은 사진 태그도 옮긴다(선생님과 같은 규칙: 옛 이름이 있었고 새 목록엔 없을 때만)
+                old_names = {i["name"] for i in nearby.of(card)["items"]}
+                new_names = {i["name"] for i in data["items"]}
+                for line in body.nearby.items:
+                    prev, new = " ".join((line.prev_name or "").split()), " ".join(line.name.split())
+                    if prev and prev != new and prev in old_names and prev not in new_names and new in new_names:
+                        photos_svc.rename_row_tag(card, nearby.TAG_PREFIX, prev, new)
+                if data["items"]:
+                    card["nearby"] = data
+                else:
+                    card.pop("nearby", None)
+                changed.append("nearby")
         if body.style is not None:
             if _apply_style(card, body.style):
                 changed.append("style")
@@ -691,6 +733,8 @@ def _changed_label(ind, key: str) -> str:
         return "선생님·담당자"
     if key == "style":
         return "스타일"
+    if key == "nearby":
+        return "주변 안내"
     if key == "items":
         return S.label_for(ind, "offerings")
     return S.label_for(ind, key)

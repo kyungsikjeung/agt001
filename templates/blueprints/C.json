@@ -17,7 +17,7 @@
     {"id": "v2", "name": "풍경·경험형", "journey": "풍경 보고 → 예약", "tone": "rich",
      "hero": "photo-side",
      "sections": [
-       {"id": "view", "type": "gallery", "variant": "swipe", "bind": "space_photos", "label": "주변", "nav": "주변", "tone": "inverse"},
+       {"id": "view", "type": "gallery", "variant": "swipe", "bind": "nearby", "label": "주변", "nav": "주변", "tone": "inverse"},
        {"id": "booking", "type": "booking", "variant": "dates", "bind": "dates", "label": "예약", "nav": "예약"},
        {"id": "rooms", "type": "rooms", "variant": "cards", "bind": "rooms", "label": "객실", "nav": "객실"},
        {"id": "tour", "type": "gallery", "variant": "marquee", "bind": "space_photos", "label": "펜션 둘러보기"},

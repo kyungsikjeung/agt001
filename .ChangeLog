@@ -1,6 +1,23 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/03/05  [기능 · main] 주변 안내: 대제목·소제목(도보 n분·차로 n분·거리·직접 글) + 글 배치 3가지 + 공용 목록 부품(메뉴 가격에도)
+  - 데이터: card["nearby"] = {items: [{name, unit(walk·car·km·text), value(숫자)|text}], style(stack·badge·inline)}
+      app/services/nearby.py (검사·소제목 글·보기), 값은 숫자로 따로 둬서 정렬·결제·단위 바꾸기에 그대로 쓸 수 있게
+  - 줄 사진: "nearby:<이름>" 태그(선생님 사진과 같은 방식을 공용으로: photos.row_photo_url·rename_row_tag,
+      ROW_TAG_PREFIXES). 첫 화면·사진첩에는 안 섞임. 이름을 바꾸면 사진이 따라감(prev_name)
+  - 사이트: 펜션 2안 '주변' 구역 bind를 nearby로(templates/blueprints/C.json). 줄이 없으면 예전 그대로 공간 사진첩
+      사진첩 4종(grid·swipe·marquee·masonry) 글을 공용 조각 templates/partials/caption.mustache로:
+      .s-cap--stack(제목 아래 작게) · .s-cap--badge(소제목을 사진 위 배지) · .s-cap--inline(한 줄 "이름 · 도보 3분")
+      사진 없는 줄은 핀 그림 칸(.s-cap-tile) — 엉뚱한 사진을 붙이지 않음
+  - 공용 부품(frontend/src/editor/fields/): UnitValueField(단위 칩+값+'보이는 글'), OptionCards(작은 그림으로 고르기),
+      RowListEditor(줄 더하기·지우기·위아래·최대 개수, 결제 칸을 붙일 자리 renderRow), PriceField(가격)
+  - 메뉴에도: 메뉴 가격 칸을 PriceField로(숫자만 누르면 "4,500원", 시가·가격 문의는 직접 쓰기). 저장 글 모양은 그대로
+  - 빌더: 주변 구역 → NearbyEditor(줄마다 대제목·소제목·사진, 글 배치, 저장). 서버 400 이유를 그대로 보임
+  - 확인: 실제 빌더(브라우저)에서 펜션 2안 → 주변 → 3곳 입력·배지 선택·저장 → 미리보기 글 "○○해수욕장/도보 3분" 등 확인
+  - 디자인 토큰: 빌더는 기존 --ed-*만, 사이트는 기존 --c-primary·--c-ground·--on-primary·--radius-card만
+  - 테스트: pytest +10(test_nearby.py), vitest +5(NearbyEditor.test.tsx). pytest 1566·vitest 171 통과
+
 10/04/02/54  [기능 · main] 공지: 어디서 고치는지 툴팁·켠 뒤 안내 + 켜진 공지 칩은 '고치기 창'으로
   - 공지 창 제목 옆 ⓘ 도움말(공용 부품 frontend/src/editor/fields/InfoTip.tsx: 누르기·마우스 올리기·Esc·바깥 누르면 닫힘,
       aria-expanded·role=status): 손님에게 어디 보이는지 / 켠 뒤 '공지' 칩을 다시 누르면 고치기·끄기 /

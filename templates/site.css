@@ -402,6 +402,29 @@ button:focus-visible,
 
 .s-gallery figcaption { font-size: 13px; margin-top: 4px; }
 
+/* 대제목·소제목 글 (주변 안내 등, partials/caption.mustache). 모양: stack(제목 아래 작게)·badge(소제목을 사진 위 배지로)·inline(한 줄) */
+.s-gallery figcaption.s-cap { display: grid; gap: 2px; margin-top: 8px; font-size: inherit; }
+.s-cap__title { font-size: 16px; font-weight: 700; line-height: 1.35; }
+.s-cap__sub { font-size: 13px; opacity: 0.78; font-variant-numeric: tabular-nums; }
+.s-gallery figcaption.s-cap--inline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; }
+.s-cap--inline .s-cap__sub::before { content: "·"; margin-right: 6px; opacity: 0.6; }
+.s-cap--badge .s-cap__sub {
+  position: absolute; top: 10px; left: 10px; padding: 3px 10px; border-radius: 999px;
+  background: var(--c-primary); color: #fff; color: var(--on-primary, #fff);
+  font-size: 12px; font-weight: 700; opacity: 1; box-shadow: 0 1px 4px rgb(0 0 0 / 0.2);
+}
+/* 사진 없는 줄: 글만 있는 칸 (핀 그림) */
+.s-cap-tile {
+  height: 160px; border-radius: var(--radius-card); display: grid; place-items: center;
+  background: color-mix(in srgb, var(--c-primary) 16%, var(--c-ground));
+}
+.s-cap-tile::before {
+  content: ""; width: 34px; height: 34px; background: var(--c-primary); opacity: 0.55;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a7 7 0 0 0-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 2a7 7 0 0 0-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.s-gallery__swipe .s-cap-tile { height: 180px; }
+
 .s-gallery__swipe {
   display: flex;
   overflow-x: auto;

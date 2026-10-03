@@ -90,7 +90,8 @@ describe('SiteEditor', () => {
     // 해당 구역 패널이 열리고, 누른 글자 항목이 먼저 펼쳐진다.
     expect(await screen.findByRole('button', { name: '구역 위로' })).toBeInTheDocument();
     expect(await screen.findByDisplayValue('아메리카노')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('예: 4,500원')).toBeInTheDocument();
+    // 가격은 공용 단위 칸(금액·직접 쓰기)
+    expect(screen.getByRole('group', { name: '가격' })).toBeInTheDocument();
   });
 
   it('다른 창의 가짜 message는 무시한다', async () => {
@@ -142,7 +143,8 @@ describe('SiteEditor', () => {
     render(<SiteEditor roomId="r1" card={CARD} onSaved={() => {}} />);
     const frame = (await screen.findByTitle('사이트 미리보기')) as HTMLIFrameElement;
     sendFrameMessage(frame.contentWindow, { type: 'agt-edit', section: 'menu', text: '아메리카노' });
-    expect(await screen.findByDisplayValue('4,500원')).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('4500')).toBeInTheDocument();
+    expect(screen.getByText('보이는 글: 4,500원')).toBeInTheDocument();
     fireEvent.click(await screen.findByRole('button', { name: '숨기기' }));
     await waitFor(() => expect(puts).toHaveLength(1));
     expect(puts[0]).toMatchObject({ layout: { added: ['space'], hidden: ['menu'] } });

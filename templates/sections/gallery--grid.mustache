@@ -2,7 +2,7 @@
   <h2 id="gallery-title-{{id}}">{{> label}}</h2>
   <ul class="s-gallery__list">
     {{#items}}
-    <li><figure>{{#src}}<img src="{{src}}" alt="{{alt}}">{{#ai_badge}}<span class="s-illu-badge">AI 예시</span>{{/ai_badge}}{{/src}}{{^src}}<div class="s-media__empty is-placeholder" aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>{{/src}}{{#caption}}<figcaption>{{caption}}</figcaption>{{/caption}}</figure></li>
+    <li><figure>{{#src}}<img src="{{src}}" alt="{{alt}}">{{#ai_badge}}<span class="s-illu-badge">AI 예시</span>{{/ai_badge}}{{/src}}{{^src}}{{#title}}<div class="s-cap-tile" aria-hidden="true"></div>{{/title}}{{^title}}<div class="s-media__empty is-placeholder" aria-label="사진: 아직 입력되지 않음">[사진 입력]</div>{{/title}}{{/src}}{{> caption}}</figure></li>
     {{/items}}
   </ul>
 </section>

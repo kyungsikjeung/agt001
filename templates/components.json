@@ -63,7 +63,8 @@
    "binds": [
     "space_photos",
     "style_photos",
-    "menu_photos"
+    "menu_photos",
+    "nearby"
    ],
    "variants": [
     "grid",
