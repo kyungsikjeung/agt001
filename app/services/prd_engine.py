@@ -1760,6 +1760,24 @@ def _maybe_followup(card: dict, applied: list[str], prev_q: Optional[dict] = Non
             card.setdefault("followup_queue", []).append(item)
 
 
+def _apply_inferred_kind(card: dict, res: dict) -> None:
+    """처음 보는 종류 추론 결과 반영 (KIND_INFER_CONTRACT §2)."""
+    from app.services import design_log  # 순환 참조 방지용 늦은 불러오기
+    old = card.get("industry")
+    needs = res.get("needs") or []
+    card["kind_asked"] = True
+    card["industry"] = res["industry"]
+    card["inferred_needs"] = res["needs"]
+    if needs and _slot(card, "sections")["status"] != S.FILLED:
+        _put(card, "sections", list(needs), S.ASSUMED)
+    else:
+        _refresh_assumed_sections(card, old)
+    try:
+        design_log.kind_inferred(card, res)
+    except Exception:
+        log.exception("종류 추론 기록 실패 — 흐름은 계속")
+
+
 def next_question(card: dict) -> Optional[dict]:
     """다음에 물을 것 하나. 없으면 None."""
     ind = industry_of(card)
@@ -1775,8 +1793,17 @@ def next_question(card: dict) -> Optional[dict]:
     q = _confirm_question(card, owner_only=True)
     if q:
         return q
-    # 1-1) 문의 종류가 모호하면 한 번 묻는다 (§2 ⑤): 업종을 들었는데 가게 6업종·프로필 어디에도 안 맞을 때
+    # 1-1) 문의 종류가 모호하면 먼저 추론하고, 안 되면 한 번 묻는다 (§2 ⑤, KIND_INFER_CONTRACT):
+    # 업종을 들었는데 가게 6업종·프로필 어디에도 안 맞을 때
     if ind.key == "other" and not card.get("kind_asked") and _slot(card, "business_type")["status"] == S.FILLED:
+        if not card.get("kind_inferred"):
+            card["kind_inferred"] = True
+            from app.services import kind_infer  # 순환 참조 방지용 늦은 불러오기
+            value = _slot(card, "business_type").get("value")
+            res = kind_infer.infer(_show(value) if value else "")
+            if res:
+                _apply_inferred_kind(card, res)
+                return next_question(card)
         return {"slot": None, "kind": "site_kind", "options": list(S.KIND_OPTIONS), "text": S.KIND_QUESTION}
     # 1-2) 확인이 필요한 기능 (§2 ⑪⑫)·검토에서 나온 어긋난 값: 사장님이 먼저 말한 요구라 필수 칸보다 앞에 묻는다
     q = _confirm_question(card)

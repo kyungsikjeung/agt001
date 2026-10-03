@@ -117,6 +117,14 @@ def unmet(site: str, card: dict) -> None:
         _safe("unmet_need", {"site": site, "industry": industry, **item})
 
 
+def kind_inferred(card: dict, res: dict) -> None:
+    """처음 보는 종류 추론 결과 (KIND_INFER_CONTRACT §3)."""
+    value = ((card.get("slots") or {}).get("business_type") or {}).get("value")
+    if isinstance(value, list):
+        value = ", ".join(str(v) for v in value)
+    _safe("kind_inferred", {"kind": res.get("kind"), "label": str(value or "")[:30]})
+
+
 def report(days: int = 90, now=None) -> dict:
     """D44·D45 숫자: 시안 → 고르기 → 공개 → 문의, 말로 고친 칸, 못 담은 요구 비율(느린 경로를 켤 조건 10%)."""
     import datetime
@@ -130,7 +138,7 @@ def report(days: int = 90, now=None) -> dict:
     now = now or datetime.datetime.now(datetime.timezone.utc)
     since = now - datetime.timedelta(days=days)
     names = ("design_shown", "design_chosen", "design_restyled", "site_published", "inquiry_received", "unmet_need",
-             "voice_stt_ok", "voice_stt_empty", "voice_stt_fail")
+             "kind_inferred", "voice_stt_ok", "voice_stt_empty", "voice_stt_fail")
     with get_sessionmaker()() as db:
         rows = db.execute(select(FunnelEventRow.event, FunnelEventRow.ts, FunnelEventRow.props)
                           .where(FunnelEventRow.event.in_(names), FunnelEventRow.ts >= since)
@@ -154,6 +162,7 @@ def report(days: int = 90, now=None) -> dict:
             inq[p.get("site")] += 1
     restyle = Counter(f"{k}={v}" for _, p in by["design_restyled"] for k, v in p.items() if k not in ("site", "industry"))
     unmet = Counter(f"{p.get('kind')}:{p.get('label') or p.get('ref')}" for _, p in by["unmet_need"])
+    new_kind = Counter(f"{p.get('kind')}:{p.get('label')}" for _, p in by["kind_inferred"])
     rate = lambda a, b: round(len(a) / len(b), 3) if b else None  # noqa: E731
     vok = sum(1 for e, _, _ in rows if e == "voice_stt_ok")
     vfail = sum(1 for e, _, _ in rows if e == "voice_stt_fail")
@@ -169,5 +178,6 @@ def report(days: int = 90, now=None) -> dict:
         "restyle_changes": dict(restyle.most_common(20)),
         "unmet_site_rate": rate(unmet_s & shown_s, shown_s),
         "unmet_top": dict(unmet.most_common(20)),
+        "new_kind_top": dict(new_kind.most_common(20)),
         "voice_fail_rate": round(vfail / (vok + vfail), 3) if (vok + vfail) else None,  # 성공 대비 실패율(사이트 키 없음)
     }

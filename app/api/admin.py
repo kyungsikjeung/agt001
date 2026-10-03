@@ -267,7 +267,8 @@ def admin_metrics(days: int = 30, user: dict = Depends(_admin)):
                               .where(SessionRow.prd["published"].astext.isnot(None)))
         claimed = db.scalars(select(UserRoomRow.room_id).distinct()).all()
     design = design_log.report(days)
-    # 못 담은 요구 상위는 사장님 말이 키에 들어 있다
+    # 못 담은 요구 상위와 처음 보는 종류 상위는 사장님 말이 키에 들어 있다
     design["unmet_top"] = {M.mask_pii(k): n for k, n in (design.get("unmet_top") or {}).items()}
+    design["new_kind_top"] = {M.mask_pii(k): n for k, n in (design.get("new_kind_top") or {}).items()}
     return {"days": days, "design": design, "funnel": funnel, "rooms_created": created or 0,
             "published": published or 0, "owners_logged_in": sum(1 for rid in claimed if rooms_svc.owner_claimed(rid))}
