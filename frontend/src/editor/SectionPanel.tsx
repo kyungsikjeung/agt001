@@ -4,6 +4,7 @@
 // 같은 데이터로 바꿔 쓸 수 있는 구역 모양(shapes)을 고르면 미리보기에 먼저 보인 뒤 저장한다.
 import { useEffect, useState } from 'react';
 import AddressSearch from '../builder/AddressSearch';
+import AroundEditor from './AroundEditor';
 import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
@@ -462,6 +463,8 @@ export default function SectionPanel({
             </button>
           </div>
         ) : null}
+
+        {kind === 'location' ? <AroundEditor roomId={roomId} card={card} onSaved={(c) => onSaved(c, selId)} /> : null}
 
         {selected.locked ? null : (
           <div className="ed-sheet-row" aria-label="구역 순서·숨기기">

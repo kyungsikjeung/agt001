@@ -41,6 +41,21 @@ export interface RoomCard {
   event?: CardEvent;
   /** 선생님·담당자 (BUILDER_FIX_1003_CONTRACT S2, 서버 S1). 없으면 대화에서 받은 값·예시 */
   staff?: StaffMember[];
+  /** 주변 안내 (10/4). 오시는 길 위쪽 "OO역 · 도보 3분" 줄 */
+  around?: AroundEdit;
+}
+
+/** 주변 안내 한 줄: 장소 + 어떻게(도보·차로 = 분, 거리 = km/m, 직접 = 글 그대로) */
+export interface AroundItem {
+  name: string;
+  how: 'walk' | 'car' | 'distance' | 'text';
+  value: string;
+}
+
+/** title = 크게 보일 것: place(장소 이름) / distance(거리·시간) */
+export interface AroundEdit {
+  title: 'place' | 'distance';
+  items: AroundItem[];
 }
 
 /** 선생님·담당자 1명 (BUILDER_FIX_1003_CONTRACT S2). specialties는 최대 4개 */
@@ -214,6 +229,7 @@ export interface CardSaveExtra {
   layout?: CardLayoutEdit;
   choice?: string;
   staff?: StaffMember[];
+  around?: AroundEdit;
 }
 
 export const MEMBER_KEY = 'agt001_member_id';
@@ -281,6 +297,7 @@ export async function saveCard(
   if (extra?.choice) body.choice = extra.choice;
   if (extra?.event) body.event = extra.event;
   if (extra?.staff) body.staff = extra.staff;
+  if (extra?.around) body.around = extra.around;
   if (extra?.style) body.style = extra.style;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',

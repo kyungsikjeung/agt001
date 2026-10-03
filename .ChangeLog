@@ -1,6 +1,22 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/43  [기능 · claude/jolly-hamilton-rg8hfa] 주변 안내 직접 편집 (장소 + 도보·차로·거리, 크게 보일 것 고르기)
+  - 빌더 '오시는 길' 구역 아래 '주변 안내' 칸: 한 줄 = 장소 + 어떻게(도보·차로·거리·직접 쓰기) + 값
+      숫자만 넣으면 단위를 붙임(도보 3 → 도보 3분, 거리 1.2 → 1.2km, 800m는 그대로). 최대 8줄
+      '크게 보일 것': 장소 이름(강릉역 / 차로 15분) 또는 거리·시간(차로 15분 / 강릉역), 위에 예시 카드로 바로 보임
+      자주 넣는 장소 칩(지하철역·버스 정류장·주차장·편의점·해수욕장·관광지), 줄마다 "강릉역 · 차로 15분" 미리보기
+      frontend/src/editor/AroundEditor.tsx(신규), SectionPanel.tsx, cardApi.ts(AroundItem·AroundEdit 타입)
+  - 서버: card.around_edit 저장(PUT /api/rooms/{id}/card body.around, 방장만, 400 검사), 보기 응답에 around
+      오시는 길 줄 = 주변 안내가 먼저, 그 아래 전화·시간. 템플릿은 그대로(지도·지도와 목록·교통 안내 세 모양 모두)
+      app/services/site_data.py around_note·clean_around·_around_rows, app/api/card.py AroundIn
+  - 같은 줄 모양({이름, 작은 글} + 종류)은 메뉴·결제 항목으로 옮겨 쓸 수 있게 따로 둠(AROUND_HOWS·aroundNote)
+  - UI 요소·디자인 토큰: 새 CSS .ed-around·__title·__sample·__row·__cell·__input·__unit·__foot·__note·__remove·__add
+      기존 .ed-seg 칩(여기서는 줄바꿈, 마우스로 가로 밀기 안 되는 문제 피함)·.ed-btn 재사용
+      기존 --ed-line·--ed-ground·--ed-slot-bg·--ed-slot-ink·--ed-note·--ed-ink만 사용(새 토큰 없음)
+  - 테스트: 파이썬 tests/unit/test_around_edit.py 4개, 프런트 AroundEditor.test.tsx 5개
+      전체: pytest 1560, vitest 163, tsc·vite build 통과. 390px 스크린숏(편집 칸·공개 모양) 확인
+
 10/04/02/35  [기능 · claude/jolly-hamilton-rg8hfa] 체크인·아웃 / 영업·수업 시간 빠르게 고르기
   - 빌더 구역 칸의 시간 칸(hours)을 글 칸 하나 → 버튼 고르기 + 글 칸으로
       숙박(라벨에 '체크인'): 체크인 14·15·16시, 체크아웃 10·11·12시 버튼 + 30분 간격 '다른 시각'

@@ -86,6 +86,18 @@ class StaffIn(BaseModel):
     prev_name: Optional[str] = None  # 고치기 전 이름(저장 안 함). 바뀌면 사진 태그를 옮긴다
 
 
+class AroundItemIn(BaseModel):
+    """주변 안내 한 줄 (10/4). 길이는 site_data.clean_around가 검사해 400으로 막는다."""
+    name: str = ""
+    how: Literal["walk", "car", "distance", "text"] = "text"
+    value: str = ""
+
+
+class AroundIn(BaseModel):
+    title: Literal["place", "distance"] = "place"  # 크게 보일 것: 장소 이름 / 거리·시간
+    items: list[AroundItemIn] = Field(default=[], max_length=8)
+
+
 class CardIn(BaseModel):
     fields: dict[str, str] = {}
     notice: Optional[NoticeIn] = None  # 공지 띠·팝업 (D56). 빈 글이면 공지를 끈다
@@ -96,6 +108,7 @@ class CardIn(BaseModel):
     event: Optional[EventIn] = None  # 청첩장 양가 연락처·계좌
     staff: Optional[list[StaffIn]] = Field(default=None, max_length=12)  # 선생님 (S1). None=그대로, []=지우기
     style: Optional[StyleIn] = None  # 스타일 축(카드 면·구역 제목)
+    around: Optional[AroundIn] = None  # 주변 안내 (10/4). None=그대로, 빈 items=지우기
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -133,6 +146,7 @@ def _view(room: dict, session: dict, member_id: str) -> dict:
         "can_edit": rooms.owner_id(room) == member_id,
         "quota": _quota(session),
         "staff": staff,
+        "around": card.get("around_edit") or {"title": "place", "items": []},
         **_event_view(card, ind),
     }
 
@@ -656,6 +670,17 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                     # 빈 목록이면 직접 고친 값을 지우고 대화에서 받은 값·예시로 돌아간다
                     card.pop("staff_edit", None)
                 changed.append("staff")
+        if body.around is not None:
+            from app.services import site_data
+            around, errors = site_data.clean_around(body.around.model_dump())
+            if errors:
+                raise HTTPException(status_code=400, detail="; ".join(errors[:3]))
+            if around != (card.get("around_edit") or {"title": "place", "items": []}):
+                if around["items"]:
+                    card["around_edit"] = around
+                else:
+                    card.pop("around_edit", None)
+                changed.append("around")
         if body.style is not None:
             if _apply_style(card, body.style):
                 changed.append("style")
@@ -682,6 +707,8 @@ def _changed_label(ind, key: str) -> str:
         return "연락처·계좌"
     if key == "staff":
         return "선생님·담당자"
+    if key == "around":
+        return "주변 안내"
     if key == "style":
         return "스타일"
     if key == "items":

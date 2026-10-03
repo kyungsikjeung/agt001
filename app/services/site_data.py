@@ -1142,6 +1142,72 @@ def _location_geo(card: dict) -> dict | None:
         return None
 
 
+# 주변 안내 (10/4): 사장님이 빌더에서 넣는 "OO역 · 도보 3분", "해수욕장 · 1.2km" 줄.
+# how = 어떻게 가는지(도보·차로 = 분, 거리 = km/m, 직접 = 글 그대로). 한 줄은 이름(장소) + 안내(거리·시간)이고,
+# title로 어느 쪽을 크게(대제목) 보일지 고른다. 같은 {이름, 작은 글} 줄 모양은 메뉴·결제 항목에도 쓸 수 있게 둔다.
+AROUND_MAX = 8
+AROUND_HOW = ("walk", "car", "distance", "text")
+AROUND_TITLE = ("place", "distance")
+
+
+def around_note(how: str, value: str) -> str:
+    """한 줄의 안내 글: walk 3 → 도보 3분, car 10 → 차로 10분, distance 1.2 → 1.2km, 800m → 800m, text는 그대로."""
+    v = " ".join(str(value or "").split())
+    if not v:
+        return ""
+    number = re.fullmatch(r"\d+(?:\.\d+)?", v)
+    if how == "walk":
+        return f"도보 {v}분" if number else f"도보 {v}"
+    if how == "car":
+        return f"차로 {v}분" if number else f"차로 {v}"
+    if how == "distance":
+        return f"{v}km" if number else v
+    return v
+
+
+def clean_around(raw) -> tuple:
+    """빌더 주변 안내 → (저장할 묶음, 틀린 곳 목록). {"title": place|distance, "items": [{name ≤20, how, value ≤20}] ≤8}.
+    이름이 빈 줄은 버린다."""
+    if not isinstance(raw, dict):
+        return {"title": "place", "items": []}, ["주변 안내를 읽지 못했어요"]
+    title = raw.get("title") if raw.get("title") in AROUND_TITLE else "place"
+    rows = raw.get("items") if isinstance(raw.get("items"), list) else []
+    items, errors = [], []
+    if len(rows) > AROUND_MAX:
+        errors.append(f"주변 안내는 {AROUND_MAX}줄까지예요")
+    for entry in rows[:AROUND_MAX]:
+        if not isinstance(entry, dict):
+            continue
+        name, over = _clip(entry.get("name"), 20)
+        if not name:
+            continue
+        if over:
+            errors.append(f"장소 이름은 20자까지예요: {name}")
+        value, over = _clip(entry.get("value"), 20)
+        if over:
+            errors.append(f"거리·시간은 20자까지예요: {name}")
+        how = entry.get("how") if entry.get("how") in AROUND_HOW else "text"
+        items.append({"name": name, "how": how, "value": value})
+    return {"title": title, "items": items}, errors
+
+
+def _around_rows(card: dict) -> list:
+    """저장된 주변 안내 → 오시는 길 줄({name, note}). title=distance면 거리·시간을 크게(이름 자리), 장소를 작게."""
+    saved = (card or {}).get("around_edit")
+    if not isinstance(saved, dict):
+        return []
+    rows = []
+    for entry in saved.get("items") or []:
+        if not isinstance(entry, dict) or not entry.get("name"):
+            continue
+        note = around_note(entry.get("how", "text"), entry.get("value", ""))
+        if saved.get("title") == "distance" and note:
+            rows.append({"name": note, "note": entry["name"]})
+        else:
+            rows.append({"name": entry["name"], "note": note})
+    return rows
+
+
 def _location_items(phone: str, hours: str, archetype: str = "") -> list:
     """around--map에 붙는 전화·영업시간 (FILLED만, 없는 값은 뺀다)."""
     items = []
@@ -1204,7 +1270,9 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
         elif bind == "signature":
             _fill_signature(sec, card, data, pack)
         elif bind == "location":
-            sec["content"] = {"address": address, "items": _location_items(phone, hours, archetype=archetype)}
+            # 주변 안내(사장님이 넣은 줄)가 먼저, 그 아래 전화·시간
+            sec["content"] = {"address": address,
+                              "items": _around_rows(card) + _location_items(phone, hours, archetype=archetype)}
             geo = _location_geo(card)  # 좌표 있을 때만 공개 지도용으로 더한다
             if geo is not None:
                 sec["content"]["geo"] = geo
