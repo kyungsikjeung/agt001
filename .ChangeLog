@@ -1,6 +1,18 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/23  [고침 · claude/jolly-hamilton-rg8hfa] 빌더 지도 빈 칸 · 2안 가로 띠 마우스로 넘기기 (+ 컴포넌트 엔진 브랜치 합침)
+  - 컴포넌트 엔진(claude/sweet-noether-jo25f0, 15f9012)을 이 브랜치로 합침. 이전 채팅방은 로그인 토큰 취소로 멈춤
+  - 지도 빈 칸 ①: SDK는 왔는데 그리기가 끝나지 않으면(load 콜백 없음) 지도 칸이 계속 비었다
+      → 5초 안에 못 그리면 예시 지도로 되돌림. templates/sections/around--map.mustache
+  - 지도 빈 칸 ②: 실시간 미리보기가 구역을 바꿔 끼우면 그 안의 <script>가 돌지 않아 지도를 다시 못 그렸다(엔진 회귀)
+      → 바꿔 끼운 구역의 script를 새로 만들어 다시 돌림. app/services/site_render.py _EDIT_SCRIPT run()
+  - 2안 '주변'(gallery--swipe) 등 가로 띠를 컴퓨터 마우스로 끌 수 없었다 → 빌더 미리보기에서 끌어 넘기기
+      app/services/site_render.py _DRAG_SCRIPT·_DRAG_STRIPS(띠가 있을 때만), _EDIT_STYLE에 손 모양 커서
+      끌었으면 구역 열기로 치지 않음. 시안·공개본은 스크립트 없이 그대로(기존 원칙)
+  - 테스트: tests/unit/test_preview_scripts.py 6개(문자열 3 + 실제 Chromium 3, 브라우저 없으면 건너뜀). 옛 코드에서 6개 모두 실패 확인
+      전체: pytest 1541 통과
+
 10/04/01/46  [기능 · main] 사장님 휴대폰 알림(웹 푸시) — 무료, 앱 설치 없이 (OWNER_NOTIFY_PLAN N1·N2·N3·N5·N6·N7)
   - 서버: app/services/push.py 신규. VAPID 서명(ES256)·내용 암호화(aes128gcm)를 cryptography+httpx로 직접(새 의존성 없음)
       RFC 8291 시험 벡터와 바이트까지 일치, http_ece로도 풀림 확인. 푸시 회사 주소만 허용, 404·410·연속 실패면 구독 지움
