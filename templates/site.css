@@ -425,6 +425,14 @@ button:focus-visible,
 }
 .s-gallery__swipe .s-cap-tile { height: 180px; }
 
+/* 사진 구역 설정 (빌더 '사진 구역 설정' → data-ratio·data-speed·data-autoplay, layout_edits._clean_opts) */
+.s-gallery[data-ratio] img, .s-gallery[data-ratio] .s-cap-tile { height: auto; }
+.s-gallery[data-ratio="square"] img, .s-gallery[data-ratio="square"] .s-cap-tile { aspect-ratio: 1; }
+.s-gallery[data-ratio="tall"] img, .s-gallery[data-ratio="tall"] .s-cap-tile { aspect-ratio: 3 / 4; }
+.s-gallery--marquee[data-ratio] .s-marquee__track img { width: auto; height: 180px; }
+.s-gallery[data-speed="slow"] .s-marquee__track { animation-duration: 46s; }
+.s-gallery[data-speed="fast"] .s-marquee__track { animation-duration: 15s; }
+
 .s-gallery__swipe {
   display: flex;
   overflow-x: auto;

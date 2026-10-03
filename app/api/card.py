@@ -61,6 +61,8 @@ class LayoutIn(BaseModel):
     reset: bool = False
     # 구역별 모양 {구역 id: 변형} (COMPONENT_ENGINE_PLAN §6). None = 지금 값 그대로(끌어서 순서만 바꿀 때 지우지 않게)
     variants: Optional[dict[str, str]] = Field(default=None, max_length=30)
+    # 사진 구역 설정 {구역 id: {count, ratio, autoplay, speed}} (layout_edits._clean_opts). None = 그대로
+    opts: Optional[dict[str, dict]] = Field(default=None, max_length=30)
 
 
 class StyleIn(BaseModel):
@@ -381,9 +383,10 @@ def _apply_layout(card: dict, layout: LayoutIn) -> bool:
         return False  # 청사진 없는 옛 경로는 편집 무시
     pos = VARIANTS.index(variant)
     shapes = layout.variants if layout.variants is not None else (current.get(variant) or {}).get("variants")
+    opts = layout.opts if layout.opts is not None else (current.get(variant) or {}).get("opts")
     cleaned = LE.normalize(
         {"order": list(layout.order or []), "hidden": list(layout.hidden or []),
-         "added": list(layout.added or []), "variants": shapes}, blueprint, pos)
+         "added": list(layout.added or []), "variants": shapes, "opts": opts}, blueprint, pos)
     if cleaned == current.get(variant):
         return False
     edits = card.setdefault("layout_edits", {})
@@ -915,7 +918,7 @@ def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = He
                      "bind": s.get("bind", "none"), "locked": s["locked"], "hidden": s["hidden"],
                      # 구역 모양 바꾸기: 지금 모양·기본 모양·같은 데이터로 바꿀 수 있는 모양
                      "variant": s.get("variant") or "", "base_variant": s.get("base_variant") or "",
-                     "shapes": s.get("shapes") or []}
+                     "shapes": s.get("shapes") or [], "opts": s.get("opts") or {}, "type": s.get("type") or ""}
                     for s in LE.sections(blueprint, pos, edits)]
         addable = [{"id": n.get("id"), "label": _section_label(n, offer_label),
                     "bind": n.get("bind", "none")}

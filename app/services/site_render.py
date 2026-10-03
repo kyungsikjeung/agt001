@@ -917,6 +917,10 @@ document.addEventListener('pointerdown',function(e){if(e.pointerType!=='mouse'||
 document.addEventListener('pointermove',function(e){if(!drag)return;var dx=e.clientX-drag.x;if(!drag.moved&&Math.abs(dx)<4)return;if(!drag.moved){drag.moved=true;drag.t.classList.add('is-dragging')}drag.t.scrollLeft=drag.l-dx});
 function end(){if(!drag)return;var t=drag.t;drag=null;t.classList.remove('is-dragging')}
 document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+// 사진 구역 설정: 자동 넘김(data-autoplay=초). 마우스가 올라가 있거나 손을 대면 잠시 쉬고, 끝이면 처음으로. 움직임 줄이기면 안 함
+function hold(e){var s=e.target.closest&&e.target.closest('[data-autoplay]');if(s)s.setAttribute('data-last',Date.now()+8000)}
+document.addEventListener('pointerdown',hold,true);document.addEventListener('wheel',hold,{capture:true,passive:true});
+if(!rm)setInterval(function(){if(document.hidden)return;[].forEach.call(document.querySelectorAll('[data-autoplay]'),function(s){var t=s.querySelector('[data-scroller]');if(!t||s.matches(':hover')||s.contains(document.activeElement))return;var now=Date.now(),sec=parseInt(s.getAttribute('data-autoplay'),10)||5,last=+(s.getAttribute('data-last')||0);if(!last){s.setAttribute('data-last',now);return}if(now-last<sec*1000)return;s.setAttribute('data-last',now);var max=t.scrollWidth-t.clientWidth;if(max<=2)return;var li=t.querySelector('li');var step=li?li.getBoundingClientRect().width:t.clientWidth*0.8;t.scrollTo({left:t.scrollLeft>=max-2?0:Math.min(max,t.scrollLeft+step),behavior:'smooth'})})},500);
 all();window.addEventListener('resize',all);window.addEventListener('load',all);
 if(window.MutationObserver)new MutationObserver(all).observe(document.body,{childList:true,subtree:true});
 }catch(e){}})();</script>"""
@@ -1718,12 +1722,20 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
             # 이름 없는 항목은 공개본에서 뺀다("가격 문의"만 남은 빈 카드 방지, 품질 점검 Q-5)
             content = {**content, "items": [i for i in content["items"]
                                              if isinstance(i, dict) and str(i.get("name") or "").strip()]}
+        opts = section.get("opts") if section_type == "gallery" and isinstance(section.get("opts"), dict) else {}
+        if opts.get("count") and isinstance(content.get("items"), list):
+            # 사진 구역 설정: 보일 장수 (layout_edits._clean_opts)
+            content = {**content, "items": content["items"][:int(opts["count"])]}
         ctx = _section_context(
             section_type, variant, str(section_id), content,
             site_key=site_key, retention_days=retention_days,
         )
         if ctx is None:
             continue
+        if opts:
+            ctx["g_ratio"] = opts.get("ratio") or ""
+            ctx["g_auto"] = str(opts["autoplay"]) if opts.get("autoplay") else ""
+            ctx["g_speed"] = opts.get("speed") or ""
         if public and section_type == "rooms" and variant == "cards" and ctx.get("has_prices"):
             need_season_script = True
         if public and _empty_for_public(section_type, variant, ctx):

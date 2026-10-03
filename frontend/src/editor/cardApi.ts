@@ -119,6 +119,17 @@ export interface PreviewSection {
   base_variant?: string;
   /** 같은 데이터로 바꿔 쓸 수 있는 모양들. 한 개 이하면 모양 바꾸기를 보이지 않는다 */
   shapes?: PreviewShape[];
+  /** 구역 종류(gallery 등)와 사진 구역 설정. 예전 서버는 없다 */
+  type?: string;
+  opts?: GalleryOpts;
+}
+
+/** 사진 구역 설정 (app/services/layout_edits._clean_opts). 기본값이면 키가 없다 */
+export interface GalleryOpts {
+  count?: number | null;
+  ratio?: 'square' | 'tall' | null;
+  autoplay?: number | null;
+  speed?: 'slow' | 'fast' | null;
 }
 
 /** 구역 모양 하나 (templates/components.json). */
@@ -219,6 +230,8 @@ export interface CardLayoutEdit {
   reset?: boolean;
   /** 구역별 모양 {구역 id: 변형}. 빼면 지금 값 그대로, {}면 모두 기본 모양으로 */
   variants?: Record<string, string>;
+  /** 사진 구역 설정 {구역 id: 설정}. 빼면 지금 값 그대로 */
+  opts?: Record<string, GalleryOpts>;
 }
 
 /** 스타일 축 고르기 (안별). 기본값이거나 빼면 그 축은 기본 모양. */

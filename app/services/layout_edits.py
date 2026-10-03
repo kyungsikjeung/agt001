@@ -99,6 +99,41 @@ def _clean_variants(raw, blueprint: dict, pos: int, ids: set) -> dict:
     return out
 
 
+# 사진 구역 설정 (10/4 대표 요청): 보일 장수·사진 비율·움직임(넘기기 자동·흐름 속도). 사진첩(gallery) 구역만.
+OPT_COUNTS = (2, 3, 4, 6, 8, 12)
+OPT_RATIOS = ("wide", "square", "tall")
+OPT_INTERVALS = (3, 5, 7)
+OPT_SPEEDS = ("slow", "normal", "fast")
+
+
+def _clean_opts(raw, blueprint: dict, pos: int, ids: set, shapes: dict) -> dict:
+    """{구역 id: {count, ratio, autoplay, speed}} 중 이 안의 사진첩 구역·아는 값만. 기본값은 키를 두지 않는다.
+
+    autoplay(초)는 넘기기(swipe) 모양에서만, speed는 흐름(marquee) 모양에서만 뜻이 있다(지금 모양 기준)."""
+    if not isinstance(raw, dict):
+        return {}
+    out = {}
+    for sid, opts in raw.items():
+        if not isinstance(sid, str) or sid not in ids or not isinstance(opts, dict):
+            continue
+        node = _node_for(blueprint, pos, sid)
+        if node.get("type") != "gallery":
+            continue
+        shape = shapes.get(sid) or node.get("variant")
+        one = {}
+        if opts.get("count") in OPT_COUNTS:
+            one["count"] = opts["count"]
+        if opts.get("ratio") in OPT_RATIOS and opts["ratio"] != "wide":
+            one["ratio"] = opts["ratio"]
+        if shape == "swipe" and opts.get("autoplay") in OPT_INTERVALS:
+            one["autoplay"] = opts["autoplay"]
+        if shape == "marquee" and opts.get("speed") in OPT_SPEEDS and opts["speed"] != "normal":
+            one["speed"] = opts["speed"]
+        if one:
+            out[sid] = one
+    return out
+
+
 def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
     """{order, hidden, added, variants}를 이 청사진·안 기준으로 정리. 아무 효과 없으면 None.
 
@@ -139,11 +174,14 @@ def normalize(edits: dict | None, blueprint: dict, pos: int) -> dict | None:
             cursor += 1
 
     variants = _clean_variants(edits.get("variants"), blueprint, pos, effective_set)
-    if not added and not hidden and order == effective and not variants:
+    opts = _clean_opts(edits.get("opts"), blueprint, pos, effective_set, variants)
+    if not added and not hidden and order == effective and not variants and not opts:
         return None
     out = {"order": order, "hidden": hidden, "added": added}
     if variants:
         out["variants"] = variants
+    if opts:
+        out["opts"] = opts
     return out
 
 
@@ -186,6 +224,7 @@ def apply(skeleton: dict, blueprint: dict, pos: int, edits: dict | None) -> dict
             by_id[aid] = sec
     hidden = set(cleaned["hidden"])
     shapes = cleaned.get("variants") or {}
+    opts = cleaned.get("opts") or {}
     ordered = []
     for sid in cleaned["order"]:
         if sid in hidden:
@@ -195,6 +234,8 @@ def apply(skeleton: dict, blueprint: dict, pos: int, edits: dict | None) -> dict
             if sid in shapes:
                 # 모양만 바꾼다. 데이터 채우기(site_data.resolve)가 이 모양을 보고 내용 모양을 맞춘다.
                 sec["variant"] = shapes[sid]
+            if sid in opts:
+                sec["opts"] = dict(opts[sid])  # 사진 구역 설정 → site_render가 장수·비율·움직임에 쓴다
             ordered.append(sec)
     # hero는 항상 0번
     hero = [s for s in ordered if s.get("id") == "hero"]
@@ -213,6 +254,7 @@ def sections(blueprint: dict, pos: int, edits: dict | None) -> list[dict]:
     order = cleaned["order"] if cleaned else base
     hidden = set(cleaned["hidden"]) if cleaned else set()
     shapes = (cleaned or {}).get("variants") or {}
+    opts = (cleaned or {}).get("opts") or {}
     out = []
     for sid in order:
         if sid == "hero":
@@ -228,7 +270,8 @@ def sections(blueprint: dict, pos: int, edits: dict | None) -> list[dict]:
                     # 구역 모양 바꾸기 (COMPONENT_ENGINE_PLAN §6): 지금 모양·기본 모양·바꿀 수 있는 모양
                     "type": stype, "variant": shapes.get(sid) or base_node.get("variant") or "",
                     "base_variant": base_node.get("variant") or "",
-                    "shapes": COMP.shapes(stype, bind) if stype else []})
+                    "shapes": COMP.shapes(stype, bind) if stype else [],
+                    "opts": dict(opts.get(sid) or {})})
     return out
 
 

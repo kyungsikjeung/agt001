@@ -9,6 +9,7 @@ import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
 import StaffEditor from './StaffEditor';
 import NearbyEditor from './NearbyEditor';
+import GallerySettings from './GallerySettings';
 import PhoneField from './fields/PhoneField';
 import TimeRangeField from './fields/TimeRangeField';
 import { checkPhone, hasSpokenDigits } from './fields/phone';
@@ -19,6 +20,7 @@ import {
   saveCard,
   uploadPhoto,
   type CardLayoutEdit,
+  type GalleryOpts,
   type PreviewAddable,
   type PreviewItem,
   type PreviewSection,
@@ -203,6 +205,17 @@ export default function SectionPanel({
     void sendLayout(layout);
   }
 
+  /** 사진 구역 설정: 모양 바꾸기와 같은 길(미리보기 먼저 → 저장). 다른 구역 설정은 그대로 보낸다 */
+  function changeOpts(next: GalleryOpts) {
+    const opts: Record<string, GalleryOpts> = {};
+    for (const s of sections) if (s.opts && Object.keys(s.opts).length > 0) opts[s.id] = s.opts;
+    if (Object.keys(next).length > 0) opts[selId] = next;
+    else delete opts[selId];
+    const layout: CardLayoutEdit = { variant, order: orderIds, hidden: hiddenIds, added: addedIds, opts };
+    onPreviewLayout?.(layout);
+    void sendLayout(layout);
+  }
+
   async function sendLayout(layout: CardLayoutEdit) {
     setSaving(true);
     setError('');
@@ -365,6 +378,10 @@ export default function SectionPanel({
               ))}
             </div>
           </fieldset>
+        ) : null}
+
+        {selected.type === 'gallery' ? (
+          <GallerySettings shape={currentShape} opts={selected.opts ?? {}} disabled={saving} onChange={changeOpts} />
         ) : null}
 
         {kind === 'chat' ? <p>이 구역의 내용은 채팅으로 말해 주세요.</p> : null}

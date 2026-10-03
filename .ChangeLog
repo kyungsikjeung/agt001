@@ -1,6 +1,21 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/03/13  [기능 · main] 사진 구역 설정: 보일 장수·사진 비율·움직임(자동 넘김·흐름 속도)
+  - 빌더: 사진첩 구역(주변·펜션 둘러보기·공간·작품 등)을 고르면 '모양' 아래 '사진 구역 설정'(GallerySettings.tsx)
+      보일 장수 칩(전부·2·3·4·6·8·12장) / 사진 비율 카드(가로 4:3·정사각 1:1·세로 3:4, 작은 그림) /
+      넘기기 모양이면 자동 넘김(끔·3·5·7초), 흐름 모양이면 흐름 속도(느리게·보통·빠르게). 격자·벽돌은 움직임 안내만
+      바꾸면 미리보기에 먼저 보이고 저장(모양 바꾸기와 같은 길). 다른 구역 설정은 그대로
+  - 저장: 구역 편집 layout_edits[안].opts[구역 id] (app/services/layout_edits._clean_opts) — 사진첩만, 아는 값만,
+      지금 모양에 맞는 움직임만(넘기기=autoplay, 흐름=speed), 기본값은 키 없음. 순서만 바꿔 보낼 땐 지우지 않음
+  - 사이트: 장수만큼 자르고 <section data-ratio data-autoplay data-speed>(templates/partials/gallery-attrs.mustache)
+      CSS로 비율·흐름 속도, 자동 넘김은 문서 스크립트(_SCROLLER_SCRIPT): 마우스가 올라가 있거나 손을 대면 8초 쉼,
+      끝이면 처음으로, 탭이 안 보이면 멈춤, 움직임 줄이기 설정이면 안 움직임
+  - 공용 부품 재사용: OptionCards(비율), .ed-chip 칩 줄. 새 클래스 .ed-gallery-set·.ed-set-row·.ed-ratio (기존 --ed-* 토큰만)
+  - 확인: 실제 빌더(브라우저)에서 펜션 2안 주변 → 3장·정사각·3초마다 → 미리보기 사진 3장·data-ratio=square·
+      4초 뒤 자동으로 옆 사진(252→394px)
+  - 테스트: pytest +3(test_gallery_opts.py), vitest +3(GallerySettings.test.tsx). pytest 1569·vitest 174 통과
+
 10/04/03/05  [기능 · main] 주변 안내: 대제목·소제목(도보 n분·차로 n분·거리·직접 글) + 글 배치 3가지 + 공용 목록 부품(메뉴 가격에도)
   - 데이터: card["nearby"] = {items: [{name, unit(walk·car·km·text), value(숫자)|text}], style(stack·badge·inline)}
       app/services/nearby.py (검사·소제목 글·보기), 값은 숫자로 따로 둬서 정렬·결제·단위 바꾸기에 그대로 쓸 수 있게
