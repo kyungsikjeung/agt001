@@ -1,6 +1,9 @@
 // 보며 고치기 구역 패널 (EDIT_WAVE2_CONTRACT §4).
 // bind별로 칸을 열고, 아래에 구역 위로·아래로·숨기기를 둔다. locked면 공통 버튼을 그리지 않는다.
 import { useEffect, useState } from 'react';
+import EventEditor from './EventEditor';
+import GuestbookAdmin from './GuestbookAdmin';
+import RsvpSummary from './RsvpSummary';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -20,7 +23,7 @@ const NO_GROUPS: string[] = [];
 /** 항목 목록을 쓰는 bind (계약 §4 2번). */
 const CATALOG_BINDS = ['catalog', 'classes', 'rooms', 'signature', 'menu_photos'];
 
-type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat';
+type BindKind = 'hero' | 'catalog' | 'location' | 'contact' | 'photos' | 'chat' | 'greeting' | 'when' | 'event' | 'guestbook' | 'rsvp';
 
 /** bind를 패널 종류로 묶는다 (계약 §4 표). */
 function kindOf(bind: string): BindKind {
@@ -31,6 +34,12 @@ function kindOf(bind: string): BindKind {
     return 'contact';
   }
   if (bind === 'space_photos' || bind === 'style_photos') return 'photos';
+  // 초대·기념(청첩장): 인사말·날짜와 장소는 카드 칸, 양가 연락처·계좌는 EventEditor
+  if (bind === 'greeting') return 'greeting';
+  if (bind === 'event') return 'when';
+  if (bind === 'family' || bind === 'gift') return 'event';
+  if (bind === 'guestbook') return 'guestbook';
+  if (bind === 'rsvp') return 'rsvp';
   return 'chat';
 }
 
@@ -39,6 +48,8 @@ function fieldKeys(kind: BindKind): string[] {
   if (kind === 'hero') return ['shop_name', 'detail', 'hours', 'location'];
   if (kind === 'location') return ['location', 'hours', 'phone'];
   if (kind === 'contact') return ['phone', 'contact_method', 'hours'];
+  if (kind === 'greeting') return ['detail'];
+  if (kind === 'when') return ['hours', 'location'];
   return [];
 }
 
@@ -335,7 +346,15 @@ export default function SectionPanel({
           />
         ) : null}
 
-        {kind === 'hero' || kind === 'catalog' || kind === 'location' || kind === 'contact' ? (
+        {kind === 'guestbook' ? <GuestbookAdmin roomId={roomId} /> : null}
+
+        {kind === 'rsvp' ? <RsvpSummary roomId={roomId} /> : null}
+
+        {kind === 'event' ? (
+          <EventEditor roomId={roomId} card={card} kind={selected.bind === 'gift' ? 'gift' : 'family'} onSaved={(c) => onSaved(c, selId)} />
+        ) : null}
+
+        {kind === 'hero' || kind === 'catalog' || kind === 'location' || kind === 'contact' || kind === 'greeting' || kind === 'when' ? (
           <div className="ed-site-save">
             <button type="button" className="ed-btn ed-btn--primary ed-btn--block" disabled={saving} onClick={() => void saveContent()}>
               {saving ? '저장 중…' : '저장'}

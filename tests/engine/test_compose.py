@@ -204,7 +204,7 @@ def test_cap_fills_remaining_parts_with_recommended(monkeypatch):
 def test_every_option_is_a_real_renderer_part(monkeypatch):
     from app.services import site_render as SR
     have = set(SR.list_variants())
-    for ind in ("cafe", "restaurant", "salon", "pension", "academy", "workshop"):
+    for ind in ("cafe", "restaurant", "salon", "pension", "academy", "workshop", "event"):
         card = E.new_card(ind)
         E._put(card, "business_type", S.INDUSTRIES[ind].name, S.FILLED, 1)
         for step in C._steps(card):
@@ -270,3 +270,20 @@ def test_salon_books_without_asking_commerce(monkeypatch):
     assert q["component"] != "commerce" and q["options"][0] == "이름·가격 목록"  # 시술은 사진 없이 목록
     C.live_turn(card, "알아서")
     assert card["commerce"] == "book"  # 묻지 않고 예약으로 정한다
+
+
+def test_wedding_invitation_speaks_to_guests(monkeypatch):
+    fake_setup(monkeypatch, {"청첩장 만들고 싶어요": [u("business_type", "결혼 청첩장")]})
+    card = E.new_card("event")
+    E._put(card, "business_type", "결혼 청첩장", S.FILLED, 1)
+    st = C.state(card)
+    st["steps"] = C._steps(card)
+    st["chosen"]["tone"] = "elegant"
+    st["tone"] = "elegant"
+    q = C.next_step(card)["question"]
+    assert q["component"] == "hero" and "하객" in q["text"]
+    assert C._options(st["steps"][0], card)[0]["variant"] == "elegant"  # 청첩장(원형 I) 추천 분위기
+    types = {s["type"] for s in st["steps"]}
+    assert {"rsvp", "guestbook", "gift", "family"} <= types
+    rsvp = next(s for s in st["steps"] if s["type"] == "rsvp")
+    assert "참석 여부" in C.question(card, rsvp)["text"] or "참석" in " ".join(C.question(card, rsvp)["option_desc"])

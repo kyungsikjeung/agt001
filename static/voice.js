@@ -48,7 +48,7 @@
     statusEl.id = 'voiceStatus';
     statusEl.setAttribute('role', 'status');
     statusEl.setAttribute('aria-live', 'polite');
-    statusEl.style.cssText = 'display:none;padding:8px 16px;font-size:0.8125rem;color:#52525b;background:#fff;border-top:1px solid #e5e7eb;';
+    statusEl.style.cssText = 'display:none;padding:8px 16px;font-size:0.8125rem;color:var(--text-muted, #52525b);background:var(--surface, #fff);border-top:1px solid var(--border, #e5e7eb);';
     row.parentNode.insertBefore(statusEl, row.nextSibling);
   }
 
@@ -57,7 +57,7 @@
   if (!numEl) {
     numEl = document.createElement('div');
     numEl.id = 'voiceNumCheck';
-    numEl.style.cssText = 'display:none;padding:8px 16px;font-size:0.8125rem;color:#4338ca;background:#eef2ff;border-top:1px solid #e5e7eb;';
+    numEl.style.cssText = 'display:none;padding:8px 16px;font-size:0.8125rem;color:var(--accent-dark, #4338ca);background:var(--tint, #eef2ff);border-top:1px solid var(--border, #e5e7eb);';
     numEl.textContent = MSG.checkNumbers;
     row.parentNode.insertBefore(numEl, row);
   }
@@ -231,9 +231,9 @@
       handsfreeSwitch.setAttribute('aria-checked', handsfreeOn ? 'true' : 'false');
       handsfreeSwitch.textContent = handsfreeOn ? '손 안 쓰는 모드: 켜짐' : '손 안 쓰는 모드: 꺼짐';
       handsfreeSwitch.setAttribute('aria-label', handsfreeOn ? '손 안 쓰는 모드 켜짐' : '손 안 쓰는 모드 꺼짐');
-      handsfreeSwitch.style.background = handsfreeOn ? '#4338ca' : '#f7f7f8';
-      handsfreeSwitch.style.color = handsfreeOn ? '#fff' : '';
-      handsfreeSwitch.style.borderColor = handsfreeOn ? '#4338ca' : '';
+      handsfreeSwitch.style.background = handsfreeOn ? 'var(--accent-dark, #4338ca)' : 'var(--bg, #f7f7f8)';
+      handsfreeSwitch.style.color = handsfreeOn ? 'var(--on-accent, #fff)' : '';
+      handsfreeSwitch.style.borderColor = handsfreeOn ? 'var(--accent-dark, #4338ca)' : '';
     } catch (e) { /* 무시 */ }
   }
 
@@ -243,7 +243,7 @@
       handsfreeSwitch.type = 'button';
       handsfreeSwitch.id = 'handsfreeSwitch';
       handsfreeSwitch.setAttribute('role', 'switch');
-      handsfreeSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;';
+      handsfreeSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid var(--border, #e5e7eb);border-radius:999px;background:var(--bg, #f7f7f8);cursor:pointer;font-size:0.8125rem;';
       handsfreeSwitch.addEventListener('click', function () {
         var next = !handsfreeOn;
         if (next) {
@@ -453,12 +453,12 @@
     try {
       var wrap = document.createElement('div');
       wrap.id = 'walkieRow';
-      wrap.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 16px;background:#fff;border-top:1px solid #e5e7eb;font-size:0.8125rem;color:#52525b;';
+      wrap.style.cssText = 'display:flex;gap:8px;align-items:center;padding:8px 16px;background:var(--surface, #fff);border-top:1px solid var(--border, #e5e7eb);font-size:0.8125rem;color:var(--text-muted, #52525b);';
       walkieSwitch = document.createElement('button');
       walkieSwitch.type = 'button';
       walkieSwitch.id = 'walkieSwitch';
       walkieSwitch.setAttribute('role', 'switch');
-      walkieSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;';
+      walkieSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid var(--border, #e5e7eb);border-radius:999px;background:var(--bg, #f7f7f8);cursor:pointer;font-size:0.8125rem;';
       walkieSwitch.addEventListener('click', function () {
         setWalkie(!walkieOn);
         try { micBtn.focus(); } catch (e) { /* ignore */ }
@@ -468,7 +468,7 @@
       walkieCancelBtn.type = 'button';
       walkieCancelBtn.id = 'walkieCancel';
       walkieCancelBtn.hidden = true;
-      walkieCancelBtn.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:0.8125rem;';
+      walkieCancelBtn.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid var(--border, #e5e7eb);border-radius:8px;background:var(--surface, #fff);cursor:pointer;font-size:0.8125rem;';
       walkieCancelBtn.addEventListener('click', cancelWalkiePreview);
       wrap.appendChild(walkieCancelBtn);
       row.parentNode.insertBefore(wrap, row);
@@ -487,9 +487,9 @@
         walkieSwitch.setAttribute('aria-checked', walkieOn ? 'true' : 'false');
         walkieSwitch.textContent = walkieOn ? '무전기 모드: 켜짐' : '무전기 모드: 꺼짐';
         walkieSwitch.setAttribute('aria-label', walkieOn ? '무전기 모드 켜짐' : '무전기 모드 꺼짐');
-        walkieSwitch.style.background = walkieOn ? '#4338ca' : '#f7f7f8';
-        walkieSwitch.style.color = walkieOn ? '#fff' : '';
-        walkieSwitch.style.borderColor = walkieOn ? '#4338ca' : '';
+        walkieSwitch.style.background = walkieOn ? 'var(--accent-dark, #4338ca)' : 'var(--bg, #f7f7f8)';
+        walkieSwitch.style.color = walkieOn ? 'var(--on-accent, #fff)' : '';
+        walkieSwitch.style.borderColor = walkieOn ? 'var(--accent-dark, #4338ca)' : '';
       }
       if (!walkieOn) hideWalkieCancel();
       updateMicLabel();
@@ -1075,9 +1075,9 @@
       autoreadSwitch.setAttribute('aria-checked', autoreadOn ? 'true' : 'false');
       autoreadSwitch.textContent = autoreadOn ? '답변 읽어주기: 켜짐' : '답변 읽어주기: 꺼짐';
       autoreadSwitch.setAttribute('aria-label', autoreadOn ? '답변 읽어주기 켜짐' : '답변 읽어주기 꺼짐');
-      autoreadSwitch.style.background = autoreadOn ? '#4338ca' : '#f7f7f8';
-      autoreadSwitch.style.color = autoreadOn ? '#fff' : '';
-      autoreadSwitch.style.borderColor = autoreadOn ? '#4338ca' : '';
+      autoreadSwitch.style.background = autoreadOn ? 'var(--accent-dark, #4338ca)' : 'var(--bg, #f7f7f8)';
+      autoreadSwitch.style.color = autoreadOn ? 'var(--on-accent, #fff)' : '';
+      autoreadSwitch.style.borderColor = autoreadOn ? 'var(--accent-dark, #4338ca)' : '';
     } catch (e) { /* 무시 */ }
   }
 
@@ -1123,7 +1123,7 @@
       autoreadSwitch.type = 'button';
       autoreadSwitch.id = 'autoreadSwitch';
       autoreadSwitch.setAttribute('role', 'switch');
-      autoreadSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid #e5e7eb;border-radius:999px;background:#f7f7f8;cursor:pointer;font-size:0.8125rem;';
+      autoreadSwitch.style.cssText = 'min-height:44px;padding:0 14px;border:1px solid var(--border, #e5e7eb);border-radius:999px;background:var(--bg, #f7f7f8);cursor:pointer;font-size:0.8125rem;';
       autoreadSwitch.addEventListener('click', function () {
         setAutoread(!autoreadOn);
         unlockAudio();
@@ -1408,7 +1408,7 @@
       b.type = 'button';
       b.id = 'enterListenBtn';
       b.textContent = '🔊 눌러서 안내 듣기';
-      b.style.cssText = 'display:block;min-height:44px;margin:8px 16px 0;padding:0 14px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;font-size:0.875rem;';
+      b.style.cssText = 'display:block;min-height:44px;margin:8px 16px 0;padding:0 14px;border:1px solid var(--border, #e5e7eb);border-radius:8px;background:var(--surface, #fff);cursor:pointer;font-size:0.875rem;';
       b.addEventListener('click', function () {
         try { unlockAudio(); } catch (e) { /* 무시 */ }
         var t = pendingEnterText;

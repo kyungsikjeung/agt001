@@ -34,6 +34,8 @@ def _purge_all() -> None:
     funnel.purge_expired()
     store.purge_chat_turns()
     inquiries_svc.purge_expired()
+    from app.services import guestbook as guestbook_svc  # 청첩장 방명록 1년
+    guestbook_svc.purge_expired()
     bookings_svc.purge_expired()
     customers_svc.purge_orphans()
     phone_verify_svc.purge()
@@ -65,7 +67,7 @@ async def lifespan(_app: FastAPI):
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.
-_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/bookings/", "/api/orders/", "/health")
+_PREVIEW_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/", "/api/inquiries/", "/api/rsvp/", "/api/guestbook/", "/api/bookings/", "/api/orders/", "/health")
 _GENERATED_PATHS = ("/site/", "/design/", "/uploads/", "/art/", "/art-lib/")
 
 

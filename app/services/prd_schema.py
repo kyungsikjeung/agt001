@@ -201,7 +201,8 @@ def _load_profiles() -> dict:
 
 PROFILES = _load_profiles()
 
-for _key in ("individual", "group", "webservice"):
+_PROFILE_KINDS = ("individual", "group", "webservice", "event")  # event: 초대·기념(청첩장 등, EVENT_INVITE_PLAN)
+for _key in _PROFILE_KINDS:
     _p = PROFILES[_key]
     _qs = {}
     for _slot, _q in (_p.get("questions") or {}).items():
@@ -217,7 +218,7 @@ for _key in ("individual", "group", "webservice"):
     )
 
 # 질문 예산(§6): 가게 8(D20), 개인 7, 단체 8, 웹서비스 12. 확인이 필요한 기능마다 +1, 최대 +4.
-BUDGETS = {k: PROFILES[k].get("budget", MAX_QUESTIONS) for k in ("individual", "group", "webservice")}
+BUDGETS = {k: PROFILES[k].get("budget", MAX_QUESTIONS) for k in _PROFILE_KINDS}
 FEATURE_BONUS_MAX = 4
 KIND_QUESTION = PROFILES["ambiguous"]["ask"]
 KIND_OPTIONS = tuple(PROFILES["ambiguous"]["options"])

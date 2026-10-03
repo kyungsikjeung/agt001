@@ -879,6 +879,81 @@ rs.forEach(r=>{const on=r===hit;r.classList.toggle("is-current",on);let b=r.quer
 </script>"""
 
 
+# 초대·기념 부품 (청첩장 등): 남은 날(D-day)은 방문자 한국 날짜로, 계좌 복사는 클립보드가 될 때만 단추를 보인다.
+_EVENT_SCRIPT = """<script>
+(()=>{try{
+const n=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));n.setHours(0,0,0,0);
+document.querySelectorAll("[data-dday]").forEach(p=>{const m=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(p.dataset.dday||"");if(!m)return;
+const d=Math.round((new Date(+m[1],m[2]-1,+m[3])-n)/864e5);if(d<0)return;p.textContent=d===0?"바로 오늘이에요":"D-"+d+" · "+d+"일 남았어요";p.hidden=false});
+if(navigator.clipboard)document.querySelectorAll("[data-copy]").forEach(b=>{b.hidden=false;b.addEventListener("click",()=>{
+navigator.clipboard.writeText(b.dataset.copy).then(()=>{b.textContent="복사됨";setTimeout(()=>{b.textContent="복사"},1500)},()=>{})})});
+}catch(e){}})();
+</script>"""
+
+_WEEKDAYS = ("월", "화", "수", "목", "금", "토", "일")
+
+
+def _event_date_context(content: dict) -> dict:
+    """예식 날짜 (event--date): YYYY-MM-DD를 읽어 날짜 글·그달 달력(일요일 시작)·D-day 표지를 만든다. 틀린 날짜는 빈칸."""
+    import calendar
+    import datetime
+    raw = _text(content, "date").strip()
+    try:
+        day = datetime.date.fromisoformat(raw)
+    except ValueError:
+        return {"has_date": False}
+    weeks = []
+    for week in calendar.Calendar(firstweekday=6).monthdayscalendar(day.year, day.month):
+        weeks.append({"days": [{"n": n or "", "on": n == day.day,
+                                "cls": "s-sun" if i == 0 else ("s-sat" if i == 6 else "")} for i, n in enumerate(week)]})
+    return {
+        "has_date": True, "iso": day.isoformat(),
+        "date_text": f"{day.year}년 {day.month}월 {day.day}일 {_WEEKDAYS[day.weekday()]}요일",
+        "time": _text(content, "time").strip(), "venue": _text(content, "venue").strip(),
+        "month_label": f"{day.year}년 {day.month}월",
+        "weekdays": [{"label": w, "cls": "s-sun" if w == "일" else ("s-sat" if w == "토" else "")}
+                     for w in ("일", "월", "화", "수", "목", "금", "토")],
+        "weeks": weeks,
+    }
+
+
+def _event_sides(content: dict, key: str, build) -> list:
+    """양가 묶음 [{side, <key>: [...]}]: 최대 2묶음 × 4명. 이름 빈 사람·빈 묶음은 뺀다."""
+    out = []
+    for entry in (content.get("sides") if isinstance(content.get("sides"), list) else [])[:2]:
+        if not isinstance(entry, dict) or not _text(entry, "side").strip():
+            continue
+        raw = entry.get(key) if isinstance(entry.get(key), list) else []
+        items = [item for item in (build(e) for e in raw[:4] if isinstance(e, dict)) if item]
+        if items:
+            out.append({"side": _text(entry, "side").strip(), key: items})
+    return out
+
+
+def _family_person(entry: dict) -> dict | None:
+    """연락처 한 사람: 맞는 전화번호일 때만 전화·문자 단추(digits)."""
+    from app.services.validate import check_phone
+    name = _text(entry, "name").strip()
+    if not name:
+        return None
+    phone = _text(entry, "phone")
+    return {"role": _text(entry, "role").strip(), "name": name,
+            "digits": _digits(phone) if phone.strip() and check_phone(phone) is None else ""}
+
+
+def _gift_account(entry: dict) -> dict | None:
+    """계좌 한 줄: 번호는 숫자·하이픈만, 숫자 6~20자리. 주민등록번호 모양은 받지 않는다."""
+    from app.services import validate as V
+    holder, bank = _text(entry, "holder").strip(), _text(entry, "bank").strip()
+    number = re.sub(r"[^0-9-]", "", _text(entry, "number")).strip("-")
+    digits = re.sub(r"\D", "", number)
+    if not holder or not bank or not 6 <= len(digits) <= 20:
+        return None
+    if V._RRN_HYPHEN_RE.search(number) or V._RRN_PLAIN_RE.search(digits):
+        return None
+    return {"role": _text(entry, "role").strip(), "holder": holder, "bank": bank, "number": number}
+
+
 def _timetable_rows(content: dict, days: list) -> list:
     """시간표 행: [{time, cells:[{text}]}] 최대 12행. cells는 days 순서에 맞춘다."""
     raw = content.get("rows")
@@ -1066,6 +1141,7 @@ def _section_context(
         ctx.update(_hero_context(content))
     elif section_type == "intro" and variant == "short":
         ctx["body"] = _text(content, "body")
+        ctx["label"] = _text(content, "label")  # 비면 "소개" (청첩장은 "인사말")
     elif section_type == "intro" and variant == "owner":
         ctx["body"] = _text(content, "body")
         ctx["owner_name"] = _text(content, "owner_name")
@@ -1307,6 +1383,35 @@ def _section_context(
         ctx["days"] = _booking_days(content)
         ctx["has_days"] = bool(ctx["days"])
         ctx["days_example"] = content.get("days_example") is True and ctx["has_days"]
+    elif section_type == "event" and variant == "date":
+        # 초대·기념: 예식 날짜·시간·장소 + 그달 달력 + D-day (청첩장)
+        ctx["label"] = _text(content, "label")
+        ctx.update(_event_date_context(content))
+        ctx["example"] = content.get("example") is True
+    elif section_type == "family" and variant == "contacts":
+        # 초대·기념: 신랑측·신부측 연락처, 사람마다 전화·문자
+        ctx["label"] = _text(content, "label")
+        ctx["sides"] = _event_sides(content, "people", _family_person)
+        ctx["has_sides"] = bool(ctx["sides"])
+        ctx["example"] = content.get("example") is True
+    elif section_type == "guestbook" and variant == "list":
+        # 초대·기념: 방명록. 공개본은 자리 표시(MARK)만 두고, 보낼 때 최신 글을 끼운다(guestbook.inject)
+        ctx["site_key"] = site_key
+        ctx["label"] = _text(content, "label")
+    elif section_type == "rsvp" and variant == "form":
+        # 초대·기념: 참석 여부 받기(문의 저장소로, /api/rsvp/). 측은 신랑측·신부측만
+        ctx["site_key"] = site_key
+        ctx["retention_days"] = int(retention_days)
+        ctx["label"] = _text(content, "label")
+        sides = [s for s in (content.get("sides") or []) if s in ("신랑측", "신부측")][:2]
+        ctx["sides"], ctx["has_sides"] = [{"side": s} for s in sides], bool(sides)
+    elif section_type == "gift" and variant == "accounts":
+        # 초대·기념: 마음 전하실 곳(양가 계좌, 측마다 접기·복사)
+        ctx["label"] = _text(content, "label")
+        ctx["note"] = _text(content, "note").strip()
+        ctx["sides"] = _event_sides(content, "accounts", _gift_account)
+        ctx["has_sides"] = bool(ctx["sides"])
+        ctx["example"] = content.get("example") is True
     elif section_type == "classes" and variant == "cards":
         # 학원 반 카드 (C1): 상담 신청 주소는 #만.
         ctx["label"] = _text(content, "label")
@@ -1458,6 +1563,11 @@ def _empty_for_public(section_type: str, variant: str, ctx: dict) -> bool:
         return not ctx.get("has_rows") or bool(ctx.get("example"))
     if section_type == "rooms":
         return not ctx.get("has_rooms")
+    if section_type == "event":
+        # 예시 날짜는 지어낸 값이라 공개본에서 뺀다(D26).
+        return not ctx.get("has_date") or bool(ctx.get("example"))
+    if section_type in ("family", "gift"):
+        return not ctx.get("has_sides") or bool(ctx.get("example"))
     return False
 
 
@@ -1512,6 +1622,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
     kind = _normalize_kind(kind)
     rendered_parts = []
     need_season_script = False
+    need_event_script = False
     nav = spec.get("navbar")
     for pos, section in enumerate(sections):
         if not isinstance(section, dict):
@@ -1544,10 +1655,14 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             need_season_script = True
         if public and _empty_for_public(section_type, variant, ctx):
             continue
+        if section_type == "event" and ctx.get("has_date") or section_type == "gift" and ctx.get("has_sides"):
+            need_event_script = True
         if ctx.pop("is_example", False):
             rendered_parts.append(_apply_tone(
                 _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section))
             continue
+        if section_type == "guestbook":
+            ctx["public"] = public
         part = chevron.render(template, _safe(ctx))
         if not public and "data-yt-bg" in part:
             # 유튜브 배경 틀은 공개 사이트에서만 (YOUTUBE_EMBED_POLICY). 시안·미리보기는 격리돼 재생이 안 되니 썸네일만 둔다.
@@ -1633,6 +1748,9 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
     if public and need_season_script:
         rendered_parts.append(_SEASON_SCRIPT)
+    if need_event_script and not edit:
+        # 편집 미리보기는 누름을 고치기로 받으므로 복사·D-day 스크립트를 넣지 않는다.
+        rendered_parts.append(_EVENT_SCRIPT)
     if edit:
         # 공지 팝업은 편집을 가리므로 빼고(띠는 둔다), relay는 </body> 바로 앞.
         rendered_parts.append(_EDIT_STYLE)

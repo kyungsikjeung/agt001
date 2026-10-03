@@ -232,7 +232,21 @@ def _hero_image(card: dict, shop: str, pack: dict) -> dict:
     if pack["photos"].get("hero"):
         return {"image": pack["photos"]["hero"],
                 "image_alt": f"{shop or '가게'} 사진 (예시 이미지)", "ai_example": True}
+    scenes = _scenes(card)
+    if scenes:
+        return {"image": scenes[0], "image_alt": "예시 이미지: 사장님 사진으로 바뀌어요", "ai_example": True}
     return {}
+
+
+def _scenes(card: dict) -> list:
+    """예시 팩이 없는 종류(청첩장 등)의 장면 사진 (사진 창고, 만들어 둔 것만)."""
+    from app.services import art_lib, prd_engine  # 순환 참조 방지용 늦은 불러오기
+    try:
+        if prd_engine.industry_of(card).key not in art_lib.SCENE_KINDS:
+            return []
+    except Exception:
+        return []
+    return art_lib.pick_scenes(card)
 
 
 def _fill_hero(sec: dict, card: dict, pack: dict, shop: str,
@@ -244,9 +258,9 @@ def _fill_hero(sec: dict, card: dict, pack: dict, shop: str,
     facts = []
     if hours:
         # 펜션은 체크인·체크아웃 시간이라 '영업' 대신 '입실·퇴실'로 말한다
-        facts.append({"label": "입실·퇴실" if archetype == "C" else "영업", "value": hours})
+        facts.append({"label": {"C": "입실·퇴실", "I": "일시"}.get(archetype, "영업"), "value": hours})
     if address:
-        facts.append({"label": "위치", "value": _short_addr(address)})
+        facts.append({"label": "장소" if archetype == "I" else "위치", "value": _short_addr(address)})
     if facts:
         content["facts"] = facts
     if primary:
@@ -803,6 +817,146 @@ def _fill_signature(sec: dict, card: dict, data: dict, pack: dict) -> None:
     sec["content"] = {"label": sec.get("label") or "시그니처", "items": cards}
 
 
+# ---- 초대·기념 (원형 I, EVENT_INVITE_PLAN 2단계): 청첩장·돌잔치·칠순 ----
+_KST = datetime.timezone(datetime.timedelta(hours=9))
+_DATE_FULL = re.compile(r"(\d{4})\s*[년.\-/]\s*(\d{1,2})\s*[월.\-/]\s*(\d{1,2})")
+_DATE_MD = re.compile(r"(\d{1,2})\s*월\s*(\d{1,2})\s*일|(?<!\d)(\d{1,2})\s*/\s*(\d{1,2})(?!\d)")
+_TIME = re.compile(r"(?:(?:오전|오후|낮|저녁|밤)\s*)?\d{1,2}\s*시(?:\s*(?:\d{1,2}\s*분|반))?|(?<!\d)\d{1,2}:\d{2}(?!\d)")
+_COUPLE_SPLIT = re.compile(r"\s*(?:·|♥|❤|&|,|그리고|와|과|/)\s*")
+
+
+def _is_wedding(card: dict) -> bool:
+    words = _kind_words(card)
+    return any(w in words for w in ("결혼", "청첩", "웨딩"))
+
+
+def event_date(text: str, today: datetime.date | None = None) -> tuple:
+    """'11월 14일 토요일 오후 1시 30분' → (date, '오후 1시 30분'). 해가 없으면 오늘(한국) 이후 가장 가까운 그날. 못 읽으면 (None, 시간)."""
+    text = text or ""
+    today = today or datetime.datetime.now(_KST).date()
+    found = _TIME.search(text)
+    time_text = re.sub(r"\s+", " ", found.group(0)).strip() if found else ""
+    full = _DATE_FULL.search(text)
+    try:
+        if full:
+            return datetime.date(int(full[1]), int(full[2]), int(full[3])), time_text
+        md = _DATE_MD.search(text)
+        if md:
+            month, day = (int(md[1]), int(md[2])) if md[1] else (int(md[3]), int(md[4]))
+            when = datetime.date(today.year, month, day)
+            return (when if when >= today else datetime.date(today.year + 1, month, day)), time_text
+    except ValueError:
+        pass
+    return None, time_text
+
+
+def _fill_greeting(sec: dict, card: dict, detail: str) -> None:
+    """greeting bind → 인사말 (사장님 말 → AI 문구 초안 → 빈칸)."""
+    draft = card.get("copy") or {}
+    body = detail or (draft.get("intro") if isinstance(draft.get("intro"), str) else "")
+    sec["content"] = {"body": body, "label": sec.get("label") or ""}
+
+
+def _fill_event(sec: dict, card: dict, hours: str, address: str) -> None:
+    """event bind → 날짜와 장소. 날짜를 못 읽으면 두 달 뒤 토요일을 예시로(공개본에선 빠진다)."""
+    when, time_text = event_date(hours)
+    content = {"label": sec.get("label") or "", "time": time_text, "venue": address}
+    if when is None:
+        start = datetime.datetime.now(_KST).date() + datetime.timedelta(days=60)
+        when = start + datetime.timedelta(days=(5 - start.weekday()) % 7)
+        content["example"] = True
+    content["date"] = when.isoformat()
+    sec["content"] = content
+
+
+def _couple(card: dict) -> list:
+    """주인공 이름 칸('김민준 · 이서연')을 사람별로 나눈다."""
+    name = _fact(card, "shop_name")
+    return [n for n in _COUPLE_SPLIT.split(name) if n.strip()][:2] if name else []
+
+
+_EVENT_FIELDS = {"family": ("people", ("role", "name", "phone")),
+                 "gift": ("accounts", ("role", "holder", "bank", "number"))}
+
+
+def clean_event(kind: str, raw) -> tuple:
+    """빌더에서 넣은 양가 연락처·계좌 → (저장할 묶음, 틀린 곳 목록). 최대 2묶음×4줄, 칸마다 40자.
+    전화는 자리수, 계좌는 숫자·하이픈 6~20자리, 주민등록번호 모양은 받지 않는다."""
+    from app.services import validate as V
+    key, cols = _EVENT_FIELDS[kind]
+    sides, errors = [], []
+    for entry in (raw if isinstance(raw, list) else [])[:2]:
+        if not isinstance(entry, dict):
+            continue
+        side = str(entry.get("side") or "").strip()[:20]
+        rows = []
+        for row in (entry.get(key) if isinstance(entry.get(key), list) else [])[:4]:
+            if not isinstance(row, dict):
+                continue
+            item = {c: " ".join(str(row.get(c) or "").split())[:40] for c in cols}
+            who = item.get("name") or item.get("holder")
+            if not who:
+                continue
+            if kind == "family" and item["phone"] and V.check_phone(item["phone"]):
+                errors.append(f"{who} 전화번호: {V.check_phone(item['phone'])}")
+            if kind == "gift":
+                number = re.sub(r"[^0-9-]", "", item["number"]).strip("-")
+                digits = re.sub(r"\D", "", number)
+                if V._RRN_HYPHEN_RE.search(number) or V._RRN_PLAIN_RE.search(digits):
+                    errors.append(f"{who} 계좌번호: 주민등록번호는 받지 않아요")
+                elif not item["bank"] or not 6 <= len(digits) <= 20:
+                    errors.append(f"{who} 계좌: 은행과 계좌번호(숫자 6~20자리)를 적어 주세요")
+                item["number"] = number
+            rows.append(item)
+        if side and rows:
+            sides.append({"side": side, key: rows})
+    return sides, errors
+
+
+def event_lists(card: dict) -> dict:
+    """빌더 고치기 칸에 보일 양가 연락처·계좌: 넣은 값이 있으면 그것, 없으면 시안에 보이는 기본 묶음."""
+    family, gift = {"bind": "family", "label": ""}, {"bind": "gift", "label": ""}
+    _fill_family(family, card, _fact(card, "phone"))
+    _fill_gift(gift, card)
+    saved = card.get("event") if isinstance(card.get("event"), dict) else {}
+    return {"family": family["content"]["sides"], "gift": gift["content"]["sides"],
+            "saved": {k: bool(saved.get(k)) for k in ("family", "gift")}}
+
+
+def _fill_family(sec: dict, card: dict, phone: str) -> None:
+    """family bind → 연락하기. 빌더에서 넣은 값이 먼저. 없으면 결혼이면 신랑측·신부측(이름은 사장님 말), 그 전엔 예시."""
+    saved = (card.get("event") or {}).get("family") if isinstance(card.get("event"), dict) else None
+    if saved:
+        sec["content"] = {"label": sec.get("label") or "", "sides": saved, "example": False}
+        return
+    names = _couple(card)
+    if _is_wedding(card):
+        sides = [{"side": side, "people": [{"role": role, "name": n}]}
+                 for (side, role), n in zip((("신랑측", "신랑"), ("신부측", "신부")), names)]
+    else:
+        sides = [{"side": "연락처", "people": [{"role": "", "name": n} for n in names]}] if names else []
+    if sides and phone:
+        sides[0]["people"][0]["phone"] = phone
+    has_phone = any(p.get("phone") for s in sides for p in s["people"])
+    sec["content"] = {"label": sec.get("label") or "", "sides": sides, "example": not has_phone}
+
+
+def _fill_gift(sec: dict, card: dict) -> None:
+    """gift bind → 마음 전하실 곳. 계좌는 사장님이 빌더에서 넣는다 → 그 전엔 예시 계좌(공개본에선 빠진다)."""
+    saved = (card.get("event") or {}).get("gift") if isinstance(card.get("event"), dict) else None
+    if saved:
+        sec["content"] = {"label": sec.get("label") or "", "sides": saved, "example": False,
+                          "note": "참석이 어려우신 분들을 위해 적어 두었어요."}
+        return
+    names = _couple(card) or ["주인공"]
+    sides = ([{"side": side, "accounts": [{"role": role, "holder": n, "bank": "예시은행", "number": "000-0000-0000"}]}
+              for (side, role), n in zip((("신랑측", "신랑"), ("신부측", "신부")), names)]
+             if _is_wedding(card) else
+             [{"side": "계좌", "accounts": [{"role": "", "holder": names[0], "bank": "예시은행", "number": "000-0000-0000"}]}])
+    sec["content"] = {"label": sec.get("label") or "", "sides": sides, "example": True,
+                      "note": "참석이 어려우신 분들을 위해 적어 두었어요."}
+
+
 def _fill_gallery(sec: dict, card: dict, pack: dict, prefix: str) -> None:
     """space_photos·style_photos bind → 사진첩 (사장님 사진 우선)."""
     photos = _owner_photos(card)
@@ -818,6 +972,8 @@ def _fill_gallery(sec: dict, card: dict, pack: dict, prefix: str) -> None:
         photo = pack["photos"].get(f"{prefix}:{pos}")
         if photo:
             items.append({"src": photo, "alt": "", "caption": "", "ai": True})
+    if not items:
+        items = [{"src": u, "alt": "예시 이미지", "caption": "", "ai": True} for u in _scenes(card)[1:]]
     sec["content"] = {"label": sec.get("label") or "", "items": items}
 
 
@@ -935,6 +1091,18 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             _fill_menu_photos(sec, card, data, pack)
         elif bind == "order_soon":
             sec["content"] = {"phone": phone, "return_href": menu_href}
+        elif bind == "greeting":
+            _fill_greeting(sec, card, detail)
+        elif bind == "event":
+            _fill_event(sec, card, hours, address)
+        elif bind == "family":
+            _fill_family(sec, card, phone)
+        elif bind == "gift":
+            _fill_gift(sec, card)
+        elif bind == "guestbook":
+            sec["content"] = {"label": sec.get("label") or ""}
+        elif bind == "rsvp":
+            sec["content"] = {"label": sec.get("label") or "", "sides": ["신랑측", "신부측"] if _is_wedding(card) else []}
         else:
             sec["content"] = {}
     _fill_item_actions(sections)
@@ -968,9 +1136,11 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
     if phone:
         actionbar["secondary"] = _action("전화", f"tel:{phone}")
     else:
-        around = next((s for s in sections if s.get("bind") == "location"), None)
-        if around is not None:
-            actionbar["secondary"] = _action("오시는 길", _anchor(sections, around["id"]))
+        # 전화가 없으면 오시는 길. 청첩장(I)은 주 버튼이 오시는 길이라 참석 여부로(같은 버튼 두 개 방지)
+        bind = "rsvp" if archetype == "I" else "location"
+        sec = next((s for s in sections if s.get("bind") == bind), None)
+        if sec is not None:
+            actionbar["secondary"] = _action("참석 여부" if bind == "rsvp" else "오시는 길", _anchor(sections, sec["id"]))
     if actionbar:
         out["actionbar"] = actionbar
     # 공지 글·사진. 사진 주소는 그대로 (NOTICE_PHOTO_CONTRACT §1-7).

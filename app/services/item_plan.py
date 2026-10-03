@@ -20,7 +20,7 @@ from app.services import prd_engine as E
 
 KIND_BY_INDUSTRY = {"cafe": "menu", "restaurant": "menu", "salon": "service", "pension": "room",
                     "academy": "class", "workshop": "class", "individual": "service", "group": "program",
-                    "webservice": "plan", "other": "menu"}
+                    "webservice": "plan", "event": "program", "other": "menu"}
 NOUN = {"menu": "메뉴", "service": "시술·서비스", "room": "객실", "class": "수업", "program": "활동",
         "plan": "요금제"}
 FIELDS = {"menu": ("name", "price", "photo", "desc"),

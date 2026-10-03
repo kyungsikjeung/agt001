@@ -54,6 +54,8 @@ INDUSTRY_COPY = {
               "hero": "모임의 분위기가 처음 보이는 화면이에요. 어떻게 꾸밀까요?"},
     "webservice": {"subject": "서비스 화면",
                    "hero": "서비스를 처음 만나는 화면이에요. 무엇을 먼저 보여 드릴까요?"},
+    "event": {"subject": "두 분의 사진",
+              "hero": "청첩장은 여는 순간의 설렘이 중요해요. 하객이 처음 보는 화면을 어떻게 꾸밀까요?"},
 }
 DEFAULT_COPY = {"subject": "가게",
                 "hero": "{name} 사이트를 열면 제일 먼저 보이는 큰 화면이 첫 화면이에요. 어떻게 꾸밀까요?"}
@@ -85,7 +87,7 @@ TONES = (
 TONE_BY_KEY = {t["key"]: t for t in TONES}
 # 원형별 추천 분위기 (첫 번째가 추천)
 ARCHETYPE_TONE = {"A": "warm", "B": "elegant", "C": "warm", "D": "clean", "E": "warm",
-                  "F": "elegant", "G": "lively", "H": "clean"}
+                  "F": "elegant", "G": "lively", "H": "clean", "I": "elegant"}
 
 # ── 부품 선택지: label · variant · 알아듣는 말 · 어떻게 보이는지 ─────────────
 def _o(label, variant, words, desc):
@@ -140,6 +142,11 @@ TYPE_DESC = {
     "classes": "수업을 시간·가격과 함께 카드로 보여요.", "video": "영상 카드를 보여요.",
     "offerings": "대표 몇 가지를 따로 크게 보여요.", "gallery": "사진을 모아 보여요.",
     "reviews": "지금은 자리만 두고, 주문·방문 뒤 후기가 쌓이면 여기에 보여요.",
+    "intro": "인사말을 한두 줄로 보여요.", "event": "날짜·시간·장소를 크게 보여요.",
+    "family": "양가 부모님 연락처를 눌러 바로 전화할 수 있게 보여요.",
+    "rsvp": "하객이 참석 여부를 남기면 모아서 알려 드려요.",
+    "gift": "마음 전하실 계좌를 접어 두었다가 누르면 보여요.",
+    "guestbook": "하객이 축하 글을 남기면 최신순으로 보여요.",
 }
 ITEM_TYPES = ("offerings", "rooms", "classes")  # 파는 것을 보여 주는 부품 (항목 판단 대상)
 PRICES_STEP = "__prices"
@@ -147,6 +154,8 @@ TYPE_LABELS = {
     "offerings": "메뉴", "gallery": "사진", "around": "오시는 길", "contact": "문의",
     "booking": "예약", "rooms": "객실", "classes": "수업", "timetable": "시간표",
     "staff": "담당자", "order": "주문", "concerns": "자주 묻는 고민", "video": "영상", "reviews": "후기",
+    "intro": "인사말", "event": "날짜와 장소", "family": "양가 연락처", "rsvp": "참석 여부",
+    "gift": "마음 전하실 곳", "guestbook": "방명록",
 }
 _CONTACT_METHOD = {"call-first": "전화", "kakao-channel": "카카오톡 채널"}
 # 부품을 정한 뒤 이어 물을 사실 칸
