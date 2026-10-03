@@ -10,7 +10,7 @@ from app.config import settings
 from app.db.models import AdminAuditRow, LoginSessionRow, UserRow
 from app.db.session import get_sessionmaker
 from app.services import auth as auth_svc
-from app.services import guest_chat, takedown
+from app.services import chat_agent, guest_chat, takedown
 
 ADMIN, OWNER = "u_admin_td", "u_owner_td"
 ORIGIN = {"Origin": "http://testserver"}
@@ -48,6 +48,12 @@ def test_take_down_and_restore(client, site):
     assert client.get(f"/site/{key}/index.html").status_code == 410
     assert _inquire(client, key).status_code == 400  # 문의도 막힌다
     assert guest_chat.enabled(key) is False
+    gb = client.post(f"/api/guestbook/{key}", data={"name": "하객", "message": "축하해요", "website": ""},
+                     follow_redirects=False)
+    assert gb.status_code == 400  # 방명록도 막힌다
+    rsvp = {"name": "하객", "side": "신부측", "attend": "참석", "count": "1", "agree": "yes", "website": ""}
+    assert client.post(f"/api/rsvp/{key}", data=rsvp).status_code == 400  # 참석 여부도
+    assert chat_agent.respond(key, "t" * 20, text="예약할게요")["reply"] == "지금은 이용할 수 없는 가게예요."
     detail = client.get(f"/api/admin/rooms/{room_id}").json()["room"]
     assert detail["taken_down"]["reason"] == "사칭 신고"
     assert (settings.generated_dir / key / "published" / "index.html").is_file()  # 파일은 지우지 않는다
