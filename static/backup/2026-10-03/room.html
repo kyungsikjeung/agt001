@@ -39,12 +39,6 @@
     text-decoration: none; white-space: nowrap;
   }
   #settingsLink[hidden] { display: none; }
-  /* 실시간 대화로 만들기 (live.html): 말하면 화면이 바로 생기는 미리보기 */
-  #liveLink {
-    font-size: 0.8125rem; color: #fff; font-weight: 700; background: #dc2626;
-    border-radius: 8px; padding: 8px 10px; min-height: 44px; display: inline-flex; align-items: center;
-    text-decoration: none; white-space: nowrap;
-  }
   #memberCount:focus-visible, button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
@@ -353,7 +347,6 @@
 <body>
   <header>
     <h1>한마디 · 요구사항 채팅방</h1>
-    <a id="liveLink" href="/live.html" onclick="this.href='/live.html'+location.search" title="말하면 화면이 바로 생겨요 (모바일·PC 미리보기)">🎙 실시간 대화</a>
     <a id="settingsLink" href="/settings" hidden>가게 설정</a>
     <button id="memberCount" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="memberPanelWrap" aria-label="참여자 목록 열기"></button>
   </header>
@@ -2644,7 +2637,7 @@ if (nickname) {
 }
 // nickname 없을 때는 #nicknameJoinBtn의 inline onclick="joinRoom()"이 처리한다 (중복 리스너 금지).
 </script>
-<script src="/voice.js" defer></script>
-<script src="/callbot.js" defer></script>
+<script src="/backup/2026-10-03/voice.js" defer></script>
+<script src="/backup/2026-10-03/callbot.js" defer></script>
 </body>
 </html>

@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import store
 from app.db import migrate as db_migrate
-from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, orders, owner, projects, public, rooms, settings as owner_settings, start, stt, tts
+from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, live, orders, owner, projects, public, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
 from app.services import funnel, ops_alert, rag
 
@@ -104,6 +104,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_agent.router)
     app.include_router(tts.router)
     app.include_router(card.router)
+    app.include_router(live.router)
     app.include_router(start.router)
     app.include_router(callbot.router)
     app.include_router(admin.router)
