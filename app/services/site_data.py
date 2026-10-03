@@ -301,6 +301,77 @@ def _catalog_flat_items(data: dict, pack: dict) -> list:
     return items
 
 
+def _item_id(name: str) -> str:
+    """항목 카드 고유 이름 (나중에 주문·후기를 이 항목에 붙이는 열쇠). 이름이 같으면 늘 같다."""
+    import hashlib
+    return "i-" + hashlib.sha1(name.encode("utf-8")).hexdigest()[:10]
+
+
+def _catalog_card_items(card: dict, data: dict, pack: dict) -> list:
+    """catalog bind → 항목 카드 (offerings--cards·photo-grid). 메뉴판 묶음을 카드로 펼친다.
+
+    사진은 항목 판단(item_plan.photo)을 따른다: each 모두 · signature 앞의 몇 개만 · none 없음.
+    행동 단추(action)는 사장님이 손님 행동을 정했을 때만 (item_plan.item_action), 주소는 resolve가 채운다.
+    """
+    from app.services import item_plan
+    plan = item_plan.decide(card) if card else {"photo": "each"}
+    action = item_plan.item_action(card) if card else None
+    items = []
+    for group in data.get("catalog") or []:
+        for item in (group.get("items") or []) if isinstance(group, dict) else []:
+            if not isinstance(item, dict) or not str(item.get("name") or "").strip():
+                continue
+            name = str(item["name"])
+            entry = {"name": name, "desc": _desc_with_time(item), "item_id": _item_id(name)}
+            price = str(item.get("price") or "")
+            if price:
+                entry["price"] = price
+                if isinstance(item.get("price_won"), int):
+                    entry["price_won"] = item["price_won"]
+            else:
+                guess = _example_price(name, pack["prices"])
+                if guess:
+                    entry["price"] = guess
+                    entry["price_example"] = True
+            show_photo = plan["photo"] == "each" or (plan["photo"] == "signature" and len(items) < item_plan.SIGNATURE_COUNT)
+            if show_photo:
+                photo = pack["photos"].get(f"category:{group.get('name')}")
+                example = {"image": photo, "image_alt": f"{name} 사진 (예시)", "image_example": True} if photo else {}
+                entry.update(_item_image(card, name, pack, example))
+            else:
+                entry["image_off"] = True
+            if action and (action["kind"] != "order" or _orderable(item)):
+                entry["action"] = dict(action)
+            items.append(entry)
+    if not items:
+        for group in pack["catalog"]:
+            items += [{**item, "example": True} for item in group.get("items") or []]
+    return items
+
+
+def _fill_item_actions(sections: list) -> None:
+    """항목 카드 행동 단추의 주소: 주문·예약·문의 구역이 있으면 그리로, 없으면 문의 구역.
+
+    아직 받을 구역이 없으면(실시간 대화에서 문의 구역을 정하기 전) 맨 위(#)로 두고 단추는 보인다.
+    """
+    targets = {"order": ("order", "contact"), "book": ("booking", "contact"), "inquire": ("contact",)}
+    for sec in sections:
+        items = (sec.get("content") or {}).get("items") if isinstance(sec.get("content"), dict) else None
+        if sec.get("type") != "offerings" or not isinstance(items, list):
+            continue
+        for item in items:
+            act = item.get("action") if isinstance(item, dict) else None
+            if not isinstance(act, dict):
+                continue
+            href = ""
+            for want in targets.get(act.get("kind"), ()):
+                hit = next((s for s in sections if s.get("type") == want), None)
+                if hit:
+                    href = _anchor(sections, hit["id"])
+                    break
+            act["href"] = href or "#"
+
+
 def _orderable(item: dict) -> bool:
     """주문 가능: 카드 가격(price_won)을 읽을 수 있을 때만. 예시 가격은 안 된다."""
     won = (item or {}).get("price_won")
@@ -321,6 +392,10 @@ def _order_action(card: dict) -> str | None:
 def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool,
                   order_action: str | None = None, card: dict | None = None) -> None:
     """catalog bind → offerings--categories. order_action이 있으면 주문 폼(order_form·순서·주문 가능)도 넣는다."""
+    if sec.get("variant") in ("cards", "photo-grid"):
+        # 사진 카드(옆으로 넘기기)·사진 격자: 메뉴판 묶음을 항목 카드로 펼친다 (예전엔 빈 칸으로 나왔다).
+        sec["content"] = {"label": sec.get("label") or "메뉴", "items": _catalog_card_items(card or {}, data, pack)}
+        return
     if sec.get("variant") == "list-price":
         content = {"label": sec.get("label") or ("시술·가격" if archetype == "B" else "메뉴"),
                    "items": _catalog_flat_items(data, pack)}
@@ -698,10 +773,16 @@ def _fill_signature(sec: dict, card: dict, data: dict, pack: dict) -> None:
                  if isinstance(i, dict) and str(i.get("name") or "").strip()]
         if items and all(p[1].get("name") != items[0].get("name") for p in picked):
             picked.append((group, items[0]))
+    from app.services import item_plan
+    action = item_plan.item_action(card)
     cards = []
     for group, item in picked[:3]:
         name = str(item["name"])
-        card_item = {"name": name, "desc": str(item.get("desc") or "")}
+        card_item = {"name": name, "desc": str(item.get("desc") or ""), "item_id": _item_id(name)}
+        if isinstance(item.get("price_won"), int):
+            card_item["price_won"] = item["price_won"]
+        if action and not item.get("example") and (action["kind"] != "order" or _orderable(item)):
+            card_item["action"] = dict(action)
         price = str(item.get("price") or "")
         if price:
             card_item["price"] = price
@@ -853,6 +934,7 @@ def resolve(spec: dict, card: dict, *, archetype: str, mode: str = "draft") -> d
             sec["content"] = {"phone": phone, "return_href": menu_href}
         else:
             sec["content"] = {}
+    _fill_item_actions(sections)
     if order_action and any(isinstance(s, dict)
                             and isinstance((s.get("content") or {}).get("order_form"), dict)
                             for s in sections):

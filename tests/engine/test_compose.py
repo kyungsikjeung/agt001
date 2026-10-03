@@ -78,13 +78,14 @@ def test_choice_by_spoken_words_then_linked_fact(monkeypatch):
     assert r["phase"] == "fact" and r["question"]["slot"] == "shop_name"
     r = C.live_turn(card, "바다카페")
     assert E._slot(card, "shop_name")["value"] == "바다카페"
-    assert r["phase"] == "compose" and r["question"]["component"] == "menu"
+    # 메뉴 모양을 묻기 전에 메뉴부터 듣는다 (항목을 보고 판단하려고)
+    assert r["phase"] == "fact" and r["question"]["slot"] == "offerings" and "판단해 볼게요" in r["reply"]
 
 
 def test_optional_component_can_be_skipped(monkeypatch):
     card, _ = _cafe(monkeypatch)
     st = C.state(card)
-    st["chosen"].update({"hero": "photo-overlay", "menu": "categories"})
+    st["chosen"].update({"hero": "photo-overlay", "menu": "categories", "commerce": "info", "reviews": "slot-only"})
     E._put(card, "shop_name", "바다카페", S.FILLED, 1)
     E._put(card, "offerings", ["라떼"], S.FILLED, 1)
     st["pending"] = None
@@ -140,6 +141,7 @@ def test_preview_shows_only_chosen_components(monkeypatch):
     C.live_turn(card, "사진 크게")
     C.live_turn(card, "바다카페")
     assert "바다카페" in C.preview_html(card)
+    C.live_turn(card, "라떼, 아메리카노")
     C.live_turn(card, "분류별 메뉴판")
     assert [c["id"] for c in C.components(card)] == ["tone", "hero", "menu"]
     spec = C.preview_spec(card)
@@ -207,7 +209,7 @@ def test_every_option_is_a_real_renderer_part(monkeypatch):
         E._put(card, "business_type", S.INDUSTRIES[ind].name, S.FILLED, 1)
         for step in C._steps(card):
             for o in C._options(step, card):
-                if o["variant"] and step["type"] != "tone":
+                if o["variant"] and step["type"] not in ("tone", "commerce"):
                     assert f"{step['type']}--{o['variant']}" in have, (ind, step, o)
 
 
@@ -221,3 +223,50 @@ def test_every_tone_uses_real_tokens():
         assert t["density"] in bundle["density"] and t["motion"] in bundle["motion"]
         assert t["image_style"] in SR._IMAGE_STYLES
         assert all(not PAL.check(p) for p in tone["palettes"])
+
+
+def _cafe_with_menu(monkeypatch, menu_text, ups):
+    card, _ = _cafe(monkeypatch, extra={menu_text: ups})
+    C.live_turn(card, "사진 크게")
+    C.live_turn(card, "바다카페")
+    return card, C.live_turn(card, menu_text)
+
+
+def test_menu_layout_is_judged_from_items_with_reasons(monkeypatch):
+    card, r = _cafe_with_menu(monkeypatch, "아메리카노 4500원, 라떼 5000원, 바닐라라떼",
+                              [u("offerings", "아메리카노"), u("offerings", "라떼"), u("offerings", "바닐라라떼"),
+                               u("price", "4500원"), u("price", "5000원")])
+    q = r["question"]
+    assert q["component"] == "menu" and q["options"][0] == "옆으로 넘기는 사진 카드"
+    assert "사진을 보고 고르는" in q["text"] and "캐러셀" in q["text"]
+    assert any("후기" in w for w in q["why"])
+
+
+def test_commerce_asked_for_menu_and_order_asks_missing_prices(monkeypatch):
+    card, _ = _cafe_with_menu(monkeypatch, "아메리카노 4500원, 바닐라라떼",
+                              [u("offerings", "아메리카노"), u("offerings", "바닐라라떼"), u("price", "4500원")])
+    r = C.live_turn(card, "알아서")
+    q = r["question"]
+    assert q["component"] == "commerce" and q["options"][0] == "메뉴·가격만 보여 주기"
+    previews = C.option_previews(card)
+    by = {p["variant"]: p["html"] for p in previews}
+    assert 'data-action="order"' not in by["info"] and 'data-action="order"' in by["order"]
+    r = C.live_turn(card, "주문 받기로 할게요")
+    assert card["commerce"] == "order" and "'주문하기' 단추" in r["reply"]
+    assert r["question"]["kind"] == "compose_prices" and "바닐라라떼" in r["question"]["text"]
+
+
+def test_salon_books_without_asking_commerce(monkeypatch):
+    fake_setup(monkeypatch, {"미용실이요": [u("business_type", "미용실")], "컷트, 펌": [u("offerings", "컷트, 펌")]})
+    card = E.new_card()
+    C.live_turn(card, "미용실이요")
+    st = C.state(card)
+    for s in st["steps"]:
+        if s["type"] not in ("offerings", "commerce") or s.get("bind") == "signature":
+            st["chosen"].setdefault(s["id"], s.get("variant") or "elegant")
+    st["tone"] = "elegant"
+    E._put(card, "offerings", ["컷트", "펌"], S.FILLED, 1)
+    q = C.next_step(card)["question"]
+    assert q["component"] != "commerce" and q["options"][0] == "이름·가격 목록"  # 시술은 사진 없이 목록
+    C.live_turn(card, "알아서")
+    assert card["commerce"] == "book"  # 묻지 않고 예약으로 정한다

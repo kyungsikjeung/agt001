@@ -442,3 +442,17 @@ def test_video_cover_hero_uses_thumbnail_and_play_link():
     hero["content"]["video_url"] = "javascript:alert(1)"
     html = render_site(_spec_motion(hero=hero))
     assert "javascript:" not in html and "/art/x.webp" in html and "s-hero__play is-empty" in html
+
+
+def test_item_cards_carry_id_price_and_action():
+    sec = {"id": "menu", "type": "offerings", "variant": "cards",
+           "content": {"label": "메뉴", "items": [
+               {"name": "라떼", "price": "5,000원", "price_won": 5000, "item_id": "i-0123456789",
+                "action": {"kind": "order", "label": "주문하기", "href": "#contact-title-inquiry"}},
+               {"name": "케이크", "price": "6,000원", "item_id": "bad id",
+                "action": {"kind": "steal", "label": "x", "href": "javascript:alert(1)"}}]}}
+    html = render_site(_spec_motion(hero=sec))
+    assert 'data-item-id="i-0123456789"' in html and 'data-price-won="5000"' in html
+    assert 'data-action="order"' in html and 'href="#contact-title-inquiry"' in html
+    assert 'data-review-slot="i-0123456789"' in html
+    assert "bad id" not in html and "javascript:" not in html and html.count("data-action=") == 1

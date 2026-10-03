@@ -16,3 +16,12 @@
   50% { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28), 0 0 0 16px rgba(255, 255, 255, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .s-hero__play { animation: none; } }
+
+/* 항목 카드 행동 단추 (COMPOSE_INTERVIEW_CONTRACT §10): 주문·예약·문의. 같은 카드에 나중에 결제·후기가 붙는다. */
+.s-card__action {
+  display: inline-flex; align-items: center; justify-content: center; margin-top: 10px;
+  min-height: 40px; padding: 8px 14px; border-radius: var(--radius-btn, 999px);
+  background: var(--c-primary); color: var(--on-primary, #fff); font-weight: 700; font-size: 14px;
+  text-decoration: none;
+}
+.s-card__action--inquire { background: transparent; color: var(--c-primary); border: 1.5px solid var(--c-primary); }

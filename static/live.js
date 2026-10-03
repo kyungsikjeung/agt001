@@ -120,6 +120,24 @@
     return el;
   }
 
+  // 항목 판단 이유 (사진이 필요한지·어떤 모양인지·주문/예약 단추·후기 자리). 접어 두고 누르면 펼친다.
+  function why(el, lines) {
+    if (!lines || !lines.length) return;
+    var box = document.createElement('details');
+    box.className = 'why';
+    var sum = document.createElement('summary');
+    sum.textContent = '💡 이렇게 판단했어요';
+    box.appendChild(sum);
+    var ul = document.createElement('ul');
+    lines.slice(0, 5).forEach(function (t) {
+      var li = document.createElement('li');
+      li.textContent = t;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+    el.appendChild(box);
+  }
+
   function retireOldChoices() {
     Array.prototype.forEach.call(log.querySelectorAll('.choices'), function (row) {
       row.classList.add('is-old');
@@ -227,7 +245,10 @@
     var q = v.question_text || '';
     if (q || v.reply) {
       var el = bubble('ai', q, v.reply);
-      if (!v.done) choices(el, v);
+      if (!v.done) {
+        why(el, v.why);
+        choices(el, v);
+      }
     }
     if (v.done) {
       finished = true;

@@ -58,6 +58,7 @@ def _view(card: dict, out: dict) -> dict:
         "speech": " ".join(x for x in (out.get("reply") or "", compose.speech_text(q)) if x).strip(),
         "options": [o for o in (q or {}).get("options") or [] if o],
         "option_desc": list((q or {}).get("option_desc") or []),
+        "why": list((q or {}).get("why") or []),
         "speech_parts": ([out["reply"]] if out.get("reply") else []) + list((q or {}).get("speech_parts") or []),
         "has_previews": (q or {}).get("kind") == "compose",
         "phase": out.get("phase"),

@@ -926,6 +926,18 @@ def _offering_items(content: dict, with_image: bool, with_index: bool) -> tuple:
             one["image_off"] = not one["image_src"] and entry.get("image_off") is True  # 사진 없음: 빈 칸도 안 그린다
         if with_index:
             one["index"] = pos
+        # 확장 칸 (COMPOSE_INTERVIEW_CONTRACT §10): 항목 고유 이름·가격 숫자·행동 단추. 나중에 주문·결제·후기를 이 항목에 붙인다.
+        item_id = entry.get("item_id", "")
+        one["item_id"] = item_id if isinstance(item_id, str) and re.fullmatch(r"i-[0-9a-f]{6,16}", item_id) else ""
+        won = entry.get("price_won")
+        one["price_won"] = won if isinstance(won, int) and not isinstance(won, bool) and 0 < won < 100_000_000 else ""
+        act = entry.get("action")
+        if (isinstance(act, dict) and act.get("kind") in ("order", "book", "inquire")
+                and isinstance(act.get("label"), str) and act["label"].strip()):
+            href = _clean_url(act.get("href", ""))
+            one["action"] = {"kind": act["kind"], "label": act["label"][:12], "href": href} if href else None
+        else:
+            one["action"] = None
         items.append(one)
     return items, bool(items)
 

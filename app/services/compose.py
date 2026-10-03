@@ -115,7 +115,8 @@ TONE_HERO = {"warm": ("photo-overlay", "arch", "photo-side", "text-only"),
 PART_OPTIONS = {
     "offerings": (_o("분류별 메뉴판", "categories", ("분류", "메뉴판", "카테고리", "나눠"),
                      "종류별로 나눠 메뉴판처럼 이름과 가격을 보여요."),
-                  _o("사진 카드", "cards", ("사진", "카드"), "대표 몇 가지를 사진 카드로 크게 보여요."),
+                  _o("옆으로 넘기는 사진 카드", "cards", ("사진", "카드", "넘기", "캐러셀"),
+                     "항목마다 사진·이름·가격 카드를 옆으로 넘겨 봐요(캐러셀). 주문·예약 단추도 이 카드에 붙어요."),
                   _o("이름·가격 목록", "list-price", ("목록", "리스트", "가격표", "간단", "이름"),
                      "사진 없이 이름과 가격만 한 줄씩 깔끔하게 보여요.")),
     "gallery": (_o("옆으로 넘기기", "swipe", ("넘기", "스와이프", "옆으로", "슬라이드"),
@@ -138,7 +139,10 @@ TYPE_DESC = {
     "order": "온라인 주문 버튼 자리를 둬요.", "rooms": "객실 사진·인원·요금을 카드로 보여요.",
     "classes": "수업을 시간·가격과 함께 카드로 보여요.", "video": "영상 카드를 보여요.",
     "offerings": "대표 몇 가지를 따로 크게 보여요.", "gallery": "사진을 모아 보여요.",
+    "reviews": "지금은 자리만 두고, 주문·방문 뒤 후기가 쌓이면 여기에 보여요.",
 }
+ITEM_TYPES = ("offerings", "rooms", "classes")  # 파는 것을 보여 주는 부품 (항목 판단 대상)
+PRICES_STEP = "__prices"
 TYPE_LABELS = {
     "offerings": "메뉴", "gallery": "사진", "around": "오시는 길", "contact": "문의",
     "booking": "예약", "rooms": "객실", "classes": "수업", "timetable": "시간표",
@@ -207,6 +211,14 @@ def _steps(card: dict) -> list[dict]:
         step = {k: node[k] for k in ("id", "type", "variant", "bind", "label", "nav", "tone") if node.get(k)}
         step.setdefault("bind", "none")
         out.append(step)
+    # 항목 판단(item_plan): 첫 항목 부품 뒤에 손님 행동(주문·예약)과 후기 자리를 둔다.
+    from app.services import item_plan
+    at = next((i for i, s in enumerate(out) if s["type"] in ITEM_TYPES and s.get("bind") != "signature"), None)
+    if at is not None:
+        extra = [{"id": "commerce", "type": "commerce", "variant": None, "bind": "none"}]
+        if item_plan.decide(card)["reviews"] and _variant_ok("reviews", "slot-only"):
+            extra.append({"id": "reviews", "type": "reviews", "variant": "slot-only", "bind": "none", "label": "후기"})
+        out[at + 1:at + 1] = extra
     return out
 
 
@@ -219,11 +231,13 @@ def _label(step: dict) -> str:
         return "첫 화면"
     if step["type"] == "tone":
         return "분위기"
+    if step["type"] == "commerce":
+        return "손님 행동"
     return step.get("label") or step.get("nav") or TYPE_LABELS.get(step["type"], step["type"])
 
 
 def _variant_ok(section_type: str, variant: Optional[str]) -> bool:
-    if variant is None or section_type == "tone":
+    if variant is None or section_type in ("tone", "commerce"):
         return True
     from app.services import site_render as SR
     try:
@@ -247,6 +261,12 @@ def _options(step: dict, card: dict) -> list[dict]:
         rec = ARCHETYPE_TONE.get(_blueprint(card)[1], "warm")
         tones = sorted(TONES, key=lambda x: x["key"] != rec)
         return [_o(x["label"], x["key"], x["words"], x["desc"]) for x in tones]
+    if t == "commerce":
+        from app.services import item_plan
+        rec = item_plan.decide(card)["commerce"]["level"]
+        opts = [_o(label, level, words, desc) for level, label, words, desc in item_plan.commerce_options(card)]
+        opts.sort(key=lambda o: o["variant"] != rec)
+        return opts
     if t == "hero":
         order = list(TONE_HERO.get(_tone_key(card), TONE_HERO["warm"]))
         if step.get("variant") in HERO_OPTIONS and step["variant"] not in order and not state(card).get("tone"):
@@ -255,12 +275,19 @@ def _options(step: dict, card: dict) -> list[dict]:
         opts = [dict(HERO_OPTIONS[v]) for v in order]
     elif t in PART_OPTIONS and not (t == "offerings" and step.get("bind") == "signature"):
         opts = [dict(o) for o in PART_OPTIONS[t]]
-        base = next((o for o in opts if o["variant"] == step["variant"]), None)
+        rec = step["variant"]
+        if t == "offerings":
+            # 항목 판단이 고른 모양을 추천으로 (메뉴 수·사진 필요·종류 수를 보고 정한다)
+            from app.services import item_plan
+            layout = item_plan.decide(card)["layout"]
+            if any(o["variant"] == layout for o in opts):
+                rec = layout
+        base = next((o for o in opts if o["variant"] == rec), None)
         if base is not None:
             opts.remove(base)
             opts.insert(0, base)
-        elif _variant_ok(t, step["variant"]):
-            opts.insert(0, _o("추천 모양", step["variant"], (), "이 업종에 가장 많이 쓰는 모양이에요."))
+        elif _variant_ok(t, rec):
+            opts.insert(0, _o("추천 모양", rec, (), "이 업종에 가장 많이 쓰는 모양이에요."))
     else:
         opts = [_o("넣기", step["variant"], YES_WORDS, TYPE_DESC.get(t, "이 부분을 넣어요."))]
     for o in opts:
@@ -269,6 +296,15 @@ def _options(step: dict, card: dict) -> list[dict]:
     if t not in REQUIRED_TYPES and t != "tone" or (t == "offerings" and step.get("bind") == "signature"):
         opts.append(_o(SKIP, None, NO_WORDS, "이 부분은 넣지 않아요."))
     return opts
+
+
+def _item_why(card: dict) -> str:
+    """항목 판단 이유 중 사진·모양 두 문장 (질문 앞에 붙여 왜 이걸 추천하는지 말한다)."""
+    from app.services import item_plan
+    plan = item_plan.decide(card)
+    if not plan["count"]:
+        return ""
+    return " ".join(plan["reasons"][:2])
 
 
 def question(card: dict, step: dict) -> dict:
@@ -285,6 +321,16 @@ def question(card: dict, step: dict) -> dict:
         text = f"{label if '메뉴' in label else label + ' 메뉴'} 몇 가지를 따로 크게 보여 드릴까요?"
     elif t == "offerings":
         text = f"{E._josa(label, '은는')} 어떻게 보여 드릴까요?"
+        why = _item_why(card)
+        if why:
+            text = f"{why} {text}"
+    elif t == "commerce":
+        from app.services import item_plan
+        noun = item_plan.decide(card)["noun"]
+        text = (f"손님이 {E._josa(noun, '을를')} 보고 나서 무엇을 하게 할까요? "
+                "나중에 바꿔도 같은 카드에 단추만 바뀌어요.")
+    elif t == "reviews":
+        text = "손님 후기 자리를 만들어 둘까요? 지금은 비어 있고, 주문·방문 뒤 후기가 쌓이면 보여요."
     elif t == "gallery":
         text = f"{label} 사진을 넣을까요? 넣는다면 어떻게 보여 드릴까요?"
     elif t == "around":
@@ -298,7 +344,11 @@ def question(card: dict, step: dict) -> dict:
                       for i, o in enumerate(opts) if o["variant"] is not None]
     if any(o["variant"] is None for o in opts):
         parts.append("필요 없으면 빼 달라고 하셔도 돼요.")
-    return {"slot": None, "kind": "compose", "component": step["id"], "text": text,
+    out_why = []
+    if t in ITEM_TYPES or t in ("commerce", "reviews"):
+        from app.services import item_plan
+        out_why = item_plan.decide(card)["reasons"]
+    return {"slot": None, "kind": "compose", "component": step["id"], "text": text, "why": out_why,
             "speech": " ".join(parts), "speech_parts": parts,
             "options": [o["label"] for o in opts] + [S.LET_AI],
             "option_desc": [o["desc"] for o in opts] + ["추천 모양으로 해 드려요."]}
@@ -326,12 +376,26 @@ def _match(text: str, step: dict, card: dict) -> Optional[dict]:
     return None
 
 
+def _item_step_id(card: dict) -> Optional[str]:
+    st = state(card)
+    return next((x["id"] for x in st["steps"] if x["type"] in ITEM_TYPES and x["id"] in st["chosen"]), None)
+
+
 def _choose(card: dict, step: dict, variant: str, queue_facts: bool = True) -> None:
     st = state(card)
     if step["type"] == "tone":
         st["tone"] = variant
         st["chosen"]["tone"] = variant
         st["last"] = None  # 분위기는 화면 전체가 바뀐다
+        return
+    if step["type"] == "commerce":
+        from app.services import item_plan
+        card["commerce"] = variant
+        st["chosen"]["commerce"] = variant
+        st["last"] = _item_step_id(card)  # 카드에 단추가 붙는 것을 보여 준다
+        if variant in ("order", "pay") and item_plan.decide(card)["commerce"]["missing_price"]:
+            if PRICES_STEP not in st["facts"]:
+                st["facts"].append(PRICES_STEP)
         return
     st["chosen"][step["id"]] = variant
     if step["id"] not in st["order"]:
@@ -373,8 +437,16 @@ def _answer(card: dict, text: str, by=None, is_owner=True) -> str:
         _choose(card, step, hit["variant"], queue_facts=False)
         if step["type"] == "tone":
             reply = note or f"좋아요, {E._josa(hit['label'], '으로', quote=True)} 맞출게요. 색과 글씨가 바뀌었어요."
+        elif step["type"] == "commerce":
+            from app.services import item_plan
+            act = item_plan.item_action(card)
+            reply = note or (f"{E._josa(hit['label'].split(' (')[0], '으로', quote=True)} 할게요."
+                             + (f" 카드마다 '{act['label']}' 단추를 붙였어요." if act else ""))
         else:
-            reply = note or f"{E._josa(_label(step), '은는')} {E._josa(hit['label'], '으로', quote=True)} 할게요."
+            if hit["label"] == "넣기":
+                reply = note or f"{_label(step)} 부분을 넣었어요."
+            else:
+                reply = note or f"{E._josa(_label(step), '은는')} {E._josa(hit['label'], '으로', quote=True)} 할게요."
         if step["type"] == "contact" and hit["variant"] in _CONTACT_METHOD and not E._satisfied(card, "contact_method"):
             # "전화 버튼 크게"를 고른 것은 사장님이 전화로 받겠다고 한 말이다.
             E._put(card, "contact_method", _CONTACT_METHOD[hit["variant"]], S.FILLED, card.get("turn"), by)
@@ -388,9 +460,9 @@ def _answer(card: dict, text: str, by=None, is_owner=True) -> str:
     return reply
 
 
-def _absorb_facts(card: dict, text: str, by, is_owner) -> None:
+def _absorb_facts(card: dict, text: str, by, is_owner, last_question: Optional[str] = None) -> None:
     try:
-        ups, _ok, _ms, _att = E.extract_detail(text, None)
+        ups, _ok, _ms, _att = E.extract_detail(text, last_question)
         if ups:
             E.apply_updates(card, ups, text, by=by, is_owner=is_owner)
     except Exception as e:  # 추출 실패는 부품 대화를 막지 않는다
@@ -420,6 +492,17 @@ def _ask_fact(card: dict, slot: str) -> dict:
     card["pending"] = pending
     card["done"] = False
     return pending
+
+
+def _ask_prices(card: dict, missing: list) -> dict:
+    """주문을 켰는데 가격이 빠진 항목 (가격이 있어야 주문 단추가 켜진다)."""
+    state(card)["pending"] = PRICES_STEP
+    card["pending"] = None
+    names = ", ".join(missing[:5]) + (" 등" if len(missing) > 5 else "")
+    text = f"주문을 받으려면 가격이 필요해요. {names}의 가격을 알려 주세요. 예: {missing[0]} 5,000원"
+    return {"slot": None, "kind": "compose_prices", "component": None, "text": text,
+            "speech": text + " 나중에 넣어도 돼요.", "options": ["나중에 넣을게요"],
+            "option_desc": ["가격을 넣으면 그때 주문 단추가 켜져요."]}
 
 
 def _drop_engine_question(card: dict, q: Optional[dict]) -> None:
@@ -476,6 +559,14 @@ def next_step(card: dict, engine_result: Optional[dict] = None) -> dict:
         if slot == VIDEO_STEP and card.get("videos"):
             st["facts"].pop(0)
             continue
+        if slot == PRICES_STEP:
+            st["facts"].pop(0)
+            from app.services import item_plan
+            missing = item_plan.decide(card)["commerce"]["missing_price"]
+            if not missing:
+                continue
+            _drop_engine_question(card, engine_q)
+            return _ask(card, {"question": _ask_prices(card, missing), "done": False, "phase": "fact"})
         if slot != VIDEO_STEP and E._satisfied(card, slot):
             st["facts"].pop(0)
             continue
@@ -488,6 +579,23 @@ def next_step(card: dict, engine_result: Optional[dict] = None) -> dict:
     for step in st["steps"]:
         if step["id"] in st["chosen"] or step["id"] in st["skipped"]:
             continue
+        if step["type"] == "commerce":
+            from app.services import item_plan
+            plan = item_plan.decide(card)
+            if not plan["commerce"]["ask"]:
+                # 업종·대화로 이미 알 수 있으면 묻지 않고 정하고 알린다 (미용실=예약, 펜션=예약 …)
+                _choose(card, step, plan["commerce"]["level"])
+                act = item_plan.item_action(card)
+                if act:
+                    st.setdefault("notes", []).append(f"{plan['noun']}마다 '{act['label']}' 단추를 붙였어요.")
+                return next_step(card, engine_result)
+        if (step["type"] == "offerings" and step.get("bind") != "signature"
+                and not E._satisfied(card, "offerings") and not st.get("items_asked")):
+            # 항목을 먼저 듣고 나서 어떻게 보여 줄지 판단한다 (메뉴 수·가격·사진 필요를 보고 추천)
+            st["items_asked"] = True
+            st.setdefault("notes", []).append(f"{E._josa(_label(step), '을를')} 먼저 알려 주시면 어떻게 보여 드릴지 판단해 볼게요.")
+            _drop_engine_question(card, engine_q)
+            return _ask(card, {"question": _ask_fact(card, "offerings"), "done": False, "phase": "fact"})
         opts = _options(step, card)
         if len(opts) == 1 and opts[0]["variant"]:
             # 빼면 안 되고 모양도 하나뿐인 부품(객실·수업 등)은 묻지 않고 넣는다. 내용은 사실 질문으로 잇는다.
@@ -513,6 +621,10 @@ def pending_question(card: dict) -> Optional[dict]:
     if st.get("pending") == VIDEO_STEP:
         q = _ask_fact(card, VIDEO_STEP)
         return q
+    if st.get("pending") == PRICES_STEP:
+        from app.services import item_plan
+        missing = item_plan.decide(card)["commerce"]["missing_price"]
+        return _ask_prices(card, missing) if missing else None
     if st.get("pending"):
         step = _step(card, st["pending"])
         return question(card, step) if step else None
@@ -526,7 +638,20 @@ def live_turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     ack = ""
     engine_result = None
     got_video = _take_videos(card, text)
-    if st.get("pending") == VIDEO_STEP:
+    if st.get("pending") == PRICES_STEP:
+        card["turn"] = card.get("turn", 0) + 1
+        st["pending"] = None
+        if any(w in (text or "") for w in LATER_WORDS):
+            ack = "가격은 나중에 넣어요. 넣으면 그 항목에 주문 단추가 켜져요."
+        else:
+            before = dict(card.get("price_pairs") or {})
+            # 직전 질문(가격)을 함께 넘겨 "5500원"만 말해도 가격으로 알아듣게 한다
+            _absorb_facts(card, text, by, is_owner, last_question="메뉴 가격을 알려 주세요.")
+            added = [k for k in (card.get("price_pairs") or {}) if k not in before]
+            ack = (f"가격을 넣었어요: {', '.join(added)}. 주문 단추가 켜졌어요." if added
+                   else "가격을 알아듣지 못했어요. 채팅방에서 나중에 넣을 수 있어요.")
+        st["last"] = _item_step_id(card)
+    elif st.get("pending") == VIDEO_STEP:
         card["turn"] = card.get("turn", 0) + 1
         st["pending"] = None
         st["last"] = "hero"
@@ -605,6 +730,10 @@ def components(card: dict) -> list[dict]:
         step = _step(card, sid)
         if step:
             out.append({"id": sid, "type": step["type"], "variant": st["chosen"].get(sid), "label": _label(step)})
+    if card.get("commerce"):
+        from app.services import item_plan
+        out.append({"id": "commerce", "type": "commerce", "variant": card["commerce"],
+                    "label": item_plan.COMMERCE_LABEL.get(card["commerce"], "")})
     return out
 
 
@@ -675,7 +804,7 @@ def preview_spec(card: dict) -> Optional[dict]:
     if not st["steps"]:
         st["steps"] = _steps(card)
     picks = [(s, st["chosen"][s["id"]]) for s in st["steps"]
-             if s["type"] != "tone" and st["chosen"].get(s["id"])]
+             if s["type"] not in ("tone", "commerce") and st["chosen"].get(s["id"])]
     if not any(s["type"] == "hero" for s, _v in picks):
         hero = _step(card, "hero") or {"id": "hero", "type": "hero", "bind": "hero"}
         picks.insert(0, (hero, (TONE_HERO.get(_tone_key(card)) or ("photo-overlay",))[0]))
@@ -705,7 +834,18 @@ def option_previews(card: dict) -> list[dict]:
         html = None
         if o["variant"] is not None:
             try:
-                if step["type"] == "tone":
+                if step["type"] == "commerce":
+                    # 손님 행동은 부품이 아니라 카드의 단추다: 항목 부품을 그 행동으로 그려 단추 차이를 보여 준다
+                    item = _step(card, _item_step_id(card) or "")
+                    if item is not None:
+                        work = copy.deepcopy(card)
+                        work["commerce"] = o["variant"]
+                        picks = [(item, st["chosen"][item["id"]])]
+                        contact = next((x for x in st["steps"] if x["type"] == "contact"), None)
+                        if contact:
+                            picks.append((contact, st["chosen"].get(contact["id"]) or contact["variant"]))
+                        html = _render(work, _spec(work, picks, tokens_for(card)))
+                elif step["type"] == "tone":
                     hero = _step(card, "hero")
                     first_part = next((s for s in st["steps"] if s["type"] in ("offerings", "rooms", "classes")), None)
                     tone_hero = (TONE_HERO.get(o["variant"]) or ("photo-overlay",))[0]
