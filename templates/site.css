@@ -417,6 +417,30 @@ button:focus-visible,
 
 .s-gallery__swipe img { height: 180px; }
 
+/* 가로 넘기기 줄(.s-scroller + [data-scroller]): 손가락은 그대로 넘기고, 마우스로 보는 화면에만 화살표·끌어 넘기기.
+   (빌더 미리보기는 마우스라 휠이 페이지만 내려 '안 넘어간다'로 보였다, 10/4) 동작은 site_render._SCROLLER_SCRIPT */
+.s-scroller { position: relative; }
+.s-scroller__btn { display: none; }
+.s-scroller img { -webkit-user-drag: none; user-select: none; }
+@media (hover: hover) and (pointer: fine) {
+  .s-scroller [data-scroller] { cursor: grab; scrollbar-width: thin; }
+  .s-scroller [data-scroller].is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }
+  .s-scroller__btn {
+    display: grid; place-items: center; position: absolute; top: calc(50% - 26px);
+    width: 44px; height: 44px; padding: 0; border-radius: 50%; cursor: pointer;
+    border: 1px solid color-mix(in srgb, var(--c-ink) 16%, transparent);
+    background: color-mix(in srgb, var(--c-ground) 92%, transparent); color: var(--c-ink);
+    font-size: 26px; line-height: 1; box-shadow: 0 2px 10px rgb(0 0 0 / 0.18);
+    transition: opacity 0.15s ease;
+  }
+  .s-scroller__btn--prev { left: 6px; }
+  .s-scroller__btn--next { right: 6px; }
+  .s-scroller:not([data-pos]) .s-scroller__btn--prev,
+  .s-scroller[data-pos="start"] .s-scroller__btn--prev,
+  .s-scroller[data-pos="end"] .s-scroller__btn--next { opacity: 0; pointer-events: none; }
+  .s-scroller[data-pos="none"] .s-scroller__btn { display: none; }
+}
+
 /* ---- S5 around ---- */
 .s-around__addr { font-style: normal; margin-bottom: var(--space-gap); }
 .s-around__map { margin-bottom: var(--space-gap); }

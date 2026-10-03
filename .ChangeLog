@@ -1,6 +1,18 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/39  [버그 수정 · main] 2안 '주변' 사진 줄이 마우스로는 옆으로 안 넘어가던 것
+  - 원인(브라우저로 확인): CSS는 정상(overflow-x:auto). 손가락·트랙패드·Shift+휠은 넘어감.
+      마우스는 끌기 0px·스크롤바 0px(숨김)·휠은 페이지만 내려 빌더 미리보기(마우스)에서 '안 넘어간다'로 보였다
+  - 수정: 가로 넘기기 공용 부품 .s-scroller [data-scroller] — 마우스 화면에만 ‹ › 화살표(44px 원형),
+      끌어 넘기기(끄는 동안 맞춤 끔), 처음·끝에서 화살표 숨김(data-pos), 움직임 줄이기 설정이면 바로 이동
+      문서에 한 번 거는 스크립트(site_render._SCROLLER_SCRIPT)라 구역을 바꿔 끼워도 동작. 휴대폰은 그대로 손가락
+      사진 넘기기(gallery--swipe)와 사진 0장 예시 줄에 적용. 화살표 조각 templates/partials/scroller-buttons.mustache
+  - 시안 미리보기(스크립트 없음)에는 화살표를 빼고 스크립트도 안 넣는다. 품질 점검(evals/run_site_quality.py)은
+      data-action="scroll" 버튼을 페이지 스크립트 버튼으로 본다
+  - 확인: 변경 전 마우스 끌기 0px → 변경 후 252px, 화살표 0 → 252px(빌더처럼 줄인 srcdoc 틀 안에서)
+  - 테스트: tests/unit/test_scroller.py 5개. 전체 pytest 1542 통과
+
 10/04/02/26  [버그 수정 · main] 오시는 길 지도가 빈 칸으로 보이던 것
   - 원인 ①: 그리기 코드가 SDK 껍데기만 오고 본체가 안 오면(kakao.maps.load 콜백 없음) 예시 지도로 되돌리지 못해 빈 칸이 남았다
       브라우저 재현(가짜 SDK): 변경 전 빈 칸 219px → 변경 후 숨기고 예시 지도/주소만

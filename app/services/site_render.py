@@ -104,8 +104,10 @@ def _gallery_example_html(section_id: str, variant: str, kind: str, label: str =
         f'<section class="s-gallery s-gallery--{variant}"'
         f' data-section-id="{safe_id}" aria-labelledby="gallery-title-{safe_id}">'
         f'<h2 id="gallery-title-{safe_id}">{html.escape(label or "사진첩")}</h2>'
-        f'<ul class="{list_class}">{figures}</ul>'
-        '<p class="s-gallery__notice">사장님 사진으로 바뀌어요</p>'
+        + (f'<div class="s-scroller"><ul class="{list_class}" data-scroller>{figures}</ul>'
+           f'{COMP.partials().get("scroller-buttons", "")}</div>' if variant == "swipe"
+           else f'<ul class="{list_class}">{figures}</ul>')
+        + '<p class="s-gallery__notice">사장님 사진으로 바뀌어요</p>'
         "</section>"
     )
 
@@ -901,6 +903,24 @@ rs.forEach(r=>{const on=r===hit;r.classList.toggle("is-current",on);let b=r.quer
 
 
 # 초대·기념 부품 (청첩장 등): 남은 날(D-day)은 방문자 한국 날짜로, 계좌 복사는 클립보드가 될 때만 단추를 보인다.
+# 가로 넘기기 줄(.s-scroller [data-scroller])을 마우스로도: 화살표·끌어 넘기기·끝 표시(data-pos). 문서에 한 번만 걸어
+# 구역을 바꿔 끼워도(agt-patch) 그대로 동작한다. 화살표는 손가락 화면에서 CSS가 숨긴다.
+_SCROLLER_SCRIPT = """<script>(function(){try{
+var rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function pos(t){var w=t.parentNode;if(!w||!w.classList||!w.classList.contains('s-scroller'))return;var max=t.scrollWidth-t.clientWidth;w.setAttribute('data-pos',max<=2?'none':t.scrollLeft<=2?'start':t.scrollLeft>=max-2?'end':'mid')}
+function all(){[].forEach.call(document.querySelectorAll('[data-scroller]'),pos)}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.s-scroller__btn');if(!b)return;var t=b.parentNode.querySelector('[data-scroller]');if(!t)return;var d=parseInt(b.getAttribute('data-dir'),10)||1;t.scrollBy({left:d*Math.max(t.clientWidth*0.8,160),behavior:rm?'auto':'smooth'})});
+document.addEventListener('scroll',function(e){var t=e.target;if(t&&t.hasAttribute&&t.hasAttribute('data-scroller'))pos(t)},true);
+document.addEventListener('dragstart',function(e){if(e.target.closest&&e.target.closest('[data-scroller]'))e.preventDefault()});
+var drag=null;
+document.addEventListener('pointerdown',function(e){if(e.pointerType!=='mouse'||e.button!==0)return;var t=e.target.closest&&e.target.closest('[data-scroller]');if(!t||t.scrollWidth<=t.clientWidth)return;drag={t:t,x:e.clientX,l:t.scrollLeft,moved:false}});
+document.addEventListener('pointermove',function(e){if(!drag)return;var dx=e.clientX-drag.x;if(!drag.moved&&Math.abs(dx)<4)return;if(!drag.moved){drag.moved=true;drag.t.classList.add('is-dragging')}drag.t.scrollLeft=drag.l-dx});
+function end(){if(!drag)return;var t=drag.t;drag=null;t.classList.remove('is-dragging')}
+document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+all();window.addEventListener('resize',all);window.addEventListener('load',all);
+if(window.MutationObserver)new MutationObserver(all).observe(document.body,{childList:true,subtree:true});
+}catch(e){}})();</script>"""
+
 _EVENT_SCRIPT = """<script>
 (()=>{try{
 const n=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));n.setHours(0,0,0,0);
@@ -1806,6 +1826,13 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
         font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
     if public and need_season_script:
         parts.append(("@season", _SEASON_SCRIPT))
+    if public and any("data-scroller" in part for _key, part in parts) or edit:
+        parts.append(("@scroller", _SCROLLER_SCRIPT))
+    elif not public:
+        # 시안 미리보기는 스크립트가 돌지 않으니(sandbox) 화살표를 빼 둔다(손가락 넘기기·스크롤바는 그대로)
+        btns = COMP.partials().get("scroller-buttons", "")
+        if btns:
+            parts = [(key, part.replace(btns, "")) for key, part in parts]
     if need_event_script and not edit:
         # 편집 미리보기는 누름을 고치기로 받으므로 복사·D-day 스크립트를 넣지 않는다.
         parts.append(("@event", _EVENT_SCRIPT))

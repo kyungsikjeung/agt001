@@ -61,6 +61,10 @@ def card_action_facts(card: dict) -> dict:
     return {"phone": phone, "booking_url": booking, "channel_url": channel, "video_urls": videos}
 
 
+# 공개본 페이지 스크립트가 맡는 버튼 data-action (site_render._SCROLLER_SCRIPT)
+_SCRIPT_BUTTON_ACTIONS = ("scroll",)
+
+
 class _ActionCollector(HTMLParser):
     """공개본 HTML에서 링크·버튼·폼·id를 모은다 (표준 라이브러리만, 브라우저 없음)."""
 
@@ -83,7 +87,8 @@ class _ActionCollector(HTMLParser):
             self._text_for.append(("a", one))
         elif tag == "button":
             one = {"text": "", "type": str(at.get("type") or ""),
-                   "form_action": self._form_stack[-1] if self._form_stack else None}
+                   "form_action": self._form_stack[-1] if self._form_stack else None,
+                   "action": str(at.get("data-action") or "")}
             self.buttons.append(one)
             self._text_for.append(("button", one))
         elif tag == "form":
@@ -162,6 +167,8 @@ def check_actions(links: list, buttons: list, forms: list, page_ids, facts: dict
         in_form = isinstance(btn, dict) and btn.get("form_action") is not None
         if in_form and btype in ("", "submit", "reset", "image"):
             continue  # 폼 전송·리셋은 폼 점검에서 따로 본다
+        if isinstance(btn, dict) and btn.get("action") in _SCRIPT_BUTTON_ACTIONS:
+            continue  # 페이지 스크립트가 맡는 버튼(가로 넘기기 화살표 등)
         label = str(btn.get("text") or "").strip()[:20] if isinstance(btn, dict) else ""
         problems.append({"kind": "dead", "detail": f"동작 없는 버튼 {label}"})
     for form in forms or []:
