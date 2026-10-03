@@ -122,7 +122,7 @@ def _notify(shop_id: str, text: str) -> None:
     if not room_id:
         return
     base = (settings.public_base_url or "").rstrip("/")
-    link = f"{base}/owner" if base else "/owner"
+    link = f"{base}/owner?tab=chats" if base else "/owner?tab=chats"
     try:
         with store.room_tx(room_id) as (room, _session):
             if room is not None:

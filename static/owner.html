@@ -82,6 +82,12 @@
 </style>
   <meta name="theme-color" content="#17181a" />
   <link rel="icon" type="image/svg+xml" href="/icons/kkachi.svg" />
+  <!-- 홈 화면에 추가하면 사장님 화면이 앱처럼 열린다(아이폰 휴대폰 알림은 이렇게 설치해야 온다) -->
+  <link rel="manifest" href="/manifest-owner.json" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="사장님" />
+  <script src="/pwa.js" defer></script>
 </head>
 <body>
 <header>
@@ -106,6 +112,7 @@
       <a class="google" href="/auth/google/start?next=/owner">구글로 계속하기</a>
     </div>
   </section>
+  <section id="pushbox" class="card" hidden aria-label="휴대폰 알림"></section>
   <section id="empty" class="card" hidden>
     <h2>아직 가게가 없어요</h2>
     <p class="sub">채팅방에서 사이트를 만들고 공개하면 여기에 가게가 생겨요. <a href="/">사이트 만들기</a></p>
@@ -277,10 +284,13 @@
     </section>
   </div>
 </main>
+<script src="/push.js"></script>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
   let shops = [], cur = null, spec = null;
+  const TABS = ["bookings", "orders", "chats", "stamps", "bot", "closures", "verify"];
+  const qs = new URLSearchParams(location.search);
 
   async function api(path, opts = {}) {
     const r = await fetch(path, { credentials: "same-origin", headers: { "Content-Type": "application/json" }, ...opts });
@@ -299,7 +309,7 @@
   // ── 탭 ──
   function tab(name) {
     for (const b of $("tabs").querySelectorAll("button")) b.setAttribute("aria-selected", String(b.dataset.tab === name));
-    for (const p of ["bookings", "orders", "chats", "stamps", "bot", "closures", "verify"]) $("p-" + p).hidden = p !== name;
+    for (const p of TABS) $("p-" + p).hidden = p !== name;
     chatStop();
     if (name === "bookings") loadBookings();
     if (name === "orders") loadOrders();
@@ -798,7 +808,15 @@
       const st = await api(base() + "/bot");
       spec = st.active ? st.active.spec : null;
       fillPhoneBox();
-      tab("bookings");
+      // 휴대폰 알림 카드(push.js). 알림을 누르면 ?tab=chats처럼 그 탭으로 바로 연다.
+      if (window.AgtPush) {
+        $("pushbox").hidden = false;
+        const card = window.AgtPush.mount($("pushbox"), { loginHref: "/owner" });
+        card.refresh().then(() => {
+          if (qs.get("push")) { $("pushbox").scrollIntoView({ block: "center" }); card.flash(); }
+        });
+      }
+      tab(TABS.includes(qs.get("tab")) ? qs.get("tab") : "bookings");
     } catch (e) { if (e.message !== "login") document.querySelector("main").prepend(el("p", e.message, "err")); }
   })();
 })();

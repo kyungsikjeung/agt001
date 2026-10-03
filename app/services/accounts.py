@@ -20,6 +20,7 @@ from app.db.models import (
     CustomerRow,
     LoginSessionRow,
     OAuthAccountRow,
+    PushSubscriptionRow,
     RoomMemberRow,
     RoomMessageRow,
     UserRoomRow,
@@ -55,6 +56,7 @@ def withdraw(user_id: str) -> dict:
                                                     RoomMessageRow.member_id == member_id).values(nickname=ANON))
         db.execute(delete(OAuthAccountRow).where(OAuthAccountRow.user_id == user_id))
         db.execute(delete(LoginSessionRow).where(LoginSessionRow.user_id == user_id))
+        db.execute(delete(PushSubscriptionRow).where(PushSubscriptionRow.user_id == user_id))
         db.execute(update(CustomerRow).where(CustomerRow.user_id == user_id).values(user_id=None))
         user.nickname, user.email, user.deleted_at = ANON, None, _now()
     down = 0

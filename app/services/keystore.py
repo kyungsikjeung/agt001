@@ -34,6 +34,7 @@ EDITABLE = {
     "telegram_bot_token": ("텔레그램 봇 토큰", "운영자 알림"),
     "portone_api_secret": ("포트원 API 시크릿", "온라인 주문 테스트 결제 조회·취소"),
     "portone_webhook_secret": ("포트원 웹훅 시크릿", "온라인 주문 테스트 결제 웹훅 서명 확인"),
+    "vapid_private_key": ("휴대폰 알림(웹 푸시) VAPID 비밀 키", "사장님 휴대폰 알림. 바꾸면 모든 기기에서 알림을 다시 켜야 함"),
 }
 KEEP_DAYS = 7
 CACHE_SEC = 30.0  # 여러 서버 프로세스가 있어도 이 시간 안에 새 키를 읽는다
@@ -151,6 +152,13 @@ def test(name: str, value: str) -> tuple[bool, str]:
         if name == "telegram_bot_token":
             r = httpx.get(f"https://api.telegram.org/bot{value}/getMe", timeout=10)
             return r.status_code == 200 and bool(r.json().get("ok")), f"텔레그램 응답 {r.status_code}"
+        if name == "vapid_private_key":
+            from app.services import push
+            try:
+                push.public_key(value)
+            except ValueError:
+                return False, "P-256 비밀 키가 아니에요(scripts/gen_vapid.py로 만든 값을 넣어 주세요)."
+            return True, "키 모양 확인. 바꾸면 모든 기기에서 휴대폰 알림을 다시 켜야 해요."
         if name == "gemini_api_key":
             base = (settings.gemini_api_base or "https://generativelanguage.googleapis.com").rstrip("/")
             r = httpx.get(f"{base}/v1beta/models", timeout=15, headers={"x-goog-api-key": value})  # 주소에 키 금지(로그)

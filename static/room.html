@@ -419,6 +419,7 @@
       <button id="aiImageBtn" type="button" hidden>AI 예시 이미지 만들기</button>
       <a id="editorLink" class="more-item" href="#" hidden>직접 고치기</a>
       <a id="ownerLink" class="more-item" href="/owner" hidden>사장님 화면 (예약·주문·채팅·스탬프)</a>
+      <a id="pushLink" class="more-item" href="/owner?push=1" hidden>📱 휴대폰 알림 켜기 (무료)</a>
       <div id="walkieSlot"></div>
       <button id="moreLeaveBtn" type="button">방에서 나가기</button>
       <button id="moreCloseBtn" type="button">닫기</button>
@@ -557,6 +558,7 @@ let leaveUnsupported = false;
 let notifyUnsupported = false;
 let invitesLoaded = false;
 let notifyChecked = false;
+let pushReady = false;  // 서버에 휴대폰 알림 키가 있음(checkPush)
 let claimTried = false;
 
 const STATUS_LABEL = {
@@ -1531,6 +1533,7 @@ async function pollMessages() {
     if (isOwner() && !notifyUnsupported && !notifyChecked) {
       notifyChecked = true;
       checkNotify();
+      checkPush();
     }
     // 예약 현재 상태는 들어올 때 한 번만 조회한다. 실패는 조용히 둔다.
     if (!bookingStatesLoaded && isBookingOwner()) {
@@ -2276,6 +2279,8 @@ function updateOwnerTools() {
   if (!talkBtn || !editor) return;
   const ownerLink = document.getElementById('ownerLink');
   if (ownerLink) ownerLink.hidden = !(isOwner() && sitePublished);  // 공개한 방장만 예약 관리 (D55 B4)
+  const pushLink = document.getElementById('pushLink');
+  if (pushLink) pushLink.hidden = !(isOwner() && pushReady);  // 서버에 휴대폰 알림 키가 있을 때만
   if (!isOwner()) {
     talkBtn.hidden = true;
     editor.hidden = true;
@@ -2294,6 +2299,19 @@ function updateOwnerTools() {
   }
   if (moreLeave) moreLeave.hidden = !!leaveUnsupported;
   refreshAddrBtns();
+}
+
+// 휴대폰 알림(웹 푸시): 켜기는 사장님 화면(/owner)에서 한다. 여기서는 켜졌는지만 보여 준다.
+async function checkPush() {
+  try {
+    const res = await fetch('/api/push', { credentials: 'same-origin' });
+    if (!res.ok) return;
+    const data = await res.json();
+    pushReady = !!data.configured;
+    const link = document.getElementById('pushLink');
+    if (link && data.devices && data.devices.length) link.textContent = `📱 휴대폰 알림 켜짐 (${data.devices.length}대) · 관리`;
+    updateOwnerTools();
+  } catch (e) { /* 네트워크 실패면 숨긴 채로 둔다 */ }
 }
 
 async function checkNotify() {

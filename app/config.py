@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     # 카카오 알림 토큰 암호화 키. 비우면 카카오 Client Secret에서 만든다(app/services/kakao_talk.py).
     # 관리자 화면 키 교체(D50)는 이 값이 따로 있을 때만 열린다(화면에서 바꾸는 카카오 비밀값에서 파생되면 안 되므로).
     token_enc_key: Optional[str] = None
+    # 사장님 휴대폰 알림(웹 푸시, OWNER_NOTIFY_PLAN N2). P-256 비밀 키(base64url 32바이트) — scripts/gen_vapid.py로 만든다.
+    # 비우면 웹 푸시를 끈다. 관리자 화면에서도 바꿀 수 있다(D50). 바꾸면 모든 기기에서 알림을 다시 켜야 한다.
+    vapid_private_key: Optional[str] = None
+    # 푸시 회사가 문제 있을 때 연락할 곳(mailto: 또는 https:). 비우면 public_base_url을 쓴다.
+    vapid_subject: Optional[str] = None
 
     # 음성 콜봇 PoC (VOICE_QA_REQUIREMENTS §8, 브라우저 통화). 넷 다 있어야 켜진다.
     twilio_account_sid: Optional[str] = None
