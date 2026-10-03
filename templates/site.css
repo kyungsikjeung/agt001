@@ -1760,6 +1760,8 @@ section .s-cards__hint { font-size: 14px; }
 .is-public .s-map__art { display: none; }
 /* 실제 지도 (MAP_CONTRACT §4): 좌표가 있으면 예시 그림 대신 그린다 */
 .s-map__live { aspect-ratio: 16 / 10; width: 100%; border-radius: var(--radius-card); }
+/* 편집 미리보기의 지도 쪽창(/map-frame): 누르면 지도가 아니라 구역이 골라지게 */
+.s-map__frame { display: block; border: 0; pointer-events: none; background: color-mix(in srgb, var(--c-ground) 70%, var(--c-ink) 6%); }
 
 /* ---- 예약 현황 (booking--slots, D53④) ---- */
 .s-booking--slots fieldset, .s-booking--dates fieldset { min-width: 0; margin: 0 0 var(--space-gap); padding: 0; border: 0; }

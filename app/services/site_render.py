@@ -1708,6 +1708,10 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
             parts.append((str(section_id), _apply_tone(
                 _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section)))
             continue
+        if edit and section_type == "around" and ctx.get("has_geo"):
+            # 편집 미리보기(srcdoc 틀)에서는 카카오 SDK가 제 주소를 몰라 지도를 못 그린다 → 진짜 https 주소의 지도 쪽창으로.
+            # 구역을 바꿔 끼워도(agt-patch) 스크립트 없이 다시 뜬다.
+            ctx["map_frame"] = f"/map-frame?x={ctx['geo_x']}&y={ctx['geo_y']}"
         if section_type == "guestbook":
             ctx["public"] = public
         # 공용 제목 조각 {{> label}}의 기본 제목은 등록표에서 (components.json)
