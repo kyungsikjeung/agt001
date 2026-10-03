@@ -39,6 +39,9 @@ def site_exists(site_key: str) -> bool:
     key = sanitize_token(site_key or "")
     if not key:
         return False
+    from app.services import takedown
+    if takedown.is_down(key):  # 관리자가 내린 사이트는 문의·예약을 받지 않는다 (P2-4)
+        return False
     with get_sessionmaker()() as db:
         return db.scalar(select(SessionRow.id).where(SessionRow.requirement_id == key)) is not None
 

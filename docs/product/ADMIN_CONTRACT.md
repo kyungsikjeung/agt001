@@ -75,6 +75,18 @@ sequenceDiagram
 | `POST /api/admin/keys/{name}` `{value}` | 출처 + 최근 로그인. 바꿀 수 없는 이름 404, 암호화 열쇠 없으면 409, 형식·연결 테스트 실패 400(이유), 통과하면 저장 → 새 상태 |
 | `POST /api/admin/keys/{name}/rollback`, `/clear` | 출처 + 최근 로그인 → 되돌리기(7일 안 이전 키)·지우기(.env 값으로) → 새 상태. 할 수 없으면 400(이유) |
 
+## 3-2. 사이트 내리기 (`app/services/takedown.py`, 로드맵 P2-4·백로그 O-4)
+
+| 경로 | 내용 |
+|---|---|
+| `POST /api/admin/rooms/{room_id}/takedown` `{reason}` | 출처 + 최근 로그인. 이유 필수(200자). `generated/<site_key>/takedown.json`에 이유·관리자·시각을 쓰고 `admin_audit`(`site_takedown`)·텔레그램 운영 알림에 남긴다. 방 없음 404, 이유 없음 400 |
+| `POST /api/admin/rooms/{room_id}/restore` | 출처 + 최근 로그인. 표시 파일을 지운다(`site_restore` 기록). 내린 적 없으면 400 |
+
+- 내린 사이트: `/site/<키>/` 전체가 410(안내 한 줄, `noindex`), 문의·예약(`site_exists`)·주문(`orders.check`)·손님 채팅(`guest_chat.enabled`)이 모두 막힌다.
+- 공개본·생성본 파일은 지우지 않는다. 사장님이 다시 공개해도 내림은 풀리지 않고, 되돌리면 그대로 열린다.
+- 표시 파일이 깨져 읽히지 않아도 내린 것으로 본다(열어 두는 쪽이 더 위험).
+- 목록·상세 줄에 `taken_down`(`{reason, by, at}` 또는 null)이 붙는다. 화면은 가게 상세 머리에 "사이트 내리기"(이유 입력 → 한 번 더 확인)·"사이트 다시 열기".
+
 ## 4. 화면 (`static/admin.html`, `GET /admin`)
 
 owner.html과 같은 모양의 가벼운 한 페이지(외부 스크립트 없음, 글은 모두 `textContent`로 넣는다). 탭 4개:
@@ -109,4 +121,5 @@ owner.html과 같은 모양의 가벼운 한 페이지(외부 스크립트 없�
 
 | 날짜 | 내용 |
 |---|---|
+| 2026-10-02 | §3-2 사이트 내리기 추가(로드맵 P2-4). |
 | 2026-10-01 | 처음 작성. 9/28 미커밋 작업은 가져오지 않고 다시 씀. 엔진 판단 가림·보이는 페이지만 계산을 처음부터 넣음 |

@@ -2,7 +2,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, Header, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from app.config import settings
@@ -79,6 +79,29 @@ def logout(request: Request):
     _check_origin(request)
     auth.end_session(request.cookies.get(auth.SESSION_COOKIE))
     resp = Response(status_code=204)
+    resp.delete_cookie(auth.SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
+    return resp
+
+
+class WithdrawIn(BaseModel):
+    confirm: str = ""
+
+
+@router.post("/api/me/withdraw")
+def withdraw(body: WithdrawIn, request: Request):
+    """회원 탈퇴 (P2-6, L-5). 실수로 누르지 않게 "탈퇴"를 직접 적어야 한다."""
+    from app.services import accounts
+    _check_origin(request)
+    user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
+    if user is None:
+        raise HTTPException(status_code=401)
+    if body.confirm.strip() != "탈퇴":
+        raise HTTPException(status_code=400, detail="확인을 위해 '탈퇴'라고 적어 주세요.")
+    try:
+        result = accounts.withdraw(user["id"])
+    except LookupError:
+        raise HTTPException(status_code=401)
+    resp = JSONResponse(result)
     resp.delete_cookie(auth.SESSION_COOKIE, path="/", secure=True, httponly=True, samesite="lax")
     return resp
 

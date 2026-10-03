@@ -170,7 +170,9 @@ OWNER_BTN = {"label": "사장님께 직접 물어보기", "action": "owner"}
 
 def respond(site_key: str, token: Optional[str], *, text: Optional[str] = None, action: Optional[str] = None,
             now: Optional[datetime.datetime] = None) -> dict:
-    from app.services import guest_chat
+    from app.services import guest_chat, takedown
+    if takedown.is_down(site_key):  # 관리자가 내린 사이트는 예약 봇도 답하지 않는다 (P2-4)
+        return _r("지금은 이용할 수 없는 가게예요.")
     now = now or _now()
     got = E.active_spec(site_key)
     card = _card(site_key)

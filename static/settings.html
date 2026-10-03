@@ -90,6 +90,23 @@
     </div>
   </section>
   <div id="shops"></div>
+  <section class="card" id="withdrawCard" hidden>
+    <h2>회원 탈퇴</h2>
+    <p class="sub">카카오·구글 로그인 연결과 이름이 바로 지워지고, 채팅방에는 "탈퇴한 회원"으로 보여요.
+      내 가게의 공개 사이트는 내려가요. 계정 기록은 30일 뒤 완전히 지워져요.</p>
+    <form id="withdrawForm" class="card" style="padding:0;border:0">
+      <label class="field">확인을 위해 "탈퇴"라고 적어 주세요
+        <input type="text" id="withdrawConfirm" autocomplete="off">
+      </label>
+      <button type="submit" id="withdrawBtn">탈퇴하기</button>
+      <p class="error" id="withdrawErr" role="alert" hidden></p>
+    </form>
+  </section>
+  <section class="card" id="withdrawDone" hidden>
+    <h2>탈퇴했어요</h2>
+    <p class="sub">그동안 이용해 주셔서 고마워요.</p>
+    <a href="/">첫 화면으로</a>
+  </section>
 </main>
 <script>
 (function () {
@@ -400,12 +417,32 @@
     return card;
   }
 
+  var withdrawCard = document.getElementById('withdrawCard');
+  document.getElementById('withdrawForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var err = document.getElementById('withdrawErr');
+    var btn = document.getElementById('withdrawBtn');
+    var confirmText = document.getElementById('withdrawConfirm').value.trim();
+    err.hidden = true;
+    if (confirmText !== '탈퇴') { showError(err, '확인을 위해 "탈퇴"라고 적어 주세요.'); return; }
+    btn.disabled = true;
+    api('/api/me/withdraw', 'POST', { confirm: confirmText })
+      .then(function (res) {
+        if (!res.ok) throw new Error('탈퇴하지 못했어요. 잠시 뒤 다시 해 주세요.');
+        shopsEl.hidden = true;
+        withdrawCard.hidden = true;
+        document.getElementById('withdrawDone').hidden = false;
+      })
+      .catch(function (e2) { showError(err, e2.message); btn.disabled = false; });
+  });
+
   fetch('/api/me', { credentials: 'same-origin' })
     .then(function (res) {
       if (!res.ok) {
         loginCard.hidden = false;
         return null;
       }
+      withdrawCard.hidden = false;
       return fetch('/api/me/shops', { credentials: 'same-origin' });
     })
     .then(function (res) {

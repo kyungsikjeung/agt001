@@ -117,7 +117,8 @@ def check(site_key: str, lines: list[tuple[str, int]], phone: str) -> tuple[list
     card = _load_card(key)
     if card is None:
         raise OrderError("사이트를 찾을 수 없어요.")
-    if not _published(card):
+    from app.services import takedown
+    if not _published(card) or takedown.is_down(key):
         raise OrderError("지금은 주문을 받지 않아요.")
     if not shop_settings.get(key).get("order_on"):
         raise OrderError("지금은 주문을 받지 않아요.")
