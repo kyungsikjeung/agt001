@@ -662,10 +662,11 @@ def _record_item_notes(card: dict, text: str) -> None:
         notes[name] = s
 
 
-def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
+def _separate_menu_price(updates: list[dict], text: str, keep_season: bool = False) -> list[dict]:
     """추출이 메뉴·가격을 뭉쳐 돌려주면 나누고, 같은 턴의 가격은 하나로 합친다.
 
     나누는 조건: 메뉴 부분·가격 부분 둘 다 사장님 말에 있어야 한다. 아니면 원본 그대로 둔다.
+    keep_season(펜션)이면 "성수기 1박 25만원"은 품목이 아니라 요금이라 통째로 price에 둔다 (F2).
     """
     if not any(u["slot"] in ("offerings", "price") for u in updates):
         return updates
@@ -679,7 +680,12 @@ def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
             menus = []
             for item in _split_items(u["value"]):
                 menu, price = _cut_price(item)
-                if price is not None and menu != item and price in norm_t and menu in norm_t:
+                if (keep_season and price is not None and _is_season_label(menu)
+                        and price in norm_t and menu in norm_t):
+                    if item not in price_parts:
+                        price_parts.append(item)
+                    touched = True
+                elif price is not None and menu != item and price in norm_t and menu in norm_t:
                     menus.append(menu)
                     if price not in price_parts:
                         price_parts.append(price)
@@ -690,7 +696,10 @@ def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
         elif u["slot"] == "price":
             for item in _split_items(u["value"]):
                 menu, price = _cut_price(item)
-                if price is not None and menu != item and price in norm_t and menu in norm_t:
+                if keep_season and price is not None and _is_season_label(menu):
+                    if item not in price_parts and grounded("price", item, text):
+                        price_parts.append(item)
+                elif price is not None and menu != item and price in norm_t and menu in norm_t:
                     if price not in price_parts:
                         price_parts.append(price)
                     if menu not in menu_parts:
@@ -709,6 +718,12 @@ def _separate_menu_price(updates: list[dict], text: str) -> list[dict]:
     if price_parts or any(u["slot"] == "price" for u in updates):
         out.append({"slot": "price", "value": ", ".join(price_parts)})
     return out
+
+
+def _is_season_label(name: str) -> bool:
+    """"성수기 1박"·"주말"처럼 요금 이름표인지 (객실 번호 "101호 주말특가"는 아니다)."""
+    from app.services import card_data  # 순환 참조 방지용 늦은 불러오기
+    return bool(card_data._LABEL_RE.search(name or "")) and not card_data._ROOM_NO.match((name or "").strip())
 
 
 def _in_history(value: str, history: str) -> bool:
@@ -820,7 +835,7 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
     _record_price_pairs(card, updates, text)
     _record_duration_pairs(card, text)
     _record_item_notes(card, text)
-    updates = _separate_menu_price(updates, text)  # N-2: 메뉴·가격 뭉침 분리
+    updates = _separate_menu_price(updates, text, keep_season=industry_of(card).key == "pension")  # N-2: 메뉴·가격 뭉침 분리
     # N-3: 근거 판단용 대화 기록 (turn()은 said에 현재 메시지를 먼저 넣어 둔다).
     history = "\n".join([*(card.get("said") or []), text])
     this_msg: dict[str, str] = {}  # 이번 메시지에서 이미 넣은 단일 칸 값
@@ -961,8 +976,94 @@ def apply_updates(card: dict, updates: list[dict], text: str, by=None, is_owner=
         if key == "features":
             _judge_features(card)
         applied.append(key)
+    if _fold_season_rates(card, turn, by) and "price" not in applied:
+        applied.append("price")
     _maybe_queue_word_confirm(card, applied)
     return applied
+
+
+def _fold_season_rates(card: dict, turn, by) -> bool:
+    """펜션 요금 이름표를 price 한 칸으로 모은다 (BETA_FLOW §4.1 F2).
+
+    추출 LLM은 "성수기 1박 25만원, 비수기 1박 15만원"을 offerings=["성수기 1박", …],
+    price="25만원, 15만원", features=["성수기 기간: 7월 15일 ~ 8월 20일"]로 나누곤 한다.
+    그러면 요약·편집기에 이름표가 객실처럼, 기간이 기능 요청처럼 보인다.
+    이름표 품목·기간은 빼고 price를 "성수기(7/15~8/20) 1박 25만원, 비수기 1박 15만원"으로 고쳐 쓴다.
+    고쳤으면 True.
+    """
+    if industry_of(card).key != "pension":
+        return False
+    from app.services import card_data  # 순환 참조 방지용 늦은 불러오기
+    offers = _slot(card, "offerings").get("value") or []
+    season = [i for i in offers if isinstance(i, str) and _is_season_label(i)]
+    feats = _slot(card, "features").get("value") or []
+    periods = {}
+    for f in feats:
+        m = _SEASON_PERIOD_RE.match(str(f).strip())
+        if m:
+            g = [int(x) for x in m.groups()[1:]]
+            periods[str(f)] = (m.group(1), f"{g[0]}/{g[1]}~{g[2]}/{g[3]}")
+    if not season and not periods:
+        return False
+    price_slot = _slot(card, "price")
+    price_text = str(price_slot.get("value") or "") if price_slot["status"] == S.FILLED else ""
+    pairs = card.get("price_pairs") or {}
+    folded = []
+    if card_data._LABEL_RE.search(price_text):
+        text = price_text  # 사장님이 price에 이름표까지 말했으면 그 글을 그대로 쓰고
+        folded = list(season)  # offerings에 남은 이름표만 치운다
+    else:
+        amounts = [m.group(0).strip() for m in card_data._AMOUNT_RE.finditer(price_text)]
+        parts = []
+        labels = set()
+        for pos, item in enumerate(season):
+            name, own = _cut_price(item)
+            label = card_data._LABEL_RE.search(name).group(0)
+            if label in labels:
+                folded.append(item)  # 같은 이름표가 두 번이면 앞의 것만 쓴다
+                continue
+            price = own or pairs.get(item) or pairs.get(name) or (
+                amounts[pos] if len(amounts) == len(season) else "")
+            if not price:
+                continue  # 금액 모르는 이름표는 그대로 둔다 (객실로는 안 그린다)
+            parts.append(f"{name} {price}")
+            labels.add(label)
+            folded.append(item)
+        text = ", ".join(parts) or price_text
+    # 기간은 이름표 바로 뒤 괄호로 (card_data.season_prices가 읽는 꼴)
+    used_periods = []
+    for f, (label, period) in periods.items():
+        m = re.search(r"(?<![극준])" + re.escape(label) + r"(?!\s*\()", text)
+        if m:
+            text = f"{text[:m.end()]}({period}){text[m.end():]}"
+            used_periods.append(f)
+    if not folded and not used_periods and text == price_text:
+        return False
+    if folded:
+        card["slots"]["offerings"]["value"] = [i for i in offers if i not in folded]
+        for item in folded:
+            pairs.pop(item, None)
+    if used_periods:
+        rest = [f for f in feats if f not in used_periods]
+        if rest:
+            card["slots"]["features"]["value"] = rest
+        else:
+            card["slots"].pop("features", None)
+        card["features_judged"] = [v for v in card.get("features_judged") or []
+                                   if v.get("text") not in used_periods]
+        notes = card.get("notes") or {}
+        if notes.get("items"):
+            notes["items"] = [n for n in notes["items"] if not any(f in n for f in used_periods)]
+    if text != price_text:
+        _put(card, "price", text, S.FILLED, turn, by)
+    return True
+
+
+# "성수기 기간: 7월 15일 ~ 8월 20일" (features에 따로 들어온 요금 기간)
+_SEASON_PERIOD_RE = re.compile(
+    r"^(극성수기|준성수기|성수기|비수기)\s*(?:기간)?\s*[:：]?\s*"
+    r"(\d{1,2})\s*(?:/|월)\s*(\d{1,2})\s*(?:일)?\s*(?:부터)?\s*[~〜～\-－]?\s*"
+    r"(\d{1,2})\s*(?:/|월)\s*(\d{1,2})\s*(?:일)?\s*(?:까지)?\s*$")
 
 
 def _default_for(card, key):
