@@ -1549,6 +1549,10 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
                 _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section))
             continue
         part = chevron.render(template, _safe(ctx))
+        if not public and "data-yt-bg" in part:
+            # 유튜브 배경 틀은 공개 사이트에서만 (YOUTUBE_EMBED_POLICY). 시안·미리보기는 격리돼 재생이 안 되니 썸네일만 둔다.
+            from app.services import youtube_embed
+            part = youtube_embed.strip_allowed(part)
         if (section_type == "hero" and variant in _HERO_PHOTO_VARIANTS
                 and not ctx.get("image_src")):
             # 사진 없음: 빈 자리 표시를 업종별 예시 그림으로 갈아끼운다.

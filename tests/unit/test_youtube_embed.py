@@ -25,6 +25,11 @@ def test_youtube_hero_renders_muted_loop_background_and_sound_link():
     assert publish_check.check_html(html) == [] and Y.page_uses_youtube(html)
 
 
+def test_drafts_and_previews_show_thumbnail_without_player():
+    html = _page(YT, public=False)  # 시안·실시간 미리보기는 격리돼 재생이 안 되므로 틀을 넣지 않는다
+    assert "<iframe" not in html and "i.ytimg.com" in html and "s-hero__sound" in html
+
+
 def test_non_youtube_video_keeps_cover_without_iframe():
     html = _page("https://www.instagram.com/reel/AbCdEf12345/")
     assert "<iframe" not in html and not Y.page_uses_youtube(html)

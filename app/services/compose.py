@@ -761,13 +761,11 @@ def tokens_for(card: dict, tone_key: Optional[str] = None) -> dict:
     return tokens
 
 
-def _spec(card: dict, picks: list, tokens: dict) -> Optional[dict]:
-    """[(step, variant)] → 채운 명세."""
-    bp, arch = _blueprint(card)
+def _skeleton(card: dict, picks: list, tokens: dict) -> Optional[dict]:
+    """[(step, variant)] → 비어 있는 명세 (resolve 전). 시안 1안도 이 모양에서 시작한다."""
+    bp, _arch = _blueprint(card)
     if bp is None:
         return None
-    from app.services import card_data as CD
-    from app.services import site_data as SD
     sections = []
     for step, variant in picks:
         sec = {"id": step["id"], "type": step["type"], "variant": variant, "bind": step.get("bind", "none"),
@@ -784,6 +782,17 @@ def _spec(card: dict, picks: list, tokens: dict) -> Optional[dict]:
             spec[key] = copy.deepcopy(bp[key])
     if bp.get("actionbar_secondary"):
         spec["actionbar_secondary"] = bp["actionbar_secondary"]
+    return spec
+
+
+def _spec(card: dict, picks: list, tokens: dict) -> Optional[dict]:
+    """[(step, variant)] → 채운 명세."""
+    spec = _skeleton(card, picks, tokens)
+    if spec is None:
+        return None
+    _bp, arch = _blueprint(card)
+    from app.services import card_data as CD
+    from app.services import site_data as SD
     work = copy.deepcopy(card)
     work["data"] = CD.build(card)
     resolved = SD.resolve(spec, work, archetype=arch)
@@ -796,11 +805,14 @@ def _spec(card: dict, picks: list, tokens: dict) -> Optional[dict]:
     return resolved
 
 
-def preview_spec(card: dict) -> Optional[dict]:
-    """확정된 부품만, 청사진 순서대로. 정한 것이 없으면 None."""
+def has_choices(card: dict) -> bool:
+    """실시간 대화에서 첫 화면까지 정했는가 (시안 1안을 "말로 고른 안"으로 만들 조건)."""
+    chosen = ((card or {}).get("compose") or {}).get("chosen") or {}
+    return bool(chosen.get("hero"))
+
+
+def _picks(card: dict) -> list:
     st = state(card)
-    if not st.get("chosen"):
-        return None
     if not st["steps"]:
         st["steps"] = _steps(card)
     picks = [(s, st["chosen"][s["id"]]) for s in st["steps"]
@@ -808,7 +820,96 @@ def preview_spec(card: dict) -> Optional[dict]:
     if not any(s["type"] == "hero" for s, _v in picks):
         hero = _step(card, "hero") or {"id": "hero", "type": "hero", "bind": "hero"}
         picks.insert(0, (hero, (TONE_HERO.get(_tone_key(card)) or ("photo-overlay",))[0]))
-    return _spec(card, picks, tokens_for(card))
+    return picks
+
+
+def v1_skeleton(card: dict, base: dict, edits: Optional[dict]) -> Optional[dict]:
+    """시안 1안 = 말로 고른 안 (COMPOSE_INTERVIEW_CONTRACT §11).
+
+    편집기에서 1안을 고친 적이 없으면: 대화에서 고른 부품·모양·순서(뺀 것은 빼고, 시그니처·후기 같은 추가 부품 포함).
+    편집기에서 고쳤으면(base에 그 편집이 이미 들어 있음): 사장님이 직접 고친 순서·숨김을 존중하고, 같은 부품의 모양만 대화대로 맞춘다.
+    분위기 토큰은 두 경우 모두 대화에서 고른 것.
+    """
+    if not has_choices(card):
+        return None
+    tokens = tokens_for(card)
+    concept = card.get("concept") if isinstance(card.get("concept"), dict) else {}
+    if state(card).get("restyled") and concept:
+        # 시안 뒤 "더 고급스럽게"처럼 말로 고친 디자인: 색·글꼴·여백·모서리는 고친 컨셉을 따른다 (움직임은 분위기 그대로)
+        tokens.update({k: concept[k] for k in ("palette", "font_pair", "density", "radius") if concept.get(k)})
+    if edits:
+        spec = copy.deepcopy(base)
+        chosen = state(card)["chosen"]
+        for sec in spec.get("sections") or []:
+            want = chosen.get(sec.get("id"))
+            if want and want != sec.get("variant") and _variant_ok(sec.get("type"), want):
+                sec["variant"] = want
+        _append_extras(card, spec)
+        spec["tokens"] = tokens
+        return spec
+    return _skeleton(card, _picks(card), tokens)
+
+
+def _append_extras(card: dict, spec: dict) -> None:
+    """청사진에 없는 대화 부품(후기 등)은 구역 편집으로 못 담으니, 대화에서 놓인 자리 바로 뒤에 이어 붙인다."""
+    from app.services import layout_edits as LE
+    bp, _arch = _blueprint(card)
+    pool_ids = set(LE.pool(bp or {}))
+    sections = spec.setdefault("sections", [])
+    have = {s.get("id") for s in sections}
+    prev = None
+    for step, variant in _picks(card):
+        if step["id"] in have:
+            prev = step["id"]
+            continue
+        if step["id"] in pool_ids or step["type"] == "hero":
+            continue  # 사장님이 편집기에서 뺀 청사진 부품은 되살리지 않는다
+        sec = {"id": step["id"], "type": step["type"], "variant": variant, "bind": step.get("bind", "none"),
+               "content": {}}
+        for key in ("label", "nav", "tone"):
+            if step.get(key):
+                sec[key] = step[key]
+        at = next((i for i, s in enumerate(sections) if s.get("id") == prev), None)
+        sections.insert(at + 1 if at is not None else len(sections), sec)
+        have.add(step["id"])
+        prev = step["id"]
+
+
+def v1_edits(card: dict) -> Optional[dict]:
+    """대화에서 고른 구성을 1안 구역 편집(order·hidden·added)으로 (편집기가 같은 구성을 보도록). 효과 없으면 None."""
+    if not has_choices(card):
+        return None
+    from app.services import layout_edits as LE
+    bp, _arch = _blueprint(card)
+    if bp is None:
+        return None
+    base = LE._base_ids(bp, 0)
+    pool_ids = set(LE.pool(bp))
+    chosen_ids = [s["id"] for s, _v in _picks(card) if s["id"] != "hero" and s["id"] in pool_ids]
+    added = [i for i in chosen_ids if i not in base][:LE.MAX_ADDED]
+    hidden = [i for i in base if i not in chosen_ids and i not in LE.LOCKED]
+    order = ["hero"] + [i for i in chosen_ids if i in base or i in added]
+    return LE.normalize({"order": order, "hidden": hidden, "added": added}, bp, 0)
+
+
+def seed_v1_edits(card: dict) -> bool:
+    """시안을 처음 만들 때 한 번: 1안 구역 편집이 없으면 대화 구성을 심는다. 심었으면 True."""
+    edits = card.get("layout_edits") if isinstance(card.get("layout_edits"), dict) else {}
+    if edits.get("v1"):
+        return False
+    seeded = v1_edits(card)
+    if not seeded:
+        return False
+    card["layout_edits"] = {**edits, "v1": seeded}
+    return True
+
+
+def preview_spec(card: dict) -> Optional[dict]:
+    """확정된 부품만, 청사진 순서대로. 정한 것이 없으면 None."""
+    st = state(card)
+    if not st.get("chosen"):
+        return None
+    return _spec(card, _picks(card), tokens_for(card))
 
 
 def _render(card: dict, spec: Optional[dict], site_key: str = "") -> Optional[str]:

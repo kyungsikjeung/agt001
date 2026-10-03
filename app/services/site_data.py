@@ -253,6 +253,9 @@ def _fill_hero(sec: dict, card: dict, pack: dict, shop: str,
         content["cta"] = primary
     if secondary:
         content["cta2"] = secondary
+    if sec.get("variant") == "video" and card.get("videos"):
+        # 영상 첫 화면: 사장님이 준 첫 영상 (유튜브면 배경 재생, YOUTUBE_EMBED_POLICY)
+        content["video_url"] = str(card["videos"][0])
     sec["content"] = content
 
 

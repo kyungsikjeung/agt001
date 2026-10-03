@@ -436,8 +436,8 @@ def test_video_cover_hero_uses_thumbnail_and_play_link():
     hero = {"id": "hero", "type": "hero", "variant": "video",
             "content": {"title": "바다카페", "subtitle": "카페", "image": "/art/x.webp",
                         "video_url": "https://youtu.be/dQw4w9WgXcQ"}}
-    html = render_site(_spec_motion(hero=hero))
-    # 유튜브: 썸네일 위에 소리 없는 배경 영상 틀 + 소리 켜고 보기 (YOUTUBE_EMBED_POLICY)
+    html = render_site(_spec_motion(hero=hero), public=True)
+    # 유튜브(공개본): 썸네일 위에 소리 없는 배경 영상 틀 + 소리 켜고 보기 (YOUTUBE_EMBED_POLICY)
     assert "s-hero--video" in html and "i.ytimg.com" in html and "s-hero__sound" in html
     assert html.count("<iframe") == 1 and "youtube-nocookie.com/embed/dQw4w9WgXcQ" in html
     # 인스타그램: 틀 없이 썸네일 표지 + 재생 단추
