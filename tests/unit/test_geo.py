@@ -122,7 +122,9 @@ def test_3_put_geo_saves_and_rerenders(client):
     key = next(f["key"] for f in feats if f["label"] == "오시는 길")
     assert client.put(f"/api/rooms/{rid}/features", json={"key": key, "on": True}, headers=owner).status_code == 200
     html = client.get(f"/api/rooms/{rid}/card/preview", headers=owner).json()["html"]
-    assert 'class="s-map__live"' in html and "서울 마포구 연남로 12 2층" in html
+    # 편집 미리보기는 지도 쪽창(/map-frame)으로 그린다(srcdoc 틀 안에서는 SDK가 못 그림)
+    assert 'class="s-map__live s-map__frame"' in html and "/map-frame?x=126.92&amp;y=37.56" in html
+    assert "서울 마포구 연남로 12 2층" in html
 
 
 def test_3_placeholder_needs_confirm_on_publish(client, monkeypatch):

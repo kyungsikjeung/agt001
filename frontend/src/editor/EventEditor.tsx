@@ -2,7 +2,6 @@
 // 측마다 최대 4줄. 저장하면 시안의 예시 대신 이 값이 보이고 공개 사이트에도 나간다.
 import { useEffect, useState } from 'react';
 import { readMemberId, saveCard, type CardEvent, type EventAccount, type EventPerson, type RoomCard } from './cardApi';
-import { nextPhone } from './phone';
 
 type Kind = 'family' | 'gift';
 type Row = Record<string, string>;
@@ -62,10 +61,8 @@ export default function EventEditor({
     setInfo('');
   }, [card, kind]);
 
-  function setCell(si: number, ri: number, key: string, raw: string) {
-    // 양가 전화번호도 치는 동안 010-1234-5678로 나눠 보인다
-    const fix = (r: Row) => (key === 'phone' ? nextPhone(r[key] ?? '', raw) : raw);
-    setSides((prev) => prev.map((s, i) => (i !== si ? s : { ...s, rows: s.rows.map((r, j) => (j !== ri ? r : { ...r, [key]: fix(r) })) })));
+  function setCell(si: number, ri: number, key: string, value: string) {
+    setSides((prev) => prev.map((s, i) => (i !== si ? s : { ...s, rows: s.rows.map((r, j) => (j !== ri ? r : { ...r, [key]: value })) })));
   }
 
   function addRow(si: number) {

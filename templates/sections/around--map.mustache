@@ -2,7 +2,12 @@
   <h2 id="around-title-{{id}}">{{> label}}</h2>
   <div class="s-map">
 {{#has_geo}}
+{{#map_frame}}
+    <iframe class="s-map__live s-map__frame" src="{{map_frame}}" title="지도: {{address}}" loading="lazy" tabindex="-1"></iframe>
+{{/map_frame}}
+{{^map_frame}}
     <div class="s-map__live" data-x="{{geo_x}}" data-y="{{geo_y}}" role="img" aria-label="지도: {{address}}"></div>
+{{/map_frame}}
 {{/has_geo}}
     <div class="s-map__art"{{#has_geo}} hidden{{/has_geo}} role="img" aria-label="예시 지도: 실제 지도는 곧 연결돼요">
       <svg viewBox="0 0 400 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
@@ -26,17 +31,8 @@
       {{/has_items}}
     </div>
   </div>
-{{#has_geo}}
+{{#has_geo}}{{^map_frame}}
   <script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey={{map_key}}&autoload=false"></script>
-  <script>(function(){try{
-  // 실제 지도 그리기, 3초 안에 SDK가 없거나 5초 안에 지도를 못 그리면 예시 지도로 되돌림(빈 칸으로 두지 않는다)
-  var box=document.querySelector('.s-map__live');if(!box)return;
-  var x=parseFloat(box.getAttribute('data-x')),y=parseFloat(box.getAttribute('data-y'));
-  var done=false;
-  function back(){if(done)return;done=true;box.hidden=true;var a=box.parentNode.querySelector('.s-map__art');if(a){a.hidden=false;}}
-  var t0=Date.now();
-  (function wait(){if(window.kakao&&kakao.maps){setTimeout(back,5000);try{kakao.maps.load(function(){if(done)return;try{var p=new kakao.maps.LatLng(y,x);var m=new kakao.maps.Map(box,{center:p,level:3,draggable:false});new kakao.maps.Marker({position:p,map:m});done=true;}catch(e){back();}});}catch(e){back();}return;}
-  if(Date.now()-t0>3000){back();return;}setTimeout(wait,100);})();
-  }catch(e){}})();</script>
-{{/has_geo}}
+  <script>{{> map-draw}}</script>
+{{/map_frame}}{{/has_geo}}
 </section>

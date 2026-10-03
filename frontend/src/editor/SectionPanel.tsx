@@ -10,9 +10,9 @@ import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
 import StaffEditor from './StaffEditor';
-import { nextPhone, phoneLooksOk } from './phone';
-import TimeRangeField from './TimeRangeField';
-import { timeModeOf } from './timeRange';
+import PhoneField from './fields/PhoneField';
+import TimeRangeField from './fields/TimeRangeField';
+import { checkPhone, hasSpokenDigits } from './fields/phone';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -178,9 +178,7 @@ export default function SectionPanel({
   const currentShape = selected.variant ?? '';
 
   /** 칸 하나를 고친다. 저장된 값과 다른 칸만 미리보기에 보낸다(모두 같으면 빈 값 = 저장된 모양으로). */
-  function editField(k: string, raw: string) {
-    // 전화번호는 치는 동안 010-1234-5678로 나눠 보인다(저장 형식은 서버가 같은 규칙으로 맞춤)
-    const value = k === 'phone' ? nextPhone(drafts[k] ?? '', raw) : raw;
+  function editField(k: string, value: string) {
     const next = { ...drafts, [k]: value };
     setDrafts(next);
     if (!onDraft) return;
@@ -307,12 +305,21 @@ export default function SectionPanel({
         }
       }
       if (Object.keys(fields).length === 0 && ops.length === 0 && !groupsOp) return;
+      if (fields.phone && !hasSpokenDigits(fields.phone)) {
+        const bad = checkPhone(fields.phone);
+        if (bad) {
+          setError(`전화번호: ${bad}`);
+          return;
+        }
+      }
       const extra = ops.length > 0 || groupsOp ? { ...(ops.length > 0 ? { items: ops } : {}), ...(groupsOp ? { groups: groupsOp } : {}) } : undefined;
       const updated = await saveCard(roomId, readMemberId(), fields, undefined, extra);
       onSaved(updated, selId);
       setInfo('저장했어요.');
-    } catch {
-      setError('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    } catch (e) {
+      // 서버가 틀린 곳을 알려 주면(400) 그 말을, 아니면 다시 눌러 달라고
+      const msg = e instanceof Error ? e.message : '';
+      setError(msg && !msg.startsWith('저장하지 못했습니다') ? msg : '저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
     } finally {
       setSaving(false);
     }
@@ -387,41 +394,26 @@ export default function SectionPanel({
         ) : null}
 
         {keys.map((k) => {
-          // 체크인·아웃 / 영업·수업 시간은 버튼으로 빠르게 고른다(날짜·장소 칸의 시간은 글 그대로)
-          const timeMode = k === 'hours' && kind !== 'when' ? timeModeOf(fieldLabel(card, k)) : null;
-          if (timeMode) {
-            return (
-              <TimeRangeField
-                key={k}
-                id={`ed-site-${selected.id}-${k}`}
-                label={fieldLabel(card, k)}
-                mode={timeMode}
-                value={drafts[k] ?? ''}
-                disabled={saving}
-                onChange={(v) => editField(k, v)}
-              />
-            );
+          const fid = `ed-site-${selected.id}-${k}`;
+          const label = fieldLabel(card, k);
+          // 칸 종류별 공용 입력 부품(fields/): 전화번호는 하이픈 자동, 체크인·아웃은 시간 빠르게 고르기
+          if (k === 'phone') {
+            return <PhoneField key={k} id={fid} label={label} value={drafts[k] ?? ''} disabled={saving} onChange={(v) => editField(k, v)} />;
+          }
+          if (k === 'hours' && label.includes('체크인')) {
+            return <TimeRangeField key={k} id={fid} label={label} value={drafts[k] ?? ''} disabled={saving} onChange={(v) => editField(k, v)} />;
           }
           return (
-            <label key={k} className="ed-site-field" htmlFor={`ed-site-${selected.id}-${k}`}>
-              {fieldLabel(card, k)}
+            <label key={k} className="ed-site-field" htmlFor={fid}>
+              {label}
               <input
-                id={`ed-site-${selected.id}-${k}`}
+                id={fid}
                 className="ed-input"
-                type={k === 'phone' ? 'tel' : 'text'}
-                inputMode={k === 'phone' ? 'tel' : undefined}
-                autoComplete={k === 'phone' ? 'tel' : undefined}
-                placeholder={k === 'phone' ? '010-0000-0000' : undefined}
+                type="text"
                 value={drafts[k] ?? ''}
                 disabled={saving}
-                aria-describedby={k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? `ed-site-${selected.id}-phone-hint` : undefined}
                 onChange={(e) => editField(k, e.target.value)}
               />
-              {k === 'phone' && !phoneLooksOk(drafts[k] ?? '') ? (
-                <span id={`ed-site-${selected.id}-phone-hint`} className="ed-site-hint ed-site-hint--warn">
-                  번호가 덜 들어간 것 같아요. 예: 010-1234-5678
-                </span>
-              ) : null}
             </label>
           );
         })}

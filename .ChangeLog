@@ -1,6 +1,11 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/59  [합침 · claude/jolly-hamilton-rg8hfa ← main] main과 겹치는 작업 정리
+  - 이 브랜치에서 따로 만든 지도 빈 칸·가로 띠 끌기·전화번호 하이픈·시간 고르기는 main(5607f75·c7353be·a5eaec3)과 같은 일이라
+      main 쪽(지도 쪽창 /map-frame, .s-scroller, fields/PhoneField·TimeRangeField·validate.format_phone)을 남기고 이 브랜치 것은 뺌
+  - 이 브랜치에만 있는 '주변 안내'·'사진 구역 설정'(아래 두 항목)만 main 위에 남김
+
 10/04/02/51  [기능 · claude/jolly-hamilton-rg8hfa] 사진 구역 설정: 보일 사진 수 · 움직임
   - 빌더 사진 구역(space_photos·style_photos) 칸에 '사진 보이기': 사진 수(전체·3·6·9·12장), 움직임(기본·잔잔하게·생동감 있게·움직임 없음)
       모양(격자·넘기기·자동 흐름·벽돌 쌓기)은 기존 '모양' 카드. 누르면 미리보기에 먼저 그리고(draft) 저장
@@ -34,40 +39,58 @@
   - 테스트: 파이썬 tests/unit/test_around_edit.py 4개, 프런트 AroundEditor.test.tsx 5개
       전체: pytest 1560, vitest 163, tsc·vite build 통과. 390px 스크린숏(편집 칸·공개 모양) 확인
 
-10/04/02/35  [기능 · claude/jolly-hamilton-rg8hfa] 체크인·아웃 / 영업·수업 시간 빠르게 고르기
-  - 빌더 구역 칸의 시간 칸(hours)을 글 칸 하나 → 버튼 고르기 + 글 칸으로
-      숙박(라벨에 '체크인'): 체크인 14·15·16시, 체크아웃 10·11·12시 버튼 + 30분 간격 '다른 시각'
-      가게·수업(영업/수업/운영/이용 시간): 요일(매일·평일·주말), 여는·닫는 시간, 쉬는 날(월~일 여러 개)
-      고르면 "체크인 15:00 · 체크아웃 11:00", "매일 10:00~21:00, 월요일 휴무"로 글 칸이 채워짐(직접 고쳐도 됨)
-      채팅으로 들어온 글("15시 / 11시", "10~21시", "오후 3시 반")도 읽어 버튼을 맞춤. 시간대가 셋 이상이면 버튼을 막고 글 칸으로
-      날짜·장소 구역(when)의 시간은 글 칸 그대로
-      frontend/src/editor/timeRange.ts·TimeRangeField.tsx(신규), SectionPanel.tsx
-  - UI 요소·디자인 토큰: 새 CSS .ed-time·.ed-time__row·__name·__chips·__select·__text (editor.css)
-      기존 --ed-primary·--ed-on-primary·--ed-line·--ed-ink·--ed-note·--ed-field·--ed-focus만 사용(새 토큰 없음)
-      버튼 높이 44px, 숫자 고정폭(tabular-nums), 360px 이하에서는 이름 위·버튼 아래 한 줄로
-  - 테스트: 프런트 timeRange.test.ts 4개, TimeRangeField.test.tsx 4개. 전체 vitest 158 통과, tsc 통과
-      390·340px 스크린숏으로 가로 넘침 없음 확인
+10/04/02/54  [기능 · main] 공지: 어디서 고치는지 툴팁·켠 뒤 안내 + 켜진 공지 칩은 '고치기 창'으로
+  - 공지 창 제목 옆 ⓘ 도움말(공용 부품 frontend/src/editor/fields/InfoTip.tsx: 누르기·마우스 올리기·Esc·바깥 누르면 닫힘,
+      aria-expanded·role=status): 손님에게 어디 보이는지 / 켠 뒤 '공지' 칩을 다시 누르면 고치기·끄기 /
+      말로 고치기(고칠 곳 → 공지) / 공개 사이트에도 바로 반영
+  - 막 켠 뒤 한 번: 칩 줄 아래 안내(코치 마크 .bd-coach, 칩을 가리키는 꼬리) "고치거나 끄려면 위 공지 칩을 다시 누르세요"
+      + [알겠어요]. 공개 전·후 문구 다름. 움직임 줄이기 설정이면 나타나는 효과 없음
+  - 동작 바꿈: 켜진 공지 칩을 누르면 예전엔 바로 꺼졌다(고칠 길이 말로 고치기뿐) → 지금 글·사진으로 채운
+      '공지 고치기' 창을 열고 [닫기][공지 끄기][저장]. 저장·끄기 뒤 "공지를 고쳤어요/껐어요"
+  - 버그 수정: 빌더에서 공지를 다시 저장하면 사장님이 켠 '팝업으로도 띄우기'가 꺼지던 것 → 지금 설정 유지(app/api/start.py)
+  - 디자인 토큰: 기존 --ed-accent-line·--ed-slot-bg·--ed-slot-ink·--ed-card·--ed-focus만. 새 클래스 .ed-tip·.bd-coach·.bd-notice-head
+  - 테스트: vitest +2(BuilderPage), pytest +1(test_builder_api). pytest 1556·vitest 166·build 통과
 
-10/04/02/33  [기능 · claude/jolly-hamilton-rg8hfa] 전화번호 자동 하이픈 + 저장 형식 맞추기
-  - 빌더 전화번호 칸: 치는 동안 010-1234-5678로 나눔(02·지역번호·1588·0507·+82도). 하이픈 뒤 백스페이스는 숫자까지 지움
-      글이 섞이면("카톡으로 문의") 손대지 않음. 덜 들어가면 "번호가 덜 들어간 것 같아요" 안내(막지는 않음)
-      frontend/src/editor/phone.ts(신규), SectionPanel.tsx(구역 칸), builder/BuilderPage.tsx(가게 정보), EventEditor.tsx(양가 연락처)
-      editor.css .ed-site-hint--warn(기존 --ed-slot-ink 토큰)
-  - 서버 저장: 번호면 같은 규칙의 표준 표기로 저장(01096567830 → 010-9656-7830), 글이면 그대로
-      app/services/phone_format.py(신규), app/api/card.py _apply_fields
-  - 테스트: 파이썬 tests/unit/test_phone_format.py 15개, 프런트 src/editor/phone.test.ts 5개. API 저장 테스트는 옛 코드에서 실패 확인
+10/04/02/48  [기능 · main] 전화번호 하이픈 자동·저장 모양 통일 + 체크인·아웃 시간 빠르게 고르기 (공용 입력 부품 fields/)
+  - 전화번호 칸(frontend/src/editor/fields/PhoneField.tsx): type=tel·숫자 자판, 쓰는 동안 010-3333-2222처럼 하이픈,
+      커서가 하이픈에 밀리지 않음, 칸을 떠나면 자리수 검사(✓ 또는 이유), 주민번호 모양 막기
+  - 저장 모양: 서버가 숫자만 뽑아 자리 규칙대로 한 가지 모양으로(app/services/validate.py format_phone,
+      예 010-3333-2222 · 02-123-4567 · 1588-1234 · 0507-1234-5678). 틀린 번호는 400 "전화번호: 이유"로 저장 거부
+      (저장 전 미리 그리기는 쓰는 중인 값 그대로). 전화 걸기 링크는 숫자만(tel:01033332222) — 그대로
+  - 버그 수정: 네이버 스마트콜 0507-xxxx-xxxx(12자리)를 자리수 오류로 막던 것 → 050x는 11~12자리
+  - 체크인·아웃(fields/TimeRangeField.tsx): 체크인 14·15·16시, 체크아웃 10·11·12시 칩 + 30분 단위 시간 칸,
+      "손님에게 보이는 글" 미리 보기, "글로 직접 쓰기"(얼리 체크인 문의 같은 글은 덮어쓰지 않음).
+      예전 글("15시 / 11시", "오후 3시 반")도 읽어 칩에 켜 보임. 라벨에 '체크인'이 있는 칸(펜션)에만
+  - 고치기 칸: 서버가 알려 준 틀린 곳을 그대로 보임(예전엔 늘 "저장하지 못했어요")
+  - 디자인 토큰: 새로 만들지 않고 --ed-line·--ed-card·--ed-accent-line·--ed-slot-bg·--ed-note·--ed-focus.
+      새 클래스 .ed-chip(공용 칩)·.ed-chips·.ed-field-msg·.ed-timerange
+  - 테스트: vitest +19(fields.test.tsx, SectionPanel 칸 부품), pytest +13(test_phone_field.py). pytest 1555·vitest 164 통과
 
-10/04/02/23  [고침 · claude/jolly-hamilton-rg8hfa] 빌더 지도 빈 칸 · 2안 가로 띠 마우스로 넘기기 (+ 컴포넌트 엔진 브랜치 합침)
-  - 컴포넌트 엔진(claude/sweet-noether-jo25f0, 15f9012)을 이 브랜치로 합침. 이전 채팅방은 로그인 토큰 취소로 멈춤
-  - 지도 빈 칸 ①: SDK는 왔는데 그리기가 끝나지 않으면(load 콜백 없음) 지도 칸이 계속 비었다
-      → 5초 안에 못 그리면 예시 지도로 되돌림. templates/sections/around--map.mustache
-  - 지도 빈 칸 ②: 실시간 미리보기가 구역을 바꿔 끼우면 그 안의 <script>가 돌지 않아 지도를 다시 못 그렸다(엔진 회귀)
-      → 바꿔 끼운 구역의 script를 새로 만들어 다시 돌림. app/services/site_render.py _EDIT_SCRIPT run()
-  - 2안 '주변'(gallery--swipe) 등 가로 띠를 컴퓨터 마우스로 끌 수 없었다 → 빌더 미리보기에서 끌어 넘기기
-      app/services/site_render.py _DRAG_SCRIPT·_DRAG_STRIPS(띠가 있을 때만), _EDIT_STYLE에 손 모양 커서
-      끌었으면 구역 열기로 치지 않음. 시안·공개본은 스크립트 없이 그대로(기존 원칙)
-  - 테스트: tests/unit/test_preview_scripts.py 6개(문자열 3 + 실제 Chromium 3, 브라우저 없으면 건너뜀). 옛 코드에서 6개 모두 실패 확인
-      전체: pytest 1541 통과
+10/04/02/39  [버그 수정 · main] 2안 '주변' 사진 줄이 마우스로는 옆으로 안 넘어가던 것
+  - 원인(브라우저로 확인): CSS는 정상(overflow-x:auto). 손가락·트랙패드·Shift+휠은 넘어감.
+      마우스는 끌기 0px·스크롤바 0px(숨김)·휠은 페이지만 내려 빌더 미리보기(마우스)에서 '안 넘어간다'로 보였다
+  - 수정: 가로 넘기기 공용 부품 .s-scroller [data-scroller] — 마우스 화면에만 ‹ › 화살표(44px 원형),
+      끌어 넘기기(끄는 동안 맞춤 끔), 처음·끝에서 화살표 숨김(data-pos), 움직임 줄이기 설정이면 바로 이동
+      문서에 한 번 거는 스크립트(site_render._SCROLLER_SCRIPT)라 구역을 바꿔 끼워도 동작. 휴대폰은 그대로 손가락
+      사진 넘기기(gallery--swipe)와 사진 0장 예시 줄에 적용. 화살표 조각 templates/partials/scroller-buttons.mustache
+  - 시안 미리보기(스크립트 없음)에는 화살표를 빼고 스크립트도 안 넣는다. 품질 점검(evals/run_site_quality.py)은
+      data-action="scroll" 버튼을 페이지 스크립트 버튼으로 본다
+  - 확인: 변경 전 마우스 끌기 0px → 변경 후 252px, 화살표 0 → 252px(빌더처럼 줄인 srcdoc 틀 안에서)
+  - 테스트: tests/unit/test_scroller.py 5개. 전체 pytest 1542 통과
+
+10/04/02/26  [버그 수정 · main] 오시는 길 지도가 빈 칸으로 보이던 것
+  - 원인 ①: 그리기 코드가 SDK 껍데기만 오고 본체가 안 오면(kakao.maps.load 콜백 없음) 예시 지도로 되돌리지 못해 빈 칸이 남았다
+      브라우저 재현(가짜 SDK): 변경 전 빈 칸 219px → 변경 후 숨기고 예시 지도/주소만
+  - 원인 ②: 빌더 미리보기는 srcdoc 틀이라 SDK가 페이지 주소를 몰라 못 그릴 수 있고, 구역을 바꿔 끼우면(agt-patch)
+      구역 안 <script>가 아예 돌지 않는다(HTML 규칙) → 빈 칸
+  - 수정: 그리기 코드를 공용 조각 templates/partials/map-draw.mustache 하나로(여러 지도·5초 대기·실패 시 되돌림·data-map 표시)
+      편집 미리보기는 진짜 https 주소의 지도 쪽창 /map-frame?x=&y= (app/api/public.py, 좌표는 한국 범위만, CSP sandbox)
+      → 스크립트 없이 iframe으로 떠서 바꿔 끼워도 다시 그려짐. 쪽창을 눌러도 구역이 골라지게 pointer-events:none
+  - 실제 카카오 지도는 이 환경에서 카카오 서버가 막혀 확인 못 함 → 배포 뒤 빌더·공개 사이트에서 확인 필요
+  - 테스트: test_map_render +2, test_geo 미리보기 기대값 갱신
+
+10/04/02/23  [합치기 · main] 컴포넌트 엔진 브랜치(claude/sweet-noether-jo25f0)를 main에 합침 (25f103f)
+  - 합치기 전 확인: pytest 1535, vitest 145, vite build 통과
 
 10/04/01/46  [기능 · main] 사장님 휴대폰 알림(웹 푸시) — 무료, 앱 설치 없이 (OWNER_NOTIFY_PLAN N1·N2·N3·N5·N6·N7)
   - 서버: app/services/push.py 신규. VAPID 서명(ES256)·내용 암호화(aes128gcm)를 cryptography+httpx로 직접(새 의존성 없음)

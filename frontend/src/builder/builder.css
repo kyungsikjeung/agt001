@@ -343,6 +343,25 @@
   background: var(--ed-card, #fff);
 }
 
+.bd-notice-head { display: flex; align-items: center; gap: 2px; font-weight: 600; }
+.bd-btn-off { color: #ff8a80; }
+/* 막 켠 뒤 한 번: "어디서 고치나" 안내(코치 마크). 위 칩 줄을 가리키는 꼬리 */
+.bd-coach {
+  position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ed-accent-line, #c9a35a);
+  background: var(--ed-slot-bg, rgba(201, 163, 90, 0.16)); color: var(--ed-slot-ink, #f0d9a8);
+}
+.bd-coach p { margin: 0; flex: 1 1 220px; font-size: 14px; line-height: 1.5; }
+.bd-coach b { color: var(--ed-ink, #ecebe6); }
+.bd-coach__arrow {
+  position: absolute; top: -7px; left: 28px; width: 12px; height: 12px; transform: rotate(45deg);
+  background: inherit; border-left: inherit; border-top: inherit;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .bd-coach { animation: bd-coach-in 240ms ease-out; }
+  @keyframes bd-coach-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+}
+
 /* 공개 뒤 기능 안내 창 (J5): 공지 창과 같은 자리·모양, 제목과 ✕는 한 줄. */
 .bd-info-top {
   display: flex;

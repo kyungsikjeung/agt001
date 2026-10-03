@@ -302,7 +302,9 @@ def put_features(room_id: str, body: FeaturesIn, request: Request,
                 photos = [u for u in (body.photos or []) if str(u or "").strip()]
                 if not text and not photos:
                     raise HTTPException(status_code=400, detail="공지 글이나 사진을 넣어 주세요")
-                changed = card_api.save_notice(card, text, photos=photos)
+                # 빌더 창에는 팝업 칸이 없으니 지금 팝업 설정을 그대로 둔다(고쳐 저장해도 팝업이 꺼지지 않게)
+                popup = bool((card.get("notice") or {}).get("popup")) if isinstance(card.get("notice"), dict) else False
+                changed = card_api.save_notice(card, text, popup=popup, photos=photos)
             else:
                 changed = card_api.save_notice(card, "")
             if changed:

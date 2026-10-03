@@ -69,6 +69,29 @@ def test_no_geo_when_placeholder_or_missing():
 
 # ── 렌더: 좌표 있으면 공개본·미리보기 모두 실제 지도 ──
 
+def test_editor_preview_draws_map_in_https_frame(client):
+    """편집 미리보기(srcdoc 틀)는 SDK를 직접 부르지 않고 진짜 주소의 지도 쪽창을 띄운다(빈 칸 버그, 10/4)."""
+    spec = _around_spec({"x": 126.925, "y": 37.566})
+    page = site_render.render_site(spec, site_key="t", title="t", kind="cafe", edit=True)
+    assert 'src="/map-frame?x=126.925&amp;y=37.566"' in page
+    assert "dapi.kakao.com" not in page  # 구역을 바꿔 끼워도(agt-patch) 스크립트 없이 다시 뜬다
+    assert 'class="s-map__art" hidden' in page
+    r = client.get("/map-frame?x=126.925&y=37.566")
+    assert r.status_code == 200 and SDK_URL in r.text and 'data-x="126.925"' in r.text and 'data-y="37.566"' in r.text
+    assert r.headers["content-security-policy"] == "sandbox allow-scripts"
+    assert "draggable:false" in r.text and "data-map" in r.text  # 공개본과 같은 그리기 조각
+    for bad in ("x=10&y=37.5", "x=126.9&y=80", "x=abc&y=37.5", "x=126.9"):
+        assert client.get("/map-frame?" + bad).status_code == 422
+
+
+def test_map_draw_falls_back_when_load_never_finishes():
+    """SDK 껍데기는 왔는데 본체가 안 와도(load 콜백 없음) 5초 뒤 예시 지도로 되돌린다 — 빈 칸 방지."""
+    spec = _around_spec({"x": 126.925, "y": 37.566})
+    page = site_render.render_site(spec, site_key="t", title="t", kind="cafe", public=True)
+    assert "kakao.maps.load(function(){boxes.forEach(draw)})" in page
+    assert "setTimeout(function(){boxes.forEach(back)},5000)" in page
+
+
 def test_live_map_in_public_and_preview():
     spec = _around_spec({"x": 126.925, "y": 37.566})
     for public in (True, False):

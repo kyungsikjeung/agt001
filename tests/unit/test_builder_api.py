@@ -233,3 +233,16 @@ def test_app_shell_pages_are_no_cache(client):
     r = client.get("/start")
     if r.status_code == 200:
         assert r.headers["cache-control"] == "no-cache"
+
+
+def test_builder_notice_edit_keeps_popup(client):
+    """빌더 공지 고치기 창(칩 다시 누름)으로 글만 바꿔도 사장님이 켠 팝업은 그대로 (10/4)."""
+    body = _start(client)
+    rid, headers = body["room_id"], _owner(body)
+    r = client.put(f"/api/rooms/{rid}/card", json={"notice": {"text": "추석 휴무", "popup": True}}, headers=headers)
+    assert r.status_code == 200 and r.json()["notice"]["popup"] is True
+    r = client.put(f"/api/rooms/{rid}/features",
+                   json={"key": "notice", "on": True, "text": "추석 연휴 9/16~18 휴무"}, headers=headers)
+    assert r.status_code == 200
+    card = client.get(f"/api/rooms/{rid}/card", headers=headers).json()
+    assert card["notice"] == {"text": "추석 연휴 9/16~18 휴무", "popup": True, "photos": []}

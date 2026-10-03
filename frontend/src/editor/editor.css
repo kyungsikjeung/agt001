@@ -565,13 +565,6 @@
   color: var(--ed-note);
 }
 
-/* 전화번호가 덜 들어갔을 때 (막지는 않고 알려만 준다) */
-.ed-site-hint--warn {
-  display: block;
-  margin-top: 4px;
-  color: var(--ed-slot-ink);
-}
-
 .ed-sec-list {
   margin: 8px 0 0;
   padding: 0;
@@ -1344,74 +1337,65 @@
   .ed-style > summary::after { transition: none; }
 }
 
-/* ---- 시간 칸 빠르게 고르기 (TimeRangeField, 10/4): 이름 | 자주 쓰는 시각 버튼 + 30분 고르기, 아래 글 칸 ---- */
-.ed-time {
-  display: grid;
-  gap: 10px;
-  margin: 0 0 12px;
-  padding: 0;
-  border: 0;
-}
-.ed-time > legend {
-  padding: 0;
-  margin-bottom: 6px;
-  font-size: 15px;
-}
-.ed-time__row {
-  display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-}
-.ed-time__name {
-  padding-top: 12px; /* 버튼 첫 줄 가운데에 맞춤 (버튼이 두 줄로 넘어가도 이름은 위에) */
-  font-size: 14px;
-  color: var(--ed-note);
-}
-.ed-time__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-.ed-time__chips button {
-  min-height: 44px;
-  padding: 8px 12px;
+/* ── 공용 입력 부품 (fields/: PhoneField·TimeRangeField, 10/4) ── 기존 --ed-* 토큰만 쓴다 */
+.ed-field-msg { font-size: 13px; font-weight: 500; color: var(--ed-note); }
+.ed-field-msg--bad { color: #ff8a80; font-weight: 600; }
+.ed-site-field .ed-input[aria-invalid='true'] { border-color: #ff8a80; }
+.ed-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ed-chip {
+  min-height: 40px;
+  padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--ed-line);
-  background: transparent;
+  background: var(--ed-card);
   color: var(--ed-ink);
-  font-size: 14px;
+  font: inherit;
+  font-size: 15px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
 }
-.ed-time__chips button[aria-pressed='true'] {
-  background: var(--ed-primary);
-  border-color: var(--ed-primary);
-  color: var(--ed-on-primary);
+.ed-chip[aria-pressed='true'] {
+  border-color: var(--ed-accent-line);
+  box-shadow: inset 0 0 0 1px var(--ed-accent-line);
+  background: var(--ed-slot-bg);
+  color: var(--ed-slot-ink);
 }
-.ed-time__chips button:disabled,
-.ed-time__select:disabled { opacity: 0.55; }
-.ed-time__select {
-  min-height: 44px;
-  padding: 8px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--ed-line);
-  background: var(--ed-field);
-  color: var(--ed-ink);
-  font-size: 14px;
+.ed-chip:disabled { opacity: 0.5; cursor: default; }
+.ed-chip:focus-visible { outline: 2px solid var(--ed-focus); outline-offset: 2px; }
+.ed-timerange { margin: 8px 0; padding: 0; border: 0; display: grid; gap: 10px; }
+.ed-timerange > legend { padding: 0; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+.ed-timerange__row { display: grid; grid-template-columns: 72px 1fr; gap: 8px; align-items: center; }
+.ed-timerange__name { font-size: 14px; color: var(--ed-note); }
+.ed-timerange__time { width: auto; min-width: 120px; flex: 1 1 120px; }
+.ed-timerange__out { margin: 0; font-size: 13px; color: var(--ed-note); }
+.ed-timerange__out b { color: var(--ed-ink); }
+.ed-timerange__free { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ed-note); }
+@media (max-width: 380px) { .ed-timerange__row { grid-template-columns: 1fr; } }
+
+/* 도움말 말풍선 (fields/InfoTip.tsx) — ⓘ 원형 단추 + 아래로 열리는 말풍선 */
+.ed-tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+.ed-tip__btn {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--ed-line); background: var(--ed-card); color: var(--ed-note);
+  font: italic 700 13px/1 Georgia, serif; cursor: pointer;
 }
-.ed-time__chips button:focus-visible,
-.ed-time__select:focus-visible { outline: 2px solid var(--ed-focus); outline-offset: 2px; }
-.ed-time__text {
-  display: grid;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--ed-note);
+.ed-tip__btn::after { content: ''; position: absolute; inset: -10px; } /* 누를 곳 44px */
+.ed-tip__btn[aria-expanded='true'] { border-color: var(--ed-accent-line); color: var(--ed-slot-ink); }
+.ed-tip__btn:focus-visible { outline: 2px solid var(--ed-focus); outline-offset: 2px; }
+.ed-tip__bubble {
+  position: absolute; z-index: 30; top: calc(100% + 8px); left: -12px; width: min(300px, 78vw);
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--ed-accent-line);
+  background: var(--ed-card); color: var(--ed-ink); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  font-size: 13px; font-weight: 500; line-height: 1.5; text-align: start;
 }
-@media (max-width: 360px) {
-  .ed-time__row { grid-template-columns: 1fr; gap: 4px; }
-  .ed-time__name { padding-top: 0; }
+.ed-tip__bubble::before {
+  content: ''; position: absolute; top: -6px; left: 18px; width: 10px; height: 10px; transform: rotate(45deg);
+  background: var(--ed-card); border-left: 1px solid var(--ed-accent-line); border-top: 1px solid var(--ed-accent-line);
 }
+.ed-tip__bubble[hidden] { display: none; }
+.ed-tip__bubble ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.ed-tip__bubble b { color: var(--ed-slot-ink); }
 
 /* ---- 주변 안내 (AroundEditor, 10/4): 크게 보일 것 고르기 + 줄(장소 | 도보·차로·거리·직접 | 값+단위) ---- */
 .ed-around {

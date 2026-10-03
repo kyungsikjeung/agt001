@@ -18,10 +18,10 @@ import AddressSearch from './AddressSearch';
 import FeatureChips from './FeatureChips';
 import PhotoSheet, { type PhotoSheetPick } from './PhotoSheet';
 import NoticePhotos from '../editor/NoticePhotos';
+import InfoTip from '../editor/fields/InfoTip';
 import PublishBar from './PublishBar';
 import SayBar from './SayBar';
 import type { SayResponse, UndoResponse } from '../editor/cardApi';
-import { nextPhone } from '../editor/phone';
 
 const CHOICES = ['v1', 'v2', 'v3'] as const;
 const TOP_KEYS = ['shop_name', 'phone', 'location'] as const;
@@ -73,6 +73,9 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   const [infoKey, setInfoKey] = useState<string | null>(null);
   const [noticeText, setNoticeText] = useState('');
   const [noticePhotos, setNoticePhotos] = useState<string[]>([]);
+  // 이미 켜진 공지를 고치는 중인지(칩을 다시 누름), 막 켠 뒤 '어디서 고치나' 안내를 보일지
+  const [noticeEdit, setNoticeEdit] = useState(false);
+  const [noticeCoach, setNoticeCoach] = useState(false);
   const [pubBusy, setPubBusy] = useState(false);
   const [pubResult, setPubResult] = useState<PublishResult | null>(null);
   const [siteUrl, setSiteUrl] = useState<string | null>(null);
@@ -165,14 +168,24 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
   async function sendChip(key: string, on: boolean, text?: string, photos?: string[]) {
     setChipBusy(key);
     setChipMsg('');
+    const wasOn = features.find((f) => f.key === key)?.on ?? false;
+    const isNotice = key === noticeKey;
     try {
       const r = await putFeature(roomId, readMemberId(), key, on, text, photos);
       setFeatures(r.features);
       setNoticeKey(null);
       setNoticeText('');
       setNoticePhotos([]);
+      setNoticeEdit(false);
       setChangeSeq((n) => n + 1);
       control.current?.reload(r.focus);
+      if (isNotice || key === 'notice') {
+        // 다시 열 때 지금 공지 글·사진으로 채우려고 카드도 새로 받는다
+        void refreshCard();
+        setNoticeCoach(on && !wasOn);
+        if (on && wasOn) setChipMsg('공지를 고쳤어요.');
+        if (!on) setChipMsg('공지를 껐어요.');
+      }
     } catch {
       setChipMsg('바꾸지 못했어요. 잠시 뒤 다시 눌러 주세요.');
     } finally {
@@ -187,10 +200,14 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
       setInfoKey(chip.key);
       return;
     }
-    // 공지는 글을 적고 켠다.
-    if (chip.kind === 'shop' && chip.needs_text && !chip.on) {
+    // 공지는 글을 적고 켠다. 켜진 공지를 다시 누르면 바로 끄지 않고 고치기 창(글·사진·끄기)을 연다.
+    if (chip.kind === 'shop' && chip.needs_text) {
+      setInfoKey(null);
+      setNoticeCoach(false);
       setNoticeKey(chip.key);
-      setNoticeText('');
+      setNoticeEdit(chip.on);
+      setNoticeText(chip.on ? card?.notice?.text ?? '' : '');
+      setNoticePhotos(chip.on ? card?.notice?.photos ?? [] : []);
       return;
     }
     void sendChip(chip.key, !chip.on);
@@ -295,16 +312,10 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
                 <input
                   id={`bd-top-${k}`}
                   className="ed-input"
-                  type={k === 'phone' ? 'tel' : 'text'}
-                  inputMode={k === 'phone' ? 'tel' : undefined}
-                  autoComplete={k === 'phone' ? 'tel' : undefined}
-                  placeholder={k === 'phone' ? '010-0000-0000' : undefined}
+                  type="text"
                   value={drafts[k] ?? ''}
                   disabled={topBusy}
-                  onChange={(e) => {
-                    const raw = e.target.value;
-                    setDrafts((prev) => ({ ...prev, [k]: k === 'phone' ? nextPhone(prev[k] ?? '', raw) : raw }));
-                  }}
+                  onChange={(e) => setDrafts((prev) => ({ ...prev, [k]: e.target.value }))}
                 />
               </label>
             ))}
@@ -364,11 +375,32 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
           onUndone={handleSayUndone}
         />
         <FeatureChips features={features} busyKey={chipBusy} onToggle={toggleChip} />
+        {noticeCoach ? (
+          <div className="bd-coach" role="status">
+            <span aria-hidden="true" className="bd-coach__arrow" />
+            <p>
+              공지를 켰어요. 고치거나 끄려면 위 <b>공지</b> 칩을 다시 누르세요.
+              {card?.published ? ' 공개한 사이트에도 바로 보여요.' : ' 공개하면 사이트 맨 위에 보여요.'}
+            </p>
+            <button type="button" className="ed-btn" onClick={() => setNoticeCoach(false)}>
+              알겠어요
+            </button>
+          </div>
+        ) : null}
         {noticeChip ? (
-          <div className="bd-notice-sheet" role="dialog" aria-label="공지 적기">
-            <label htmlFor="bd-notice-text">
-              {noticeChip.label} 글
-              <input
+          <div className="bd-notice-sheet" role="dialog" aria-label={noticeEdit ? '공지 고치기' : '공지 적기'}>
+            <div className="bd-notice-head">
+              <label htmlFor="bd-notice-text">{noticeChip.label} 글</label>
+              <InfoTip label="공지 도움말">
+                <ul>
+                  <li>손님에게는 <b>사이트 맨 위 띠</b>로 보여요. 사진을 넣으면 눌러서 크게 봐요.</li>
+                  <li>켠 뒤 고치거나 끄려면 아래 <b>공지</b> 칩을 다시 누르세요. 이 창이 다시 열려요.</li>
+                  <li>말로도 돼요: <b>고칠 곳 → 공지</b>를 고르고 &ldquo;추석 휴무 안내로 바꿔 줘&rdquo;처럼 쓰세요.</li>
+                  <li>공개한 사이트에도 바로 바뀌어요.</li>
+                </ul>
+              </InfoTip>
+            </div>
+            <input
                 id="bd-notice-text"
                 className="ed-input"
                 type="text"
@@ -377,19 +409,28 @@ export default function BuilderPage({ roomId }: { roomId: string }) {
                 placeholder="예: 10월 3일은 쉬어요"
                 onChange={(e) => setNoticeText(e.target.value)}
               />
-            </label>
             <NoticePhotos roomId={roomId} photos={noticePhotos} onChange={setNoticePhotos} />
             <div className="ed-sheet-row">
               <button type="button" className="ed-btn" onClick={() => setNoticeKey(null)}>
                 닫기
               </button>
+              {noticeEdit ? (
+                <button
+                  type="button"
+                  className="ed-btn bd-btn-off"
+                  disabled={chipBusy !== null}
+                  onClick={() => void sendChip(noticeChip.key, false)}
+                >
+                  공지 끄기
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="ed-btn ed-btn--primary"
                 disabled={chipBusy !== null || (!noticeText.trim() && noticePhotos.length === 0)}
                 onClick={() => void sendChip(noticeChip.key, true, noticeText.trim(), noticePhotos)}
               >
-                켜기
+                {noticeEdit ? '저장' : '켜기'}
               </button>
             </div>
           </div>

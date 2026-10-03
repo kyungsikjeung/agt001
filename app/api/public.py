@@ -1,7 +1,8 @@
 """헬스체크, 시안 페이지, 생성 사이트 서빙."""
+import html
 import re
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 
 from app.config import settings
@@ -39,6 +40,33 @@ _TAKEN_DOWN_PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8"
 <body style="font-family:sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.6">
 <h1 style="font-size:1.3rem">지금은 볼 수 없는 사이트예요</h1>
 <p>이 사이트는 운영 정책에 따라 잠시 내려가 있어요.</p></body></html>"""
+
+
+# 편집 미리보기의 지도 쪽창 (MAP_CONTRACT §4). 미리보기는 srcdoc 틀이라 카카오 SDK가 주소를 몰라 못 그리므로
+# 진짜 https 주소의 이 작은 화면에서 그린다. 좌표만 받는다(한국 범위). 그리기 코드는 공개본과 같은 조각(map-draw).
+_MAP_FRAME_HEADERS = {
+    "Content-Security-Policy": "sandbox allow-scripts",
+    "X-Content-Type-Options": "nosniff",
+    "X-Robots-Tag": "noindex",
+    "Cache-Control": "public, max-age=3600",
+}
+_MAP_FRAME_PAGE = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>지도</title>
+<style>html,body{margin:0;height:100%%}body{background:#e9ece6;font:14px/1.5 system-ui,sans-serif;color:#5b5f57}
+.s-map__live{width:100%%;height:100%%}.s-map__art{position:absolute;inset:0;margin:0;display:grid;place-items:center;text-align:center;padding:12px}
+.s-map__art[hidden]{display:none}</style></head><body>
+<div class="s-map__live" data-x="%(x)s" data-y="%(y)s"></div>
+<p class="s-map__art" hidden>지도를 불러오지 못했어요.<br>잠시 뒤 다시 열어 보세요.</p>
+<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=%(key)s&autoload=false"></script>
+<script>%(draw)s</script></body></html>"""
+
+
+@router.get("/map-frame", include_in_schema=False)
+def map_frame(x: float = Query(..., ge=124, le=132), y: float = Query(..., ge=33, le=39)):
+    from app.services import components
+    page = _MAP_FRAME_PAGE % {"x": repr(x), "y": repr(y), "key": html.escape(settings.kakao_js_key, quote=True),
+                              "draw": components.partials().get("map-draw", "")}
+    return HTMLResponse(page, headers=_MAP_FRAME_HEADERS)
 
 
 def _project_dir(requirement_id: str, sub: str):

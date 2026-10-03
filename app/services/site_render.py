@@ -104,8 +104,10 @@ def _gallery_example_html(section_id: str, variant: str, kind: str, label: str =
         f'<section class="s-gallery s-gallery--{variant}"'
         f' data-section-id="{safe_id}" aria-labelledby="gallery-title-{safe_id}">'
         f'<h2 id="gallery-title-{safe_id}">{html.escape(label or "사진첩")}</h2>'
-        f'<ul class="{list_class}">{figures}</ul>'
-        '<p class="s-gallery__notice">사장님 사진으로 바뀌어요</p>'
+        + (f'<div class="s-scroller"><ul class="{list_class}" data-scroller>{figures}</ul>'
+           f'{COMP.partials().get("scroller-buttons", "")}</div>' if variant == "swipe"
+           else f'<ul class="{list_class}">{figures}</ul>')
+        + '<p class="s-gallery__notice">사장님 사진으로 바뀌어요</p>'
         "</section>"
     )
 
@@ -219,7 +221,6 @@ _DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 내 가�
 # 보며 고치기 미리보기 (EDIT_WAVE2_CONTRACT §3.3). 구역 뿌리의 data-section-id로만 구역을 알아낸다.
 # agt-patch·agt-theme(COMPONENT_ENGINE_PLAN §5): 빌더가 다시 그린 구역 조각만 바꿔 끼우고, 토큰 CSS·스타일 축을
 # 갈아 끼운다(새로 불러오지 않아 스크롤이 그대로). 부모 창이 보낸 것만 받는다.
-# 바꿔 끼운 구역 안의 <script>(지도 등)는 innerHTML로는 돌지 않아 새 script로 다시 넣어 돌린다.
 # agt-flash는 빌더가 칩으로 켠 구역으로 눈을 이끄는 1초 반짝임 (BUILDER_CONTRACT §3-4).
 _EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
                '[data-section-id]:hover{outline:2px dashed var(--c-primary);outline-offset:-2px}'
@@ -227,19 +228,13 @@ _EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
                'animation:agt-flash 1s ease}'
                '@keyframes agt-flash{0%{background:color-mix(in srgb,var(--c-primary) 25%,transparent)}'
                '100%{background:transparent}}'
-               '@media (prefers-reduced-motion: reduce){.agt-flash{animation:none}}'
-               # 가로 띠 마우스로 끌기(_DRAG_SCRIPT): 끌 수 있다는 손 모양, 끄는 동안 글자 선택·사진 끌기 막기
-               '@media (pointer: fine){:is(.s-gallery__swipe,.s-staff__row,.s-menu__chips,.s-tabs__nav,'
-               '.s-rooms__list--scroll,.s-cards--scroll,.s-timetable__scroll,.s-slots__times){cursor:grab}'
-               '.is-dragging{cursor:grabbing;user-select:none}.is-dragging img{pointer-events:none}}</style>')
+               '@media (prefers-reduced-motion: reduce){.agt-flash{animation:none}}</style>')
 _EDIT_SCRIPT = """<script>(function(){try{
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-section-id]'):null;if(!t){e.preventDefault();return;}var el=e.target;var txt='';try{txt=((el.innerText||el.alt)||'').trim().slice(0,80)}catch(_){}var src='';var idx=-1;try{if(el.tagName==='IMG'){src=el.getAttribute('src')||'';var imgs=t.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(imgs[i]===el){idx=i;break}}}}catch(_){}var photo=null;try{if(el.tagName!=='IMG'){var f=t.querySelector('img');if(f){photo={src:f.getAttribute('src')||'',index:0}}}}catch(_){}try{parent.postMessage({type:'agt-edit',section:t.getAttribute('data-section-id'),text:txt,img:el.tagName==='IMG',src:src,index:idx,photo:photo},'*')}catch(_){}e.preventDefault();},true);
 document.addEventListener('submit',function(e){e.preventDefault();},true);
 function sec(id){var all=document.querySelectorAll('[data-section-id]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('data-section-id')===id)return all[i]}return null}
-function run(el){var ss=el.querySelectorAll('script');for(var i=0;i<ss.length;i++){var o=ss[i],n=document.createElement('script');for(var j=0;j<o.attributes.length;j++)n.setAttribute(o.attributes[j].name,o.attributes[j].value);n.textContent=o.textContent;o.replaceWith(n)}}
 function patch(d){var fresh={};var ps=d.parts||[];for(var i=0;i<ps.length;i++){var p=ps[i];if(!p||typeof p.id!=='string'||typeof p.html!=='string')continue;var t=document.createElement('template');t.innerHTML=p.html;var el=t.content.firstElementChild;if(!el)continue;var old=sec(p.id);if(old){old.replaceWith(el)}fresh[p.id]=el}
 if(Array.isArray(d.order)){var cur=[].slice.call(document.querySelectorAll('body > [data-section-id]'));var first=cur[0];if(first){var mark=document.createComment('agt');first.parentNode.insertBefore(mark,first);var by={};for(var j=0;j<cur.length;j++){by[cur[j].getAttribute('data-section-id')]=cur[j];cur[j].remove()}for(var k=0;k<d.order.length;k++){var n=fresh[d.order[k]]||by[d.order[k]];if(n)mark.parentNode.insertBefore(n,mark)}mark.remove()}}
-for(var r in fresh){if(fresh[r].isConnected)run(fresh[r])}
 if(d.focus){var f=sec(d.focus);if(f){f.classList.add('agt-flash');setTimeout(function(){f.classList.remove('agt-flash')},1000)}}}
 function theme(d){var a=document.getElementById('agt-theme');if(a&&typeof d.css==='string')a.textContent=d.css;var m=document.getElementById('agt-motion');if(m&&typeof d.motion==='string')m.textContent=d.motion;var at=d.attrs||{};var ax=d.axes||[];for(var i=0;i<ax.length;i++){if(typeof at[ax[i]]==='string')document.body.setAttribute(ax[i],at[ax[i]]);else document.body.removeAttribute(ax[i])}}
 window.addEventListener('message',function(e){try{if(e.source!==parent)return;var d=e.data;if(!d||typeof d!=='object')return;if(d.type==='agt-patch'){patch(d);return}if(d.type==='agt-theme'){theme(d);return}if(!d.section)return;var q=sec(d.section);if(!q)return;if(d.type==='agt-scroll'){if(q.scrollIntoView)q.scrollIntoView()}else if(d.type==='agt-flash'){q.classList.add('agt-flash');setTimeout(function(){q.classList.remove('agt-flash')},1000)}}catch(_){}});
@@ -908,6 +903,24 @@ rs.forEach(r=>{const on=r===hit;r.classList.toggle("is-current",on);let b=r.quer
 
 
 # 초대·기념 부품 (청첩장 등): 남은 날(D-day)은 방문자 한국 날짜로, 계좌 복사는 클립보드가 될 때만 단추를 보인다.
+# 가로 넘기기 줄(.s-scroller [data-scroller])을 마우스로도: 화살표·끌어 넘기기·끝 표시(data-pos). 문서에 한 번만 걸어
+# 구역을 바꿔 끼워도(agt-patch) 그대로 동작한다. 화살표는 손가락 화면에서 CSS가 숨긴다.
+_SCROLLER_SCRIPT = """<script>(function(){try{
+var rm=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+function pos(t){var w=t.parentNode;if(!w||!w.classList||!w.classList.contains('s-scroller'))return;var max=t.scrollWidth-t.clientWidth;w.setAttribute('data-pos',max<=2?'none':t.scrollLeft<=2?'start':t.scrollLeft>=max-2?'end':'mid')}
+function all(){[].forEach.call(document.querySelectorAll('[data-scroller]'),pos)}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('.s-scroller__btn');if(!b)return;var t=b.parentNode.querySelector('[data-scroller]');if(!t)return;var d=parseInt(b.getAttribute('data-dir'),10)||1;t.scrollBy({left:d*Math.max(t.clientWidth*0.8,160),behavior:rm?'auto':'smooth'})});
+document.addEventListener('scroll',function(e){var t=e.target;if(t&&t.hasAttribute&&t.hasAttribute('data-scroller'))pos(t)},true);
+document.addEventListener('dragstart',function(e){if(e.target.closest&&e.target.closest('[data-scroller]'))e.preventDefault()});
+var drag=null;
+document.addEventListener('pointerdown',function(e){if(e.pointerType!=='mouse'||e.button!==0)return;var t=e.target.closest&&e.target.closest('[data-scroller]');if(!t||t.scrollWidth<=t.clientWidth)return;drag={t:t,x:e.clientX,l:t.scrollLeft,moved:false}});
+document.addEventListener('pointermove',function(e){if(!drag)return;var dx=e.clientX-drag.x;if(!drag.moved&&Math.abs(dx)<4)return;if(!drag.moved){drag.moved=true;drag.t.classList.add('is-dragging')}drag.t.scrollLeft=drag.l-dx});
+function end(){if(!drag)return;var t=drag.t;drag=null;t.classList.remove('is-dragging')}
+document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+all();window.addEventListener('resize',all);window.addEventListener('load',all);
+if(window.MutationObserver)new MutationObserver(all).observe(document.body,{childList:true,subtree:true});
+}catch(e){}})();</script>"""
+
 _EVENT_SCRIPT = """<script>
 (()=>{try{
 const n=new Date(new Date().toLocaleString("en-US",{timeZone:"Asia/Seoul"}));n.setHours(0,0,0,0);
@@ -917,25 +930,6 @@ if(navigator.clipboard)document.querySelectorAll("[data-copy]").forEach(b=>{b.hi
 navigator.clipboard.writeText(b.dataset.copy).then(()=>{b.textContent="복사됨";setTimeout(()=>{b.textContent="복사"},1500)},()=>{})})});
 }catch(e){}})();
 </script>"""
-
-# 가로 띠(옆으로 넘기는 사진·선생님·메뉴 칩 등)를 마우스로 끌어 넘긴다. 터치는 원래 밀리고, 마우스는 끌 수 없어
-# 컴퓨터에서 옆 사진을 못 보던 문제(10/4 2안 '주변'). 문서에 한 번만 걸어(위임) 바꿔 끼운 구역에도 그대로 듣는다.
-# 끌었으면 바로 뒤 누름(편집 미리보기의 구역 열기 포함)은 버린다. 시안·공개본은 스크립트 없이 두므로 편집 미리보기(빌더)만.
-_DRAG_STRIPS = (".s-gallery__swipe", ".s-staff__row", ".s-menu__chips", ".s-tabs__nav",
-                ".s-rooms__list--scroll", ".s-cards--scroll", ".s-timetable__scroll", ".s-slots__times")
-_DRAG_SCRIPT = """<script>
-(()=>{try{if(!matchMedia("(pointer: fine)").matches)return;
-const S="%s";let el=null,x=0,l=0,moved=false;
-const end=()=>{const t=el;el=null;if(!t||!moved)return;t.style.scrollSnapType="";t.classList.remove("is-dragging");
-const k=e=>{e.preventDefault();e.stopImmediatePropagation()};addEventListener("click",k,true);setTimeout(()=>removeEventListener("click",k,true),0)};
-addEventListener("pointerdown",e=>{if(e.pointerType!=="mouse"||e.button!==0)return;const t=e.target.closest&&e.target.closest(S);
-if(!t||t.scrollWidth<=t.clientWidth+1)return;el=t;x=e.clientX;l=t.scrollLeft;moved=false},true);
-addEventListener("pointermove",e=>{if(!el)return;if(!e.buttons){end();return}const dx=e.clientX-x;
-if(!moved){if(Math.abs(dx)<6)return;moved=true;el.style.scrollSnapType="none";el.classList.add("is-dragging")}el.scrollLeft=l-dx},true);
-addEventListener("pointerup",end,true);addEventListener("pointercancel",end,true);
-addEventListener("dragstart",e=>{if(e.target.closest&&e.target.closest(S))e.preventDefault()},true);
-}catch(e){}})();
-</script>""" % ",".join(_DRAG_STRIPS)
 
 _WEEKDAYS = ("월", "화", "수", "목", "금", "토", "일")
 
@@ -1756,6 +1750,10 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
             parts.append((str(section_id), _apply_motion(_apply_tone(
                 _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section), section)))
             continue
+        if edit and section_type == "around" and ctx.get("has_geo"):
+            # 편집 미리보기(srcdoc 틀)에서는 카카오 SDK가 제 주소를 몰라 지도를 못 그린다 → 진짜 https 주소의 지도 쪽창으로.
+            # 구역을 바꿔 끼워도(agt-patch) 스크립트 없이 다시 뜬다.
+            ctx["map_frame"] = f"/map-frame?x={ctx['geo_x']}&y={ctx['geo_y']}"
         if section_type == "guestbook":
             ctx["public"] = public
         # 공용 제목 조각 {{> label}}의 기본 제목은 등록표에서 (components.json)
@@ -1848,10 +1846,15 @@ def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
     font_link = f'<link rel="stylesheet" href="{PRETENDARD_CSS}">'
     if isinstance(css2_url, str) and css2_url.startswith("https://"):
         font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
-    if edit and any(f'class="{c[1:]}' in h or f' {c[1:]}"' in h or f' {c[1:]} ' in h for _, h in parts for c in _DRAG_STRIPS):
-        parts.append(("@drag", _DRAG_SCRIPT))
     if public and need_season_script:
         parts.append(("@season", _SEASON_SCRIPT))
+    if public and any("data-scroller" in part for _key, part in parts) or edit:
+        parts.append(("@scroller", _SCROLLER_SCRIPT))
+    elif not public:
+        # 시안 미리보기는 스크립트가 돌지 않으니(sandbox) 화살표를 빼 둔다(손가락 넘기기·스크롤바는 그대로)
+        btns = COMP.partials().get("scroller-buttons", "")
+        if btns:
+            parts = [(key, part.replace(btns, "")) for key, part in parts]
     if need_event_script and not edit:
         # 편집 미리보기는 누름을 고치기로 받으므로 복사·D-day 스크립트를 넣지 않는다.
         parts.append(("@event", _EVENT_SCRIPT))
