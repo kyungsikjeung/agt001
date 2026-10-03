@@ -13,6 +13,7 @@ from app.api.auth import _check_origin
 from app.security import sanitize_token
 from app.services import card_data, design, prd_engine, rooms
 from app.services import photos as photos_svc
+from app.services import validate as V
 
 router = APIRouter()
 S = prd_engine.S
@@ -391,8 +392,11 @@ def _apply_style(card: dict, style: StyleIn) -> bool:
     return True
 
 
-def _apply_fields(card: dict, fields: dict, turn: int) -> list[str]:
-    """빌더 칸 고치기 (§2.2). 바뀐 칸 이름 목록. 저장 전 미리 그리기(draft)도 같은 규칙을 쓴다."""
+def _apply_fields(card: dict, fields: dict, turn: int, strict: bool = False) -> list[str]:
+    """빌더 칸 고치기 (§2.2). 바뀐 칸 이름 목록. 저장 전 미리 그리기(draft)도 같은 규칙을 쓴다.
+
+    전화번호는 한 가지 모양(validate.format_phone)으로 저장한다. strict(저장)면 틀린 번호는 400으로 돌려보내고,
+    미리 그리기는 쓰는 중인 값을 그대로 보인다."""
     changed = []
     for key, raw in (fields or {}).items():
         if key not in EDITABLE:
@@ -406,6 +410,11 @@ def _apply_fields(card: dict, fields: dict, turn: int) -> list[str]:
         else:
             if key == "phone":
                 value = prd_engine._spoken_phone(value)
+                problem = V.check_phone(value)
+                if problem is None:
+                    value = V.format_phone(value)
+                elif strict:
+                    raise HTTPException(status_code=400, detail=f"전화번호: {problem}")
             prd_engine._put(card, key, value, S.FILLED, turn, "editor")
         changed.append(key)
     return changed
@@ -603,7 +612,7 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
         if card is None:
             card = session["prd"] = prd_engine.new_card()
         turn = card.get("turn", 0)
-        changed = _apply_fields(card, body.fields or {}, turn)
+        changed = _apply_fields(card, body.fields or {}, turn, strict=True)
         if body.notice is not None:
             if save_notice(card, body.notice.text, body.notice.popup, body.notice.photos):
                 changed.append("notice")

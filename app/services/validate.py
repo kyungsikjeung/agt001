@@ -56,8 +56,11 @@ def check_phone(value: str) -> Optional[str]:
         return _PHONE_LEN_MSG
     if _REP_RE.match(digits):
         return None
-    if digits.startswith("070") or _INTERNET_RE.match(digits):
+    if digits.startswith("070"):
         return None if 10 <= len(digits) <= 11 else _PHONE_LEN_MSG
+    if _INTERNET_RE.match(digits):
+        # 050x 안심번호는 11~12자리(네이버 스마트콜 0507-1234-5678은 12자리)
+        return None if 11 <= len(digits) <= 12 else _PHONE_LEN_MSG
     for head in _MOBILE:
         if digits.startswith(head):
             return None if 10 <= len(digits) <= 11 else _PHONE_LEN_MSG
@@ -66,6 +69,21 @@ def check_phone(value: str) -> Optional[str]:
             # 02는 짧은 자리(9~10자리)도 쓰고 031~064는 10~11자리가 흔해서 9~11자리로 본다
             return None if 9 <= len(digits) <= 11 else _PHONE_LEN_MSG
     return _PHONE_LEN_MSG
+
+
+def format_phone(value: str) -> str:
+    """전화번호를 한 가지 모양으로: 숫자만 뽑아 자리 규칙대로 하이픈(010-1234-5678, 02-123-4567, 1588-1234,
+    0507-1234-5678). check_phone을 통과한 값에 쓴다. 규칙 밖이면 숫자만 돌려준다.
+    화면 입력 칸도 같은 규칙으로 바꿔 보인다(frontend/src/editor/fields/phone.ts)."""
+    d = _only_digits(value)
+    if _REP_RE.match(d):
+        return f"{d[:4]}-{d[4:]}"
+    if d.startswith("02") and len(d) in (9, 10):
+        return f"02-{d[2:-4]}-{d[-4:]}"
+    head = 4 if _INTERNET_RE.match(d) else 3
+    if len(d) in (head + 7, head + 8):
+        return f"{d[:head]}-{d[head:-4]}-{d[-4:]}"
+    return d
 
 
 # 시간 범위를 읽는 모양 (예: "9~18시", "10시-20시")

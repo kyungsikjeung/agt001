@@ -8,6 +8,9 @@ import EventEditor from './EventEditor';
 import GuestbookAdmin from './GuestbookAdmin';
 import RsvpSummary from './RsvpSummary';
 import StaffEditor from './StaffEditor';
+import PhoneField from './fields/PhoneField';
+import TimeRangeField from './fields/TimeRangeField';
+import { checkPhone, hasSpokenDigits } from './fields/phone';
 import ItemList, { buildGroupsOp, buildItemOps, groupError, initDrafts, type GroupDraft, type ItemDraft } from './ItemList';
 import {
   fetchCard,
@@ -283,12 +286,21 @@ export default function SectionPanel({
         }
       }
       if (Object.keys(fields).length === 0 && ops.length === 0 && !groupsOp) return;
+      if (fields.phone && !hasSpokenDigits(fields.phone)) {
+        const bad = checkPhone(fields.phone);
+        if (bad) {
+          setError(`전화번호: ${bad}`);
+          return;
+        }
+      }
       const extra = ops.length > 0 || groupsOp ? { ...(ops.length > 0 ? { items: ops } : {}), ...(groupsOp ? { groups: groupsOp } : {}) } : undefined;
       const updated = await saveCard(roomId, readMemberId(), fields, undefined, extra);
       onSaved(updated, selId);
       setInfo('저장했어요.');
-    } catch {
-      setError('저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    } catch (e) {
+      // 서버가 틀린 곳을 알려 주면(400) 그 말을, 아니면 다시 눌러 달라고
+      const msg = e instanceof Error ? e.message : '';
+      setError(msg && !msg.startsWith('저장하지 못했습니다') ? msg : '저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
     } finally {
       setSaving(false);
     }
@@ -358,19 +370,30 @@ export default function SectionPanel({
           <AddressSearch roomId={roomId} onSaved={(c) => onSaved(c, selected.id)} />
         ) : null}
 
-        {keys.map((k) => (
-          <label key={k} className="ed-site-field" htmlFor={`ed-site-${selected.id}-${k}`}>
-            {fieldLabel(card, k)}
-            <input
-              id={`ed-site-${selected.id}-${k}`}
-              className="ed-input"
-              type="text"
-              value={drafts[k] ?? ''}
-              disabled={saving}
-              onChange={(e) => editField(k, e.target.value)}
-            />
-          </label>
-        ))}
+        {keys.map((k) => {
+          const fid = `ed-site-${selected.id}-${k}`;
+          const label = fieldLabel(card, k);
+          // 칸 종류별 공용 입력 부품(fields/): 전화번호는 하이픈 자동, 체크인·아웃은 시간 빠르게 고르기
+          if (k === 'phone') {
+            return <PhoneField key={k} id={fid} label={label} value={drafts[k] ?? ''} disabled={saving} onChange={(v) => editField(k, v)} />;
+          }
+          if (k === 'hours' && label.includes('체크인')) {
+            return <TimeRangeField key={k} id={fid} label={label} value={drafts[k] ?? ''} disabled={saving} onChange={(v) => editField(k, v)} />;
+          }
+          return (
+            <label key={k} className="ed-site-field" htmlFor={fid}>
+              {label}
+              <input
+                id={fid}
+                className="ed-input"
+                type="text"
+                value={drafts[k] ?? ''}
+                disabled={saving}
+                onChange={(e) => editField(k, e.target.value)}
+              />
+            </label>
+          );
+        })}
 
         {kind === 'hero' ? (
           <label className="ed-site-field ed-file" htmlFor={`ed-site-${selected.id}-photo`}>
