@@ -142,6 +142,7 @@ INDUSTRIES: dict[str, Industry] = {i.key: i for i in [
         hidden=(("supplies", "준비물 안내"), ("parking", "주차"), ("group", "단체·기업 수업"), ("delivery", "완성품 배송")),
         questions={
             "offerings": Question("offerings", "어떤 수업을 하시나요?", options=("원데이 클래스", "정규반", "둘 다")),
+            "hours": Question("hours", "수업 시간을 알려 주세요. 예: 토·일 10시~18시", options=("나중에 넣을게요",)),
             "goal": Question("goal", "사이트로 가장 이루고 싶은 것은 무엇인가요?", options=("수업 신청 받기", "작품 알리기", "수업·가격 안내")),
         },
     ),
