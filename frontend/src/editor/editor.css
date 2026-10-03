@@ -1372,3 +1372,27 @@
 .ed-timerange__out b { color: var(--ed-ink); }
 .ed-timerange__free { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--ed-note); }
 @media (max-width: 380px) { .ed-timerange__row { grid-template-columns: 1fr; } }
+
+/* 도움말 말풍선 (fields/InfoTip.tsx) — ⓘ 원형 단추 + 아래로 열리는 말풍선 */
+.ed-tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+.ed-tip__btn {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  border-radius: 50%; border: 1px solid var(--ed-line); background: var(--ed-card); color: var(--ed-note);
+  font: italic 700 13px/1 Georgia, serif; cursor: pointer;
+}
+.ed-tip__btn::after { content: ''; position: absolute; inset: -10px; } /* 누를 곳 44px */
+.ed-tip__btn[aria-expanded='true'] { border-color: var(--ed-accent-line); color: var(--ed-slot-ink); }
+.ed-tip__btn:focus-visible { outline: 2px solid var(--ed-focus); outline-offset: 2px; }
+.ed-tip__bubble {
+  position: absolute; z-index: 30; top: calc(100% + 8px); left: -12px; width: min(300px, 78vw);
+  padding: 10px 12px; border-radius: 10px; border: 1px solid var(--ed-accent-line);
+  background: var(--ed-card); color: var(--ed-ink); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35);
+  font-size: 13px; font-weight: 500; line-height: 1.5; text-align: start;
+}
+.ed-tip__bubble::before {
+  content: ''; position: absolute; top: -6px; left: 18px; width: 10px; height: 10px; transform: rotate(45deg);
+  background: var(--ed-card); border-left: 1px solid var(--ed-accent-line); border-top: 1px solid var(--ed-accent-line);
+}
+.ed-tip__bubble[hidden] { display: none; }
+.ed-tip__bubble ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.ed-tip__bubble b { color: var(--ed-slot-ink); }

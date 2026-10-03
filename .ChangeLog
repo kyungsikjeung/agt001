@@ -1,6 +1,18 @@
 # .ChangeLog — 변경 기록
 # 시각은 KST, 형식 mm/dd/hh/mm. 최신이 위.
 
+10/04/02/54  [기능 · main] 공지: 어디서 고치는지 툴팁·켠 뒤 안내 + 켜진 공지 칩은 '고치기 창'으로
+  - 공지 창 제목 옆 ⓘ 도움말(공용 부품 frontend/src/editor/fields/InfoTip.tsx: 누르기·마우스 올리기·Esc·바깥 누르면 닫힘,
+      aria-expanded·role=status): 손님에게 어디 보이는지 / 켠 뒤 '공지' 칩을 다시 누르면 고치기·끄기 /
+      말로 고치기(고칠 곳 → 공지) / 공개 사이트에도 바로 반영
+  - 막 켠 뒤 한 번: 칩 줄 아래 안내(코치 마크 .bd-coach, 칩을 가리키는 꼬리) "고치거나 끄려면 위 공지 칩을 다시 누르세요"
+      + [알겠어요]. 공개 전·후 문구 다름. 움직임 줄이기 설정이면 나타나는 효과 없음
+  - 동작 바꿈: 켜진 공지 칩을 누르면 예전엔 바로 꺼졌다(고칠 길이 말로 고치기뿐) → 지금 글·사진으로 채운
+      '공지 고치기' 창을 열고 [닫기][공지 끄기][저장]. 저장·끄기 뒤 "공지를 고쳤어요/껐어요"
+  - 버그 수정: 빌더에서 공지를 다시 저장하면 사장님이 켠 '팝업으로도 띄우기'가 꺼지던 것 → 지금 설정 유지(app/api/start.py)
+  - 디자인 토큰: 기존 --ed-accent-line·--ed-slot-bg·--ed-slot-ink·--ed-card·--ed-focus만. 새 클래스 .ed-tip·.bd-coach·.bd-notice-head
+  - 테스트: vitest +2(BuilderPage), pytest +1(test_builder_api). pytest 1556·vitest 166·build 통과
+
 10/04/02/48  [기능 · main] 전화번호 하이픈 자동·저장 모양 통일 + 체크인·아웃 시간 빠르게 고르기 (공용 입력 부품 fields/)
   - 전화번호 칸(frontend/src/editor/fields/PhoneField.tsx): type=tel·숫자 자판, 쓰는 동안 010-3333-2222처럼 하이픈,
       커서가 하이픈에 밀리지 않음, 칸을 떠나면 자리수 검사(✓ 또는 이유), 주민번호 모양 막기

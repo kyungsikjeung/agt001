@@ -225,6 +225,58 @@ describe('BuilderPage', () => {
     expect(puts[0]).toEqual({ key: 'notice', on: true, text: '10월 3일은 쉬어요' });
   });
 
+  it('공지를 켜면 "공지 칩을 다시 누르세요" 안내가 뜨고, 도움말(ⓘ)은 고치는 곳을 알려 준다', async () => {
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features') && init?.method === 'PUT') {
+        return okJson({ features: FEATURES.map((f) => (f.key === 'notice' ? { ...f, on: true } : f)), focus: null });
+      }
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: FEATURES });
+      return okJson(CARD);
+    });
+    render(<BuilderPage roomId="r1" />);
+    fireEvent.click(await screen.findByRole('button', { name: '공지' }));
+    const tip = screen.getByRole('button', { name: '공지 도움말' });
+    expect(tip).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(tip);
+    expect(tip).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/칩을 다시 누르세요\. 이 창이 다시 열려요/)).toBeInTheDocument();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(tip).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.change(screen.getByPlaceholderText('예: 10월 3일은 쉬어요'), { target: { value: '추석 휴무' } });
+    fireEvent.click(screen.getByRole('button', { name: '켜기' }));
+    expect(await screen.findByText(/공지를 켰어요\. 고치거나 끄려면 위/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '알겠어요' }));
+    expect(screen.queryByText(/공지를 켰어요\. 고치거나 끄려면 위/)).not.toBeInTheDocument();
+  });
+
+  it('켜진 공지 칩을 다시 누르면 바로 끄지 않고 지금 글로 고치기 창을 연다(저장·끄기)', async () => {
+    const puts: unknown[] = [];
+    const on = FEATURES.map((f) => (f.key === 'notice' ? { ...f, on: true } : f));
+    stubFetch(async (url, init) => {
+      if (url.includes('/card/preview')) return okJson(PREVIEW);
+      if (url.includes('/features') && init?.method === 'PUT') {
+        puts.push(JSON.parse(String(init.body)));
+        return okJson({ features: on, focus: null });
+      }
+      if (url.includes('/features')) return okJson({ variant: 'v1', features: on });
+      return okJson({ ...CARD, notice: { text: '추석 휴무', popup: false, photos: [] } });
+    });
+    render(<BuilderPage roomId="r1" />);
+    fireEvent.click(await screen.findByRole('button', { name: '공지' }));
+    expect(puts).toHaveLength(0); // 누르자마자 끄지 않는다
+    expect(screen.getByRole('dialog', { name: '공지 고치기' })).toBeInTheDocument();
+    expect(screen.getByDisplayValue('추석 휴무')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('추석 휴무'), { target: { value: '추석 연휴 9/16~18 휴무' } });
+    fireEvent.click(screen.getByRole('button', { name: '저장' }));
+    await waitFor(() => expect(puts).toHaveLength(1));
+    expect(puts[0]).toEqual({ key: 'notice', on: true, text: '추석 연휴 9/16~18 휴무' });
+    fireEvent.click(await screen.findByRole('button', { name: '공지' }));
+    fireEvent.click(screen.getByRole('button', { name: '공지 끄기' }));
+    await waitFor(() => expect(puts).toHaveLength(2));
+    expect(puts[1]).toEqual({ key: 'notice', on: false });
+  });
+
   it('모양 바꾸기는 PUT /card {choice}로 저장한다', async () => {
     const puts: unknown[] = [];
     stubFetch(async (url, init) => {
