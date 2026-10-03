@@ -1,5 +1,5 @@
 <section class="s-gallery s-gallery--marquee" data-section-id="{{id}}" aria-labelledby="gallery-title-{{id}}">
-  <h2 id="gallery-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}사진첩{{/label}}</h2>
+  <h2 id="gallery-title-{{id}}">{{> label}}</h2>
   <div class="s-marquee">
     <ul class="s-marquee__track">
       {{#items_twice}}<li{{#repeat}} class="s-marquee__repeat" aria-hidden="true"{{/repeat}}><figure>{{#src}}<img src="{{src}}" alt="{{alt}}" loading="lazy">{{#ai_badge}}<span class="s-illu-badge">AI 예시</span>{{/ai_badge}}{{/src}}{{#caption}}<figcaption>{{caption}}</figcaption>{{/caption}}</figure></li>{{/items_twice}}

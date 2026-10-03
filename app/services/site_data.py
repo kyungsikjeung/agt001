@@ -413,7 +413,7 @@ def _fill_catalog(sec: dict, data: dict, pack: dict, archetype: str, order: bool
         # 사진 카드(옆으로 넘기기)·사진 격자: 메뉴판 묶음을 항목 카드로 펼친다 (예전엔 빈 칸으로 나왔다).
         sec["content"] = {"label": sec.get("label") or "메뉴", "items": _catalog_card_items(card or {}, data, pack)}
         return
-    if sec.get("variant") == "list-price":
+    if sec.get("variant") in ("list-price", "compact"):  # compact(두 줄 메뉴판)도 같은 줄 목록
         content = {"label": sec.get("label") or ("시술·가격" if archetype == "B" else "메뉴"),
                    "items": _catalog_flat_items(data, pack)}
         if order:

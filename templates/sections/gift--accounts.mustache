@@ -1,5 +1,5 @@
 <section class="s-gift s-gift--accounts" data-section-id="{{id}}" aria-labelledby="gift-title-{{id}}">
-  <h2 id="gift-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}마음 전하실 곳{{/label}}{{#example}} <span class="s-example" title="예시 계좌: 공개할 때 빠져요">예시</span>{{/example}}</h2>
+  <h2 id="gift-title-{{id}}">{{> label}}{{#example}} <span class="s-example" title="예시 계좌: 공개할 때 빠져요">예시</span>{{/example}}</h2>
   {{#note}}<p class="s-gift__note">{{note}}</p>{{/note}}
   {{#has_sides}}
   {{#sides}}

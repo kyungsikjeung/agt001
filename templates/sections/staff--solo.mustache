@@ -6,7 +6,7 @@
       {{^image_src}}<span class="s-staff__avatar s-staff__avatar--mono s-solo__mono" aria-hidden="true">{{initial}}</span>{{/image_src}}
     </figure>
     <div class="s-solo__body">
-      <p class="s-kicker">{{#label}}{{label}}{{/label}}{{^label}}혼자 끝까지 책임져요{{/label}}</p>
+      <p class="s-kicker">{{> label}}</p>
       <h2 id="staff-title-{{id}}"><span class="s-staff__role">{{role}}</span> {{name}}{{#example}} <span class="s-example">예시</span>{{/example}}</h2>
       {{#bio}}<p class="s-solo__bio">{{bio}}</p>{{/bio}}
       {{#has_specialties}}<ul class="s-tags" aria-label="전문 분야">{{#specialties}}<li>{{text}}</li>{{/specialties}}</ul>{{/has_specialties}}

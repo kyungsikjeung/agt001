@@ -1,5 +1,5 @@
 <section class="s-guestbook s-guestbook--list" data-section-id="{{id}}" aria-labelledby="guestbook-title-{{id}}">
-  <h2 id="guestbook-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}방명록{{/label}}</h2>
+  <h2 id="guestbook-title-{{id}}">{{> label}}</h2>
   <form class="s-form s-guestbook__form" method="post" action="/api/guestbook/{{site_key}}" enctype="application/x-www-form-urlencoded">
     <p class="s-form__row">
       <label for="guestbook-name-{{id}}">이름</label>

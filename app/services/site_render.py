@@ -9,6 +9,7 @@
 - templates/README.md (§2 토큰→CSS 변수, §3 부품별 변수, §4 파생값, §5 문의 폼)
 - docs/product/SECTION_LIBRARY_SPEC.md (§1 토큰 파생값, §1.5 image_style, §2 부품)
 """
+import hashlib
 import html
 import json
 import re
@@ -18,6 +19,7 @@ from urllib.parse import quote
 import chevron
 
 from app.config import settings
+from app.services import components as COMP
 from app.services.video_links import parse_video_url
 
 
@@ -143,6 +145,9 @@ def _bundle() -> dict:
             site_css = "\n".join([site_css, *extra])
     built = {
         "templates": templates,
+        # 공용 조각 (templates/partials, COMPONENT_ENGINE_PLAN §2). 줄 안에 끼워 쓰므로 끝 줄바꿈 없음.
+        "partials": COMP.partials(),
+        "partials_path": str(base / "partials"),
         "palettes": palettes,
         "font_pairs": font_pairs,
         "density": density,
@@ -212,6 +217,8 @@ _DRAFT_NOTE = ('<p class="s-draft-note">사진·지도는 예시예요. 내 가�
                '<style>body:not(.is-public) .s-illu-badge,body:not(.is-public) .s-example--keep{display:none}</style>')
 
 # 보며 고치기 미리보기 (EDIT_WAVE2_CONTRACT §3.3). 구역 뿌리의 data-section-id로만 구역을 알아낸다.
+# agt-patch·agt-theme(COMPONENT_ENGINE_PLAN §5): 빌더가 다시 그린 구역 조각만 바꿔 끼우고, 토큰 CSS·스타일 축을
+# 갈아 끼운다(새로 불러오지 않아 스크롤이 그대로). 부모 창이 보낸 것만 받는다.
 # agt-flash는 빌더가 칩으로 켠 구역으로 눈을 이끄는 1초 반짝임 (BUILDER_CONTRACT §3-4).
 _EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
                '[data-section-id]:hover{outline:2px dashed var(--c-primary);outline-offset:-2px}'
@@ -223,7 +230,12 @@ _EDIT_STYLE = ('<style>[data-section-id]{cursor:pointer}'
 _EDIT_SCRIPT = """<script>(function(){try{
 document.addEventListener('click',function(e){var t=e.target&&e.target.closest?e.target.closest('[data-section-id]'):null;if(!t){e.preventDefault();return;}var el=e.target;var txt='';try{txt=((el.innerText||el.alt)||'').trim().slice(0,80)}catch(_){}var src='';var idx=-1;try{if(el.tagName==='IMG'){src=el.getAttribute('src')||'';var imgs=t.querySelectorAll('img');for(var i=0;i<imgs.length;i++){if(imgs[i]===el){idx=i;break}}}}catch(_){}var photo=null;try{if(el.tagName!=='IMG'){var f=t.querySelector('img');if(f){photo={src:f.getAttribute('src')||'',index:0}}}}catch(_){}try{parent.postMessage({type:'agt-edit',section:t.getAttribute('data-section-id'),text:txt,img:el.tagName==='IMG',src:src,index:idx,photo:photo},'*')}catch(_){}e.preventDefault();},true);
 document.addEventListener('submit',function(e){e.preventDefault();},true);
-window.addEventListener('message',function(e){try{var d=e.data;if(!d||!d.section)return;var q=document.querySelector('[data-section-id="'+d.section+'"]');if(!q)return;if(d.type==='agt-scroll'){if(q.scrollIntoView)q.scrollIntoView()}else if(d.type==='agt-flash'){q.classList.add('agt-flash');setTimeout(function(){q.classList.remove('agt-flash')},1000)}}catch(_){}});
+function sec(id){var all=document.querySelectorAll('[data-section-id]');for(var i=0;i<all.length;i++){if(all[i].getAttribute('data-section-id')===id)return all[i]}return null}
+function patch(d){var fresh={};var ps=d.parts||[];for(var i=0;i<ps.length;i++){var p=ps[i];if(!p||typeof p.id!=='string'||typeof p.html!=='string')continue;var t=document.createElement('template');t.innerHTML=p.html;var el=t.content.firstElementChild;if(!el)continue;var old=sec(p.id);if(old){old.replaceWith(el)}fresh[p.id]=el}
+if(Array.isArray(d.order)){var cur=[].slice.call(document.querySelectorAll('body > [data-section-id]'));var first=cur[0];if(first){var mark=document.createComment('agt');first.parentNode.insertBefore(mark,first);var by={};for(var j=0;j<cur.length;j++){by[cur[j].getAttribute('data-section-id')]=cur[j];cur[j].remove()}for(var k=0;k<d.order.length;k++){var n=fresh[d.order[k]]||by[d.order[k]];if(n)mark.parentNode.insertBefore(n,mark)}mark.remove()}}
+if(d.focus){var f=sec(d.focus);if(f){f.classList.add('agt-flash');setTimeout(function(){f.classList.remove('agt-flash')},1000)}}}
+function theme(d){var a=document.getElementById('agt-theme');if(a&&typeof d.css==='string')a.textContent=d.css;var m=document.getElementById('agt-motion');if(m&&typeof d.motion==='string')m.textContent=d.motion;var at=d.attrs||{};var ax=d.axes||[];for(var i=0;i<ax.length;i++){if(typeof at[ax[i]]==='string')document.body.setAttribute(ax[i],at[ax[i]]);else document.body.removeAttribute(ax[i])}}
+window.addEventListener('message',function(e){try{if(e.source!==parent)return;var d=e.data;if(!d||typeof d!=='object')return;if(d.type==='agt-patch'){patch(d);return}if(d.type==='agt-theme'){theme(d);return}if(!d.section)return;var q=sec(d.section);if(!q)return;if(d.type==='agt-scroll'){if(q.scrollIntoView)q.scrollIntoView()}else if(d.type==='agt-flash'){q.classList.add('agt-flash');setTimeout(function(){q.classList.remove('agt-flash')},1000)}}catch(_){}});
 }catch(e){}})();</script>"""
 
 
@@ -1148,7 +1160,7 @@ def _section_context(
             ctx["guest_chat_url"] = url
     if section_type == "hero":
         ctx.update(_hero_context(content))
-    elif section_type == "intro" and variant == "short":
+    elif section_type == "intro" and variant in ("short", "quote"):  # quote: 같은 글을 큰 인용문으로
         ctx["body"] = _text(content, "body")
         ctx["label"] = _text(content, "label")  # 비면 "소개" (청첩장은 "인사말")
     elif section_type == "intro" and variant == "owner":
@@ -1170,7 +1182,7 @@ def _section_context(
                 })
         ctx["stats"] = stats
         ctx["has_stats"] = bool(stats)
-    elif section_type == "offerings" and variant == "list-price":
+    elif section_type == "offerings" and variant in ("list-price", "compact"):  # compact: 같은 목록을 메뉴판으로
         ctx["label"] = _text(content, "label")
         items, has_items = _offering_items(content, with_image=False, with_index=False)
         ctx["items"] = items
@@ -1596,7 +1608,7 @@ def _apply_tone(part: str, section: dict) -> str:
 def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
                 title: str = "", kind: str = "other", public: bool = False,
                 edit: bool = False) -> str:
-    """명세를 완전한 HTML 문서 한 장으로 렌더한다.
+    """명세를 완전한 HTML 문서 한 장으로 렌더한다 (render_page의 html).
 
     kind는 업종 키 10종 중 하나 (모르면 other). 사진이 비었을 때
     대표(hero) 사진 칸과 사진 0장인 사진첩에 업종별 예시 그림을
@@ -1606,6 +1618,27 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
     빈 줄은 CSS로 숨기며, 빈 가격은 "가격 문의"로 보인다. 시안(public=False)에서는 사장님이 채울 곳이 보인다.
     공개본에만 객실 요금표 다시 계산용 인라인 스크립트 하나를 넣는다 (BETA_FLOW §2.5).
     edit=True(보며 고치기 미리보기): 구역 누름 알림 스크립트와 data-edit-mode를 넣는다. public과 함께 못 쓴다.
+    """
+    return render_page(spec, site_key=site_key, retention_days=retention_days, title=title,
+                       kind=kind, public=public, edit=edit)["html"]
+
+
+def _part_hash(text: str) -> str:
+    return hashlib.sha1(text.encode("utf-8")).hexdigest()[:16]
+
+
+def render_page(spec: dict, *, site_key: str = "", retention_days: int = 30,
+                title: str = "", kind: str = "other", public: bool = False,
+                edit: bool = False) -> dict:
+    """render_site와 같은 문서 + 실시간 미리보기용 조각 (COMPONENT_ENGINE_PLAN §4).
+
+    돌려주는 것:
+      html   완전한 문서 (render_site가 돌려주는 것과 같다)
+      parts  [{key, html, hash, section}] 문서 몸통 조각을 그린 순서대로. 구역은 key = 구역 id(section=True),
+             나머지는 "@nav"·"@notice"·"@actionbar"처럼 @로 시작한다
+      order  그린 구역 id 순서
+      theme  {css, motion, attrs}: 편집 미리보기가 다시 그리지 않고 바꿔 끼울 토큰 CSS·<body> 스타일 축 속성
+      shell  구역·토큰을 뺀 나머지(머리·내비·행동 바·스크립트)의 해시. 같으면 구역만 바꿔 끼워도 된다
     """
     if edit and public:
         raise ValueError("edit와 public은 함께 쓸 수 없음")
@@ -1624,12 +1657,17 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         raise SiteSpecError(f"없는 image_style 토큰 ID: {image_style!r}")
     # 움직임 토큰(선택, COMPOSE_INTERVIEW_CONTRACT §6): 분위기마다 등장 속도·곡선·높이를 맞춘다. 없으면 기존 그대로.
     motion = (bundle.get("motion") or {}).get(tokens.get("motion")) if tokens.get("motion") else None
+    partials = bundle["partials"]
+
+    def _render(template: str, ctx: dict) -> str:
+        return chevron.render(template, _safe(ctx), partials_dict=partials, partials_path=bundle["partials_path"])
 
     sections = spec.get("sections", [])
     if not isinstance(sections, list):
         raise SiteSpecError("sections가 목록 형태가 아님")
     kind = _normalize_kind(kind)
-    rendered_parts = []
+    # (key, html) 조각. 구역은 key = 구역 id, 그 밖은 "@…"
+    parts: list = []
     need_season_script = False
     need_event_script = False
     nav = spec.get("navbar")
@@ -1667,12 +1705,14 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         if section_type == "event" and ctx.get("has_date") or section_type == "gift" and ctx.get("has_sides"):
             need_event_script = True
         if ctx.pop("is_example", False):
-            rendered_parts.append(_apply_tone(
-                _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section))
+            parts.append((str(section_id), _apply_tone(
+                _gallery_example_html(str(section_id), variant, kind, ctx.get("label", "")), section)))
             continue
         if section_type == "guestbook":
             ctx["public"] = public
-        part = chevron.render(template, _safe(ctx))
+        # 공용 제목 조각 {{> label}}의 기본 제목은 등록표에서 (components.json)
+        ctx.setdefault("label_default", COMP.label_default(key))
+        part = _render(template, ctx)
         if not public and "data-yt-bg" in part:
             # 유튜브 배경 틀은 공개 사이트에서만 (YOUTUBE_EMBED_POLICY). 시안·미리보기는 격리돼 재생이 안 되니 썸네일만 둔다.
             from app.services import youtube_embed
@@ -1682,20 +1722,24 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             # 사진 없음: 빈 자리 표시를 업종별 예시 그림으로 갈아끼운다.
             # 사진 있음: 그림을 쓰지 않는다.
             part = part.replace(_HERO_EMPTY_MARK, _illustration_block(kind, "hero"), 1)
-        rendered_parts.append(_apply_tone(part, section))
+        parts.append((str(section_id), _apply_tone(part, section)))
+    section_keys = [k for k, _ in parts]
+
+    def _body() -> str:
+        return "".join(h for _, h in parts)
 
     # 첫 화면 버튼·내비 CTA도 빠진 섹션(공개본에서 빠진 빈 구역)을 가리키면
     # 차선책(전화·문의)으로 바꾸고, 없으면 그리지 않는다 (QA-1: min 쪽 길찾기).
     bar = spec.get("actionbar")
-    ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+    ids = set(re.findall(r'id="([^"]+)"', _body()))
     fallback = _cta_fallback(bar if isinstance(bar, dict) else {}, ids)
-    rendered_parts = [_fix_hero_cta(part, ids, fallback) for part in rendered_parts]
-    rendered_parts = [re.sub(r'<a class="s-hero__link" href="#([^"]+)">.*?</a>',
-                             lambda m: m.group(0) if m.group(1) in ids else "", part) for part in rendered_parts]
+    parts = [(k, _fix_hero_cta(h, ids, fallback)) for k, h in parts]
+    parts = [(k, re.sub(r'<a class="s-hero__link" href="#([^"]+)">.*?</a>',
+                        lambda m: m.group(0) if m.group(1) in ids else "", h)) for k, h in parts]
 
     if isinstance(nav, dict):
         # 내비는 섹션 다음에 그린다: 빠진 부품(공개본 빈칸·v3 사진첩)으로 가는 링크를 빼기 위해.
-        body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+        body_ids = set(re.findall(r'id="([^"]+)"', _body()))
         links = [l for l in (nav.get("links") or []) if isinstance(l, dict)
                  and ((l.get("href") or "")[1:] in body_ids or _is_my_link(l.get("href") or ""))]
         nav_fixed = {**nav, "links": links}
@@ -1711,7 +1755,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             ntemplate = bundle["templates"].get("navbar--main")
             if ntemplate is None:
                 raise SiteSpecError("없는 type--variant 조합: navbar--main")
-            rendered_parts.insert(0, chevron.render(ntemplate, _safe(nctx)))
+            parts.insert(0, ("@nav", _render(ntemplate, nctx)))
 
     notice = spec.get("notice") if isinstance(spec.get("notice"), dict) else {}
     notice_text = (notice.get("text") if isinstance(notice.get("text"), str) else "").strip()
@@ -1720,21 +1764,22 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
         # 공지 띠는 맨 위(내비 다음). 팝업은 사진이 있거나 켰을 때만(편집 미리보기는 없음),
         # 켰으면 들어올 때 한 번 열고, 사진만 있으면 띠를 누를 때 연다. 스크립트가 없으면 띠만 보인다.
         with_popup = (notice.get("popup") is True or bool(notice_photos)) and not edit
-        at = 1 if rendered_parts and rendered_parts[0].lstrip().startswith('<nav class="s-navbar"') else 0
-        rendered_parts.insert(at, _notice_band(notice_text, notice_photos, with_popup))
+        at = 1 if parts and parts[0][1].lstrip().startswith('<nav class="s-navbar"') else 0
+        parts.insert(at, ("@notice", _notice_band(notice_text, notice_photos, with_popup)))
         if with_popup:
-            rendered_parts.append(_notice_popup(notice_text, notice_photos, auto_open=notice.get("popup") is True))
+            parts.append(("@notice-popup", _notice_popup(notice_text, notice_photos,
+                                                          auto_open=notice.get("popup") is True)))
     app_layout = spec.get("layout") == "app"
     bar = spec.get("actionbar")
     if app_layout:
         # 앱형 (D56 ①): 아래 행동 바 대신 하단 탭. 탭 = 홈 + 내비 링크(최대 3) + 주 행동.
-        body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+        body_ids = set(re.findall(r'id="([^"]+)"', _body()))
         tabs = _app_tabs(nav if isinstance(nav, dict) else {}, bar if isinstance(bar, dict) else {}, body_ids)
         if tabs:
-            rendered_parts.append(chevron.render(bundle["templates"]["tabbar--app"], _safe({"tabs": tabs})))
+            parts.append(("@tabbar", _render(bundle["templates"]["tabbar--app"], {"tabs": tabs})))
     elif isinstance(bar, dict):
         # 하단 고정 행동 바 (휴대폰). 내비와 같이 섹션이 아니고, 빠진 섹션으로 가는 버튼은 그리지 않는다.
-        body_ids = set(re.findall(r'id="([^"]+)"', "".join(rendered_parts)))
+        body_ids = set(re.findall(r'id="([^"]+)"', _body()))
         label, href = _cta_pair(bar.get("primary"))
         label2, href2 = _cta_pair(bar.get("secondary"))
         ok = (lambda h: bool(h) and (not h.startswith("#") or h[1:] in body_ids))
@@ -1745,7 +1790,7 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
             if href == href2:
                 label2, href2 = "", ""
         if label and ok(href):
-            rendered_parts.append(chevron.render(bundle["templates"]["actionbar--sticky"], _safe({
+            parts.append(("@actionbar", _render(bundle["templates"]["actionbar--sticky"], {
                 "primary_label": label, "primary_href": href,
                 "secondary_label": label2 if ok(href2) else "", "secondary_href": href2 if ok(href2) else ""})))
 
@@ -1756,44 +1801,71 @@ def render_site(spec: dict, *, site_key: str = "", retention_days: int = 30,
     if isinstance(css2_url, str) and css2_url.startswith("https://"):
         font_link += f'\n<link rel="stylesheet" href="{html.escape(css2_url, quote=True)}">'
     if public and need_season_script:
-        rendered_parts.append(_SEASON_SCRIPT)
+        parts.append(("@season", _SEASON_SCRIPT))
     if need_event_script and not edit:
         # 편집 미리보기는 누름을 고치기로 받으므로 복사·D-day 스크립트를 넣지 않는다.
-        rendered_parts.append(_EVENT_SCRIPT)
+        parts.append(("@event", _EVENT_SCRIPT))
     if edit:
         # 공지 팝업은 편집을 가리므로 빼고(띠는 둔다), relay는 </body> 바로 앞.
-        rendered_parts.append(_EDIT_STYLE)
-        rendered_parts.append(_EDIT_SCRIPT)
+        parts.append(("@edit-style", _EDIT_STYLE))
+        parts.append(("@edit-script", _EDIT_SCRIPT))
+    # 스타일 축(surface·heading): 기본값이면 속성을 달지 않는다 → 지금 출력과 같다.
+    attrs = COMP.body_attrs(tokens)
+    attr_text = "".join(f' {name}="{html.escape(value, quote=True)}"' for name, value in attrs.items())
     # 공개 사이트에서는 시안용 "예시" 표시도 숨긴다. edit는 테스트용 표지로 data-edit-mode를 단다.
     if edit:
-        body_open = "<body data-edit-mode>" if not app_layout else '<body data-edit-mode class="is-app">'
+        body_open = (f"<body{attr_text} data-edit-mode>" if not app_layout
+                     else f'<body{attr_text} data-edit-mode class="is-app">')
     elif public:
-        body_open = ('<body class="is-public{}"><style>.is-public .s-kicker{{display:none}}</style>').format(
-            " is-app" if app_layout else "")
+        body_open = ('<body{} class="is-public{}"><style>.is-public .s-kicker{{display:none}}</style>').format(
+            attr_text, " is-app" if app_layout else "")
     else:
-        body_open = "<body>" if not app_layout else '<body class="is-app">'
-    doc = "\n".join([
+        body_open = f"<body{attr_text}>" if not app_layout else f'<body{attr_text} class="is-app">'
+    root_css = _root_css(palette, font_pair, density, radius)
+    motion_css = _motion_css(motion)
+    if edit:
+        # 편집 미리보기는 토큰 CSS를 따로 두어 빌더가 다시 그리지 않고 바꿔 끼운다(agt-theme). 순서·내용은 같다.
+        style_block = [f'<style id="agt-theme">{root_css}</style>', "<style>", bundle["site_css"], "</style>",
+                       f'<style id="agt-motion">{motion_css}</style>']
+    else:
+        style_block = ["<style>", root_css, bundle["site_css"], motion_css, "</style>"]
+    meta_theme = f'<meta name="theme-color" content="{html.escape(palette["ground"], quote=True)}">'
+    favicon = _favicon(page_title, palette)
+    head = [
         "<!doctype html>",
         '<html lang="ko">',
         "<head>",
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">',
-        f'<meta name="theme-color" content="{html.escape(palette["ground"], quote=True)}">',
+        meta_theme,
         f"<title>{html.escape(page_title)}</title>",
         *(_og_tags(sections, site_key, page_title) if public else []),
-        _favicon(page_title, palette),
+        favicon,
         font_link,
-        "<style>",
-        _root_css(palette, font_pair, density, radius),
-        bundle["site_css"],
-        _motion_css(motion),
-        "</style>",
+    ]
+    draft_note = [_DRAFT_NOTE] if not public and _has_example_art([h for _, h in parts]) else []
+    doc = "\n".join([
+        *head,
+        *style_block,
         "</head>",
         body_open,
-        *([_DRAFT_NOTE] if not public and _has_example_art(rendered_parts) else []),
-        *rendered_parts,
+        *draft_note,
+        *[h for _, h in parts],
         "</body>",
         "</html>",
         "",
     ])
-    return doc
+    in_body = set(section_keys)
+    # 구역·토큰을 뺀 뼈대: 같으면 미리보기는 구역 조각만 바꿔 끼우면 된다.
+    # theme-color·파비콘은 색 토큰을 따르므로 뼈대에서 뺀다(미리보기에서는 보이지 않는다).
+    shell_src = "\n".join([*[x for x in head if x not in (meta_theme, favicon)], bundle["site_css"],
+                           body_open.replace(attr_text, "") if attr_text else body_open,
+                           *draft_note, *[("<!--part-->" if k in in_body else h) for k, h in parts]])
+    return {
+        "html": doc,
+        "parts": [{"key": k, "html": h, "hash": _part_hash(h), "section": k in in_body} for k, h in parts],
+        "order": [k for k, _ in parts if k in in_body],
+        "theme": {"css": root_css, "motion": motion_css, "attrs": attrs,
+                  "axes": [f"data-{axis}" for axis in COMP.style_axes()]},
+        "shell": _part_hash(shell_src),
+    }

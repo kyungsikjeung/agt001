@@ -1,10 +1,26 @@
 // 보며 고치기 (EDIT_WAVE2_CONTRACT §1, §4).
 // 미리보기를 iframe(srcdoc, sandbox allow-scripts만)으로 띄우고,
 // iframe이 알린 구역의 패널을 옆(휴대폰은 아래)에 연다.
+// 실시간 미리보기 (COMPONENT_ENGINE_PLAN §5): 저장·고치는 중에는 iframe을 새로 불러오지 않고
+// 바뀐 구역 조각만 바꿔 끼운다(agt-patch). 색·여백·스타일 축은 토큰만 갈아 끼운다(agt-theme). 스크롤이 그대로다.
 import Mascot from '../Mascot';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getPreview, readMemberId, saveCard, type CardPreview, type RoomCard } from './cardApi';
+import {
+  draftPreview,
+  getPreview,
+  readMemberId,
+  saveCard,
+  type CardLayoutEdit,
+  type CardPreview,
+  type DraftRequest,
+  type RoomCard,
+  type StyleAxis,
+} from './cardApi';
+import { frameStateOf, planUpdate, sameTheme, styleAttrs, type FrameState } from './livePatch';
 import SectionPanel from './SectionPanel';
+
+/** 고치는 칸 글을 미리보기에 그리기까지 기다리는 시간(글자마다 부르지 않게). */
+const DRAFT_DELAY_MS = 300;
 
 const VARIANTS = ['v1', 'v2', 'v3'] as const;
 
@@ -106,6 +122,13 @@ export default function SiteEditor({
 }) {
   const [variant, setVariant] = useState(() => startVariant(card.choice));
   const [preview, setPreview] = useState<CardPreview | null>(null);
+  // iframe 문서는 미리보기 정보와 따로 둔다: 조각만 바꿔 끼울 때는 문서를 바꾸지 않아 새로 불러오지 않는다.
+  // key는 통째로 다시 불러와야 할 때만 올린다(같은 문서 글이어도 확실히 새로 그리게).
+  const [frameDoc, setFrameDoc] = useState('');
+  const [frameKey, setFrameKey] = useState(0);
+  const frameState = useRef<FrameState | null>(null);
+  const [styleBusy, setStyleBusy] = useState(false);
+  const [styleError, setStyleError] = useState('');
   const [failed, setFailed] = useState<'no-design' | 'error' | null>(null);
   const [loading, setLoading] = useState(true);
   const [pick, setPick] = useState<PickState>({ id: null, text: '', photo: null });
@@ -185,6 +208,14 @@ export default function SiteEditor({
   const variantRef = useRef(variant);
   variantRef.current = variant;
 
+  /** iframe을 이 문서로 통째로 다시 그린다. */
+  const showFull = useCallback((html: string, state: FrameState | null) => {
+    frameState.current = state;
+    setFrameDoc(html);
+    setFrameKey((k) => k + 1);
+  }, []);
+
+  // 처음 열 때·안을 바꿀 때: 기다림 표시와 함께 통째로 불러온다.
   const load = useCallback(
     async (v: string) => {
       setLoading(true);
@@ -192,6 +223,7 @@ export default function SiteEditor({
       try {
         const p = await getPreview(roomId, readMemberId(), v);
         setPreview(p);
+        showFull(p.html, frameStateOf(p));
       } catch (e) {
         setPreview(null);
         setFailed((e as { status?: number })?.status === 409 ? 'no-design' : 'error');
@@ -199,7 +231,7 @@ export default function SiteEditor({
         setLoading(false);
       }
     },
-    [roomId],
+    [roomId, showFull],
   );
 
   useEffect(() => {
@@ -208,11 +240,123 @@ export default function SiteEditor({
   }, [load, variant]);
 
   // iframe에 메시지를 보낸다. 아직 안 떴으면 건너뛴다.
-  function postToFrame(msg: { type: string; section: string }) {
+  function postToFrame(msg: Record<string, unknown>) {
     try {
       frameRef.current?.contentWindow?.postMessage(msg, '*');
     } catch {
       // iframe이 아직 안 떴으면 스크롤·반짝을 건너뛴다.
+    }
+  }
+
+  // 저장 뒤: 기다림 표시 없이 다시 받아 바뀐 구역만 바꿔 끼운다. 뼈대(내비·행동 바·글꼴)가 달라졌으면 통째로.
+  // mode 'reload'(빌더 칩·말로 고치기): 그 구역으로 스크롤하고 반짝인다.
+  // mode 'saved'(구역 칸 저장): 보던 자리 그대로, 바뀐 구역만 반짝인다(통째로 다시 그리면 그 구역으로 스크롤).
+  const refresh = useCallback(
+    async (v: string, focus: string | null, mode: 'reload' | 'saved' = 'saved') => {
+      let p: CardPreview;
+      try {
+        p = await getPreview(roomId, readMemberId(), v);
+      } catch {
+        pendingScroll.current = focus;
+        if (mode === 'reload') pendingFlash.current = focus;
+        void load(v);
+        return;
+      }
+      if (v !== variantRef.current) return; // 그사이 다른 안으로 갔다
+      const plan = planUpdate(frameState.current, p);
+      setPreview(p);
+      if (plan.kind === 'full') {
+        pendingScroll.current = focus;
+        if (mode === 'reload') pendingFlash.current = focus;
+        showFull(p.html, frameStateOf(p));
+        return;
+      }
+      if (plan.theme) postToFrame({ type: 'agt-theme', ...plan.theme });
+      if (plan.parts.length > 0 || plan.order.join(',') !== Object.keys(frameState.current?.hashes ?? {}).join(',')) {
+        postToFrame({ type: 'agt-patch', parts: plan.parts, order: plan.order, focus: focus ?? undefined });
+      } else if (focus) {
+        postToFrame({ type: 'agt-flash', section: focus });
+      }
+      if (focus && mode === 'reload') postToFrame({ type: 'agt-scroll', section: focus });
+      frameState.current = frameStateOf(p);
+    },
+    [roomId, load, showFull],
+  );
+
+  // 저장 전 미리 그리기: 고치는 중인 값으로 바뀐 구역만 받아 바꿔 끼운다. 늦게 온 응답은 버린다.
+  const draftSeq = useRef(0);
+  const runDraft = useCallback(
+    async (req: Omit<DraftRequest, 'variant' | 'have' | 'shell'>) => {
+      const cur = frameState.current;
+      if (!cur) return;
+      const seq = ++draftSeq.current;
+      const v = variantRef.current;
+      let res;
+      try {
+        res = await draftPreview(roomId, readMemberId(), { ...req, variant: v, have: cur.hashes, shell: cur.shell });
+      } catch {
+        return; // 미리 그리기는 실패해도 저장은 따로 된다
+      }
+      if (seq !== draftSeq.current || v !== variantRef.current) return;
+      const next = frameStateOf(res);
+      if (res.html) {
+        showFull(res.html, next);
+        return;
+      }
+      if (!sameTheme(cur.theme, res.theme)) postToFrame({ type: 'agt-theme', ...res.theme });
+      const parts = res.parts.filter((p) => typeof p.html === 'string').map((p) => ({ id: p.id, html: p.html as string }));
+      if (parts.length > 0 || res.order.join(',') !== Object.keys(cur.hashes).join(',')) {
+        postToFrame({ type: 'agt-patch', parts, order: res.order });
+      }
+      frameState.current = next;
+    },
+    [roomId, showFull],
+  );
+
+  // 칸 글을 고치는 동안: 잠깐 멈추면 그린다.
+  const draftTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const draftFields = useCallback(
+    (fields: Record<string, string>) => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+      draftTimer.current = setTimeout(() => {
+        draftTimer.current = null;
+        void runDraft({ fields });
+      }, DRAFT_DELAY_MS);
+    },
+    [runDraft],
+  );
+  useEffect(
+    () => () => {
+      if (draftTimer.current) clearTimeout(draftTimer.current);
+    },
+    [],
+  );
+
+  // 스타일 축(카드 면·구역 제목): 누르는 즉시 iframe 속성만 바꾸고, 저장은 뒤에서.
+  async function pickStyle(axis: string, value: string) {
+    if (!preview?.styles || styleBusy) return;
+    const picked = { ...(preview.style ?? {}), [axis]: value };
+    const attrs = styleAttrs(preview.styles, picked);
+    const theme = frameState.current?.theme;
+    if (theme) {
+      const next = { ...theme, attrs };
+      postToFrame({ type: 'agt-theme', ...next });
+      if (frameState.current) frameState.current = { ...frameState.current, theme: next };
+    }
+    setPreview((prev) => (prev ? { ...prev, style: Object.fromEntries(Object.entries(attrs).map(([k, v]) => [k.slice(5), v])) } : prev));
+    setStyleBusy(true);
+    setStyleError('');
+    try {
+      const updated = await saveCard(roomId, readMemberId(), {}, undefined, {
+        style: { variant, surface: picked.surface, heading: picked.heading },
+      });
+      onSaved(updated);
+      void refresh(variant, null);
+    } catch {
+      setStyleError('스타일을 저장하지 못했어요. 잠시 뒤 다시 골라 주세요.');
+      void refresh(variant, null);
+    } finally {
+      setStyleBusy(false);
     }
   }
 
@@ -221,9 +365,7 @@ export default function SiteEditor({
     if (!controlRef) return;
     controlRef.current = {
       reload: (focus) => {
-        pendingScroll.current = focus ?? null;
-        pendingFlash.current = focus ?? null;
-        void load(variantRef.current);
+        void refresh(variantRef.current, focus ?? null, 'reload');
       },
       flash: (section) => {
         postToFrame({ type: 'agt-scroll', section });
@@ -236,7 +378,7 @@ export default function SiteEditor({
     return () => {
       controlRef.current = null;
     };
-  }, [controlRef, load]);
+  }, [controlRef, refresh]);
 
   // iframe 알림만 받는다. 출처가 다르면 무시한다.
   useEffect(() => {
@@ -262,11 +404,10 @@ export default function SiteEditor({
     return () => window.removeEventListener('message', onMessage);
   }, [onPhotoPick]);
 
-  // 저장 뒤 미리보기를 다시 불러오고, 누른 구역으로 스크롤한다.
+  // 저장 뒤 미리보기를 맞춘다: 바뀐 구역만 바꿔 끼우고 그 구역을 반짝인다(새로 불러오면 그 구역으로 스크롤).
   function handleSaved(updated: RoomCard, section: string) {
     onSaved(updated);
-    pendingScroll.current = section;
-    void load(variant);
+    void refresh(variant, section || null);
   }
 
   // 왼쪽 구역 끌어서 순서 바꾸기 (BUILDER_FIX_1003 J4). locked는 끌 수 없고 원래 자리에 둔다.
@@ -325,6 +466,20 @@ export default function SiteEditor({
           </button>
         ))}
       </div>
+
+      {!loading && !failed && preview?.styles ? (
+        <StylePicker
+          styles={preview.styles}
+          value={preview.style ?? {}}
+          busy={styleBusy}
+          onPick={(axis, value) => void pickStyle(axis, value)}
+        />
+      ) : null}
+      {styleError ? (
+        <p className="ed-error" role="alert">
+          {styleError}
+        </p>
+      ) : null}
 
       {loading ? (
         <Mascot mood="wait" role="status">
@@ -456,11 +611,12 @@ export default function SiteEditor({
                 )}
                 <div className="ed-dev-glass" style={scale ? { width: dev.w * scale, height: dev.h * scale } : undefined}>
                   <iframe
+                    key={frameKey}
                     ref={frameRef}
                     className="ed-site-frame"
                     title="사이트 미리보기"
                     sandbox="allow-scripts"
-                    srcDoc={preview.html}
+                    srcDoc={frameDoc}
                     onLoad={onFrameLoad}
                     style={
                       scale
@@ -485,6 +641,8 @@ export default function SiteEditor({
             clickedText={pick.text}
             onSelect={(id) => setPick((prev) => ({ ...prev, id, photo: null }))}
             onSaved={handleSaved}
+            onDraft={draftFields}
+            onPreviewLayout={(layout: CardLayoutEdit) => void runDraft({ layout })}
           />
           {pick.id !== null && pick.photo !== null && onPhotoPick ? (
             <button
@@ -502,5 +660,50 @@ export default function SiteEditor({
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** 축 이름 (components.json styles 키 → 화면 글). 모르는 축은 키 그대로. */
+const AXIS_LABEL: Record<string, string> = { surface: '카드 면', heading: '구역 제목' };
+
+/** 사이트 스타일 고르기: 축마다 한 줄 버튼. 고르면 미리보기에 바로 보이고 저장은 뒤에서. */
+export function StylePicker({
+  styles,
+  value,
+  busy,
+  onPick,
+}: {
+  styles: Record<string, StyleAxis>;
+  value: Record<string, string>;
+  busy: boolean;
+  onPick: (axis: string, value: string) => void;
+}) {
+  return (
+    <details className="ed-style">
+      <summary>스타일</summary>
+      {Object.entries(styles).map(([axis, spec]) => {
+        const current = value[axis] ?? spec.default;
+        return (
+          <div key={axis} className="ed-style__row" role="group" aria-label={AXIS_LABEL[axis] ?? axis}>
+            <span className="ed-style__label" aria-hidden="true">
+              {AXIS_LABEL[axis] ?? axis}
+            </span>
+            <div className="ed-seg">
+              {Object.entries(spec.values).map(([v, name]) => (
+                <button
+                  key={v}
+                  type="button"
+                  aria-pressed={current === v}
+                  disabled={busy}
+                  onClick={() => current !== v && onPick(axis, v)}
+                >
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </details>
   );
 }

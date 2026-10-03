@@ -29,6 +29,16 @@
   `http:` 평문 URL 없음. 외부 링크는 `https://`만.
   폼 태그는 `contact--form`·`booking--form`·`rsvp--form`·`guestbook--list`에만 허용(§5 서버 계약의 일반 HTML form 전송용, 참석 여부는 `/api/rsvp/`, 방명록은 `/api/guestbook/`).
   Mustache는 `{{ }}` 이중 중괄호만 쓴다(HTML 이스케이프 유지).
+- 컴포넌트 등록표 `components.json` (docs/product/COMPONENT_ENGINE_PLAN.md §3): 템플릿을 더하면 등록표에도
+  `name`(빌더에 보일 모양 이름)·`desc`(한 줄 설명)를 넣는다. 빠지면 `tests/unit/test_component_engine.py`가 실패한다.
+  같은 데이터(bind)로 바꿔 쓸 수 있는 모양이면 `groups`의 변형 목록에도 넣는다(빌더 '모양 바꾸기').
+- 공용 조각 `partials/*.mustache`: 구역 제목은 `<h2 id="T-title-{{id}}">{{> label}}</h2>`로 쓴다.
+  제목이 비었을 때의 기본 제목은 템플릿이 아니라 등록표 `label_default`에 둔다. 조각은 줄 안에 끼워 쓴다(끝 줄바꿈 없음).
+- 스타일 축(`styles`: surface·heading)은 렌더러가 `body`에 `data-surface`·`data-heading`을 달고
+  `css/65-style-axes.css`가 받는다. 새 카드형 부품은 그 파일의 카드 선택자 목록에 더한다.
+- 새 부품의 그림자·글자 크기는 `css/60-components.css`의 단계 토큰(`--elev-1~3`, `--fs-sm~quote`)만 쓴다.
+- 새 변형(2026-10-04): `gallery--masonry`(사진첩과 같은 변수) · `offerings--compact`(`offerings--list-price`와 같은 변수) ·
+  `intro--quote`(`intro--short`와 같은 변수).
 
 ## 2. 토큰 → CSS 변수 (렌더러 주입, site.css가 소비)
 

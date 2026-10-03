@@ -1,0 +1,82 @@
+/* ==== 스타일 축 (components.json "styles", COMPONENT_ENGINE_PLAN §6) ====
+ * 사이트 전체 모양을 바꾸는 두 축. 렌더러가 body 태그에 data-surface·data-heading 속성을 단다.
+ * 기본값(soft·bar)이면 속성을 달지 않으므로 이 파일의 규칙이 하나도 걸리지 않는다 = 지금 모양 그대로.
+ * 빌더 미리보기는 이 속성만 바꿔 끼워(agt-theme) 다시 불러오지 않고 바로 보인다. */
+
+/* ---- surface: 카드 면 (부드러운 그림자 | 얇은 선 | 옅은 면 | 떠 있는 카드) ---- */
+body[data-surface] :is(.s-card, .s-stats__item, .s-price-list__row, .s-tabs__panel, .s-review,
+  .s-staff__card, .s-class, .s-room, .s-family__side, .s-gift__side, .s-guestbook__item, .s-tcard) {
+  transition: box-shadow 0.2s ease-out, transform 0.2s ease-out;
+}
+body[data-surface="outline"] :is(.s-card, .s-stats__item, .s-price-list__row, .s-tabs__panel, .s-review,
+  .s-staff__card, .s-class, .s-room, .s-family__side, .s-gift__side, .s-guestbook__item, .s-tcard) {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+}
+body[data-surface="flat"] :is(.s-card, .s-stats__item, .s-price-list__row, .s-tabs__panel, .s-review,
+  .s-staff__card, .s-class, .s-room, .s-family__side, .s-gift__side, .s-guestbook__item, .s-tcard) {
+  background: var(--card);
+  background: color-mix(in srgb, var(--c-primary) 8%, var(--card));
+  box-shadow: none;
+  border: 0;
+}
+body[data-surface="lifted"] :is(.s-card, .s-stats__item, .s-price-list__row, .s-tabs__panel, .s-review,
+  .s-staff__card, .s-class, .s-room, .s-family__side, .s-gift__side, .s-guestbook__item, .s-tcard) {
+  background: var(--card);
+  box-shadow: var(--elev-3);
+  border: 0;
+}
+@media (hover: hover) {
+  body[data-surface="lifted"] :is(.s-card, .s-review, .s-staff__card, .s-class, .s-room, .s-tcard):hover {
+    transform: translateY(-3px);
+  }
+}
+
+/* ---- heading: 구역 제목 (짧은 밑줄 | 작은 윗글 | 가운데 | 큰 제목) ---- */
+/* 작은 윗글: 제목을 작고 굵은 글자 + 앞 색 막대로. 글자색은 본문색 그대로(어떤 팔레트에서도 4.5:1) */
+body[data-heading="eyebrow"] section[class^="s-"]:not(.s-hero) h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-body);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+body[data-heading="eyebrow"] section[class^="s-"]:not(.s-hero) h2::before {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 3px;
+  background: var(--c-accent);
+  border-radius: var(--radius-btn);
+}
+body[data-heading="eyebrow"] section[class^="s-"]:not(.s-hero) h2::after { display: none; }
+
+/* 가운데: 제목·밑줄을 가운데로 */
+body[data-heading="center"] section[class^="s-"]:not(.s-hero) h2 { text-align: center; }
+body[data-heading="center"] section[class^="s-"]:not(.s-hero) h2::after { margin-inline: auto; }
+
+/* 큰 제목: 잡지처럼 크게, 밑줄 대신 아래 얇은 선 */
+body[data-heading="display"] section[class^="s-"]:not(.s-hero) h2 {
+  font-size: clamp(30px, 8vw, 44px);
+  line-height: 1.12;
+  letter-spacing: -0.035em;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+  text-wrap: balance;
+}
+body[data-heading="display"] section[class^="s-"]:not(.s-hero) h2::after { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  body[data-surface] :is(.s-card, .s-stats__item, .s-price-list__row, .s-tabs__panel, .s-review,
+    .s-staff__card, .s-class, .s-room, .s-family__side, .s-gift__side, .s-guestbook__item, .s-tcard) {
+    transition: none;
+  }
+  body[data-surface="lifted"] :is(.s-card, .s-review, .s-staff__card, .s-class, .s-room, .s-tcard):hover {
+    transform: none;
+  }
+}

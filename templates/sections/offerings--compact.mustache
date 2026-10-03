@@ -1,0 +1,18 @@
+<section class="s-offerings s-offerings--compact" data-section-id="{{id}}" aria-labelledby="offerings-title-{{id}}">
+  <h2 id="offerings-title-{{id}}">{{> label}}</h2>
+  {{#has_items}}
+  <ul class="s-board">
+    {{#items}}
+    <li class="s-board__row">
+      <span class="s-board__line"><strong class="s-board__name">{{#name}}{{name}}{{/name}}{{^name}}<span class="is-placeholder" aria-label="항목 이름: 아직 입력되지 않음">[이름 입력]</span>{{/name}}</strong><span class="s-board__dots" aria-hidden="true"></span><span class="s-board__price">{{#price}}{{price}}{{/price}}{{^price}}<span class="is-placeholder" aria-label="가격: 아직 입력되지 않음">[가격 입력]</span>{{/price}}</span></span>
+      {{#desc}}<span class="s-board__desc">{{desc}}</span>{{/desc}}
+    </li>
+    {{/items}}
+  </ul>
+  {{/has_items}}
+  {{^has_items}}
+  <ul class="s-board">
+    <li class="s-board__row"><span class="is-placeholder" aria-label="상품·메뉴: 아직 입력되지 않음">[메뉴 입력]</span></li>
+  </ul>
+  {{/has_items}}
+</section>

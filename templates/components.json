@@ -1,0 +1,350 @@
+{
+ "_comment": "컴포넌트 등록표 (COMPONENT_ENGINE_PLAN). 템플릿 templates/sections/<key>.mustache 하나 = 항목 하나. label_default = 공용 조각 {{> label}}의 기본 제목. groups = 같은 데이터로 바꿔 쓸 수 있는 변형 묶음(빌더 '모양 바꾸기').",
+ "version": 1,
+ "styles": {
+  "surface": {
+   "default": "soft",
+   "values": {
+    "soft": "부드러운 그림자",
+    "outline": "얇은 선",
+    "flat": "옅은 면",
+    "lifted": "떠 있는 카드"
+   }
+  },
+  "heading": {
+   "default": "bar",
+   "values": {
+    "bar": "짧은 밑줄",
+    "eyebrow": "작은 윗글",
+    "center": "가운데 정렬",
+    "display": "큰 제목"
+   }
+  }
+ },
+ "groups": {
+  "hero": {
+   "type": "hero",
+   "binds": [
+    "hero"
+   ],
+   "variants": [
+    "photo-overlay",
+    "photo-side",
+    "text-only",
+    "arch",
+    "cinematic"
+   ]
+  },
+  "greeting": {
+   "type": "intro",
+   "binds": [
+    "greeting"
+   ],
+   "variants": [
+    "short",
+    "quote"
+   ]
+  },
+  "catalog": {
+   "type": "offerings",
+   "binds": [
+    "catalog"
+   ],
+   "variants": [
+    "categories",
+    "list-price",
+    "compact",
+    "photo-grid",
+    "cards"
+   ]
+  },
+  "photos": {
+   "type": "gallery",
+   "binds": [
+    "space_photos",
+    "style_photos",
+    "menu_photos"
+   ],
+   "variants": [
+    "grid",
+    "swipe",
+    "marquee",
+    "masonry"
+   ]
+  },
+  "location": {
+   "type": "around",
+   "binds": [
+    "location"
+   ],
+   "variants": [
+    "map",
+    "map-list",
+    "transit"
+   ]
+  }
+ },
+ "components": {
+  "hero--photo-overlay": {
+   "name": "사진 겹침",
+   "desc": "사진 위에 가게 이름과 버튼을 겹친다"
+  },
+  "hero--photo-side": {
+   "name": "사진 옆",
+   "desc": "사진과 글을 나란히(휴대폰은 위아래)"
+  },
+  "hero--text-only": {
+   "name": "글자 강조",
+   "desc": "사진 없이 큰 이름과 색 면"
+  },
+  "hero--arch": {
+   "name": "아치 사진",
+   "desc": "명조 2단 제목 + 아치 모양 사진"
+  },
+  "hero--cinematic": {
+   "name": "어두운 영화풍",
+   "desc": "어두운 전면 사진 + 버튼 두 개"
+  },
+  "hero--illustrated": {
+   "name": "판화풍 그림",
+   "desc": "판화풍 그림 + 짧은 선언문"
+  },
+  "hero--story": {
+   "name": "스토리",
+   "desc": "핵심어를 강조한 제목 + 추상 그림"
+  },
+  "hero--video": {
+   "name": "영상 표지",
+   "desc": "영상 썸네일(공개본은 소리 없는 반복 재생)"
+  },
+  "hero--app": {
+   "name": "앱형",
+   "desc": "앱처럼 짧은 머리 + 바로 행동"
+  },
+  "intro--short": {
+   "name": "짧은 소개",
+   "desc": "제목 + 소개 한 단락",
+   "label_default": "소개"
+  },
+  "intro--owner": {
+   "name": "사장님 소개",
+   "desc": "사장님 이름과 인사"
+  },
+  "intro--stats": {
+   "name": "숫자와 소개",
+   "desc": "소개 + 숫자 칸"
+  },
+  "intro--quote": {
+   "name": "큰 인용문",
+   "desc": "소개를 큰 따옴표 인용문으로 (새 변형)",
+   "label_default": "소개",
+   "new": true
+  },
+  "offerings--list-price": {
+   "name": "가격표",
+   "desc": "이름·설명·가격을 줄로",
+   "label_default": "메뉴"
+  },
+  "offerings--photo-grid": {
+   "name": "사진 격자",
+   "desc": "사진 카드 격자",
+   "label_default": "메뉴"
+  },
+  "offerings--tabs": {
+   "name": "탭",
+   "desc": "항목을 탭으로 나눠 보기",
+   "label_default": "메뉴"
+  },
+  "offerings--cards": {
+   "name": "사진 카드",
+   "desc": "옆으로 넘기는 사진 카드",
+   "label_default": "메뉴"
+  },
+  "offerings--categories": {
+   "name": "분류 메뉴판",
+   "desc": "분류별 칩 + 메뉴판",
+   "label_default": "메뉴"
+  },
+  "offerings--compact": {
+   "name": "두 줄 메뉴판",
+   "desc": "점선으로 이은 촘촘한 메뉴판, 넓은 화면 두 줄 (새 변형)",
+   "label_default": "메뉴",
+   "new": true
+  },
+  "gallery--grid": {
+   "name": "격자",
+   "desc": "사진을 같은 크기 격자로",
+   "label_default": "사진첩"
+  },
+  "gallery--swipe": {
+   "name": "옆으로 넘기기",
+   "desc": "손으로 넘기는 사진 띠",
+   "label_default": "사진첩"
+  },
+  "gallery--marquee": {
+   "name": "자동 흐름",
+   "desc": "천천히 흐르는 사진 띠",
+   "label_default": "사진첩"
+  },
+  "gallery--masonry": {
+   "name": "벽돌 쌓기",
+   "desc": "사진 비율대로 엇갈려 쌓기 (새 변형)",
+   "label_default": "사진첩",
+   "new": true
+  },
+  "around--map": {
+   "name": "지도",
+   "desc": "지도 + 길찾기 링크",
+   "label_default": "오시는 길"
+  },
+  "around--map-list": {
+   "name": "지도와 목록",
+   "desc": "예시 지도 + 주변 안내 목록"
+  },
+  "around--transit": {
+   "name": "교통 안내",
+   "desc": "버스·지하철 안내 목록"
+  },
+  "contact--call-first": {
+   "name": "전화 먼저",
+   "desc": "전화 버튼을 맨 위에"
+  },
+  "contact--booking-first": {
+   "name": "예약 먼저",
+   "desc": "예약 링크를 맨 위에"
+  },
+  "contact--chat-first": {
+   "name": "채팅 먼저",
+   "desc": "카톡·채팅을 맨 위에"
+  },
+  "contact--form": {
+   "name": "문의 양식",
+   "desc": "이름·연락처·내용 양식(스크립트 없음)"
+  },
+  "contact--kakao-channel": {
+   "name": "카카오 채널",
+   "desc": "카카오톡 채널 버튼"
+  },
+  "booking--form": {
+   "name": "예약 신청",
+   "desc": "날짜·시간·인원 신청 양식"
+  },
+  "booking--slots": {
+   "name": "시간 고르기",
+   "desc": "날짜별 남은 시간",
+   "label_default": "예약"
+  },
+  "booking--dates": {
+   "name": "날짜 고르기",
+   "desc": "숙박 날짜·빈방",
+   "label_default": "예약"
+  },
+  "cta--call-sms": {
+   "name": "전화·문자",
+   "desc": "전화·문자 버튼 띠"
+  },
+  "cta--external": {
+   "name": "외부 예약",
+   "desc": "외부 예약 링크 띠"
+  },
+  "reviews--list": {
+   "name": "후기 목록",
+   "desc": "손님 후기 인용"
+  },
+  "reviews--slot-only": {
+   "name": "후기 자리",
+   "desc": "후기가 모이면 보일 자리"
+  },
+  "video--card": {
+   "name": "영상 카드",
+   "desc": "영상 썸네일 카드(새 창)"
+  },
+  "features--icons": {
+   "name": "아이콘 특징",
+   "desc": "아이콘 + 특징 3칸",
+   "label_default": "특징"
+  },
+  "stats--band": {
+   "name": "숫자 띠",
+   "desc": "주색 바탕 숫자 강조 띠"
+  },
+  "staff--solo": {
+   "name": "한 명",
+   "desc": "사장님 한 명 + 작업 사진",
+   "label_default": "혼자 끝까지 책임져요"
+  },
+  "staff--team": {
+   "name": "여러 명",
+   "desc": "담당자 카드 줄",
+   "label_default": "디자이너"
+  },
+  "staff--cards": {
+   "name": "선생님 카드",
+   "desc": "세로 카드 격자 + 누르면 상세",
+   "label_default": "선생님"
+  },
+  "classes--cards": {
+   "name": "반 카드",
+   "desc": "반·수업 카드",
+   "label_default": "반 안내"
+  },
+  "timetable--week": {
+   "name": "주간 시간표",
+   "desc": "요일별 시간표",
+   "label_default": "시간표"
+  },
+  "rooms--cards": {
+   "name": "객실 카드",
+   "desc": "객실 사진·요금 카드"
+  },
+  "concerns--bubbles": {
+   "name": "고민 말풍선",
+   "desc": "손님 고민을 말풍선으로"
+  },
+  "event--date": {
+   "name": "날짜와 장소",
+   "desc": "달력 + 날짜·장소",
+   "label_default": "날짜와 장소"
+  },
+  "family--contacts": {
+   "name": "양가 연락처",
+   "desc": "양가 전화·문자",
+   "label_default": "연락하기"
+  },
+  "gift--accounts": {
+   "name": "마음 전하실 곳",
+   "desc": "양가 계좌(접어 두기)",
+   "label_default": "마음 전하실 곳"
+  },
+  "guestbook--list": {
+   "name": "방명록",
+   "desc": "방명록 글과 쓰기",
+   "label_default": "방명록"
+  },
+  "rsvp--form": {
+   "name": "참석 여부",
+   "desc": "참석 여부 양식",
+   "label_default": "참석 여부 알려 주기"
+  },
+  "order--soon": {
+   "name": "주문 준비 중",
+   "desc": "주문 기능 안내 시트"
+  },
+  "quickbar--float": {
+   "name": "떠 있는 빠른 버튼",
+   "desc": "화면 위 빠른 버튼"
+  },
+  "navbar--main": {
+   "name": "내비게이션",
+   "desc": "맨 위 가게 이름·링크"
+  },
+  "actionbar--sticky": {
+   "name": "아래 행동 바",
+   "desc": "휴대폰 아래 고정 버튼"
+  },
+  "tabbar--app": {
+   "name": "아래 탭",
+   "desc": "앱형 아래 탭"
+  }
+ }
+}

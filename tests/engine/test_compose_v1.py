@@ -76,6 +76,16 @@ def test_owner_editor_changes_win_over_spoken_structure():
     assert "space" in ids and dict((s["id"], s["variant"]) for s in v1["spec"]["sections"])["menu"] == "cards"
 
 
+def test_owner_shape_pick_wins_over_spoken_shape():
+    """빌더에서 고른 구역 모양(COMPONENT_ENGINE_PLAN §6)이 대화에서 고른 모양보다 나중이라 이긴다."""
+    card = _card()
+    C.seed_v1_edits(card)
+    card["layout_edits"]["v1"]["variants"] = {"menu": "compact"}  # 대화는 cards, 빌더에서 두 줄 메뉴판
+    shapes = {s["id"]: s["variant"] for s in DV.variants(card)[0]["spec"]["sections"]}
+    assert shapes["menu"] == "compact"
+    assert shapes["hero"] == "video"  # 고르지 않은 구역은 대화 모양 그대로
+
+
 def test_polish_agent_cannot_change_spoken_v1(monkeypatch):
     card = _card()
 

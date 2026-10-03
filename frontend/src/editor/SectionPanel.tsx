@@ -1,5 +1,7 @@
 // 보며 고치기 구역 패널 (EDIT_WAVE2_CONTRACT §4).
 // bind별로 칸을 열고, 아래에 구역 위로·아래로·숨기기를 둔다. locked면 공통 버튼을 그리지 않는다.
+// 실시간 (COMPONENT_ENGINE_PLAN §5·§6): 칸을 고치는 동안 미리보기에 바로 그리고(onDraft, 저장 안 함),
+// 같은 데이터로 바꿔 쓸 수 있는 구역 모양(shapes)을 고르면 미리보기에 먼저 보인 뒤 저장한다.
 import { useEffect, useState } from 'react';
 import AddressSearch from '../builder/AddressSearch';
 import EventEditor from './EventEditor';
@@ -88,6 +90,10 @@ export interface SectionPanelProps {
   clickedText: string;
   onSelect: (id: string) => void;
   onSaved: (card: RoomCard, sectionId: string) => void;
+  /** 고치는 중인 칸 값(저장된 값과 다른 것만). 미리보기가 저장 전에 그린다 */
+  onDraft?: (fields: Record<string, string>) => void;
+  /** 저장 전에 미리보기에 먼저 그릴 구역 편집(모양 바꾸기) */
+  onPreviewLayout?: (layout: CardLayoutEdit) => void;
 }
 
 export default function SectionPanel({
@@ -103,6 +109,8 @@ export default function SectionPanel({
   clickedText,
   onSelect,
   onSaved,
+  onDraft,
+  onPreviewLayout,
 }: SectionPanelProps) {
   const selected = sections.find((s) => s.id === selectedId) ?? null;
   const kind: BindKind | null = selected ? kindOf(selected.bind) : null;
@@ -160,6 +168,34 @@ export default function SectionPanel({
 
   const selId = selected.id;
   const index = orderIds.indexOf(selId);
+  const shapes = selected.shapes ?? [];
+  const currentShape = selected.variant ?? '';
+
+  /** 칸 하나를 고친다. 저장된 값과 다른 칸만 미리보기에 보낸다(모두 같으면 빈 값 = 저장된 모양으로). */
+  function editField(k: string, value: string) {
+    const next = { ...drafts, [k]: value };
+    setDrafts(next);
+    if (!onDraft) return;
+    const fields: Record<string, string> = {};
+    for (const key of keys) {
+      const cur = next[key] ?? '';
+      if (cur !== fieldVal(card, key)) fields[key] = cur;
+    }
+    onDraft(fields);
+  }
+
+  /** 구역 모양 바꾸기: 미리보기에 먼저 그리고 저장한다. 기본 모양으로 돌아가면 그 구역 값을 뺀다. */
+  function changeShape(v: string) {
+    const variants: Record<string, string> = {};
+    for (const s of sections) {
+      if (s.variant && s.base_variant && s.variant !== s.base_variant) variants[s.id] = s.variant;
+    }
+    if (v === selected?.base_variant) delete variants[selId];
+    else variants[selId] = v;
+    const layout: CardLayoutEdit = { variant, order: orderIds, hidden: hiddenIds, added: addedIds, variants };
+    onPreviewLayout?.(layout);
+    void sendLayout(layout);
+  }
 
   async function sendLayout(layout: CardLayoutEdit) {
     setSaving(true);
@@ -292,6 +328,30 @@ export default function SectionPanel({
       <section aria-label={`${selected.label} 고치기`}>
         <h2>{selected.label}</h2>
 
+        {shapes.length > 1 ? (
+          <fieldset className="ed-shapes">
+            <legend>모양</legend>
+            <div className="ed-shapes__list">
+              {shapes.map((sh) => (
+                <button
+                  key={sh.variant}
+                  type="button"
+                  className="ed-shape"
+                  aria-pressed={currentShape === sh.variant}
+                  disabled={saving}
+                  onClick={() => currentShape !== sh.variant && changeShape(sh.variant)}
+                >
+                  <span className="ed-shape__name">
+                    {sh.name}
+                    {sh.new ? <span className="ed-shape__new">새</span> : null}
+                  </span>
+                  <span className="ed-shape__desc">{sh.desc}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        ) : null}
+
         {kind === 'chat' ? <p>이 구역의 내용은 채팅으로 말해 주세요.</p> : null}
 
         {kind === 'location' || kind === 'when' ? (
@@ -307,7 +367,7 @@ export default function SectionPanel({
               type="text"
               value={drafts[k] ?? ''}
               disabled={saving}
-              onChange={(e) => setDrafts((prev) => ({ ...prev, [k]: e.target.value }))}
+              onChange={(e) => editField(k, e.target.value)}
             />
           </label>
         ))}

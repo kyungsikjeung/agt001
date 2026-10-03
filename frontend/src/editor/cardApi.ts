@@ -91,6 +91,41 @@ export interface PreviewSection {
   bind: string;
   locked: boolean;
   hidden: boolean;
+  /** 지금 모양·기본 모양 (COMPONENT_ENGINE_PLAN §6). 예전 서버는 없다 */
+  variant?: string;
+  base_variant?: string;
+  /** 같은 데이터로 바꿔 쓸 수 있는 모양들. 한 개 이하면 모양 바꾸기를 보이지 않는다 */
+  shapes?: PreviewShape[];
+}
+
+/** 구역 모양 하나 (templates/components.json). */
+export interface PreviewShape {
+  variant: string;
+  name: string;
+  desc: string;
+  new: boolean;
+}
+
+/** 편집 미리보기의 토큰 CSS·<body> 스타일 축 속성 (agt-theme로 바꿔 끼운다). */
+export interface PreviewTheme {
+  css: string;
+  motion: string;
+  attrs: Record<string, string>;
+  /** 관리하는 속성 이름 전부(없는 것은 지운다) */
+  axes: string[];
+}
+
+/** 구역 조각: id(구역 id)·hash. html은 저장 전 미리 그리기에서 바뀐 것만 온다. */
+export interface PreviewPart {
+  id: string;
+  hash: string;
+  html?: string;
+}
+
+/** 스타일 축 하나: 기본값과 {값: 이름}. */
+export interface StyleAxis {
+  default: string;
+  values: Record<string, string>;
 }
 
 /** 이 안에 더할 수 있는 구역 (EDIT_WAVE2_CONTRACT §2.1). */
@@ -112,6 +147,14 @@ export interface CardPreview {
   items: PreviewItem[];
   /** 지금 보이는 그룹 순서 (GROUP_CARDS_CONTRACT §2-6, 빈 그룹 포함). 예전 서버는 없다 */
   groups?: string[];
+  /** 실시간 미리보기 (COMPONENT_ENGINE_PLAN §5). 예전 서버는 없다 → 늘 새로 불러온다 */
+  shell?: string;
+  order?: string[];
+  theme?: PreviewTheme;
+  parts?: PreviewPart[];
+  /** 이 안에서 고른 스타일 축 {surface: 'outline'}(기본값은 빠짐)과 고를 수 있는 축 */
+  style?: Record<string, string>;
+  styles?: Record<string, StyleAxis>;
 }
 
 export interface PreviewItem {
@@ -151,10 +194,20 @@ export interface CardLayoutEdit {
   hidden?: string[];
   added?: string[];
   reset?: boolean;
+  /** 구역별 모양 {구역 id: 변형}. 빼면 지금 값 그대로, {}면 모두 기본 모양으로 */
+  variants?: Record<string, string>;
+}
+
+/** 스타일 축 고르기 (안별). 기본값이거나 빼면 그 축은 기본 모양. */
+export interface CardStyleEdit {
+  variant: string;
+  surface?: string;
+  heading?: string;
 }
 
 /** PUT /card에 fields·notice 말고 더 보낼 것. choice는 고른 안 바꾸기(빌더 "모양 바꾸기"). */
 export interface CardSaveExtra {
+  style?: CardStyleEdit;
   event?: Partial<Pick<CardEvent, 'family' | 'gift'>>;
   items?: CardItemEdit[];
   groups?: CardGroupsEdit;
@@ -228,6 +281,7 @@ export async function saveCard(
   if (extra?.choice) body.choice = extra.choice;
   if (extra?.event) body.event = extra.event;
   if (extra?.staff) body.staff = extra.staff;
+  if (extra?.style) body.style = extra.style;
   const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card`, {
     method: 'PUT',
     credentials: 'same-origin',
@@ -263,6 +317,40 @@ export async function getPreview(
   if (!data || typeof data.html !== 'string' || !Array.isArray(data.sections)) {
     throw new Error('미리보기 모양이 맞지 않아요.');
   }
+  return data;
+}
+
+/** 저장 전 미리 그리기 요청 (COMPONENT_ENGINE_PLAN §5). have = 미리보기에 이미 있는 구역 해시. */
+export interface DraftRequest {
+  variant: string;
+  fields?: Record<string, string>;
+  layout?: CardLayoutEdit;
+  style?: CardStyleEdit;
+  have: Record<string, string>;
+  shell?: string;
+}
+
+export interface DraftResponse {
+  variant: string;
+  shell: string;
+  order: string[];
+  theme: PreviewTheme;
+  parts: PreviewPart[];
+  /** 뼈대가 달라졌을 때만: 새로 불러올 완전한 문서 */
+  html?: string;
+}
+
+/** 고치는 중인 값으로 그린 미리보기의 바뀐 구역만 받는다. 카드에는 쓰지 않는다. */
+export async function draftPreview(roomId: string, memberId: string | null, req: DraftRequest): Promise<DraftResponse> {
+  const res = await fetch(`/api/rooms/${encodeURIComponent(roomId)}/card/preview/draft`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...memberHeaders(memberId) },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(`미리보기를 그리지 못했어요 (${res.status})`);
+  const data = (await res.json()) as DraftResponse;
+  if (!data || !Array.isArray(data.parts) || typeof data.shell !== 'string') throw new Error('미리보기 모양이 맞지 않아요.');
   return data;
 }
 

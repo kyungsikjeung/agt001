@@ -58,6 +58,15 @@ class LayoutIn(BaseModel):
     hidden: list[str] = Field(default=[], max_length=30)
     added: list[str] = Field(default=[], max_length=30)
     reset: bool = False
+    # 구역별 모양 {구역 id: 변형} (COMPONENT_ENGINE_PLAN §6). None = 지금 값 그대로(끌어서 순서만 바꿀 때 지우지 않게)
+    variants: Optional[dict[str, str]] = Field(default=None, max_length=30)
+
+
+class StyleIn(BaseModel):
+    """사이트 스타일 축 (안별, COMPONENT_ENGINE_PLAN §6). 모르는 값·기본값은 버린다(components.clean_style)."""
+    variant: str = "v1"
+    surface: Optional[str] = None
+    heading: Optional[str] = None
 
 
 class EventIn(BaseModel):
@@ -86,6 +95,7 @@ class CardIn(BaseModel):
     groups: Optional[GroupsIn] = None  # 그룹 목록 (GROUP_CARDS_CONTRACT §2-2), items보다 먼저 적용
     event: Optional[EventIn] = None  # 청첩장 양가 연락처·계좌
     staff: Optional[list[StaffIn]] = Field(default=None, max_length=12)  # 선생님 (S1). None=그대로, []=지우기
+    style: Optional[StyleIn] = None  # 스타일 축(카드 면·구역 제목)
 
 
 def _view(room: dict, session: dict, member_id: str) -> dict:
@@ -345,9 +355,10 @@ def _apply_layout(card: dict, layout: LayoutIn) -> bool:
     if blueprint is None:
         return False  # 청사진 없는 옛 경로는 편집 무시
     pos = VARIANTS.index(variant)
+    shapes = layout.variants if layout.variants is not None else (current.get(variant) or {}).get("variants")
     cleaned = LE.normalize(
         {"order": list(layout.order or []), "hidden": list(layout.hidden or []),
-         "added": list(layout.added or [])}, blueprint, pos)
+         "added": list(layout.added or []), "variants": shapes}, blueprint, pos)
     if cleaned == current.get(variant):
         return False
     edits = card.setdefault("layout_edits", {})
@@ -358,6 +369,46 @@ def _apply_layout(card: dict, layout: LayoutIn) -> bool:
     else:
         edits[variant] = cleaned
     return True
+
+
+def _apply_style(card: dict, style: StyleIn) -> bool:
+    """스타일 축 저장 (안별). 바뀌면 True. 기본값만 남으면 지운다."""
+    from app.services import components as COMP
+    variant = (style.variant or "").strip()
+    if variant not in VARIANTS:
+        raise HTTPException(status_code=400, detail="unknown variant")
+    current = card.get("style_axes") or {}
+    cleaned = COMP.clean_style({"surface": style.surface, "heading": style.heading})
+    if cleaned == (current.get(variant) or {}):
+        return False
+    axes = card.setdefault("style_axes", {})
+    if cleaned:
+        axes[variant] = cleaned
+    else:
+        axes.pop(variant, None)
+        if not axes:
+            card.pop("style_axes", None)
+    return True
+
+
+def _apply_fields(card: dict, fields: dict, turn: int) -> list[str]:
+    """빌더 칸 고치기 (§2.2). 바뀐 칸 이름 목록. 저장 전 미리 그리기(draft)도 같은 규칙을 쓴다."""
+    changed = []
+    for key, raw in (fields or {}).items():
+        if key not in EDITABLE:
+            continue
+        value = str(raw or "").strip()[:200]
+        if not value:
+            # 빈 값은 "입력 필요"로 되돌린다(D23: 공개 전 채워야 하는 자리 표시)
+            prd_engine._put(card, key, None, S.PLACEHOLDER, turn, "editor")
+        elif S.SLOTS[key].multi:
+            prd_engine._put(card, key, [v.strip() for v in value.split(",") if v.strip()], S.FILLED, turn, "editor")
+        else:
+            if key == "phone":
+                value = prd_engine._spoken_phone(value)
+            prd_engine._put(card, key, value, S.FILLED, turn, "editor")
+        changed.append(key)
+    return changed
 
 
 def _member_room(room_id: str, x_member_id: Optional[str], request: Optional[Request] = None):
@@ -552,21 +603,7 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
         if card is None:
             card = session["prd"] = prd_engine.new_card()
         turn = card.get("turn", 0)
-        changed = []
-        for key, raw in (body.fields or {}).items():
-            if key not in EDITABLE:
-                continue
-            value = str(raw or "").strip()[:200]
-            if not value:
-                # 빈 값은 "입력 필요"로 되돌린다(D23: 공개 전 채워야 하는 자리 표시)
-                prd_engine._put(card, key, None, S.PLACEHOLDER, turn, "editor")
-            elif S.SLOTS[key].multi:
-                prd_engine._put(card, key, [v.strip() for v in value.split(",") if v.strip()], S.FILLED, turn, "editor")
-            else:
-                if key == "phone":
-                    value = prd_engine._spoken_phone(value)
-                prd_engine._put(card, key, value, S.FILLED, turn, "editor")
-            changed.append(key)
+        changed = _apply_fields(card, body.fields or {}, turn)
         if body.notice is not None:
             if save_notice(card, body.notice.text, body.notice.popup, body.notice.photos):
                 changed.append("notice")
@@ -617,6 +654,9 @@ def put_card(room_id: str, body: CardIn, request: Request, x_member_id: Optional
                     # 빈 목록이면 직접 고친 값을 지우고 대화에서 받은 값·예시로 돌아간다
                     card.pop("staff_edit", None)
                 changed.append("staff")
+        if body.style is not None:
+            if _apply_style(card, body.style):
+                changed.append("style")
         if body.choice is not None:
             if card.get("design_choice") != body.choice:
                 card["design_choice"] = body.choice
@@ -640,6 +680,8 @@ def _changed_label(ind, key: str) -> str:
         return "연락처·계좌"
     if key == "staff":
         return "선생님·담당자"
+    if key == "style":
+        return "스타일"
     if key == "items":
         return S.label_for(ind, "offerings")
     return S.label_for(ind, key)
@@ -745,12 +787,8 @@ def delete_guestbook(room_id: str, entry_id: int, request: Request, x_member_id:
     return Response(status_code=204)
 
 
-@router.get("/api/rooms/{room_id}/card/preview")
-def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None),
-                 variant: Optional[str] = None):
-    """보며 고치기 미리보기 (§2.1). 방장만, 시안 전이면 409. 지금 카드로 바로 그린다."""
-    from fastapi.responses import JSONResponse
-
+def _preview_owner(room_id: str, x_member_id: Optional[str], request: Request) -> tuple:
+    """미리보기는 방장만, 시안 전이면 409. (room, session, card)."""
     safe, member_id = _member_room(room_id, x_member_id, request)
     room = store.read_room(safe)
     if rooms.owner_id(room) != member_id:
@@ -759,19 +797,48 @@ def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = He
     card = session.get("prd")
     if card is None or not session.get("design_url"):
         raise HTTPException(status_code=409, detail="no design yet")
-    vid = variant if variant in VARIANTS else None
-    if vid is None:
-        choice = card.get("design_choice")
-        vid = choice if choice in VARIANTS else "v1"
-    from app.services import archetype as AT
+    return room, session, card
+
+
+def _preview_variant(card: dict, variant: Optional[str]) -> str:
+    if variant in VARIANTS:
+        return variant
+    choice = card.get("design_choice")
+    return choice if choice in VARIANTS else "v1"
+
+
+def _preview_page(session: dict, card: dict, vid: str) -> dict:
+    """편집 미리보기 한 장 (site_render.render_page: 문서 + 구역 조각 + 토큰)."""
     from app.services import design_variants as DV
-    from app.services import layout_edits as LE
     from app.services import site_render as SR
     found = DV.pick(card, vid)
     if found is None:
         raise HTTPException(status_code=409, detail="no design yet")
-    page = SR.render_site(found["spec"], site_key=session.get("requirement_id") or "",
+    return SR.render_page(found["spec"], site_key=session.get("requirement_id") or "",
                           title=DV.title_for(card), kind=DV.kind_for(card), edit=True)
+
+
+def _live_fields(page: dict, vid: str, card: dict) -> dict:
+    """실시간 미리보기 조각 정보 (COMPONENT_ENGINE_PLAN §5): 뼈대 해시·구역 해시·토큰·스타일 축."""
+    from app.services import components as COMP
+    return {"shell": page["shell"], "order": page["order"], "theme": page["theme"],
+            "parts": [{"id": p["key"], "hash": p["hash"]} for p in page["parts"] if p["section"]],
+            "style": (card.get("style_axes") or {}).get(vid) or {},
+            "styles": {axis: {"default": spec.get("default"), "values": spec.get("values") or {}}
+                       for axis, spec in COMP.style_axes().items()}}
+
+
+@router.get("/api/rooms/{room_id}/card/preview")
+def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None),
+                 variant: Optional[str] = None):
+    """보며 고치기 미리보기 (§2.1). 방장만, 시안 전이면 409. 지금 카드로 바로 그린다."""
+    from fastapi.responses import JSONResponse
+
+    _room, session, card = _preview_owner(room_id, x_member_id, request)
+    vid = _preview_variant(card, variant)
+    from app.services import archetype as AT
+    from app.services import layout_edits as LE
+    page = _preview_page(session, card, vid)
     try:
         blueprint = AT.blueprint(card)
     except Exception:
@@ -792,14 +859,67 @@ def preview_card(room_id: str, request: Request, x_member_id: Optional[str] = He
         ind = prd_engine.industry_of(card)
         offer_label = S.label_for(ind, "offerings")
         sections = [{"id": s["id"], "label": _section_label(s.get("node") or {"id": s["id"]}, offer_label),
-                     "bind": s.get("bind", "none"), "locked": s["locked"], "hidden": s["hidden"]}
+                     "bind": s.get("bind", "none"), "locked": s["locked"], "hidden": s["hidden"],
+                     # 구역 모양 바꾸기: 지금 모양·기본 모양·같은 데이터로 바꿀 수 있는 모양
+                     "variant": s.get("variant") or "", "base_variant": s.get("base_variant") or "",
+                     "shapes": s.get("shapes") or []}
                     for s in LE.sections(blueprint, pos, edits)]
         addable = [{"id": n.get("id"), "label": _section_label(n, offer_label),
                     "bind": n.get("bind", "none")}
                    for n in LE.addable(blueprint, pos, edits) if isinstance(n, dict)]
-    return JSONResponse(content={"variant": vid, "html": page, "sections": sections, "addable": addable,
-                                 "layout": edits, "items": items, "groups": order},
+    return JSONResponse(content={"variant": vid, "html": page["html"], "sections": sections, "addable": addable,
+                                 "layout": edits, "items": items, "groups": order,
+                                 **_live_fields(page, vid, card)},
                         headers={"Cache-Control": "no-store"})
+
+
+class DraftIn(BaseModel):
+    """저장 전 미리 그리기 (COMPONENT_ENGINE_PLAN §5). 카드에 쓰지 않는다."""
+    variant: str = "v1"
+    fields: dict[str, str] = Field(default={}, max_length=len(EDITABLE))
+    layout: Optional[LayoutIn] = None
+    style: Optional[StyleIn] = None
+    # 미리보기가 이미 가진 구역 해시 {구역 id: hash}·뼈대 해시. 같은 구역은 HTML을 다시 보내지 않는다.
+    have: dict[str, str] = Field(default={}, max_length=60)
+    shell: Optional[str] = None
+
+
+@router.post("/api/rooms/{room_id}/card/preview/draft")
+def preview_draft(room_id: str, body: DraftIn, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """고치는 중인 값으로 미리보기를 그려 바뀐 구역 조각만 돌려준다. 저장하지 않는다(카드 사본에만 적용).
+
+    돌려주는 것: shell·order·theme·parts[{id, hash, html?}] (html은 have와 해시가 다를 때만),
+    뼈대가 달라졌으면(내비·행동 바·글꼴 등) 새로 불러올 완전한 문서 html.
+    """
+    import copy as _copy
+
+    from fastapi.responses import JSONResponse
+
+    # 쿠키로 들어온 다른 기기 방장은 _member_room이 출처를 확인한다(다른 바꾸기 요청과 같은 규칙).
+    _room, session, saved = _preview_owner(room_id, x_member_id, request)
+    vid = body.variant if body.variant in VARIANTS else None
+    if vid is None:
+        raise HTTPException(status_code=400, detail="unknown variant")
+    card = _copy.deepcopy(saved)
+    _apply_fields(card, body.fields or {}, card.get("turn", 0))
+    if body.layout is not None:
+        if body.layout.variant != vid:
+            raise HTTPException(status_code=400, detail="layout variant mismatch")
+        _apply_layout(card, body.layout)
+    if body.style is not None:
+        if body.style.variant != vid:
+            raise HTTPException(status_code=400, detail="style variant mismatch")
+        _apply_style(card, body.style)
+    page = _preview_page(session, card, vid)
+    have = body.have or {}
+    live = _live_fields(page, vid, card)
+    live["parts"] = [{"id": p["key"], "hash": p["hash"],
+                      **({"html": p["html"]} if have.get(p["key"]) != p["hash"] else {})}
+                     for p in page["parts"] if p["section"]]
+    out = {"variant": vid, **live}
+    if body.shell != page["shell"]:
+        out["html"] = page["html"]
+    return JSONResponse(content=out, headers={"Cache-Control": "no-store"})
 
 
 @router.get("/api/rooms/{room_id}/notify")

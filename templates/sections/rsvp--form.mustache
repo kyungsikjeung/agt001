@@ -1,5 +1,5 @@
 <section class="s-rsvp s-rsvp--form" data-section-id="{{id}}" aria-labelledby="rsvp-title-{{id}}">
-  <h2 id="rsvp-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}참석 여부 알려 주기{{/label}}</h2>
+  <h2 id="rsvp-title-{{id}}">{{> label}}</h2>
   <p class="s-rsvp__lead">식사와 자리를 준비할 수 있게 미리 알려 주시면 고맙겠어요.</p>
   <form class="s-form" method="post" action="/api/rsvp/{{site_key}}" enctype="application/x-www-form-urlencoded">
     {{#has_sides}}

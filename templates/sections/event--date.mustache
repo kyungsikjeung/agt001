@@ -1,5 +1,5 @@
 <section class="s-event s-event--date" data-section-id="{{id}}" aria-labelledby="event-title-{{id}}">
-  <h2 id="event-title-{{id}}">{{#label}}{{label}}{{/label}}{{^label}}날짜와 장소{{/label}}{{#example}} <span class="s-example" title="예시 날짜: 공개할 때 빠져요">예시</span>{{/example}}</h2>
+  <h2 id="event-title-{{id}}">{{> label}}{{#example}} <span class="s-example" title="예시 날짜: 공개할 때 빠져요">예시</span>{{/example}}</h2>
   {{#has_date}}
   <p class="s-event__when"><time datetime="{{iso}}">{{date_text}}</time>{{#time}}<span class="s-event__time">{{time}}</span>{{/time}}</p>
   {{#venue}}<p class="s-event__venue">{{venue}}</p>{{/venue}}
