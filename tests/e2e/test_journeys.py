@@ -73,7 +73,7 @@ def test_j2_chat_question_buttons(journey_context):
     page = journey_context.new_page()
     page.goto("/")
     page.get_by_label("만들고 싶은 사이트 설명").fill("동네 작은 카페예요. 대표 메뉴와 영업시간을 보여 주고 싶어요.")
-    page.get_by_role("button", name="시작하기").click()
+    page.get_by_role("button", name="시작하기", exact=True).click()
     page.wait_for_url(re.compile(r"/room\.html\?room="))
     room_url = page.url
 
@@ -96,7 +96,9 @@ def test_j2_chat_question_buttons(journey_context):
     page.evaluate("pollMessages()")  # 서버 기록을 한 번 더 받아도 새 말이 없어야 한다
     expect(log_items).to_have_count(before)
 
-    # 단추 막대는 같은 질문이면 다시 안 그린다 → 방을 다시 열어 단추를 되살린다(방장 그대로)
+    # 단추 막대는 같은 질문이면 다시 안 그린다 → 방을 다시 열어 단추를 되살린다(방장 그대로).
+    # 제품 빈틈(따로 고칠 것): '직접 입력' 뒤엔 다시 열기 전까지 '알아서 해주세요'로 못 돌아가고,
+    # 랜딩에서 온 '사장님' 닉네임이 저장되지 않아 다시 열면 닉네임을 또 묻는다.
     page.goto(room_url)
     page.get_by_placeholder("닉네임").fill("사장님")
     page.get_by_role("button", name="입장하기").click()
@@ -108,6 +110,11 @@ def test_j2_chat_question_buttons(journey_context):
     expect(vote_bar).to_be_visible(timeout=POLL_TIMEOUT)
     expect(vote_bar).to_contain_text("이 내용으로 시안을 만들까요?")
     expect(vote_bar.get_by_role("button", name="👍 동의")).to_be_visible()
-    expect(page.locator("#log")).to_contain_text("정리했어요")
-    page.evaluate("pollMessages()")  # 다음 서버 응답에도 질문 단추가 다시 안 떠야 한다
     expect(page.locator("#choiceBar")).to_be_hidden()
+    # 화면은 같은 질문을 다시 안 그리므로(choiceKey) 서버 응답을 직접 본다: 남은 질문 없이 시안 동의 단계
+    room_id = re.search(r"room=([^&]+)", room_url).group(1)
+    res = page.request.get(f"/room/{room_id}/messages?since=0", headers={"X-Member-Id": page.evaluate("memberId")})
+    assert res.ok, res.status
+    data = res.json()
+    assert data["question"] is None, f"'알아서 해주세요' 뒤에도 질문이 남았어요: {data['question']}"
+    assert data["state"] == "AWAIT_APPROVAL", data["state"]

@@ -7,6 +7,7 @@ import os
 import socket
 import threading
 import time
+import warnings
 from pathlib import Path
 
 import pytest
@@ -63,41 +64,51 @@ def journey_server(tmp_path_factory):
     if settings.database_url != os.environ["DATABASE_URL"]:
         mp.undo()
         pytest.fail("settings.database_url이 테스트 DB가 아니에요 - e2e 모듈 맨 위에서 app을 import하지 마세요")
-    # 단위 conftest가 끈 것 중 여정이 보는 것은 운영 기본값으로 되돌린다.
-    mp.setattr(settings, "publish_login_required", True)
-    mp.setattr(settings, "room_invite_required", True)
-    mp.setattr(settings, "generated_dir", tmp_path_factory.mktemp("generated"))
-    mp.setattr(settings, "ui_agent_enabled", False)
-    mp.setattr(llm, "chat", unit.default_chat)
-    mp.setattr(llm, "chat_json", unit.default_chat_json)
-    mp.setattr(llm, "embed", unit.default_embed)
-    mp.setattr(llm, "embed_many", lambda texts: [unit.default_embed(t) for t in texts])
-    mp.setattr(design_svc, "screenshot_html", unit.raise_screenshot)
-    mp.setattr(design_svc, "screenshot_many", unit.raise_screenshot)
-    mp.setattr(photos_svc, "_refresh_designs_async", lambda *a, **k: None)
-    mp.setattr(art_lib, "prefetch", lambda *a, **k: None)  # .env에 GEMINI 키가 있어도 실제 그림을 만들지 않게
-    mp.setattr(codegen_svc, "start", unit.fake_codegen_done)
-    unit.db_migrate.upgrade_head()
-    store.reset_all()
-    rag.reset_cache()
+    server = thread = sock = None
+    try:  # 준비 중 실패해도 패치를 되돌린다
+        # 단위 conftest가 끈 것 중 여정이 보는 것은 운영 기본값으로 되돌린다.
+        mp.setattr(settings, "publish_login_required", True)
+        mp.setattr(settings, "room_invite_required", True)
+        mp.setattr(settings, "generated_dir", tmp_path_factory.mktemp("generated"))
+        mp.setattr(settings, "ui_agent_enabled", False)
+        mp.setattr(llm, "chat", unit.default_chat)
+        mp.setattr(llm, "chat_json", unit.default_chat_json)
+        mp.setattr(llm, "embed", unit.default_embed)
+        mp.setattr(llm, "embed_many", lambda texts: [unit.default_embed(t) for t in texts])
+        mp.setattr(design_svc, "screenshot_html", unit.raise_screenshot)
+        mp.setattr(design_svc, "screenshot_many", unit.raise_screenshot)
+        mp.setattr(photos_svc, "_refresh_designs_async", lambda *a, **k: None)
+        mp.setattr(art_lib, "prefetch", lambda *a, **k: None)  # .env에 GEMINI 키가 있어도 실제 그림을 만들지 않게
+        mp.setattr(codegen_svc, "start", unit.fake_codegen_done)
+        # 방 화면이 /api/tts를 부른다 - 실제 NVIDIA 호출(네트워크·과금) 대신 '없음'으로
+        mp.setattr(settings, "tts_enabled", False)
+        mp.setattr(settings, "stt_enabled", False)
+        unit.db_migrate.upgrade_head()
+        store.reset_all()
+        rag.reset_cache()
 
-    sock = socket.socket()  # 빈 포트를 잡은 채로 넘긴다(닫았다 다시 잡는 사이 경합 없음)
-    sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
-    server = uvicorn.Server(uvicorn.Config(create_app(), log_level="warning"))
-    thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
-    thread.start()
-    deadline = time.monotonic() + 30
-    while not server.started:
-        if not thread.is_alive() or time.monotonic() > deadline:
-            raise RuntimeError("여정 점검용 서버가 뜨지 않았어요")
-        time.sleep(0.05)
-    yield f"http://localhost:{port}"
-    server.should_exit = True
-    thread.join(timeout=10)
-    sock.close()
-    rag.reset_cache()
-    mp.undo()
+        sock = socket.socket()  # 빈 포트를 잡은 채로 넘긴다(닫았다 다시 잡는 사이 경합 없음)
+        sock.bind(("127.0.0.1", 0))
+        port = sock.getsockname()[1]
+        server = uvicorn.Server(uvicorn.Config(create_app(), log_level="warning"))
+        thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
+        thread.start()
+        deadline = time.monotonic() + 30
+        while not server.started:
+            if not thread.is_alive() or time.monotonic() > deadline:
+                raise RuntimeError("여정 점검용 서버가 뜨지 않았어요")
+            time.sleep(0.05)
+        yield f"http://localhost:{port}"
+    finally:
+        if thread is not None:
+            server.should_exit = True
+            thread.join(timeout=10)
+            if thread.is_alive():
+                warnings.warn("여정 서버가 10초 안에 안 멈췄어요")
+        if sock is not None:
+            sock.close()
+        rag.reset_cache()
+        mp.undo()
 
 
 @pytest.fixture(scope="session")
