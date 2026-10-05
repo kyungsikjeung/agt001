@@ -340,7 +340,8 @@
   .t-key { color: var(--accent-dark); font-weight: 800; }
   /* 요약 주소 줄 옆 단추 + 주소 검색 시트 (MAP_CONTRACT §3) */
   .addr-search-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
-  .addr-search-btn[hidden] { display: none; }
+  .addr-search[hidden] { display: none; }
+  .addr-search-hint { margin: 8px 0 0; font-size: 0.875rem; color: var(--muted, #666); }
   #addrSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 28; display: flex; align-items: flex-end; justify-content: center; }
   #addrSheetWrap[hidden] { display: none; }
   #addrSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 88dvh; overflow-y: auto; overflow-x: hidden; }
@@ -989,14 +990,22 @@ function maybeAddAddrBtn(bubble, text) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'addr-search-btn';
-  b.textContent = '주소 검색';
-  b.hidden = !isOwner();
+  b.textContent = '📍 정확한 주소 검색하기';
+  b.title = '지도와 오시는 길에 쓸 정확한 주소를 검색해서 골라요';
+  b.setAttribute('aria-label', '정확한 주소 검색하기: 지도와 오시는 길에 쓸 주소를 골라요');
   b.onclick = openAddrSheet;
-  bubble.appendChild(b);
+  const wrap = document.createElement('div');
+  wrap.className = 'addr-search';
+  wrap.hidden = !isOwner();
+  const hint = document.createElement('p');
+  hint.className = 'addr-search-hint';
+  hint.textContent = '지도·오시는 길에 쓸 정확한 주소를 검색해서 골라 주세요.';
+  wrap.append(hint, b);
+  bubble.appendChild(wrap);
 }
 function refreshAddrBtns() {
   const owner = isOwner();
-  const btns = document.querySelectorAll('.addr-search-btn');
+  const btns = document.querySelectorAll('.addr-search');
   for (const b of btns) b.hidden = !owner;
 }
 
@@ -1363,7 +1372,11 @@ function renderChoices(q) {
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = opt;
-    b.onclick = () => { choiceBar.classList.remove('show'); sendRoomMessage(opt); };
+    b.onclick = () => {
+      choiceBar.classList.remove('show');
+      if (opt === '직접 입력') { const inp = document.getElementById('input'); inp.placeholder = '여기에 적어 주세요'; inp.focus(); return; }
+      sendRoomMessage(opt);
+    };
     choicesEl.appendChild(b);
   }
   if (q.kind === 'multi') {

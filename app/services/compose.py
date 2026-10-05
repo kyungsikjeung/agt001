@@ -496,7 +496,7 @@ def _ask_fact(card: dict, slot: str) -> dict:
                 "options": ["나중에 넣을게요"], "option_desc": ["지금은 사진으로 대신 보여요."]}
     ind = E.industry_of(card)
     q = S.question_for(ind, slot)
-    pending = {"slot": slot, "kind": "single", "options": list(q.options) + [S.LET_AI], "text": q.ask,
+    pending = {"slot": slot, "kind": "single", "options": list(q.options or (S.TYPE_IT,)) + [S.LET_AI], "text": q.ask,
                "budget_free": True}
     card["pending"] = pending
     card["done"] = False
@@ -724,7 +724,7 @@ def speech_text(q: Optional[dict]) -> str:
         return ""
     if q.get("speech"):
         return q["speech"]
-    opts = [o for o in (q.get("options") or []) if o and o != S.LET_AI]
+    opts = [o for o in (q.get("options") or []) if o and o not in (S.LET_AI, S.TYPE_IT)]
     return q.get("text", "") + (" " + ", ".join(opts) + " 중에 말씀해 주세요." if opts else "")
 
 
