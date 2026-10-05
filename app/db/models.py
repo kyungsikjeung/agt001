@@ -760,3 +760,30 @@ class PushSubscriptionRow(Base):
     created_at: Mapped[datetime.datetime] = _now_col()
     last_ok_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
     fail_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+
+class ArchivedTransactionRow(Base):
+    """거래기록 분리 보관 (RECORD_RETENTION_REVIEW §4-B).
+
+    지운 프로젝트의 주문·결제·환불·정산은 법정 보존 기간(전자상거래법 시행령 제6조: 대금결제·공급,
+    계약·청약철회 각 5년) 때문에 지울 수 없다. 개인정보보호법 제21조 제3항대로 **다른 개인정보와
+    분리해** 이 표에만 두고(손님 이름·전화는 가려서), 기간이 지나면 자동 파기한다(project_delete).
+
+    shops를 가리키는 외래키를 두지 않는다 — 가게 행이 지워진 뒤에도 남아야 한다.
+    """
+
+    __tablename__ = "archived_transactions"
+    __table_args__ = (
+        CheckConstraint("kind IN ('order', 'payment', 'subscription')", name="ck_archived_kind"),
+        Index("ix_archived_site", "site_key", "occurred_at"),
+        Index("ix_archived_purge", "purge_after"),
+    )
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site_key: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(Text, nullable=False)
+    ref: Mapped[Optional[str]] = mapped_column(Text)  # 찾기용: 주문번호·결제번호
+    occurred_at: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    purge_after: Mapped[datetime.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime.datetime] = _now_col()

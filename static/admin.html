@@ -84,6 +84,7 @@
   <button type="button" role="tab" data-tab="rooms" aria-selected="true">가게</button>
   <button type="button" role="tab" data-tab="signals" aria-selected="false">문제 신호</button>
   <button type="button" role="tab" data-tab="metrics" aria-selected="false">지표</button>
+  <button type="button" role="tab" data-tab="archived" aria-selected="false">보관 거래기록</button>
   <button type="button" role="tab" data-tab="keys" aria-selected="false">키</button>
 </nav>
 <main>
@@ -103,6 +104,17 @@
   <section id="p-detail" aria-label="가게 상세" hidden>
     <div class="row"><button type="button" id="back">← 목록으로</button></div>
     <div id="detail" style="display:flex;flex-direction:column;gap:12px"></div>
+  </section>
+
+  <section id="p-archived" role="tabpanel" aria-label="보관 거래기록" hidden>
+    <p class="sub">지운 프로젝트의 주문·결제·환불·정산이에요. 법정 보존 기간(5년) 동안만 두고 지나면 자동 파기해요.
+      손님 이름·전화는 보관할 때 이미 가렸어요. 환불·분쟁 조회용이고, 본 것은 기록돼요.</p>
+    <form id="archived-search" class="row" role="search">
+      <input id="archived-q" type="search" placeholder="가게 키(비우면 최근 순)" aria-label="가게 키로 찾기">
+      <button type="submit">찾기</button>
+    </form>
+    <p class="sub" id="archived-count" role="status"></p>
+    <div id="archived" style="display:flex;flex-direction:column;gap:8px"></div>
   </section>
 
   <section id="p-signals" role="tabpanel" aria-label="문제 신호" hidden>
@@ -131,7 +143,8 @@
   };
   const FLAG = { stuck: "막힘", extract_fail: "추출 실패", slow: "느림", repeat: "같은 질문 반복", english: "영어 답" };
   const SOURCE = { db: "화면에서 넣은 키", env: "서버 .env 키", none: "없음" };
-  const PANELS = { rooms: "p-rooms", signals: "p-signals", metrics: "p-metrics", keys: "p-keys" };
+  const PANELS = { rooms: "p-rooms", signals: "p-signals", metrics: "p-metrics",
+                   archived: "p-archived", keys: "p-keys" };
   const LOGIN_NEXT = encodeURIComponent("/admin");
   let lastTab = "rooms";
 
@@ -166,6 +179,10 @@
   }
 
   // 401·404면 문만 보인다. 404는 관리자 기능이 있다는 것을 드러내지 않는 문구.
+  function wireArchivedSearch() {
+    $("archived-search").addEventListener("submit", (e) => { e.preventDefault(); loadArchived(); });
+  }
+
   function showGate(status) {
     $("tabs").hidden = true;
     $("config").hidden = true;
@@ -196,6 +213,7 @@
     $("p-detail").hidden = true;
     if (name === "signals") loadSignals();
     if (name === "metrics") loadMetrics();
+    if (name === "archived") loadArchived();
     if (name === "keys") loadKeys();
   }
 
@@ -323,6 +341,42 @@
   }
 
   // ── 문제 신호 ──
+  // ── 보관 거래기록 (RECORD_RETENTION_REVIEW §4-B) ──
+
+  const ARCHIVED_KIND = { order: "주문", payment: "결제", subscription: "요금제" };
+
+  async function loadArchived() {
+    const box = $("archived");
+    const key = ($("archived-q").value || "").trim();
+    box.replaceChildren(el("p", "불러오는 중…", "sub"));
+    let d;
+    try {
+      d = await api("/api/admin/archived?limit=50" + (key ? "&site=" + encodeURIComponent(key) : ""));
+    } catch (e) { return failed(box, e); }
+    $("archived-count").textContent = d.total ? `${d.total}건 (보존 ${d.keep_years}년)` : "";
+    box.replaceChildren();
+    if (!d.items.length) {
+      box.append(el("p", key ? "그 가게의 보관 거래기록이 없어요." : "보관 거래기록이 없어요.", "sub"));
+      return;
+    }
+    for (const it of d.items) {
+      const card = el("div", null, "item");
+      card.append(el("strong", `${ARCHIVED_KIND[it.kind] || it.kind} · ${it.ref || "-"}`));
+      const total = it.data && it.data.total != null ? it.data.total : (it.data || {}).amount;
+      card.append(el("span", [it.site_key, (it.occurred_at || "").slice(0, 10),
+        total != null ? `${Number(total).toLocaleString()}원` : "",
+        `파기 ${(it.purge_after || "").slice(0, 10)}`].filter(Boolean).join(" · "), "sub"));
+      const pre = el("pre");
+      pre.style.whiteSpace = "pre-wrap";
+      pre.style.fontSize = "0.75rem";
+      pre.textContent = JSON.stringify(it.data, null, 2);
+      const more = el("details");
+      more.append(el("summary", "자세히"), pre);
+      card.append(more);
+      box.append(card);
+    }
+  }
+
   async function loadSignals() {
     const box = $("signals");
     box.replaceChildren(el("p", "불러오는 중…", "sub"));
@@ -581,6 +635,7 @@
     loadRooms(true);
   });
   $("more").addEventListener("click", () => loadRooms(false));
+  wireArchivedSearch();
   $("back").addEventListener("click", () => showTab(lastTab));
 
   // 첫 요청(가게 목록)으로 권한을 확인한다. 통과하면 탭을 보인다.

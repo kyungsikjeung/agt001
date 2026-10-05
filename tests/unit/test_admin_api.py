@@ -107,3 +107,38 @@ def test_signals_and_metrics(client, users):
     m = client.get("/api/admin/metrics", params={"days": 7}).json()
     assert {"days", "design", "funnel", "rooms_created", "published", "owners_logged_in"} <= set(m)
     assert m["days"] == 7 and m["rooms_created"] >= 2
+
+
+def test_archived_list(client, users):
+    """보관 거래기록 조회 (RECORD_RETENTION_REVIEW §4-B): 관리자만, 가게 키로 찾기, 열람 기록."""
+    import datetime
+
+    from app.db.models import ArchivedTransactionRow
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    with get_sessionmaker()() as db, db.begin():
+        db.add_all([
+            ArchivedTransactionRow(site_key="shop-a", kind="order", ref="11", occurred_at=now,
+                                   purge_after=now + datetime.timedelta(days=1826),
+                                   data={"total": 4500, "customer": {"name": "김*님", "phone": "010-****-0001"}}),
+            ArchivedTransactionRow(site_key="shop-b", kind="subscription", ref="starter", occurred_at=now,
+                                   purge_after=now + datetime.timedelta(days=1826),
+                                   data={"plan": "starter", "status": "canceled"}),
+        ])
+
+    assert client.get("/api/admin/archived").status_code == 401  # 로그인 안 함
+    _login(client, OWNER)
+    assert client.get("/api/admin/archived").status_code == 404  # 관리자 아님(있는지도 안 알려준다)
+
+    _login(client, ADMIN)
+    # 가게 키 없이 부르면 전체가 나온다(다른 테스트가 남긴 보관분까지 세므로 하한만 본다)
+    everything = client.get("/api/admin/archived").json()
+    assert everything["total"] >= 2 and everything["keep_years"] == 5
+    one = client.get("/api/admin/archived?site=shop-a").json()
+    assert one["total"] == 1 and [i["kind"] for i in one["items"]] == ["order"]
+    assert one["items"][0]["data"]["customer"] == {"name": "김*님", "phone": "010-****-0001"}
+    assert client.get("/api/admin/archived?site=shop-none").json()["items"] == []
+
+    with get_sessionmaker()() as db:  # 본 것은 남는다 (D49)
+        views = db.scalars(select(AdminAuditRow.action).where(AdminAuditRow.user_id == ADMIN)).all()
+    assert "view:archived" in views, views

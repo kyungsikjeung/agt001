@@ -45,8 +45,9 @@ def _purge_all() -> None:
     chat_agent_svc.purge()
     guest_chat_svc.purge()
     accounts_svc.purge()
-    from app.services import project_delete  # 지운 프로젝트: 7일 뒤 영구 삭제(대표 10/5)
+    from app.services import project_delete  # 지운 프로젝트: 30일 뒤 영구 삭제(대표 10/5, 방침 3항)
     project_delete.purge_deleted()
+    project_delete.purge_archived()  # 보존 기간(5년)이 지난 거래기록 파기
 
 
 async def _purge_daily() -> None:
