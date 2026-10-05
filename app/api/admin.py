@@ -23,7 +23,7 @@ from app.db.models import (
     UserRoomRow,
 )
 from app.db.session import get_sessionmaker
-from app.services import admin, config_check, prd_engine, takedown
+from app.services import admin, config_check, prd_engine, stuck_report, takedown
 from app.services import rooms as rooms_svc
 from evals import live_metrics as M
 
@@ -279,3 +279,10 @@ def config_problems(user: dict = Depends(_admin)):
     """빠진 설정 (UX_GAP_PLAN Q3). 키 값은 들어 있지 않다."""
     admin.viewed(user, "config-check")
     return {"problems": config_check.problems()}
+
+
+@router.get("/api/admin/stuck")
+def stuck(days: int = 7, user: dict = Depends(_admin)):
+    """막힘 지표 (UX_GAP_PLAN Q4). 숫자·칸 이름만, 사장님 말은 없다."""
+    admin.viewed(user, "stuck")
+    return stuck_report.report(days)

@@ -561,6 +561,7 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
         from app.services import rooms
         room_id = _publish_room_id(session)
         if room_id is not None and not rooms.owner_claimed(room_id):
+            funnel.record("publish_need_login", props={"site": session.get("requirement_id"), "ref": room_id})
             base = (base_url or "").rstrip("/")
             back = url_quote(f"/room.html?room={room_id}", safe="")  # 로그인 뒤 이 방으로(room.html이 링크로 보여 줌)
             return ("공개하려면 먼저 로그인해 주세요. 카카오나 구글로 1분이면 돼요.\n"
