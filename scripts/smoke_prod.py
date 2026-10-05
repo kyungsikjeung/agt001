@@ -66,7 +66,7 @@ def run(app: str, preview: str, site: str = "", transport=None) -> list:
             check("채팅하기 링크", None, "없음(손님 채팅 꺼짐이거나 앱 주소 설정 없음)")
         r = _get(c, f"{app}/api/chat/{site}/messages", headers={"Cookie": f"agt_chat_{site[:40]}=smoke"})
         check("손님 채팅 새 글 확인 API", isinstance(r, httpx.Response) and r.status_code == 200, status(r))
-        if "s-map__live" in page:
+        if 'class="s-map__live' in page:  # 태그만. 공개본에 같이 들어간 CSS 글자(.s-map__live)는 지도가 아니다
             check("지도(카카오)", "dapi.kakao.com/v2/maps/sdk.js?appkey=" in page, "좌표 있음")
         else:
             check("지도(카카오)", None, "좌표 없음 → 예시 지도(주소 검색 전)")

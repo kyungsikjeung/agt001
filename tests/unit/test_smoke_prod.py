@@ -11,11 +11,10 @@ _SPEC.loader.exec_module(smoke)
 APP, PV, KEY = "https://app.test", "https://pv.test", "k1"
 
 
-def _server(chat_href: str):
+def _server(chat_href: str, map_html: str = '<div class="s-map__live"></div><script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=x"></script>'):
     """10/1 운영과 같은 주소 분리: 미리보기 주소는 사이트·사진만, 앱 주소는 앱 페이지만."""
     page = (f'<section class="s-hero"></section><a href="{chat_href}">채팅하기</a>'
-            '<div class="s-map__live"></div><script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=x"></script>'
-            '<img src="/art-lib/coffee-americano.webp">')
+            f'{map_html}<img src="/art-lib/coffee-americano.webp">')
 
     def handler(req: httpx.Request) -> httpx.Response:
         host, path = req.url.host, req.url.path
@@ -50,3 +49,9 @@ def test_app_host_chat_link_passes_everything():
     marks = _marks(rows)
     assert marks["채팅하기 링크 따라가기"] == smoke.OK and marks["지도(카카오)"] == smoke.OK
     assert marks["메뉴 태그 사진"] == smoke.OK and marks["주소 분리(미리보기에서 앱 페이지 막힘)"] == smoke.OK
+
+
+def test_map_css_without_map_section_is_not_a_failure():
+    """10/5 운영: 지도 구역이 없는 가게도 공개본 CSS에 .s-map__live가 있어 '지도 실패'로 잘못 나왔다."""
+    rows = smoke.run(APP, PV, KEY, transport=_server(f"{APP}/chat/{KEY}", map_html="<style>.s-map__live{width:100%}</style>"))
+    assert _marks(rows)["지도(카카오)"] == smoke.INFO
