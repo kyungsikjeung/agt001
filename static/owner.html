@@ -154,9 +154,12 @@
       <div class="row">
         <h2 style="flex:1">손님 채팅</h2>
         <label class="f">받기<select id="ch-on"><option value="on">켜짐</option><option value="off">꺼짐</option></select></label>
+        <a id="ch-preview" href="#" target="_blank" rel="noopener">손님 화면 보기</a>
         <button id="ch-reload">새로고침</button>
       </div>
-      <p class="sub">손님이 채팅을 남기면 여기에 다 보여요. 끄면 손님 채팅이 열리지 않아요.</p>
+      <p class="sub">손님이 채팅을 남기면 여기에 다 보여요. 끄면 손님 채팅이 열리지 않아요.
+        <strong>준비물은 없어요</strong> — 켜면 공개 사이트에 '채팅하기'가 바로 생기고, AI가 가게 정보로 먼저 답해요.</p>
+      <p class="sub" id="ch-state" role="status"></p>
       <p class="err" id="ch-err" hidden></p>
       <div id="ch-list"><p class="sub">불러오는 중…</p></div>
     </section>
@@ -484,7 +487,26 @@
     try {
       const d = await api(base() + "/chat-settings");
       if (d && typeof d.guest_chat_on === "boolean") $("ch-on").value = d.guest_chat_on ? "on" : "off";
+      showChatState(d);
     } catch (e) { /* 없으면 그대로 */ }
+  }
+
+  // 공개 사이트에 '채팅하기'가 보이려면 셋이 다 켜져 있어야 한다(받기·공개·링크).
+  // 하나라도 빠지면 왜 안 보이는지 여기서 알려 준다 (PRICING_AND_CHAT_1006 C-3).
+  function showChatState(d) {
+    const box = $("ch-state");
+    const prev = $("ch-preview");
+    if (prev) prev.href = (d && d.preview_url) || ("/chat/" + encodeURIComponent(cur.site_key));
+    if (!box) return;
+    if (!d) { box.textContent = ""; return; }
+    const mark = (ok) => (ok ? "✅" : "⚠️");
+    const parts = [`${mark(d.guest_chat_on)} 받기 ${d.guest_chat_on ? "켜짐" : "꺼짐"}`,
+                   `${mark(d.published)} ${d.published ? "공개됨" : "공개 전"}`,
+                   `${mark(!!d.link)} 손님 링크 ${d.link ? "생성" : "없음"}`];
+    box.textContent = parts.join(" · ");
+    if (!d.guest_chat_on) box.textContent += " — 받기를 켜면 공개 사이트에 '채팅하기'가 생겨요.";
+    else if (!d.published) box.textContent += " — 사이트를 공개하면 손님이 들어올 수 있어요.";
+    else if (!d.link) box.textContent += " — 서버 설정(PUBLIC_BASE_URL)이 빠져 링크를 만들지 못했어요. 운영에 알려 주세요.";
   }
   // 즉시 반영(SSE, GUEST_CHAT_CONTRACT §7): 대화 목록이 바뀌면 목록과 열어 둔 대화를 다시 그린다.
   // EventSource가 없거나 연결이 영영 끊기면 예전처럼 10초마다 다시 부른다.
@@ -567,6 +589,7 @@
     try {
       const out = await post(base() + "/chat-settings", { guest_chat_on: on });
       $("ch-on").value = (out && typeof out.guest_chat_on === "boolean" ? out.guest_chat_on : on) ? "on" : "off";
+      loadChatOn();  // 끄면 '손님 링크 없음'으로 바뀌는 것까지 보여 준다
     } catch (e) {
       $("ch-on").value = on ? "off" : "on";
       $("ch-err").textContent = e.message;
