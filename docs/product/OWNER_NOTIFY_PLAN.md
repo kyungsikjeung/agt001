@@ -102,7 +102,7 @@ flowchart LR
 잠금 화면 글: 가게 이름 + 알림 첫 줄의 ':' 앞까지만("사이트로 새 문의가 왔어요."). 손님 이름·연락처·내용은 안 나간다.
 누르면: 손님 채팅은 `/owner?tab=chats`, 나머지는 그 가게 채팅방.
 
-운영에서 할 일(대표·Claude):
+운영에서 할 일(대표·Claude): **2026-10-05 운영 켜짐, 대표 아이폰 수신 확인.** 동작 원리·비용·결정 이유는 [RESEARCH_WEB_PUSH](research/RESEARCH_WEB_PUSH.md)
 1. `.venv/bin/python scripts/gen_vapid.py` → 서버 .env에 `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT=mailto:운영자메일` (또는 관리자 화면 > 키 관리). 키가 없으면 카드에 "준비 중"만 보인다.
 2. 안드로이드 크롬 실기기: 사장님 화면 → 켜기 → 시험 알림 → 테스트 문의 → 알림 눌러 이동 (합격 6번).
 3. 아이폰(iOS 16.4+): 사장님 화면을 홈 화면에 추가 → 그 아이콘으로 열고 켜기.
