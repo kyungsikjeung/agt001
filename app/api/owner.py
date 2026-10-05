@@ -550,8 +550,17 @@ def get_chat_settings(site_key: str, request: Request):
         link = site_render._guest_chat_url(site_key)
     except Exception:
         link = ""
+    from app.services import plans, usage
+    plan = plans.of(site_key)
+    try:
+        ai = usage.left(site_key)["chat_ai"]
+    except Exception:
+        ai = None
     return {"guest_chat_on": on, "published": published, "link": link,
-            "preview_url": f"/chat/{site_key}"}
+            "preview_url": f"/chat/{site_key}",
+            # 이번 달 AI 답 사용량 (요금제 포함량과 같이, PRICING_AND_CHAT_1006 C-4)
+            "plan": plan, "plan_name": plans.get(plan)["name"],
+            "ai_total": (ai or {}).get("total"), "ai_left": (ai or {}).get("left")}
 
 
 @router.post("/api/owner/shops/{site_key}/chat-settings")

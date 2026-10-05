@@ -503,6 +503,11 @@
     const parts = [`${mark(d.guest_chat_on)} 받기 ${d.guest_chat_on ? "켜짐" : "꺼짐"}`,
                    `${mark(d.published)} ${d.published ? "공개됨" : "공개 전"}`,
                    `${mark(!!d.link)} 손님 링크 ${d.link ? "생성" : "없음"}`];
+    if (d.ai_total != null && d.ai_left != null) {
+      const used = Math.max(0, d.ai_total - d.ai_left);
+      parts.push(`이번 달 AI 답 ${used.toLocaleString()}/${Number(d.ai_total).toLocaleString()}건` +
+                 (d.plan_name ? ` (${d.plan_name})` : ""));
+    }
     box.textContent = parts.join(" · ");
     if (!d.guest_chat_on) box.textContent += " — 받기를 켜면 공개 사이트에 '채팅하기'가 생겨요.";
     else if (!d.published) box.textContent += " — 사이트를 공개하면 손님이 들어올 수 있어요.";

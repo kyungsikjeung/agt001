@@ -40,11 +40,15 @@ def _grants(site, action):
 
 def test_defaults_use_and_kst_month_rollover():
     site = "quota-site-1"
-    assert usage.left(site) | {} == {"design": {"left": 3, "total": 3}, "restyle": {"left": 20, "total": 20},
+    # 포함량은 요금제에서 읽는다 (D61, plans.py). 구독이 없으면 무료 요금제
+    assert usage.left(site) | {} == {"design": {"left": 3, "total": 3, "unlimited": False},
+                                     "restyle": {"left": 20, "total": 20, "unlimited": False},
+                                     "chat_ai": {"left": 300, "total": 300, "unlimited": False},
                                      "resets": usage.resets_label()}
     for _ in range(3):
         info = usage.use(site, "restyle")
-    assert info == {"left": 17, "total": 20, "over": False} and _grants(site, "restyle") == 1
+    assert info == {"left": 17, "total": 20, "over": False, "unlimited": False}
+    assert _grants(site, "restyle") == 1
     # UTC 10/31 15:30 = KST 11/1 00:30 → 새 달은 다시 가득, 10월 기록은 그대로
     nov = datetime.datetime(2026, 10, 31, 15, 30, tzinfo=UTC)
     oct_ = datetime.datetime(2026, 10, 31, 14, 30, tzinfo=UTC)
@@ -78,7 +82,8 @@ def test_template_start_and_direct_edit_are_not_counted_card_shows_quota(client)
     rid, h = body["room_id"], {"X-Member-Id": body["member_id"]}
     client.put(f"/api/rooms/{rid}/card", json={"fields": {"shop_name": "모퉁이 커피"}}, headers=h)
     card = client.get(f"/api/rooms/{rid}/card", headers=h).json()
-    assert card["quota"]["design"] == {"left": 3, "total": 3} and card["quota"]["restyle"]["left"] == 20
+    assert card["quota"]["design"] == {"left": 3, "total": 3, "unlimited": False}
+    assert card["quota"]["restyle"]["left"] == 20
 
 
 def test_builder_style_counts_and_unknown_style_does_not(client, monkeypatch):
@@ -101,3 +106,77 @@ def test_chat_restyle_counts_only_when_changed(client):
         assert usage.left(site)["restyle"]["left"] == 20
         chat_flow._restyle(session, "더 밝게")
     assert usage.left(site)["restyle"]["left"] == 19
+
+
+def test_guest_chat_ai_answer_counts(client):
+    """손님 채팅 AI 답은 요금제 포함량에서 깎는다. 사장님 대기 중 글은 AI를 안 거치니 안 센다 (D61)."""
+    from app import store
+    from app.api import chat_agent as chat_api
+    from app.services import usage
+
+    from app.services import shops
+
+    room_id = client.post("/room").json()["room_id"]
+    client.post(f"/room/{room_id}/chat", json={"member_id": "owner", "nickname": "사장님", "message": ""})
+    key = store.read_session(store.read_room(room_id)["session_id"])["requirement_id"]
+    shops.ensure(key, "모퉁이 커피", room_id)  # 공개된 가게여야 손님 채팅이 열린다
+    token = None
+
+    def say(**body):
+        """손님 한 명으로 계속 말한다(채팅 쿠키는 Secure라 직접 들고 보낸다 — test_guest_chat와 같은 방식)."""
+        nonlocal token
+        headers = {"Origin": "http://testserver"}
+        if token:
+            headers["Cookie"] = f"{chat_api.cookie_name(key)}={token}"
+        r = client.post(f"/api/chat/{key}", json=body, headers=headers)
+        assert r.status_code == 200, r.text
+        token = r.cookies.get(chat_api.cookie_name(key)) or token
+        return r.json()
+
+    assert usage.left(key)["chat_ai"] == {"left": 300, "total": 300, "unlimited": False}
+    assert say(action="ask")["reply"]  # 봇이 답한다
+    assert usage.left(key)["chat_ai"]["left"] == 299
+
+    # 봇이 모르면 사장님께 넘긴다(mode=owner) — 그건 AI 답이 아니라 전달이라 세지 않는다
+    before = usage.left(key)["chat_ai"]["left"]
+    assert say(text="주차 돼요?")["mode"] == "owner"
+    say(text="주말에 10명 가도 돼요?")
+    assert usage.left(key)["chat_ai"]["left"] == before, "사장님께 넘긴 글이 AI 답으로 세졌어요"
+
+
+def test_plans_table():
+    """요금제 표 한 곳 (D61). 무료에도 스탬프·회원·예약이 켜져 있고, 주문·결제는 유료부터."""
+    from app.services import plans
+
+    assert plans.of("없는-가게") == "free" and plans.get(None)["won"] == 0
+    assert [plans.get(p)["won"] for p in ("free", "shop", "pro")] == [0, 9900, 24900]
+    # 원가 0인 기능은 무료에도 (D61 ①)
+    for f in ("stamp", "member", "booking", "chat", "push"):
+        assert plans.has(f, "free"), f
+    # 원가가 드는 것은 유료부터·포함량으로
+    assert not plans.has("order", "free") and plans.has("order", "shop")
+    assert plans.quota("chat_ai", "free") == 300 and plans.quota("chat_ai", "pro") == 3000
+    assert plans.quota("restyle", "shop") is None  # 무제한
+    assert plans.quota("alimtalk", "free") == 0
+    assert plans.overage_won("alimtalk", "free") == 15 and plans.overage_won("alimtalk", "pro") == 12
+    assert plans.SETUP_WON == 99000 and plans.GUEST_PAY_FEE_RATE == 0.0
+
+
+def test_paid_plan_quota_and_unlimited(client):
+    """유료 요금제면 포함량이 요금제 값이고, 무제한은 남은 횟수를 말하지 않는다."""
+    from app import store
+    from app.db.models import SubscriptionRow
+    from app.db.session import get_sessionmaker
+    from app.services import plans, shops, usage
+
+    room_id = client.post("/room").json()["room_id"]
+    client.post(f"/room/{room_id}/chat", json={"member_id": "owner", "nickname": "사장님", "message": ""})
+    key = store.read_session(store.read_room(room_id)["session_id"])["requirement_id"]
+    shops.ensure(key, "모퉁이 커피", room_id)
+    with get_sessionmaker()() as db, db.begin():
+        db.add(SubscriptionRow(site_key=key, plan="pro", status="active"))
+
+    assert plans.of(key) == "pro"
+    assert usage.left(key)["chat_ai"]["total"] == 3000
+    info = usage.use(key, "restyle")
+    assert info["unlimited"] and usage.note(info, "restyle") == ""  # 무제한은 안내를 붙이지 않는다
