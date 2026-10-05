@@ -60,11 +60,12 @@ def test_j1_template_builder_publish_after_login(journey_context):
     publish.click()
     confirm = page.get_by_role("button", name="그대로 공개")
     site = page.get_by_role("link", name="공개 사이트 보기")
-    expect(confirm.or_(site).or_(kakao)).to_be_visible()
+    # 공개는 사이트를 그리고 스크린샷을 재시도하는 왕복이라 expect 기본 5초보다 넉넉히
+    expect(confirm.or_(site).or_(kakao)).to_be_visible(timeout=POLL_TIMEOUT)
     expect(kakao).to_have_count(0)  # 로그인 단계가 다시 나오면 #41 재발
     if confirm.is_visible():
         confirm.click()
-    expect(site).to_be_visible()
+    expect(site).to_be_visible(timeout=POLL_TIMEOUT)
     expect(site).to_have_attribute("href", re.compile(r"/site/"))
 
 
@@ -85,10 +86,13 @@ def test_j2_chat_question_buttons(journey_context):
     log_items = page.locator("#log > *")
     before = log_items.count()
 
-    # '직접 입력': 보내지 않고 입력칸으로
+    # '직접 입력': 보내지 않고 입력칸으로. fetch는 onclick 안에서 바로 나가므로 요청 기록으로 본다
+    posts = []
+    page.on("request", lambda r: posts.append(r.url) if r.method == "POST" and r.url.endswith("/chat") else None)
     type_it.click()
     expect(page.locator("#input")).to_be_focused()
     expect(page.locator("#input")).to_have_attribute("placeholder", "여기에 적어 주세요")
+    assert posts == [], f"'직접 입력'이 말을 보냈어요: {posts}"
     page.evaluate("pollMessages()")  # 서버 기록을 한 번 더 받아도 새 말이 없어야 한다
     expect(log_items).to_have_count(before)
 
@@ -105,4 +109,5 @@ def test_j2_chat_question_buttons(journey_context):
     expect(vote_bar).to_contain_text("이 내용으로 시안을 만들까요?")
     expect(vote_bar.get_by_role("button", name="👍 동의")).to_be_visible()
     expect(page.locator("#log")).to_contain_text("정리했어요")
+    page.evaluate("pollMessages()")  # 다음 서버 응답에도 질문 단추가 다시 안 떠야 한다
     expect(page.locator("#choiceBar")).to_be_hidden()

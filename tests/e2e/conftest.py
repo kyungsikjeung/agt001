@@ -5,7 +5,6 @@
 """
 import os
 import socket
-import sys
 import threading
 import time
 from pathlib import Path
@@ -37,12 +36,6 @@ def browser():
         bw.close()
 
 
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
 @pytest.fixture(scope="session")
 def journey_server(tmp_path_factory):
     """앱을 이 프로세스 안 uvicorn 스레드로 띄우고 주소를 돌린다.
@@ -52,7 +45,9 @@ def journey_server(tmp_path_factory):
     if not (DIST / "index.html").is_file() or not (DIST / "builder.html").is_file():
         pytest.skip("frontend/dist 없음 - 먼저 `cd frontend && npm ci && npm run build`")
     # 단위 테스트 conftest가 앱 import 전에 테스트 환경변수를 고정한다(fakes도 그 폴더에 있다).
-    sys.path.insert(0, str(ROOT / "tests" / "unit"))
+    # 그 환경변수는 되돌리지 않는다 - 여정 점검은 따로 pytest를 돌린다(모듈 docstring 명령).
+    mp = pytest.MonkeyPatch()
+    mp.syspath_prepend(str(ROOT / "tests" / "unit"))
     import uvicorn
 
     from tests.unit import conftest as unit
@@ -62,9 +57,12 @@ def journey_server(tmp_path_factory):
     from app.services import codegen as codegen_svc
     from app.services import design as design_svc
     from app.services import photos as photos_svc
-    from app.services import rag
+    from app.services import art_lib, rag
 
-    mp = pytest.MonkeyPatch()
+    # app.config가 먼저 import됐으면 settings가 개발 DB를 보고 있다 → reset_all이 개발 DB를 비운다
+    if settings.database_url != os.environ["DATABASE_URL"]:
+        mp.undo()
+        pytest.fail("settings.database_url이 테스트 DB가 아니에요 - e2e 모듈 맨 위에서 app을 import하지 마세요")
     # 단위 conftest가 끈 것 중 여정이 보는 것은 운영 기본값으로 되돌린다.
     mp.setattr(settings, "publish_login_required", True)
     mp.setattr(settings, "room_invite_required", True)
@@ -77,14 +75,17 @@ def journey_server(tmp_path_factory):
     mp.setattr(design_svc, "screenshot_html", unit.raise_screenshot)
     mp.setattr(design_svc, "screenshot_many", unit.raise_screenshot)
     mp.setattr(photos_svc, "_refresh_designs_async", lambda *a, **k: None)
+    mp.setattr(art_lib, "prefetch", lambda *a, **k: None)  # .env에 GEMINI 키가 있어도 실제 그림을 만들지 않게
     mp.setattr(codegen_svc, "start", unit.fake_codegen_done)
     unit.db_migrate.upgrade_head()
     store.reset_all()
     rag.reset_cache()
 
-    port = _free_port()
-    server = uvicorn.Server(uvicorn.Config(create_app(), host="127.0.0.1", port=port, log_level="warning"))
-    thread = threading.Thread(target=server.run, daemon=True)
+    sock = socket.socket()  # 빈 포트를 잡은 채로 넘긴다(닫았다 다시 잡는 사이 경합 없음)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    server = uvicorn.Server(uvicorn.Config(create_app(), log_level="warning"))
+    thread = threading.Thread(target=server.run, kwargs={"sockets": [sock]}, daemon=True)
     thread.start()
     deadline = time.monotonic() + 30
     while not server.started:
@@ -94,6 +95,7 @@ def journey_server(tmp_path_factory):
     yield f"http://localhost:{port}"
     server.should_exit = True
     thread.join(timeout=10)
+    sock.close()
     rag.reset_cache()
     mp.undo()
 
