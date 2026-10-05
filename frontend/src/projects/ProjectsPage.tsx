@@ -174,6 +174,10 @@ export default function ProjectsPage() {
                   <a className="send" href={`/room.html?room=${encodeURIComponent(p.room_id)}`}>
                     이어서 하기
                   </a>
+                  {/* 공개한 뒤에도 고칠 수 있다(고치면 공개 사이트에 바로 반영). 전엔 길이 채팅방 안내 글뿐이었다. */}
+                  <a className="ghost" href={`/editor?room=${encodeURIComponent(p.room_id)}`}>
+                    고치기
+                  </a>
                   {p.deploy_url && (
                     <a className="ghost" href={p.deploy_url} target="_blank" rel="noopener noreferrer">
                       사이트 보기

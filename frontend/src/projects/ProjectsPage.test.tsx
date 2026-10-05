@@ -62,6 +62,8 @@ describe('ProjectsPage', () => {
     expect(site.getAttribute('href')).toBe('https://example.com/s1');
     expect(site.getAttribute('target')).toBe('_blank');
     expect(screen.getByRole('link', { name: '시안 보기' })).toBeInTheDocument();
+    // 공개한 뒤에도 고칠 수 있다(대표 10/5: '공개한 이후 편집은 안 되나?')
+    expect(screen.getByRole('link', { name: '고치기' }).getAttribute('href')).toBe('/editor?room=r1');
   });
 
   it('방이 없으면 빈 상태를 보여준다', async () => {
