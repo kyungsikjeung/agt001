@@ -2,4 +2,7 @@
 testpaths = ["tests/unit", "tests/engine"]
 pythonpath = ["."]
 filterwarnings = ["ignore::DeprecationWarning"]
-markers = ["e2e: 실제 서버와 브라우저가 필요한 E2E 테스트 (E2E_BASE_URL 필요)"]
+markers = [
+    "e2e: 실제 서버와 브라우저가 필요한 E2E 테스트 (E2E_BASE_URL 필요)",
+    "journey: 앱을 안에서 띄워 브라우저로 도는 핵심 여정 점검 (frontend/dist·TEST_DATABASE_URL 필요)",
+]
