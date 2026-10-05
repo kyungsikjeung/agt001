@@ -339,9 +339,9 @@
   .t-warn { color: var(--warn); font-weight: 700; }
   .t-key { color: var(--accent-dark); font-weight: 800; }
   /* 요약 주소 줄 옆 단추 + 주소 검색 시트 (MAP_CONTRACT §3) */
-  .addr-search-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
-  .addr-search[hidden] { display: none; }
-  .addr-search-hint { margin: 8px 0 0; font-size: 0.875rem; color: var(--muted, #666); }
+  .msg-action-btn { margin-top: 8px; min-height: 44px; border: 1px solid var(--border); background: var(--bg); border-radius: 999px; padding: 0 16px; font-size: 0.875rem; font-weight: 600; cursor: pointer; }
+  .msg-action[hidden] { display: none; }
+  .msg-action-hint { margin: 8px 0 0; font-size: 0.875rem; color: var(--muted, #666); }
   #addrSheetWrap { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 28; display: flex; align-items: flex-end; justify-content: center; }
   #addrSheetWrap[hidden] { display: none; }
   #addrSheet { background: var(--surface); width: 100%; max-width: 480px; border-radius: 12px 12px 0 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 8px; max-height: 88dvh; overflow-y: auto; overflow-x: hidden; }
@@ -982,30 +982,34 @@ async function saveAddrGeo() {
     if (save) save.disabled = false;
   }
 }
-// 요약의 주소 줄 옆 단추 (방장만 보인다).
-function maybeAddAddrBtn(bubble, text) {
-  const s = text || '';
-  if (!/주소|위치/.test(s)) return;
-  if (!/이렇게 이해했어요|다시 읽어 보니|빠진 게 있어|요약|정리/.test(s)) return;
-  const b = document.createElement('button');
-  b.type = 'button';
-  b.className = 'addr-search-btn';
-  b.textContent = '📍 정확한 주소 검색하기';
-  b.title = '지도와 오시는 길에 쓸 정확한 주소를 검색해서 골라요';
-  b.setAttribute('aria-label', '정확한 주소 검색하기: 지도와 오시는 길에 쓸 주소를 골라요');
-  b.onclick = openAddrSheet;
-  const wrap = document.createElement('div');
-  wrap.className = 'addr-search';
-  wrap.hidden = !isOwner();
-  const hint = document.createElement('p');
-  hint.className = 'addr-search-hint';
-  hint.textContent = '지도·오시는 길에 쓸 정확한 주소를 검색해서 골라 주세요.';
-  wrap.append(hint, b);
-  bubble.appendChild(wrap);
+// AI 답장 아래 단추: 서버가 정한 m.actions대로 그린다(글자로 짐작하지 않는다). 방장 전용은 방장만 보인다.
+const MSG_SHEETS = { address: openAddrSheet };
+function addMsgActions(bubble, actions) {
+  if (!Array.isArray(actions)) return;
+  for (const a of actions) {
+    if (!a || a.action !== 'open_sheet' || !MSG_SHEETS[a.sheet]) continue;
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-action';
+    if (a.owner_only) {
+      wrap.setAttribute('data-owner-only', '');
+      wrap.hidden = !isOwner();
+    }
+    const hint = document.createElement('p');
+    hint.className = 'msg-action-hint';
+    hint.textContent = a.hint || '';
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'msg-action-btn';
+    b.textContent = a.label || '';
+    if (a.hint) b.title = a.hint;
+    b.onclick = MSG_SHEETS[a.sheet];
+    wrap.append(hint, b);
+    bubble.appendChild(wrap);
+  }
 }
 function refreshAddrBtns() {
   const owner = isOwner();
-  const btns = document.querySelectorAll('.addr-search');
+  const btns = document.querySelectorAll('.msg-action[data-owner-only]');
   for (const b of btns) b.hidden = !owner;
 }
 
@@ -1255,7 +1259,7 @@ function addMessage(m, isNew) {
       sitePublished = true;
       updateOwnerTools();
     }
-    maybeAddAddrBtn(bubble, m.text);
+    addMsgActions(bubble, m.actions);
   }
   row.appendChild(bubble);
   log.appendChild(row);
@@ -1354,28 +1358,32 @@ function renderChoices(q) {
   const picked = new Set();
   choiceHint.textContent = q.kind === 'multi' ? '해당되는 것을 모두 누른 뒤 "선택 완료"를 눌러 주세요'
     : q.owner_only ? '방장님이 눌러 주세요' : '누르면 바로 답이 전송돼요. 직접 적어도 돼요';
+  // 단추마다 할 일은 서버의 q.actions가 정한다(type: 입력칸으로, none: 바로 보내기, 그 밖: 누른 글 보내기).
+  const acts = Array.isArray(q.actions) && q.actions.length ? q.actions
+    : q.options.map((o) => ({ label: o, action: 'send' }));
   // 여러 개 고르기용 토글 버튼 만들기 (처음 선택지와 더 보기 펼침이 같은 방식)
-  const makeMultiBtn = (opt) => {
+  const makeMultiBtn = (a) => {
+    const opt = a.label;
     const b = document.createElement('button');
     b.type = 'button';
     b.textContent = opt;
     b.setAttribute('aria-pressed', 'false');
     b.onclick = () => {
-      if (opt === '없음') { choiceBar.classList.remove('show'); sendRoomMessage('없음'); return; }
+      if (a.action === 'none') { choiceBar.classList.remove('show'); sendRoomMessage(opt); return; }
       if (picked.has(opt)) { picked.delete(opt); b.classList.remove('on'); b.setAttribute('aria-pressed', 'false'); }
       else { picked.add(opt); b.classList.add('on'); b.setAttribute('aria-pressed', 'true'); }
     };
     return b;
   };
-  for (const opt of q.options) {
-    if (q.kind === 'multi') { choicesEl.appendChild(makeMultiBtn(opt)); continue; }
+  for (const a of acts) {
+    if (q.kind === 'multi') { choicesEl.appendChild(makeMultiBtn(a)); continue; }
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = opt;
+    b.textContent = a.label;
     b.onclick = () => {
       choiceBar.classList.remove('show');
-      if (opt === '직접 입력') { const inp = document.getElementById('input'); inp.placeholder = '여기에 적어 주세요'; inp.focus(); return; }
-      sendRoomMessage(opt);
+      if (a.action === 'type') { const inp = document.getElementById('input'); inp.placeholder = a.hint || '여기에 적어 주세요'; inp.focus(); return; }
+      sendRoomMessage(a.label);
     };
     choicesEl.appendChild(b);
   }
@@ -1389,7 +1397,7 @@ function renderChoices(q) {
       moreBtn.setAttribute('aria-label', '선택지 더 보기');
       moreBtn.setAttribute('aria-expanded', 'false');
       moreBtn.onclick = () => {
-        for (const opt of moreOpts) choicesEl.appendChild(makeMultiBtn(opt));
+        for (const opt of moreOpts) choicesEl.appendChild(makeMultiBtn({ label: opt, action: 'send' }));
         moreBtn.remove();
       };
       choicesEl.appendChild(moreBtn);

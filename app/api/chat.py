@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app import store
-from app.services import chat_flow
+from app.services import chat_flow, present
 
 router = APIRouter()
 
@@ -27,7 +27,8 @@ def chat(body: ChatIn, request: Request):
         pending = (session.get("prd") or {}).get("pending")
         if session["state"] == "GATHERING" and pending:
             # 선택지 버튼을 그릴 화면(P-1f)을 위해 질문 구조도 함께 내려준다.
-            payload["question"] = {"kind": pending["kind"], "options": pending["options"]}
+            payload["question"] = {"kind": pending["kind"], "options": pending["options"],
+                                   "actions": present.actions_for(pending)}
         if session["state"] == "DONE" and session.get("deploy_url"):
             payload["deploy_url"] = session["deploy_url"]
         if session.pop("design_url_unsent", False):

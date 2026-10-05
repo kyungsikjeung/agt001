@@ -137,10 +137,7 @@ def _ask_llm(card: dict, arch: str, cands: list[str]) -> list[str] | None:
 
 def _question(key: str) -> dict:
     text, options = QUESTIONS[key]
-    opts = list(options[:S.MAX_OPTIONS])
-    if S.LET_AI not in opts:
-        opts.append(S.LET_AI)
-    return {"slot": key, "text": text, "options": opts}
+    return {"slot": key, "text": text, "options": S.choice_options(options[:S.MAX_OPTIONS])}
 
 
 def probe(card: dict) -> list[dict]:

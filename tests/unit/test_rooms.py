@@ -243,3 +243,53 @@ def test_room_from_template_starts_with_industry_card(client):
     rid2 = client.post("/room", json={"template_id": "nope"}).json()["room_id"]
     assert store.read_session(store.read_room(rid2)["session_id"]).get("prd") is None
     assert client.post("/room").status_code == 200
+
+
+def test_pending_question_includes_actions(client):
+    from app.services import present
+    room_id = _create_room(client)
+    _post(client, room_id, "m1", "철수", "카페 예약 서비스 만들어줘")
+    q = _get(client, room_id)["question"]
+    pending = store.read_session(store.read_room(room_id)["session_id"])["prd"]["pending"]
+    assert q["options"] == pending["options"]
+    assert q["actions"] == present.actions_for(pending)
+    assert [a["label"] for a in q["actions"]] == q["options"]
+
+
+def _set_card(room_id, fn):
+    with store.session_tx(store.read_room(room_id)["session_id"]) as session:
+        fn(session["prd"])
+
+
+def test_address_action_only_on_reply_with_unsaved_address(client):
+    """주소는 있는데 지도 위치가 없을 때, 요약에 들어온 답장에만 '정확한 주소 검색' 단추가 붙는다(방장 전용)."""
+    from app.services import present
+    room_id = _create_room(client)
+    _post(client, room_id, "m1", "철수", "카페 예약 서비스 만들어줘")
+    first = [m for m in _get(client, room_id)["messages"] if m["kind"] == "ai_reply"]
+    assert first and all("actions" not in m for m in first)
+
+    def put_location(card):
+        card["slots"]["location"] = {"value": "강릉시 주문진읍 해안로 1", "status": "filled", "evidence": [], "by": None}
+    _set_card(room_id, put_location)
+    _post(client, room_id, "m1", "철수", "나머지는 알아서, 시안 먼저 볼게요")
+    data = _get(client, room_id)
+    assert data["state"] == "AWAIT_APPROVAL"
+    with_actions = [m for m in data["messages"] if "actions" in m]
+    assert len(with_actions) == 1 and with_actions[0]["kind"] == "ai_reply"
+    assert with_actions[0]["actions"] == [present.ADDRESS_ACTION]
+    assert "meta" not in with_actions[0]
+
+    # 주소를 저장하면(location_geo) 다시 요약에 와도 단추가 없다
+    _post(client, room_id, "m1", "철수", "거절")
+    assert _get(client, room_id)["state"] == "GATHERING"
+
+    def save_geo(card):
+        card["location_geo"] = {"road": "강릉시 주문진읍 해안로 1", "jibun": "", "detail": "", "x": 128.8, "y": 37.9,
+                                "src": "postcode"}
+    _set_card(room_id, save_geo)
+    seq = _get(client, room_id)["messages"][-1]["seq"] + 1
+    _post(client, room_id, "m1", "철수", "나머지는 알아서, 시안 먼저 볼게요")
+    data = _get(client, room_id, since=seq)
+    assert data["state"] == "AWAIT_APPROVAL"
+    assert data["messages"] and all("actions" not in m for m in data["messages"])

@@ -11,6 +11,7 @@ import unicodedata
 from typing import Optional
 
 from app import llm
+from app.services import control_words as CW
 from app.services import intake, numbers
 from app.services import prd_schema as S
 from app.services import situation
@@ -19,16 +20,12 @@ from app.services.stt import normalize_digits as _stt_normalize_digits
 
 log = logging.getLogger(__name__)
 
-SKIP_PHRASES = ("시안 먼저", "나머지는 알아서", "나머지 알아서", "그만 물어", "바로 만들어", "이제 보여")
 YES_WORDS = ("네", "예", "응", "맞아요", "맞아", "맞습니다", "좋아요", "yes",
              "넵", "네네", "넹", "ㅇㅇ", "응응", "웅", "그래", "그래요", "오케이", "ok")
 NO_WORDS = ("아니요", "아니오", "아니", "no", "틀려요", "아니야", "싫어", "별로")
-NONE_WORDS = ("없음", "없어요", "해당 없음", "없습니다", "다 없어요")
 LATER = "나중에 넣을게요"
-LATER_NORMS = frozenset(("나중에넣을게요", "나중에넣을게", "나중에"))
-# 건너뛰기 핵심어 (B-6): 정규화 후 부분일치로 본다. "알아서" 단독은 LET_AI이므로 넣지 않는다.
-SKIP_KEYWORDS = ("시안먼저", "나머지알아서", "그만물어", "그만", "바로만들어", "바로만들",
-                 "이제보여", "건너뛰", "시안보여", "먼저보여", "먼저볼게", "패스", "스킵")
+# 제어 말(건너뛰기·알아서·모름·나중에·없음·다시·직접 입력)은 표 하나에서 온다 (app/data/control_words.json).
+LATER_NORMS = CW.norms("later")
 # 거절 표현 (B-7).
 # NEEDLESS("필요 없어요" 계열): 칸 자체를 묻지 않겠다는 뜻이라, 칸 언급이 없어도 대기 칸을 REJECTED로 한다.
 # REMOVE("빼주세요/제외" 계열): 뺄 항목을 가리키므로 칸 이름이 함께 언급될 때만 REJECTED로 하고,
@@ -68,9 +65,7 @@ STUCK_LIMIT = 3
 _SATISFIED = (S.FILLED, S.ASSUMED, S.PLACEHOLDER, S.REJECTED)
 
 
-def _norm(s: str) -> str:
-    """공백·문장부호·이모지 제거 + 소문자 + NFKC (B-6 비교용). 한글·영숫자만 남긴다."""
-    return re.sub(r"[^가-힣a-z0-9]", "", unicodedata.normalize("NFKC", (s or "").lower()))
+_norm = CW.norm  # 다른 모듈이 prd_engine._norm으로 쓴다
 
 
 def _norm_text(s: str) -> str:
@@ -80,18 +75,15 @@ def _norm_text(s: str) -> str:
 
 YES_NORMS = frozenset(_norm(w) for w in YES_WORDS)
 # 추출기가 칸 값으로 돌려주면 버릴 진행 말
-_CONTROL_NORMS = frozenset([_norm(S.LET_AI), "알아서", "알아서해줘", "알아서해주세요", "나중에", "나중에넣을게요",
-                            "나중에넣을게", "모르겠어요", "없음", "없어요", _norm(S.TYPE_IT)] + [_norm(p) for p in SKIP_PHRASES])
+_CONTROL_NORMS = CW.control_norms()
 NO_NORMS = frozenset(_norm(w) for w in NO_WORDS)
-NONE_NORMS = frozenset(_norm(w) for w in NONE_WORDS)
+NONE_NORMS = CW.norms("none")
 # 질문을 다시 해 달라는 말 (VOICE FR-6). 메시지 전체가 이 말일 때만 (정규화 후 일치).
-REPEAT_NORMS = frozenset(_norm(w) for w in (
-    "다시", "다시요", "다시 한번", "다시 한 번", "한번 더", "한 번 더", "다시 말해줘", "다시 말해 주세요", "다시 말씀해 주세요",
-    "다시 읽어줘", "다시 읽어 주세요", "뭐라고", "뭐라고요", "뭐라구요", "네 뭐라고요", "못 들었어요", "잘 못 들었어요",
-    "잘 안 들려요", "안 들려요", "질문 다시", "질문이 뭐였죠"))
-SKIP_NORMS = frozenset([_norm(p) for p in SKIP_PHRASES] + list(SKIP_KEYWORDS))
+REPEAT_NORMS = CW.norms("repeat")
+# 건너뛰기 (B-6): 정규화 후 부분일치로 본다. "알아서" 단독은 LET_AI이므로 넣지 않는다.
+SKIP_NORMS = CW.norms("skip")
 # 질문에 "알아서 해주세요"만 답하면 남은 질문을 건너뛰고 바로 시안(10/5 대표). 문장 속 "알아서"는 그 칸만 닫는다.
-LET_AI_SKIP_NORMS = frozenset((_norm(S.LET_AI), "알아서", "알아서해줘", "알아서해주세요", "알아서해줘요"))
+LET_AI_SKIP_NORMS = CW.norms("let_ai_skip")
 
 
 # ── 카드 ──────────────────────────────────────────────────────────────
@@ -664,24 +656,24 @@ def _is_control(text: str) -> bool:
 
 
 # "모르겠어요" 계열: 되묻지 않고 "알아서"와 똑같이 닫는다 (T3 r5: 같은 질문 되풀이로 중복·질문 수 초과).
-DONTKNOW_NORMS = ("모르겠", "몰라", "모름", "글쎄")
+DONTKNOW_NORMS = CW.norms("dontknow")
 # 예산을 쓰는 질문 종류: 필수·숨은·종류 묻기만 센다. 확인(방장·기능·어긋남)·이어묻기는 별도로 센다.
 BUDGET_KINDS = frozenset(("single", "multi", "site_kind"))
 
 
 def _is_dontknow_norm(n: str) -> bool:
     """정규화된 답이 모름 계열인지."""
-    return bool(n) and any(w in n for w in DONTKNOW_NORMS)
+    return CW.matches("dontknow", n)
 
 
 def _is_let_ai_norm(n: str) -> bool:
     """정규화된 답이 알아서 계열인지."""
-    return bool(n) and (n == _norm(S.LET_AI) or "알아서" in n)
+    return CW.matches("let_ai_skip", n) or CW.matches("let_ai_slot", n)
 
 
 def _is_later_norm(t: str, n: str) -> bool:
     """나중에 넣기 답인지."""
-    return t == LATER or n in LATER_NORMS
+    return t == LATER or CW.matches("later", n)
 
 
 def _counts_toward_budget(q: Optional[dict]) -> bool:
@@ -1827,7 +1819,7 @@ def next_question(card: dict) -> Optional[dict]:
         return q
     if missing:
         q = S.question_for(ind, missing[0])
-        return {"slot": missing[0], "kind": "single", "options": list(q.options or (S.TYPE_IT,)) + [S.LET_AI], "text": q.ask}
+        return {"slot": missing[0], "kind": "single", "options": S.choice_options(q.options), "text": q.ask}
     # 상황 탐색 (J1b, D53 ③): 필수·숨은 질문이 끝난 뒤 요약 직전에 한 번만 묻는다.
     # 질문 한도 밖(budget_free)이라 asked를 세지 않는다. "시안 먼저"는 여기를 거치지 않고 finalize로 간다.
     if not card.get("situation_probed"):
@@ -1922,7 +1914,7 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     if not t:
         # B-4: 빈 메시지는 질문 예산을 쓰지 않고 직전 질문을 그대로 둔다.
         return _repeat_pending(card, applied, trace, from_empty=True)
-    if card.get("pending") and n == _norm(S.TYPE_IT):
+    if card.get("pending") and CW.matches("type_it", n):
         # '직접 입력' 단추는 화면이 입력칸으로 보낸다. 글로 와도 값이 아니니 같은 질문을 예산 없이 다시 보인다.
         return _repeat_pending(card, applied, trace)
     if card.get("pending") and n in REPEAT_NORMS:
