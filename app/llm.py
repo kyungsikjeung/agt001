@@ -62,7 +62,10 @@ def _alert_gone(model: str, status: int) -> None:
     """없어진 모델을 운영자에게 알린다(10/3 서비스 종료를 아무도 몰랐다). 알림이 실패해도 대비 모델로 간다."""
     try:
         from app.services import ops_alert
-        ops_alert.send("model_gone", f"[AI] 모델 {model} 응답 없음({status}) · 대비 모델로 넘겼어요 · 서버 .env NIM_CHAT_MODEL 확인")
+        env = "NIM_CHAT_MODEL" if model == settings.nim_chat_model else "NIM_CHAT_FALLBACK_MODELS"
+        moved = " · 대비 모델로 넘겼어요" if len(_models()) > 1 else ""
+        # 모델마다 따로: 같은 종류 알림은 10분에 한 건이라 둘째 모델 이름이 묻힌다
+        ops_alert.send(f"model_gone:{model}", f"[AI] 모델 {model} 응답 없음({status}){moved} · 서버 .env {env} 확인")
     except Exception:
         pass
 
@@ -83,18 +86,20 @@ def _with_fallback(call: Callable[[str], str]) -> str:
         try:
             out = call(model)
         except openai.APIError as e:
-            gone = isinstance(e, openai.APIStatusError) and e.status_code in _GONE_STATUS
-            if not (gone or isinstance(e, _RETRYABLE)):
+            is_gone = isinstance(e, openai.APIStatusError) and e.status_code in _GONE_STATUS
+            if not (is_gone or isinstance(e, _RETRYABLE)):
                 raise
             last_exc = e
             with _lock:
-                _cooldown[model] = time.monotonic() + (_GONE_COOLDOWN_SEC if gone else settings.nim_fallback_cooldown_sec)
-                if gone:
+                _cooldown[model] = time.monotonic() + (_GONE_COOLDOWN_SEC if is_gone else settings.nim_fallback_cooldown_sec)
+                if is_gone:
                     _gone[model] = _cooldown[model]
             log.warning("NIM 모델 %s 실패(%s) → 다음 모델", model, type(e).__name__)
-            if gone:
+            if is_gone:
                 _alert_gone(model, e.status_code)
             continue
+        with _lock:
+            _gone.pop(model, None)  # 다시 답하면 관리자 화면의 '응답 없음'을 내린다 (쉬기는 그대로)
         if model != settings.nim_chat_model:
             log.info("NIM 대비 모델 %s로 응답", model)
         return out

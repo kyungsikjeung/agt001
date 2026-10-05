@@ -533,7 +533,7 @@
       bar.setAttribute("role", "alert");
       const ul = el("ul");
       for (const p of errors) ul.append(problemLine(p));
-      bar.append(el("b", "설정이 빠져 손님 기능이 깨져 있어요"), ul);
+      bar.append(el("b", "바로 고쳐야 할 설정이 있어요"), ul);
       box.append(bar);
     }
     for (const p of warns) box.append(el("p", `${p.text} → ${p.fix}`, "note"));

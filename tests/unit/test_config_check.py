@@ -4,10 +4,11 @@ import logging
 import httpx
 import openai
 import pytest
+from sqlalchemy import select
 
 from app import llm
 from app.config import settings
-from app.db.models import UserRow
+from app.db.models import AdminAuditRow, UserRow
 from app.db.session import get_sessionmaker
 from app.services import auth as auth_svc
 from app.services import config_check, keystore, ops_alert, site_render
@@ -129,9 +130,29 @@ def test_gone_model_alerts_and_still_falls_back(clean, sent):
         return f"ok:{model}"
 
     assert llm._with_fallback(call) == "ok:second"
-    assert sent == [("model_gone", "[AI] 모델 primary 응답 없음(404) · 대비 모델로 넘겼어요 · 서버 .env NIM_CHAT_MODEL 확인")]
+    assert sent == [("model_gone:primary", "[AI] 모델 primary 응답 없음(404) · 대비 모델로 넘겼어요 · 서버 .env NIM_CHAT_MODEL 확인")]
     assert llm.gone("primary") and not llm.gone("second")
     assert _levels() == {"nim_chat_model": "error"}
+
+
+def test_gone_alert_names_the_right_key(clean, sent, monkeypatch):
+    # 대비 모델이 없어졌으면 대비 모델 키를, 넘길 모델이 없으면 '넘겼어요'를 쓰지 않는다
+    with pytest.raises(openai.APIStatusError):
+        llm._with_fallback(lambda m: (_ for _ in ()).throw(_err(410)))
+    assert list(dict.fromkeys(sent)) == [  # 두 바퀴 돌아 같은 알림이 두 번 (ops_alert가 종류별로 묶는다)
+        ("model_gone:primary", "[AI] 모델 primary 응답 없음(410) · 대비 모델로 넘겼어요 · 서버 .env NIM_CHAT_MODEL 확인"),
+        ("model_gone:second", "[AI] 모델 second 응답 없음(410) · 대비 모델로 넘겼어요 · 서버 .env NIM_CHAT_FALLBACK_MODELS 확인")]
+    sent.clear()
+    monkeypatch.setattr(settings, "nim_chat_fallback_models", "")
+    with pytest.raises(openai.APIStatusError):
+        llm._with_fallback(lambda m: (_ for _ in ()).throw(_err(404)))
+    assert sent == [("model_gone:primary", "[AI] 모델 primary 응답 없음(404) · 서버 .env NIM_CHAT_MODEL 확인")]
+
+
+def test_gone_clears_when_model_answers_again(clean, sent):
+    llm._gone["primary"] = llm.time.monotonic() + 60
+    assert llm._with_fallback(lambda m: "ok") == "ok"
+    assert not llm.gone("primary") and _levels() == {}
 
 
 def test_overload_is_not_gone(clean, sent):
@@ -165,3 +186,6 @@ def test_admin_endpoint(client, monkeypatch):
     r = client.get("/api/admin/config-check")
     assert r.status_code == 200 and r.headers["cache-control"] == "no-store"
     assert r.json() == {"problems": [{"key": "telegram", "level": "warn", "text": "t", "fix": "f"}]}
+    with get_sessionmaker()() as db:
+        rows = db.execute(select(AdminAuditRow.action).where(AdminAuditRow.user_id == ADMIN)).scalars().all()
+    assert "view:config-check" in rows

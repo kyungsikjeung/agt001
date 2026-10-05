@@ -60,7 +60,7 @@ async def lifespan(_app: FastAPI):
     if settings.run_migrations_on_startup:
         db_migrate.upgrade_head()
     store.recover_on_startup()
-    config_check.announce()  # 빠진 설정을 로그·운영 알림으로 (예외를 내지 않음, 바깥 호출 없음)
+    config_check.announce()  # 빠진 설정을 로그·운영 알림으로 (예외 없음, 알림은 뒤에서 보냄)
     _purge_all()
     if settings.precompute_embeddings:
         rag.precompute()

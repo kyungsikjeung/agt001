@@ -36,11 +36,11 @@ def problems() -> list[dict]:
 
     if settings.preview_host and not (settings.public_base_url or "").strip().startswith("https://"):
         add("public_base_url", "error",
-            "PUBLIC_BASE_URL이 없어 공개 사이트의 채팅하기·주문·전화 인증·알림 링크가 꺼져 있어요",
-            "서버 .env에 PUBLIC_BASE_URL=https://앱 주소 를 넣고 다시 시작")
+            "PUBLIC_BASE_URL이 없거나 https 주소가 아니어서 공개 사이트의 채팅하기·주문·전화 인증·알림 링크가 꺼져 있어요",
+            "서버 .env에 PUBLIC_BASE_URL(https://로 시작하는 앱 주소)을 넣고 다시 시작")
     if _model_gone():
         add("nim_chat_model", "error",
-            f"주 AI 모델 {settings.nim_chat_model}이 응답하지 않아요(서비스 종료) · 대비 모델로 답하는 중",
+            f"주 AI 모델({settings.nim_chat_model})이 응답하지 않아요(서비스 종료) · 대비 모델로 답하는 중",
             "서버 .env NIM_CHAT_MODEL을 지금 서비스 중인 모델로 바꾸고 다시 시작")
     if not _key("telegram_bot_token") or not (settings.telegram_chat_id or "").strip():
         add("telegram", "warn", "운영자 텔레그램 알림이 꺼져 있어 오류·설정 문제를 아무도 못 받아요",
