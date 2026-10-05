@@ -9,7 +9,7 @@
   /* 관리자 화면 (ADMIN_CONTRACT §4). owner.html과 같은 토큰. 외부 스크립트 없음, 글은 모두 textContent. */
   :root {
     --accent: #6366f1; --accent-dark: #4338ca; --accent-soft: #eef2ff; --bg: #f7f7f8; --surface: #fff;
-    --border: #e5e7eb; --text: #1f2328; --muted: #52525b; --warn: #b45309; --warn-soft: #fffbeb; --bad: #b91c1c;
+    --border: #e5e7eb; --text: #1f2328; --muted: #52525b; --warn: #b45309; --warn-soft: #fffbeb; --bad: #b91c1c; --bad-soft: #fef2f2;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }  /* nav·section·button의 display가 hidden을 덮지 않게 */
@@ -70,6 +70,11 @@
   .num { background: var(--bg); border-radius: 10px; padding: 10px 12px; }
   .num b { display: block; font-size: 1.375rem; }
   .num span { font-size: 0.8125rem; color: var(--muted); }
+  /* 설정 점검 (UX_GAP_PLAN Q3) */
+  .note.bad { background: var(--bad-soft); color: var(--bad); border: 1px solid var(--bad); }
+  .note b { display: block; }
+  .note ul { margin: 4px 0 0; padding-left: 18px; }
+  .note li { overflow-wrap: anywhere; }
   .scroll { display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow-y: auto; }
 </style>
 </head>
@@ -82,6 +87,7 @@
   <button type="button" role="tab" data-tab="keys" aria-selected="false">키</button>
 </nav>
 <main>
+  <div id="config" style="display:flex;flex-direction:column;gap:8px" hidden></div>
   <section id="gate" hidden></section>
 
   <section id="p-rooms" role="tabpanel" aria-label="가게" hidden>
@@ -162,6 +168,7 @@
   // 401·404면 문만 보인다. 404는 관리자 기능이 있다는 것을 드러내지 않는 문구.
   function showGate(status) {
     $("tabs").hidden = true;
+    $("config").hidden = true;
     for (const id of [...Object.values(PANELS), "p-detail"]) $(id).hidden = true;
     const gate = $("gate");
     gate.replaceChildren();
@@ -511,6 +518,35 @@
     renderKeys(d);
   }
 
+  // ── 설정 점검 (UX_GAP_PLAN Q3): error는 빨간 띠, warn은 노란 줄, info는 접어 둔다 ──
+  const problemLine = (p) => el("li", `${p.text} → ${p.fix}`);
+
+  async function loadConfig() {
+    let d;
+    try { d = await api("/api/admin/config-check"); } catch (e) { return; }
+    const box = $("config");
+    box.replaceChildren();
+    const by = (lv) => (d.problems || []).filter((p) => p.level === lv);
+    const errors = by("error"), warns = by("warn"), infos = by("info");
+    if (errors.length) {
+      const bar = el("div", null, "note bad");
+      bar.setAttribute("role", "alert");
+      const ul = el("ul");
+      for (const p of errors) ul.append(problemLine(p));
+      bar.append(el("b", "설정이 빠져 손님 기능이 깨져 있어요"), ul);
+      box.append(bar);
+    }
+    for (const p of warns) box.append(el("p", `${p.text} → ${p.fix}`, "note"));
+    if (infos.length) {
+      const det = el("details");
+      const ul = el("ul", null, "sub");
+      for (const p of infos) ul.append(problemLine(p));
+      det.append(el("summary", `설정 정보 ${infos.length}건`), ul);
+      box.append(det);
+    }
+    box.hidden = !box.childElementCount;
+  }
+
   // ── 시작 ──
   $("tabs").addEventListener("click", (e) => {
     const b = e.target.closest("button[role=tab]");
@@ -529,6 +565,7 @@
     if (!ok) return;
     $("tabs").hidden = false;
     $("p-rooms").hidden = false;
+    loadConfig();
   });
 })();
 </script>

@@ -23,6 +23,7 @@ _RETRYABLE = (openai.APITimeoutError, openai.APIConnectionError, openai.RateLimi
 _GONE_STATUS = (404, 410)
 _GONE_COOLDOWN_SEC = 86400.0
 _cooldown: dict[str, float] = {}
+_gone: dict[str, float] = {}  # 없어진 모델 → 쉬는 끝 시각 (설정 점검이 읽는다, config_check)
 _lock = threading.Lock()
 
 
@@ -51,6 +52,21 @@ def _models() -> list[str]:
     return list(dict.fromkeys([settings.nim_chat_model, *fallbacks]))
 
 
+def gone(model: str) -> bool:
+    """이 모델이 최근 404·410(없어진 모델)으로 답해 쉬는 중인가. 읽기만 한다."""
+    with _lock:
+        return _gone.get(model, 0) > time.monotonic()
+
+
+def _alert_gone(model: str, status: int) -> None:
+    """없어진 모델을 운영자에게 알린다(10/3 서비스 종료를 아무도 몰랐다). 알림이 실패해도 대비 모델로 간다."""
+    try:
+        from app.services import ops_alert
+        ops_alert.send("model_gone", f"[AI] 모델 {model} 응답 없음({status}) · 대비 모델로 넘겼어요 · 서버 .env NIM_CHAT_MODEL 확인")
+    except Exception:
+        pass
+
+
 def _with_fallback(call: Callable[[str], str]) -> str:
     """주 모델 → 대비 모델 차례로 부른다 (D28). 최근 실패한 모델은 쉬는 동안 뒤로 미룬다."""
     models = _models()
@@ -73,7 +89,11 @@ def _with_fallback(call: Callable[[str], str]) -> str:
             last_exc = e
             with _lock:
                 _cooldown[model] = time.monotonic() + (_GONE_COOLDOWN_SEC if gone else settings.nim_fallback_cooldown_sec)
+                if gone:
+                    _gone[model] = _cooldown[model]
             log.warning("NIM 모델 %s 실패(%s) → 다음 모델", model, type(e).__name__)
+            if gone:
+                _alert_gone(model, e.status_code)
             continue
         if model != settings.nim_chat_model:
             log.info("NIM 대비 모델 %s로 응답", model)
