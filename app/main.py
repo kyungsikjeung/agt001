@@ -1,7 +1,9 @@
 import asyncio
+import datetime
 import logging
 import mimetypes
 from contextlib import asynccontextmanager
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -11,7 +13,7 @@ from app import store
 from app.db import migrate as db_migrate
 from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, live, members, orders, owner, projects, public, push, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
-from app.services import config_check, funnel, ops_alert, rag
+from app.services import config_check, funnel, ops_alert, rag, stuck_report
 
 # 서버 파이썬에 webp가 없어 예시 사진이 application/octet-stream으로 나갔다(카톡 미리보기가 그림으로 못 읽음)
 mimetypes.add_type("image/webp", ".webp")
@@ -56,6 +58,33 @@ async def _purge_daily() -> None:
             log.exception("보관 기간 지난 기록을 지우지 못함 — 다음 날 다시 한다")
 
 
+KST = ZoneInfo("Asia/Seoul")
+MORNING_HOUR = 9  # 막힘 지표 아침 보고 (UX_GAP_PLAN Q4)
+
+
+def seconds_until_next(hour: int, now: datetime.datetime | None = None) -> float:
+    """다음 한국 시각 hour:00까지 남은 초. 지금이 딱 그 시각이면 다음 날."""
+    now = (now or datetime.datetime.now(KST)).astimezone(KST)
+    nxt = now.replace(hour=hour, minute=0, second=0, microsecond=0)
+    if nxt <= now:
+        nxt += datetime.timedelta(days=1)
+    return (nxt - now).total_seconds()
+
+
+def _send_morning() -> None:
+    ops_alert.send("daily", stuck_report.morning_text(stuck_report.report(7)))
+
+
+async def _morning_report() -> None:
+    while True:
+        # +1초: 잠이 몇 ms 일찍 깨도 9시를 넘긴 뒤 보내야 다음 계산이 내일로 간다(두 번 보내기 방지)
+        await asyncio.sleep(seconds_until_next(MORNING_HOUR) + 1)
+        try:
+            await asyncio.to_thread(_send_morning)
+        except Exception:
+            log.exception("아침 보고를 보내지 못함 — 내일 다시 한다")
+
+
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     ops_alert.install()  # ERROR 로그를 운영자 텔레그램으로 (OPS_ALERT_CONTRACT, 켜져 있을 때만)
@@ -67,8 +96,10 @@ async def lifespan(_app: FastAPI):
     if settings.precompute_embeddings:
         rag.precompute()
     purge_task = asyncio.create_task(_purge_daily())
+    morning_task = asyncio.create_task(_morning_report())
     yield
     purge_task.cancel()
+    morning_task.cancel()
 
 
 # 미리보기 주소에서 여는 경로 (S-1). 나머지(로그인·채팅·API)는 앱 주소에서만.

@@ -377,6 +377,29 @@
     box.append(head);
     box.append(topList("못 담은 요구 상위", g.unmet_top), topList("처음 보는 종류 상위", g.new_kind_top), topList("말로 고친 것 상위", g.restyle_changes),
       topList("마지막에 고른 안", g.chosen_variant), topList("퍼널 사건 수", d.funnel));
+    box.append(await stuckCard());
+  }
+
+  // ── 막힘 지표 (Q4) ──
+  async function stuckCard() {
+    const card = el("div", null, "card");
+    card.append(el("h2", "막힘 지표 (최근 7일)"));
+    let s;
+    try { s = await api("/api/admin/stuck?days=7"); } catch (e) { failed(card, e); return card; }
+    const t = s.turns_to_summary || {};
+    const nums = el("div", null, "nums");
+    nums.append(num(s.sessions, "대화"), num(s.reached_summary, "요약까지 간 대화"),
+      num(t.p50 ?? "—", "요약까지 턴(보통)"), num(t.p90 ?? "—", "요약까지 턴(느린 쪽 90%)"),
+      num(s.repeat_twice.sessions, "같은 질문 두 번 되풀이"), num(s.publish_login_loops, "로그인에 막혀 공개 못 한 가게"));
+    card.append(nums);
+    const sub = (title, pairs) => {
+      card.append(el("p", title, "sub"));
+      card.append(pairs.length ? kv(pairs) : el("p", "아직 없어요.", "sub"));
+    };
+    sub("되풀이된 칸", s.repeat_twice.top.map((x) => [x.label, `${x.sessions}건`]));
+    sub("'알아서'·'모르겠어요' 많은 칸", s.let_ai_by_slot.map((x) => [x.label, `${pct(x.rate)} (${x.let_ai}/${x.asked})`]));
+    sub("요약 전 멈춤(24시간 조용): 물은 질문 수별", Object.entries(s.dropoff).map(([q, n]) => [`질문 ${q}개`, `${n}건`]));
+    return card;
   }
 
   // ── 사이트 내리기 (P2-4) ──

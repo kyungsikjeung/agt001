@@ -46,7 +46,9 @@ SERVER_EVENTS = frozenset({"request_submitted", "requirement_approved", "generat
                             # 온라인 결제 운영 신호(W5-B, 금액·결제 번호·전화 없음)
                             "payment_mismatch", "webhook_bad_signature",
                             # 무료 한도를 넘긴 요청(D40 지불 의사 신호, 사이트 키·종류·넘친 수만)
-                            "quota_exceeded"})
+                            "quota_exceeded",
+                            # 로그인 안 해 공개가 막힘(Q4 막힘 지표, 사이트 키·방 ID만)
+                            "publish_need_login"})
 
 _TOKEN = re.compile(r"[^A-Za-z0-9_.:-]")
 _MAX_LEN = 64

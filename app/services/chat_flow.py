@@ -561,6 +561,7 @@ def _publish(session: dict, base_url: str, force: bool) -> str:
         from app.services import rooms
         room_id = _publish_room_id(session)
         if room_id is not None and not rooms.owner_claimed(room_id):
+            funnel.record("publish_need_login", props={"site": session.get("requirement_id"), "ref": room_id})
             base = (base_url or "").rstrip("/")
             back = url_quote(f"/room.html?room={room_id}", safe="")  # 로그인 뒤 이 방으로(room.html이 링크로 보여 줌)
             return ("공개하려면 먼저 로그인해 주세요. 카카오나 구글로 1분이면 돼요.\n"
@@ -922,6 +923,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         else:
             result = prd_engine.turn(card, user_text, by=by, is_owner=is_owner)
             engine_trace = result.get("trace")
+            if engine_trace is not None and not is_owner:
+                engine_trace["member"] = True  # 막힘 지표는 사장님 답만 센다
             session["prd"] = card
             if result.get("blocked"):
                 # 입구 게이트 §2 ④: 금지 요청은 이유를 밝혀 거절하고, 하던 질문이 있으면 이어서 묻는다.
