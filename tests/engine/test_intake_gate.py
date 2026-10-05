@@ -156,7 +156,7 @@ def test_short_answer_goes_to_asked_slot_not_repeated(fake_extract):
         q = card["pending"]
         if q and q.get("slot") == "offerings":
             break
-        E.turn(card, "알아서 해주세요" if q and q.get("kind") == "single" else "없음")
+        E.turn(card, "잘 모르겠어요" if q and q.get("kind") == "single" else "없음")  # 한 칸만 닫기("알아서 해주세요"는 바로 시안)
     assert card["pending"]["slot"] == "offerings"
     fake_extract["초등 미술반"] = [u("target", "초등")]  # 추출이 대상 칸으로 잘못 보냄
     r = E.turn(card, "초등 미술반")
@@ -224,3 +224,27 @@ def test_blocked_allows_common_shop_words(text, blocked):
     """T3 restaurant-unordered: "마약김밥"이 마약 거래로 막혀 같은 질문을 9번 되풀이했다. 예외 표현은 빼고 본다."""
     from app.services import intake
     assert (intake.blocked_reason(text) is not None) == blocked
+
+
+def test_let_ai_answer_skips_to_design(fake_extract):
+    """10/5 대표: 질문에 '알아서 해주세요'를 누르면 남은 질문 없이 바로 시안('시안 먼저'와 같다)."""
+    fake_extract["펜션이에요"] = [u("business_type", "펜션")]
+    card = E.new_card()
+    r = E.turn(card, "펜션이에요")
+    assert r["question"] and not r["done"]
+    r = E.turn(card, S.LET_AI)
+    assert r["done"] and r["trace"]["skip"]
+
+
+def test_free_text_question_offers_type_it_first(fake_extract):
+    """10/5 대표: 선택지 없는 질문(가게 이름)은 '1) 직접 입력 2) 알아서 해주세요'. 글로 온 '직접 입력'은 값이 아니다."""
+    card = E.new_card("pension")
+    card["slots"]["business_type"]["status"] = S.FILLED  # 업종은 정해졌고 다음 필수 칸이 가게 이름
+    q = E.next_question(card)
+    assert q and q["slot"] == "shop_name"
+    assert q["options"] == [S.TYPE_IT, S.LET_AI]
+    assert "1) 직접 입력  2) 알아서 해주세요" in E.format_question(card, q)
+    card["pending"] = q
+    r = E.turn(card, S.TYPE_IT)
+    assert card["slots"].get("shop_name", {}).get("value") != S.TYPE_IT
+    assert r["question"] and r["question"]["slot"] == "shop_name"

@@ -123,7 +123,7 @@ def test_target_kept_when_answering_its_question(fake_extract):
     fake_extract["펜션이에요"] = [u("business_type", "펜션")]
     r = E.turn(card, "펜션이에요")
     while not r["done"] and r["question"] and r["question"]["slot"] != "goal":
-        r = E.turn(card, "알아서 해주세요")
+        r = E.turn(card, "잘 모르겠어요")  # 한 칸만 닫기("알아서 해주세요"는 바로 시안)
     assert r["question"]["slot"] == "goal"
     msg = "예약 문의를 늘리고 싶어요"
     fake_extract[msg] = [u("goal", "예약 문의 늘리기")]

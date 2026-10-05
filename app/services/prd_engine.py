@@ -81,7 +81,7 @@ def _norm_text(s: str) -> str:
 YES_NORMS = frozenset(_norm(w) for w in YES_WORDS)
 # 추출기가 칸 값으로 돌려주면 버릴 진행 말
 _CONTROL_NORMS = frozenset([_norm(S.LET_AI), "알아서", "알아서해줘", "알아서해주세요", "나중에", "나중에넣을게요",
-                            "나중에넣을게", "모르겠어요", "없음", "없어요"] + [_norm(p) for p in SKIP_PHRASES])
+                            "나중에넣을게", "모르겠어요", "없음", "없어요", _norm(S.TYPE_IT)] + [_norm(p) for p in SKIP_PHRASES])
 NO_NORMS = frozenset(_norm(w) for w in NO_WORDS)
 NONE_NORMS = frozenset(_norm(w) for w in NONE_WORDS)
 # 질문을 다시 해 달라는 말 (VOICE FR-6). 메시지 전체가 이 말일 때만 (정규화 후 일치).
@@ -90,6 +90,8 @@ REPEAT_NORMS = frozenset(_norm(w) for w in (
     "다시 읽어줘", "다시 읽어 주세요", "뭐라고", "뭐라고요", "뭐라구요", "네 뭐라고요", "못 들었어요", "잘 못 들었어요",
     "잘 안 들려요", "안 들려요", "질문 다시", "질문이 뭐였죠"))
 SKIP_NORMS = frozenset([_norm(p) for p in SKIP_PHRASES] + list(SKIP_KEYWORDS))
+# 질문에 "알아서 해주세요"만 답하면 남은 질문을 건너뛰고 바로 시안(10/5 대표). 문장 속 "알아서"는 그 칸만 닫는다.
+LET_AI_SKIP_NORMS = frozenset((_norm(S.LET_AI), "알아서", "알아서해줘", "알아서해주세요", "알아서해줘요"))
 
 
 # ── 카드 ──────────────────────────────────────────────────────────────
@@ -1825,7 +1827,7 @@ def next_question(card: dict) -> Optional[dict]:
         return q
     if missing:
         q = S.question_for(ind, missing[0])
-        return {"slot": missing[0], "kind": "single", "options": list(q.options) + [S.LET_AI], "text": q.ask}
+        return {"slot": missing[0], "kind": "single", "options": list(q.options or (S.TYPE_IT,)) + [S.LET_AI], "text": q.ask}
     # 상황 탐색 (J1b, D53 ③): 필수·숨은 질문이 끝난 뒤 요약 직전에 한 번만 묻는다.
     # 질문 한도 밖(budget_free)이라 asked를 세지 않는다. "시안 먼저"는 여기를 거치지 않고 finalize로 간다.
     if not card.get("situation_probed"):
@@ -1910,7 +1912,8 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
         from app.services import ops_alert  # 막힌 대화는 운영자에게 (D33, OPS_ALERT_CONTRACT)
         ops_alert.send("blocked", f"[대화] 금지 요청을 막았어요 · {reason}")
         return {"done": False, "question": card.get("pending"), "applied": [], "trace": trace, "blocked": reason}
-    wants_skip = bool(n) and any(p in n for p in SKIP_NORMS)
+    wants_skip = bool(n) and (any(p in n for p in SKIP_NORMS)
+                              or (bool(card.get("pending")) and n in LET_AI_SKIP_NORMS))
     trace["skip"] = wants_skip
     # 리뷰어가 대조할 사장님 원문(최근 SAID_MAX개). 금지 요청은 위에서 이미 돌려보내 여기 남지 않는다.
     said = card.setdefault("said", [])
@@ -1919,6 +1922,9 @@ def turn(card: dict, text: str, by=None, is_owner=True) -> dict:
     if not t:
         # B-4: 빈 메시지는 질문 예산을 쓰지 않고 직전 질문을 그대로 둔다.
         return _repeat_pending(card, applied, trace, from_empty=True)
+    if card.get("pending") and n == _norm(S.TYPE_IT):
+        # '직접 입력' 단추는 화면이 입력칸으로 보낸다. 글로 와도 값이 아니니 같은 질문을 예산 없이 다시 보인다.
+        return _repeat_pending(card, applied, trace)
     if card.get("pending") and n in REPEAT_NORMS:
         # VOICE FR-6: "다시요", "뭐라고요"는 답이 아니다. 같은 질문을 예산 없이 다시 보인다(읽어주기면 다시 읽힌다).
         trace["repeat"] = True
