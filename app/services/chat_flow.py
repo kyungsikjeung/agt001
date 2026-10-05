@@ -923,6 +923,8 @@ def process_turn(session_id: str, session: dict, user_text: str, base_url: str, 
         else:
             result = prd_engine.turn(card, user_text, by=by, is_owner=is_owner)
             engine_trace = result.get("trace")
+            if engine_trace is not None and not is_owner:
+                engine_trace["member"] = True  # 막힘 지표는 사장님 답만 센다
             session["prd"] = card
             if result.get("blocked"):
                 # 입구 게이트 §2 ④: 금지 요청은 이유를 밝혀 거절하고, 하던 질문이 있으면 이어서 묻는다.

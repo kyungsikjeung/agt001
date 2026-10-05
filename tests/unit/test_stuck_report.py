@@ -25,18 +25,18 @@ def db():
     store.reset_all()
 
 
-def _turns(sid, hours_ago, rows):
+def _turns(sid, hours_ago, rows, before="GATHERING"):
     """rows: (사장님 말, state_after, meta). 첫 턴이 hours_ago 시간 전, 그 뒤 1분씩."""
     start = NOW - datetime.timedelta(hours=hours_ago)
     with get_sessionmaker()() as s, s.begin():
         for i, (text, state, meta) in enumerate(rows):
             s.add(ChatTurnRow(session_id=sid, ts=start + datetime.timedelta(minutes=i), user_text=text,
-                              ai_text="네", state_before="GATHERING", state_after=state, meta=meta))
+                              ai_text="네", state_before=before, state_after=state, meta=meta))
 
 
 def _q(asked_slot, next_slot, asked, kind="single", **extra):
     return {"asked_slot": asked_slot, "asked_kind": kind if asked_slot else None, "next_slot": next_slot,
-            "asked": asked, **extra}
+            "next_kind": kind if next_slot else None, "asked": asked, **extra}
 
 
 def _events(rows):
@@ -48,13 +48,26 @@ def _events(rows):
 @pytest.fixture
 def seeded(db):
     G, A = "GATHERING", "AWAIT_APPROVAL"
-    # 같은 칸을 되풀이하다 이틀째 조용함(이탈). '다시요'는 사이에 껴도 무시한다. 원문에 전화·주소.
+    # 같은 칸을 되풀이하다 이틀째 조용함(이탈). '다시요'·'직접 입력' 글·멤버 말은 사이에 껴도 무시한다.
+    # 세는 답(영업시간)에 전화·주소.
     _turns("s_rep", 48, [
-        (f"카페예요 {PHONE} {ADDR}", G, _q(None, "hours", 1)),
-        ("음", G, _q("hours", "hours", 1)),
+        ("카페예요", G, _q(None, "hours", 1)),
+        (f"음 {PHONE} {ADDR}", G, _q("hours", "hours", 1)),
         ("다시요", G, _q("hours", "hours", 1, repeat=True)),
+        ("직접 입력", G, _q("hours", "hours", 1)),
+        ("모르겠어요", G, _q("hours", "hours", 1, member=True)),
         ("글쎄요", G, _q("hours", "hours", 1)),
     ])
+    # 같은 칸이라도 덧붙임 질문(종류가 다름)은 되풀이가 아니다
+    _turns("s_follow", 3, [
+        ("매일 같은 시간", G, {**_q("hours", "hours", 1), "next_kind": "followup"}),
+        ("9시부터", G, _q("hours", "hours", 2, kind="followup")),
+    ])
+    # 창 밖 턴(20일 전)은 칸별 숫자에서 빠진다. 대화는 어제 턴이 있어 센다.
+    _turns("s_long", 480, [("알아서", G, _q("hours", "goal", 1))])
+    _turns("s_long", 26, [("예약", G, _q("goal", "target", 2))])
+    # 빌더 방(처음부터 DONE)은 요약 전 이탈이 아니다
+    _turns("s_builder", 48, [("색 바꿔줘", "DONE", None)], before="DONE")
     # 요약까지 2턴: 영업시간을 '알아서'로 넘김
     _turns("s_sum2", 30, [
         ("알아서 해주세요", G, _q("hours", "shop_name", 2, skip=True)),
@@ -86,13 +99,14 @@ def seeded(db):
 
 def test_each_metric(seeded):
     rep = R.report(7, now=NOW)
-    assert rep["days"] == 7 and rep["sessions"] == 4 and rep["reached_summary"] == 2
+    assert rep["days"] == 7 and rep["sessions"] == 6 and rep["reached_summary"] == 2
     assert rep["repeat_twice"] == {"sessions": 1, "top": [{"slot": "hours", "label": "영업시간", "sessions": 1}]}
-    # 영업시간 4번 물음: 음 / 글쎄요(모름) / 알아서 해주세요 / 알아서. '다시요'와 창 밖 대화는 빠진다. 3번 미만 칸은 없다.
-    assert rep["let_ai_by_slot"] == [{"slot": "hours", "label": "영업시간", "asked": 4, "let_ai": 3, "rate": 0.75}]
-    assert rep["dropoff"] == {1: 1}
+    # 영업시간 5번 물음: 음 / 글쎄요(모름) / 알아서 해주세요 / 알아서 / 매일 같은 시간. '다시요'·'직접 입력'·멤버 말·창 밖 턴은 빠진다.
+    # 덧붙임 질문(followup)은 single이 아니라 세지 않는다. 3번 미만 칸은 없다.
+    assert rep["let_ai_by_slot"] == [{"slot": "hours", "label": "영업시간", "asked": 5, "let_ai": 3, "rate": 0.6}]
+    assert rep["dropoff"] == {1: 1, 2: 1}  # s_rep, s_long (빌더 방은 없음)
     assert rep["publish_login_loops"] == 2
-    assert rep["turns_to_summary"] == {"p50": 3.0, "p90": pytest.approx(3.8)}
+    assert rep["turns_to_summary"] == {"p50": 3.0, "p90": 3.8}
 
 
 def test_pii_absent_and_morning_text(seeded):
@@ -101,15 +115,24 @@ def test_pii_absent_and_morning_text(seeded):
     for out in (json.dumps(rep, ensure_ascii=False), text):
         assert PHONE not in out and "연남로" not in out and "마포구" not in out and "카페예요" not in out
     assert text.startswith("[아침 보고] 지난 7일") and len(text) <= 700
-    assert "영업시간" in text and "75%(3/4)" in text and "로그인에 막혀 공개 못 한 가게: 2곳" in text
-    assert "질문 1개에서 1건" in text
+    assert "영업시간" in text and "60%(3/5)" in text and "로그인에 막혀 공개 못 한 가게: 2곳" in text
+    assert "질문 1개에서 1건, 질문 2개에서 1건" in text
 
 
 def test_morning_text_skips_zero_parts(db):
     assert R.morning_text(R.report(7, now=NOW)) == "[아침 보고] 지난 7일\n대화가 없었어요."
     _turns("s", 1, [("가게 이름은 모퉁이", "GATHERING", _q(None, "hours", 1))])
     text = R.morning_text(R.report(7, now=NOW))
-    assert text == "[아침 보고] 지난 7일\n대화 1건 · 요약까지 0건 (0%)"
+    assert text == "[아침 보고] 지난 7일\n대화 1건"
+
+
+def test_morning_text_long_dropoff_keeps_login_line():
+    rep = {"days": 7, "sessions": 300, "reached_summary": 0, "turns_to_summary": {"p50": None, "p90": None},
+           "repeat_twice": {"sessions": 0, "top": []}, "let_ai_by_slot": [],
+           "dropoff": {q: q + 1 for q in range(60)}, "publish_login_loops": 4}
+    text = R.morning_text(rep)
+    assert "로그인에 막혀 공개 못 한 가게: 4곳" in text and "질문 59개에서 60건" in text and text.endswith(" …")
+    assert "질문 0개" not in text and len(text) <= R.MORNING_MAX
 
 
 def test_chat_publish_records_need_login(client, monkeypatch):
@@ -155,3 +178,30 @@ def test_admin_stuck_auth_and_view(client, monkeypatch):
             "turns_to_summary"} <= set(r.json())
     with get_sessionmaker()() as s:
         assert s.scalar(select(AdminAuditRow.action).where(AdminAuditRow.user_id == "u_admin_s")) == "view:stuck"
+
+
+def test_morning_loop_survives_send_error(monkeypatch):
+    import asyncio
+    from app import main
+    calls = []
+
+    def send():
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("텔레그램 안 됨")
+
+    monkeypatch.setattr(main, "seconds_until_next", lambda hour: -1)  # 기다리지 않고 바로
+    monkeypatch.setattr(main, "_send_morning", send)
+
+    async def run():
+        task = asyncio.create_task(main._morning_report())
+        for _ in range(200):
+            await asyncio.sleep(0.01)
+            if len(calls) >= 2:
+                break
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    asyncio.run(run())
+    assert len(calls) >= 2
