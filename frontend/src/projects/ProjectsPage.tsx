@@ -15,10 +15,16 @@ export interface Project {
   members: number;
   deploy_url: string | null;
   design_url: string | null;
+  /** 지운 시각. 지운 프로젝트는 비활성으로 남고 purge_at에 영구 삭제된다. */
+  deleted_at?: string | null;
+  purge_at?: string | null;
+  is_owner?: boolean;
 }
 
 const ROOMS_KEY = 'agt001_rooms';
 const MEMBER_KEY = 'agt001_member_id';
+// 지운 뒤 되살릴 수 있는 기간 (서버 project_delete.GRACE_DAYS와 같아야 한다).
+const GRACE_DAYS = 30;
 
 function safeRead(key: string): string | null {
   try {
@@ -73,12 +79,56 @@ async function fetchSummary(roomIds: string[], memberId: string | null, loggedIn
   return Array.isArray(data.projects) ? data.projects : [];
 }
 
+/** "10월 12일" 같은 날짜. 못 읽으면 빈 글. */
+export function dayText(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return '';
+  return new Date(t).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' });
+}
+
+async function postProject(roomId: string, action: 'delete' | 'restore', memberId: string | null): Promise<Project['deleted_at']> {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (memberId) headers['X-Member-Id'] = memberId;
+  const res = await fetch(`/api/projects/${encodeURIComponent(roomId)}/${action}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers,
+  });
+  if (!res.ok) throw new Error(String(res.status));
+  const data = (await res.json()) as { deleted_at?: string | null };
+  return data.deleted_at ?? null;
+}
+
 export default function ProjectsPage() {
   const scrolled = useScrolled();
   const [user, setUser] = useState<MeUser | null>(null);
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const claimedRef = useRef(false);
+  // 지우기: 한 번 더 묻고(진짜 지울까요?) 지운다. 30일 안에는 되살릴 수 있다.
+  const [askDelete, setAskDelete] = useState<string | null>(null);
+  const [busyRoom, setBusyRoom] = useState<string | null>(null);
+
+  async function changeDeleted(roomId: string, action: 'delete' | 'restore') {
+    setBusyRoom(roomId);
+    setError(null);
+    try {
+      const deletedAt = await postProject(roomId, action, safeRead(MEMBER_KEY));
+      setProjects((list) =>
+        (list ?? []).map((p) =>
+          p.room_id === roomId
+            ? { ...p, deleted_at: deletedAt, purge_at: deletedAt ? new Date(Date.parse(deletedAt) + GRACE_DAYS * 86400000).toISOString() : null }
+            : p,
+        ),
+      );
+      setAskDelete(null);
+    } catch {
+      setError(action === 'delete' ? '지우지 못했어요. 잠시 뒤 다시 눌러 주세요.' : '되살리지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+    } finally {
+      setBusyRoom(null);
+    }
+  }
 
   useEffect(() => {
     let alive = true;
@@ -159,7 +209,7 @@ export default function ProjectsPage() {
         ) : (
           <ul className="proj-list">
             {projects.map((p) => (
-              <li key={p.room_id} className="proj-card">
+              <li key={p.room_id} className={`proj-card${p.deleted_at ? ' proj-card--deleted' : ''}`}>
                 <div className="proj-head">
                   <b className="proj-title">{p.title}</b>
                   <span className="proj-badge">{p.state_label}</span>
@@ -170,21 +220,65 @@ export default function ProjectsPage() {
                   <span>참여자 {p.members}명</span>
                 </div>
                 {p.last_message && <p className="proj-last">{p.last_message}</p>}
-                <div className="proj-actions">
-                  <a className="send" href={`/room.html?room=${encodeURIComponent(p.room_id)}`}>
-                    이어서 하기
-                  </a>
-                  {p.deploy_url && (
-                    <a className="ghost" href={p.deploy_url} target="_blank" rel="noopener noreferrer">
-                      사이트 보기
+                {p.deleted_at ? (
+                  <div className="proj-actions">
+                    <p className="proj-deleted" role="status">
+                      지웠어요. 사이트는 이미 닫혔고 {dayText(p.purge_at)}에 모든 기록이 영구 삭제돼요.
+                    </p>
+                    <button
+                      type="button"
+                      className="send"
+                      disabled={busyRoom === p.room_id}
+                      onClick={() => void changeDeleted(p.room_id, 'restore')}
+                    >
+                      {busyRoom === p.room_id ? '되살리는 중…' : '되살리기'}
+                    </button>
+                  </div>
+                ) : askDelete === p.room_id ? (
+                  <div className="proj-actions proj-confirm" role="group" aria-label="지우기 확인">
+                    <p className="proj-deleted">
+                      <b>정말 지울까요?</b> 공개 사이트가 바로 닫혀요(주문·결제·예약·채팅도 함께 멈춰요). 내시던
+                      요금제가 있으면 바로 해지돼요. {GRACE_DAYS}일 뒤에 사이트·채팅·사진·예약·주문 기록까지 모두
+                      영구 삭제돼요. {GRACE_DAYS}일 안에는 되살릴 수 있어요(요금제는 다시 신청해야 해요).
+                    </p>
+                    <button type="button" className="ghost" disabled={busyRoom === p.room_id} onClick={() => setAskDelete(null)}>
+                      그만두기
+                    </button>
+                    <button
+                      type="button"
+                      className="proj-danger"
+                      disabled={busyRoom === p.room_id}
+                      onClick={() => void changeDeleted(p.room_id, 'delete')}
+                    >
+                      {busyRoom === p.room_id ? '지우는 중…' : '네, 지울래요'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="proj-actions">
+                    <a className="send" href={`/room.html?room=${encodeURIComponent(p.room_id)}`}>
+                      이어서 하기
                     </a>
-                  )}
-                  {p.design_url && (
-                    <a className="ghost" href={p.design_url} target="_blank" rel="noopener noreferrer">
-                      시안 보기
+                    {/* 공개한 뒤에도 고칠 수 있다(고치면 공개 사이트에 바로 반영). 전엔 길이 채팅방 안내 글뿐이었다. */}
+                    <a className="ghost" href={`/editor?room=${encodeURIComponent(p.room_id)}`}>
+                      고치기
                     </a>
-                  )}
-                </div>
+                    {p.deploy_url && (
+                      <a className="ghost" href={p.deploy_url} target="_blank" rel="noopener noreferrer">
+                        사이트 보기
+                      </a>
+                    )}
+                    {p.design_url && (
+                      <a className="ghost" href={p.design_url} target="_blank" rel="noopener noreferrer">
+                        시안 보기
+                      </a>
+                    )}
+                    {p.is_owner !== false && (
+                      <button type="button" className="ghost proj-del" onClick={() => setAskDelete(p.room_id)}>
+                        지우기
+                      </button>
+                    )}
+                  </div>
+                )}
               </li>
             ))}
           </ul>

@@ -16,6 +16,8 @@ from app.security import sanitize_token
 log = logging.getLogger(__name__)
 
 MARKER = "takedown.json"
+# 방장이 프로젝트를 지웠다는 표시 (project_delete). 관리자 내림과 따로 두어 되살려도 서로 안 풀린다.
+DELETED_MARKER = "deleted.json"
 REASON_MAX = 200
 
 
@@ -37,8 +39,31 @@ def info(site_key: str) -> Optional[dict]:
         return {}  # 표시 파일이 있으면 깨졌어도 내린 것으로 본다(열어 두는 쪽이 더 위험)
 
 
+def owner_deleted(site_key: str) -> bool:
+    """방장이 지운 프로젝트인가 (project_delete). 영구 삭제 전까지 공개 사이트를 닫는다."""
+    path = _marker(site_key)
+    return path is not None and path.with_name(DELETED_MARKER).is_file()
+
+
+def mark_deleted(site_key: str, on: bool) -> None:
+    """방장이 지움·되살림 표시. 관리자 내림(MARKER)은 건드리지 않는다."""
+    path = _marker(site_key)
+    if path is None:
+        return
+    flag = path.with_name(DELETED_MARKER)
+    if on:
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text("{}", encoding="utf-8")
+    else:
+        flag.unlink(missing_ok=True)
+
+
 def is_down(site_key: str) -> bool:
-    return info(site_key) is not None
+    """공개 사이트를 닫아야 하나. 관리자 내림이거나 방장이 지운 프로젝트면 True.
+
+    이 하나로 /site 서빙·문의·예약·주문·손님 채팅이 모두 닫힌다(부르는 곳마다 따로 보지 않게).
+    """
+    return info(site_key) is not None or owner_deleted(site_key)
 
 
 def take_down(site_key: str, user_id: str, reason: str) -> dict:

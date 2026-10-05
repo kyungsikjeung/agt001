@@ -31,6 +31,16 @@ def paused() -> bool:
     return bool(settings.commerce_paused)
 
 
+def closed(site_key: str) -> bool:
+    """이 가게에서 주문·결제·내역을 지금 쓸 수 없나.
+
+    비상 스위치(paused)이거나, 사이트가 내려갔을 때(관리자 내림·방장이 프로젝트 삭제).
+    주문을 시작하는 모든 자리가 이 하나를 본다 — 한 곳이라도 빠지면 닫힌 가게에서 돈이 움직인다.
+    """
+    from app.services import takedown
+    return paused() or takedown.is_down((site_key or "").strip())
+
+
 def _kst_day(dt: datetime.datetime) -> datetime.date:
     # DB 시각은 timestamptz. naive면 UTC로 본다.
     if dt.tzinfo is None:
