@@ -67,6 +67,10 @@ def journey_server(tmp_path_factory):
     server = thread = sock = None
     try:  # 준비 중 실패해도 패치를 되돌린다
         # 단위 conftest가 끈 것 중 여정이 보는 것은 운영 기본값으로 되돌린다.
+        # 개발자 .env의 PUBLIC_BASE_URL(고정 포트)에 끌려가지 않게 비운다. 여정 서버는 임의 포트라
+        # 출처 검사(_check_origin)가 403이 되고, 공개 사이트의 앱 링크도 그 주소로 나간다.
+        mp.setattr(settings, "public_base_url", None)
+        mp.setattr(settings, "preview_host", None)
         mp.setattr(settings, "publish_login_required", True)
         mp.setattr(settings, "room_invite_required", True)
         mp.setattr(settings, "generated_dir", tmp_path_factory.mktemp("generated"))
