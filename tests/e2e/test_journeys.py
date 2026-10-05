@@ -12,7 +12,14 @@ LLM·스크린샷·코드 생성만 tests/unit 가짜. 로그인은 카카오 �
 
 J1 템플릿 → 빌더 → 공개하기 → 로그인 → 다시 공개하기 (#41 회귀: 로그인해도 계속 '로그인해 주세요')
 J2 랜딩 → 채팅방 첫 말 → 질문 단추 '직접 입력'·'알아서 해주세요' (#42)
+J3 채팅 → 주소 검색 단추 → 고른 주소가 좌표까지 카드에 들어간다
+J4 공개 사이트 → '채팅하기' → 사장님께 물어보기 → 사장님 목록에 보이고 알림 1번
+J5 사장님 화면 → '이 휴대폰으로 알림 받기' → 구독 1개 + 시험 알림 1건
+
+바깥 것은 가짜로 둔다(네트워크·과금·외부 장애에 기대지 않는다): 다음 우편번호 창, 카카오 주소 검색,
+브라우저 푸시 서비스, 푸시 전송. 가짜 자리는 테스트마다 주석으로 적었다.
 """
+import json
 import re
 import uuid
 
@@ -118,3 +125,192 @@ def test_j2_chat_question_buttons(journey_context):
     data = res.json()
     assert data["question"] is None, f"'알아서 해주세요' 뒤에도 질문이 남았어요: {data['question']}"
     assert data["state"] == "AWAIT_APPROVAL", data["state"]
+
+
+def _publish_from_template(context, page) -> str:
+    """템플릿 → 빌더 → (로그인) → 공개하기. 공개된 가게 키를 돌려준다. J1이 이 길을 따로 검증한다."""
+    page.goto("/")
+    page.get_by_role("list", name="업종 예시로 채우기").get_by_text("카페", exact=True).click()
+    page.wait_for_url(re.compile(r"/start\?room="))
+    builder_url = page.url
+    _login(context)
+    page.goto(builder_url)
+    page.get_by_role("button", name="공개하기").click()
+    confirm = page.get_by_role("button", name="그대로 공개")
+    site = page.get_by_role("link", name="공개 사이트 보기")
+    expect(confirm.or_(site)).to_be_visible(timeout=POLL_TIMEOUT)
+    if confirm.is_visible():
+        confirm.click()
+    expect(site).to_be_visible(timeout=POLL_TIMEOUT)
+    href = site.get_attribute("href") or ""
+    m = re.search(r"/site/([^/?#]+)", href)
+    assert m, f"공개 사이트 주소에서 가게 키를 못 찾았어요: {href}"
+    return m.group(1)
+
+
+def test_j3_address_search_saves_map_point(journey_context, monkeypatch):
+    """J3 주소 검색 단추 → 고른 주소가 지도 좌표까지 카드에 들어간다.
+
+    가짜 둘: ① 다음 우편번호 창(t1.daumcdn.net 바깥 스크립트) ② 카카오 주소 검색(geo.search).
+    우리 몫만 본다 — 단추가 서버가 정한 대로(글자 짐작이 아니라 actions) 뜨는지, 저장이 좌표까지 넣는지.
+    """
+    from app import llm
+    from app.services import geo
+    from tests.unit import conftest as unit
+
+    ROAD = "경기도 수원시 팔달구 정조로 790"
+    X, Y = 127.0194, 37.2812
+
+    def fill_location(system, user, **kwargs):
+        """첫 말에서 주소 한 칸만 뽑는 추출기 (주소 칸이 채워져야 단추 조건이 선다)."""
+        if "정조로" in user or "행궁동" in user:
+            return '{"updates": [{"slot": "location", "value": "수원 행궁동"}]}'
+        return unit.default_chat_json(system, user, **kwargs)
+
+    monkeypatch.setattr(llm, "chat_json", fill_location)
+    monkeypatch.setattr(geo, "search", lambda q: [{"road": ROAD, "jibun": "", "x": X, "y": Y}])
+
+    page = journey_context.new_page()
+    # 우편번호 창 가짜: embed하면 바로 사장님이 주소를 고른 것처럼 oncomplete를 부른다.
+    # 바깥 스크립트는 아예 막아서, 가짜가 안 먹으면 조용히 진짜를 쓰는 일이 없게 한다.
+    page.route("**/postcode.v2.js", lambda route: route.abort())
+    page.add_init_script("""
+      window.daum = {
+        Postcode: function (opts) {
+          this.embed = function () { opts.oncomplete({ roadAddress: %s, jibunAddress: '' }); };
+        },
+      };
+    """ % json.dumps(ROAD, ensure_ascii=False))
+    page.goto("/")
+    page.get_by_label("만들고 싶은 사이트 설명").fill("행궁동 작은 카페예요. 오시는 길을 보여 주고 싶어요.")
+    page.get_by_role("button", name="시작하기", exact=True).click()
+    page.wait_for_url(re.compile(r"/room\.html\?room="))
+    room_id = re.search(r"room=([^&]+)", page.url).group(1)
+
+    # 서버가 보낸 actions대로 주소 단추가 뜬다(안내 글도 함께)
+    addr_btn = page.get_by_role("button", name=re.compile("정확한 주소 검색"))
+    expect(addr_btn).to_be_visible(timeout=POLL_TIMEOUT)
+    addr_btn.click()
+
+    # 시트가 열리고 가짜 우편번호 창이 주소를 골라 준다 → 저장
+    expect(page.get_by_text("고른 주소: " + ROAD)).to_be_visible()
+    page.get_by_label("상세 주소(층·호)").fill("2층")
+    page.get_by_role("button", name="저장", exact=True).click()
+    expect(page.locator("#addrSheetWrap")).to_be_hidden(timeout=POLL_TIMEOUT)
+
+    # 카드에 좌표가 들어갔다 (지도·오시는 길이 이것으로 그려진다)
+    from app import store
+
+    card = store.read_session(store.read_room(room_id)["session_id"])["prd"]
+    saved = card.get("location_geo")
+    assert saved, "주소를 저장했는데 지도 좌표가 카드에 없어요"
+    assert (saved["x"], saved["y"]) == (X, Y), saved
+    assert saved["road"] == ROAD and saved["detail"] == "2층", saved
+    assert card["slots"]["location"]["value"] == f"{ROAD} 2층", card["slots"]["location"]
+
+
+def test_j4_published_site_guest_chat_to_owner(journey_context, monkeypatch):
+    """J4 공개 사이트 '채팅하기' → 손님이 사장님께 물어보기 → 사장님 목록에 보이고 알림 1번.
+
+    가짜 하나: 사장님 카톡 알림(notify.owner_kakao) — 바깥 카카오 API 대신 호출만 센다.
+    """
+    from app.services import notify
+
+    calls = []
+    monkeypatch.setattr(notify, "owner_kakao", lambda room_id, text: calls.append(text))
+
+    page = journey_context.new_page()
+    site_key = _publish_from_template(journey_context, page)
+
+    # 공개 사이트에 '채팅하기' 링크가 있다 (링크가 빠지면 손님이 채팅에 들어올 길이 없다)
+    page.goto(f"/site/{site_key}/")
+    chat_link = page.get_by_role("link", name="채팅하기").first
+    expect(chat_link).to_have_attribute("href", re.compile(rf"/chat/{re.escape(site_key)}$"))
+
+    # 손님 채팅: 인사 + 단추. '사장님께 직접 물어보기' → 적은 글이 사장님에게 간다
+    page.goto(f"/chat/{site_key}")
+    ask_owner = page.get_by_role("button", name="사장님께 직접 물어보기")
+    expect(ask_owner).to_be_visible(timeout=POLL_TIMEOUT)
+    ask_owner.click()
+    expect(page.get_by_text(re.compile("무엇이든 적어 주세요"))).to_be_visible(timeout=POLL_TIMEOUT)
+    page.get_by_label("메시지").fill("주말에 단체 10명 가도 돼요?")
+    page.get_by_role("button", name="보내기").click()
+    expect(page.get_by_text(re.compile("사장님께 전했어요"))).to_be_visible(timeout=POLL_TIMEOUT)
+
+    # 사장님 쪽: 채팅 목록에 보인다 (사장님 화면 '채팅' 탭이 읽는 그 API)
+    res = page.request.get(f"/api/owner/shops/{site_key}/chats")
+    assert res.ok, f"{res.status} {res.text()}"
+    threads = res.json().get("threads") or res.json().get("chats") or []
+    assert len(threads) == 1, res.json()
+    assert "단체 10명" in json.dumps(threads, ensure_ascii=False), threads
+
+    # 알림은 한 번만 (손님이 글을 보낼 때마다 사장님 휴대폰이 울리면 안 된다)
+    assert len(calls) == 1, calls
+    page.get_by_label("메시지").fill("아, 그리고 주차도 되나요?")
+    page.get_by_role("button", name="보내기").click()
+    page.wait_for_timeout(500)
+    assert len(calls) == 1, f"연달아 보낸 글에도 알림이 또 갔어요: {calls}"
+
+
+def test_j5_owner_turns_on_phone_push(journey_context, monkeypatch):
+    """J5 사장님 화면 → '이 휴대폰으로 알림 받기' → 구독 1개 + 시험 알림 1건.
+
+    가짜 둘: ① 브라우저 푸시 서비스(서비스워커·PushManager — 헤드리스에는 진짜가 없다)
+    ② 푸시 전송(push._post) — 구글 FCM에 실제로 보내지 않고 호출만 센다.
+    """
+    from app.config import settings
+    from app.db.models import PushSubscriptionRow
+    from app.db.session import get_sessionmaker
+    from app.services import push
+    from sqlalchemy import select
+
+    monkeypatch.setattr(settings, "vapid_private_key", push.generate_private_key())
+    push.invalidate() if hasattr(push, "invalidate") else None
+    sent = []
+    monkeypatch.setattr(push, "_post", lambda endpoint, body, key, urgency="high": sent.append(endpoint) or 201)
+
+    page = journey_context.new_page()
+    # 사장님 화면의 알림 카드는 가게가 하나라도 있을 때 뜬다 → 먼저 사이트를 공개한다(로그인 포함).
+    _publish_from_template(journey_context, page)
+    # 브라우저 푸시 가짜: 권한 허용 + 구독 하나를 돌려준다(주소는 허용된 FCM 주소여야 한다).
+    page.add_init_script("""
+      const ENDPOINT = 'https://fcm.googleapis.com/fcm/send/journey-j5';
+      const b64 = (n) => btoa(String.fromCharCode(...new Uint8Array(n))).replace(/\+/g, '-')
+        .replace(/\//g, '_').replace(/=+$/, '');
+      let made = null;
+      async function makeSub() {
+        // p256dh는 진짜 P-256 공개점이어야 서버 검사(check_keys)를 통과한다.
+        const kp = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+        const pub = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+        const auth = new Uint8Array(16); crypto.getRandomValues(auth);
+        return {
+          endpoint: ENDPOINT,
+          getKey: (n) => (n === 'p256dh' ? pub.buffer : auth.buffer),
+          toJSON: () => ({ endpoint: ENDPOINT, keys: { p256dh: b64(pub), auth: b64(auth) } }),
+          unsubscribe: async () => true,
+        };
+      }
+      const reg = {
+        pushManager: {
+          getSubscription: async () => null,
+          subscribe: async () => (made = made || await makeSub()),
+        },
+        showNotification: async () => {},
+      };
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: { register: async () => reg, ready: Promise.resolve(reg), getRegistration: async () => reg },
+        configurable: true,
+      });
+      window.Notification = { permission: 'default', requestPermission: async () => 'granted' };
+    """)
+    page.goto("/owner?push=1")
+    turn_on = page.get_by_role("button", name="이 휴대폰으로 알림 받기")
+    expect(turn_on).to_be_visible(timeout=POLL_TIMEOUT)
+    turn_on.click()
+    expect(page.get_by_text(re.compile("켜졌어요"))).to_be_visible(timeout=POLL_TIMEOUT)
+
+    # 구독 1개 + 시험 알림 1건
+    with get_sessionmaker()() as db:
+        rows = db.scalars(select(PushSubscriptionRow.endpoint)).all()
+    assert list(rows) == ["https://fcm.googleapis.com/fcm/send/journey-j5"], rows
+    assert sent == ["https://fcm.googleapis.com/fcm/send/journey-j5"], sent
