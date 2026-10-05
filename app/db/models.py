@@ -46,6 +46,9 @@ class RoomRow(Base):
     created_at: Mapped[datetime.datetime] = _now_col()
     # 새 방은 초대 링크로만 들어온다(ROOM_POLICY §3). 이 기능 전에 만든 방은 예전처럼 주소로 들어온다.
     invite_required: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    # 방장이 지운 시각 (project_delete). 지우면 공개 사이트가 내려가고 목록에서는 비활성으로 남는다.
+    # 30일이 지나면 하루 한 번 도는 청소가 방·세션·가게와 딸린 기록을 모두 지운다(방침 3항).
+    deleted_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True))
 
 
 class RoomMemberRow(Base):

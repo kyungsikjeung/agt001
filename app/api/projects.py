@@ -11,7 +11,7 @@ from pydantic import BaseModel
 
 from app import store
 from app.security import sanitize_token
-from app.services import auth, prd_schema
+from app.services import auth, prd_schema, project_delete, rooms as rooms_svc
 
 router = APIRouter()
 
@@ -66,6 +66,7 @@ def projects_summary(body: ProjectsIn, request: Request, x_member_id: Optional[s
         industry = prd_schema.INDUSTRIES.get(prd.get("industry") or "")
         messages = store.read_messages(room_id, 0)
         last = messages[-1] if messages else None
+        deleted = project_delete.deleted_at(room_id)
         out.append({
             "room_id": room_id,
             "title": _title(session),
@@ -78,6 +79,46 @@ def projects_summary(body: ProjectsIn, request: Request, x_member_id: Optional[s
             "members": len(room["members"]),
             "deploy_url": session.get("deploy_url"),
             "design_url": session.get("design_url"),
+            # 지운 프로젝트는 목록에 비활성으로 남는다(대표 10/5). 30일 뒤 영구 삭제(방침 3항).
+            "deleted_at": deleted.isoformat() if deleted else None,
+            "purge_at": project_delete.purge_at(deleted).isoformat() if deleted else None,
+            "is_owner": rooms_svc.owner_id(room) == mid,
         })
     out.sort(key=lambda p: p["updated_at"] or "", reverse=True)
     return {"projects": out}
+
+
+def _owner_room(room_id: str, member_id_raw, request: Request) -> tuple:
+    """방장만 지우고 되살릴 수 있다. 참여자가 아니면 방이 있는지도 알려주지 않는다(404)."""
+    safe = sanitize_token(room_id or "")
+    member_id = sanitize_token(member_id_raw or "")
+    room = store.read_room(safe) if safe else None
+    if room is None:
+        raise HTTPException(status_code=404, detail="없는 프로젝트예요")
+    if not member_id:
+        # 다른 기기에서 로그인했으면 계정에 옮긴 방의 본인 확인 값을 쓴다.
+        user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
+        if user is not None:
+            member_id = dict(auth.rooms_for_user(user["id"])).get(safe, "")
+    if not member_id or not any(m["member_id"] == member_id for m in room["members"]):
+        raise HTTPException(status_code=404, detail="없는 프로젝트예요")
+    if rooms_svc.owner_id(room) != member_id:
+        raise HTTPException(status_code=403, detail="방장만 지울 수 있어요")
+    return safe, room
+
+
+@router.post("/api/projects/{room_id}/delete")
+def delete_project(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """프로젝트 지우기 (대표 10/5). 공개 사이트·주문·결제가 바로 닫히고 구독도 해지된다. 30일 뒤 영구 삭제."""
+    safe, _room = _owner_room(room_id, x_member_id, request)
+    when = project_delete.soft_delete(safe)
+    return {"deleted_at": when.isoformat(), "purge_at": project_delete.purge_at(when).isoformat(),
+            "grace_days": project_delete.GRACE_DAYS}
+
+
+@router.post("/api/projects/{room_id}/restore")
+def restore_project(room_id: str, request: Request, x_member_id: Optional[str] = Header(default=None)):
+    """되살리기. 30일이 지나 영구 삭제됐으면 방이 없으므로 404. 구독은 되살아나지 않는다."""
+    safe, _room = _owner_room(room_id, x_member_id, request)
+    project_delete.restore(safe)
+    return {"deleted_at": None}

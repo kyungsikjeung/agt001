@@ -119,4 +119,53 @@ describe('ProjectsPage', () => {
     render(<ProjectsPage />);
     expect(await screen.findByText('아직 만든 사이트가 없어요')).toBeInTheDocument();
   });
+
+  // 지우기는 한 번 더 묻고, 지운 뒤에는 되살리기만 남는다 (대표 10/5, 유예 30일)
+  it('지우기 → 확인 → 비활성 카드와 되살리기', async () => {
+    const calls: string[] = [];
+    const deletedAt = '2026-10-06T00:00:00Z';
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(
+        {
+          '/api/me': { status: 401 },
+          '/api/projects/summary': { status: 200, body: { projects: [{ ...PROJECT, is_owner: true }] } },
+          '/api/projects/r1/delete': { status: 200, body: { deleted_at: deletedAt } },
+        },
+        calls,
+      ),
+    );
+    render(<ProjectsPage />);
+    const ask = await screen.findByRole('button', { name: '지우기' });
+
+    // 바로 지우지 않는다: 먼저 무엇이 멈추고 언제 영구 삭제되는지 알린다
+    ask.click();
+    expect(await screen.findByText(/정말 지울까요\?/)).toBeInTheDocument();
+    expect(screen.getByText(/요금제가 있으면 바로 해지/)).toBeInTheDocument();
+    expect(screen.getByText(/30일 뒤에/)).toBeInTheDocument();
+    expect(calls.some((c) => c.includes('/delete'))).toBe(false); // 아직 안 지웠다
+
+    screen.getByRole('button', { name: '네, 지울래요' }).click();
+    expect(await screen.findByText(/모든 기록이 영구 삭제돼요/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '되살리기' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '이어서 하기' })).not.toBeInTheDocument();
+    expect(calls.filter((c) => c === '/api/projects/r1/delete')).toHaveLength(1);
+  });
+
+  it('방장이 아니면 지우기 단추가 없다', async () => {
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(
+        {
+          '/api/me': { status: 401 },
+          '/api/projects/summary': { status: 200, body: { projects: [{ ...PROJECT, is_owner: false }] } },
+        },
+        calls,
+      ),
+    );
+    render(<ProjectsPage />);
+    expect(await screen.findByText('우리 가게 사이트')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '지우기' })).not.toBeInTheDocument();
+  });
 });

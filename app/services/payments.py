@@ -70,6 +70,15 @@ def _parse_remote(data: dict) -> tuple:
 def _notify_paid(site_key: str, order_id: int, text: str) -> None:
     """커밋 뒤에 방 알림 + 사장님 카톡. 실패해도 결제는 그대로 둔다."""
     try:
+        # 닫힌 가게(관리자 내림·방장이 프로젝트 삭제)에 결제가 들어왔다. 결제 창을 닫기 전에
+        # 이미 승인된 돈이라 기록은 남기고, 환불이 필요하니 운영에 알린다.
+        from app.services import ops_alert, takedown
+        if takedown.is_down(site_key):
+            ops_alert.send("pay_on_closed",
+                           f"닫힌 가게에 결제가 들어왔어요. 환불이 필요해요. 가게 {site_key} 주문 {order_id}")
+    except Exception:
+        log.exception("닫힌 가게 결제 알림 실패 site=%s", site_key)
+    try:
         with get_sessionmaker()() as db:
             room_id = db.scalar(select(RoomRow.id)
                                 .join(SessionRow, RoomRow.session_id == SessionRow.id)
@@ -235,6 +244,27 @@ def complete_free(pay_id: str) -> str:
     if notify_args is not None:
         _notify_paid(*notify_args)
     return "paid"
+
+
+def cancel_schedules(schedule_ids: list) -> bool:
+    """예약 결제를 취소한다 (포트원 V2 `DELETE /payment-schedules`). 다 취소되면 True.
+
+    정기결제는 **우리 cron 없이 포트원이 때가 되면 스스로 결제한다**(PAYMENT_PLAN §4).
+    그래서 구독을 끊을 때 이 호출이 빠지면 가게를 지운 뒤에도 카드가 계속 긁힌다.
+    """
+    ids = [str(s).strip() for s in (schedule_ids or []) if str(s or "").strip()]
+    if not ids:
+        return True
+    try:
+        with _client() as client:
+            resp = client.request("DELETE", "/payment-schedules", json={"scheduleIds": ids})
+    except httpx.HTTPError:
+        log.exception("예약 결제 취소 실패(연결) ids=%s", ids)
+        return False
+    if not 200 <= resp.status_code < 300:
+        log.error("예약 결제 취소 실패 ids=%s status=%s", ids, resp.status_code)
+        return False
+    return True
 
 
 def refund(site_key: str, order_id: int, amount: int | None, reason: str, by: str) -> dict:

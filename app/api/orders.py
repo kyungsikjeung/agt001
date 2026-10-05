@@ -106,8 +106,16 @@ def _shop_phone(key: str) -> str:
 
 
 def _paused_page(site_key: str, title: str, body: str) -> HTMLResponse:
-    """비상 스위치 멈춤 화면. 주문 화면과 같은 모양·헤더. 카드에 전화가 있으면 tel: 링크."""
+    """멈춤 화면. 주문 화면과 같은 모양·헤더. 카드에 전화가 있으면 tel: 링크.
+
+    비상 스위치는 "잠시 멈췄어요"지만, 내려간 가게(관리자 내림·방장이 프로젝트 삭제)는
+    다시 열리지 않으니 문구를 바꾼다.
+    """
     key = sanitize_token(site_key or "")
+    from app.services import takedown
+    if takedown.is_down(key):
+        title = "지금은 주문을 받지 않아요"
+        body = "이 가게는 지금 주문을 받지 않아요."
     phone = _shop_phone(key).strip()
     tel = ""
     if phone:
@@ -178,7 +186,7 @@ def _verified_lines(payload: dict) -> list:
 async def submit_order(site_key: str, request: Request):
     if not _allow(request.client.host if request.client else "unknown"):
         return _page("잠시 후 다시 보내 주세요", "짧은 시간에 신청이 많이 들어왔어요.", site_key, 429)
-    if orders.paused():
+    if orders.closed(site_key):
         return _paused_order(site_key)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
     key = sanitize_token(site_key or "")
@@ -210,14 +218,14 @@ async def submit_order(site_key: str, request: Request):
 
 @router.get("/api/orders/{site_key}/verify/{token}", include_in_schema=False)
 def verify_page(site_key: str, token: str):
-    if orders.paused():
+    if orders.closed(site_key):
         return _paused_order(site_key)
     return _verify_page(site_key, token)
 
 
 @router.post("/api/orders/{site_key}/verify/{token}", include_in_schema=False)
 def verify_submit(site_key: str, token: str, code: Optional[str] = Form(default=None)):
-    if orders.paused():
+    if orders.closed(site_key):
         return _paused_order(site_key)
     try:
         payload = phone_verify.check(token, code)
@@ -256,7 +264,7 @@ def verify_submit(site_key: str, token: str, code: Optional[str] = Form(default=
 def verify_resend(site_key: str, token: str, request: Request):
     if not _allow(request.client.host if request.client else "unknown"):
         return _page("잠시 후 다시 보내 주세요", "짧은 시간에 신청이 많이 들어왔어요.", site_key, 429)
-    if orders.paused():
+    if orders.closed(site_key):
         return _paused_order(site_key)
     try:
         new_token = phone_verify.resend(token)
@@ -321,8 +329,9 @@ def _render_pay(pid: str, request: Request, error: Optional[str] = None) -> HTML
         return _pay_msg("페이지를 찾을 수 없어요", "주문 주소를 다시 확인해 주세요.", "/", 404)
     if got["status"] == "paid":
         return RedirectResponse(_done_url(request, pid), status_code=303)
-    if orders.paused():
-        return _paused_order(_pay_site_key(pid))
+    site = _pay_site_key(pid)
+    if orders.closed(site):
+        return _paused_order(site)
     if got["expired"]:
         return _pay_msg("주문 시간이 지났어요", "주문 시간이 지났어요. 가게 사이트에서 다시 주문해 주세요.",
                         got["site_url"])
@@ -377,7 +386,7 @@ def pay_page(pay_id: str, request: Request):
 @router.post("/pay/{pay_id}/coupon", include_in_schema=False)
 def pay_coupon(pay_id: str, request: Request, coupon_id: Optional[str] = Form(default=None)):
     pid = sanitize_token(pay_id or "")
-    if orders.paused():
+    if orders.closed(_pay_site_key(pid)):
         return _paused_order(_pay_site_key(pid))
     _check_origin(request)
     raw = (coupon_id or "").strip()
@@ -406,7 +415,7 @@ def pay_coupon(pay_id: str, request: Request, coupon_id: Optional[str] = Form(de
 @router.post("/pay/{pay_id}/free", include_in_schema=False)
 def pay_free(pay_id: str, request: Request):
     pid = sanitize_token(pay_id or "")
-    if orders.paused():
+    if orders.closed(_pay_site_key(pid)):
         return _paused_order(_pay_site_key(pid))
     _check_origin(request)
     try:
@@ -506,7 +515,7 @@ def _stamp_board(balance: int, goal: int) -> str:
 @router.get("/api/orders/{site_key}/my", include_in_schema=False)
 def my_page(site_key: str, request: Request):
     key = sanitize_token(site_key or "")
-    if orders.paused():
+    if orders.closed(key):
         return _paused_stamp(site_key)
     e = html.escape
     phone = phone_verify.device_phone(request.cookies.get(f"pv_{key}"), key)
@@ -564,7 +573,7 @@ def my_page(site_key: str, request: Request):
 async def my_start(site_key: str, request: Request):
     if not _allow(request.client.host if request.client else "unknown"):
         return _page("잠시 후 다시 보내 주세요", "짧은 시간에 신청이 많이 들어왔어요.", site_key, 429)
-    if orders.paused():
+    if orders.closed(site_key):
         return _paused_stamp(site_key)
     form = {k: v for k, v in (await request.form()).items() if isinstance(v, str)}
     key = sanitize_token(site_key or "")
