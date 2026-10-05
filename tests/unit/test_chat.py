@@ -273,3 +273,15 @@ def test_approval_waits_until_review_gate_is_closed(client, monkeypatch):
     d2 = _chat(client, pending["options"][0], s)
     assert d2["state"] == "AWAIT_APPROVAL" and "승인/거절" in d2["reply"]
     assert "빠진 게" not in _chat(client, "승인", s)["reply"]
+
+
+def test_chat_question_includes_actions(client):
+    """질문 단추 계약: options는 그대로, actions는 단추마다 할 일(present.actions_for)."""
+    from app.services import present
+    s = _fresh_session(client)
+    q = _chat(client, "카페 예약 서비스 만들어줘", s)["question"]
+    pending = store.read_session(s)["prd"]["pending"]
+    assert q["options"] == pending["options"]
+    assert q["actions"] == present.actions_for(pending)
+    assert [a["label"] for a in q["actions"]] == q["options"]
+    assert q["actions"][-1] == {"label": "알아서 해주세요", "action": "skip_to_design"}

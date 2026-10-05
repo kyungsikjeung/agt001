@@ -19,6 +19,11 @@ LET_AI = "알아서 해주세요"  # 누르면 남은 질문을 건너뛰고 바
 TYPE_IT = "직접 입력"  # 선택지가 없는 질문(가게 이름 등)의 첫 단추. 화면은 입력칸으로 보낸다(보내지 않음)
 
 
+def choice_options(options) -> list:
+    """한 개 고르기 질문의 단추: 선택지(없으면 '직접 입력') + '알아서 해주세요'."""
+    return list(options or (TYPE_IT,)) + [LET_AI]
+
+
 @dataclass(frozen=True)
 class Slot:
     key: str

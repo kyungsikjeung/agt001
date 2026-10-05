@@ -359,7 +359,7 @@ def question(card: dict, step: dict) -> dict:
         out_why = item_plan.decide(card)["reasons"]
     return {"slot": None, "kind": "compose", "component": step["id"], "text": text, "why": out_why,
             "speech": " ".join(parts), "speech_parts": parts,
-            "options": [o["label"] for o in opts] + [S.LET_AI],
+            "options": S.choice_options([o["label"] for o in opts]),
             "option_desc": [o["desc"] for o in opts] + ["추천 모양으로 해 드려요."]}
 
 
@@ -496,7 +496,7 @@ def _ask_fact(card: dict, slot: str) -> dict:
                 "options": ["나중에 넣을게요"], "option_desc": ["지금은 사진으로 대신 보여요."]}
     ind = E.industry_of(card)
     q = S.question_for(ind, slot)
-    pending = {"slot": slot, "kind": "single", "options": list(q.options or (S.TYPE_IT,)) + [S.LET_AI], "text": q.ask,
+    pending = {"slot": slot, "kind": "single", "options": S.choice_options(q.options), "text": q.ask,
                "budget_free": True}
     card["pending"] = pending
     card["done"] = False

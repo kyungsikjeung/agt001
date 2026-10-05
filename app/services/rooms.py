@@ -15,7 +15,7 @@ from app.config import settings
 from app.db.models import UserRoomRow
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
-from app.services import chat_flow
+from app.services import chat_flow, present
 
 MAX_MESSAGE_LEN = 2000
 MAX_NICKNAME_LEN = 40
@@ -153,6 +153,16 @@ def _append(room: dict, member_id: str, nickname: str, text: str, kind: str = "c
     room["next_seq"] += 1
 
 
+def _append_ai_reply(room: dict, session: dict, reply: str, before: tuple) -> None:
+    """AI 답장. before = 턴 전 (주소 글, 상태): 주소 검색 단추를 달지 정한다(present.reply_actions)."""
+    acts = present.reply_actions(session.get("prd"), before[0], before[1], session.get("state"))
+    _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply", meta={"actions": acts} if acts else None)
+
+
+def _turn_before(session: dict) -> tuple:
+    return present.location_text(session.get("prd")), session.get("state")
+
+
 def _notify_owner_later(room: dict, text: str) -> None:
     """방장 카톡 알림(켜져 있으면). 방 잠금 안에서 외부 호출을 하지 않으려고 커밋 뒤에 보낸다."""
     try:
@@ -199,6 +209,10 @@ def member_handle(room_id: str, member_id: str) -> str:
 def _public_message(room_id: str, msg: dict) -> dict:
     out = {k: v for k, v in msg.items() if k not in ("member_id", "meta")}
     out["member_handle"] = member_handle(room_id, msg["member_id"])
+    # 답장 아래 단추(present.reply_actions)는 AI 답장에만 내보낸다. 저장소는 meta를 메시지에 풀어 돌려준다.
+    acts = out.pop("actions", None) or (msg.get("meta") or {}).get("actions")
+    if msg.get("kind") == "ai_reply" and acts:
+        out["actions"] = acts
     if msg.get("kind") in ("booking", "booking_result"):
         # 예약 알림 말풍선의 확정·거절 버튼용(BOOKING_PLAN §2.4). 저장소는 meta를 메시지에 풀어 돌려준다.
         meta = msg.get("meta") or msg
@@ -374,16 +388,18 @@ def post_message(room_id: str, member_id_raw, nickname_raw, message_raw, base_ur
             )
             decision = "거절" if reject_n else "승인" if approve_n == total else None
             if decision:
+                before = _turn_before(session)
                 reply = chat_flow.process_turn(room["session_id"], session, decision, base_url, room=room)
-                _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+                _append_ai_reply(room, session, reply, before)
                 room["votes"] = {}
         else:
             # 공유방의 사실 정보(전화·주소·가격·영업시간)는 방장 확인을 거친다 (DECISIONS.md D24).
             # 역할 기능(R-2) 전까지는 가장 먼저 들어온 사람이 방장이다.
             is_owner = bool(room["members"]) and room["members"][0]["member_id"] == member_id
+            before = _turn_before(session)
             reply = chat_flow.process_turn(room["session_id"], session, user_text, base_url, room=room,
                                            by=member_handle(safe_id, member_id), is_owner=is_owner)
-            _append(room, "ai", "AI 어시스턴트", reply, kind="ai_reply")
+            _append_ai_reply(room, session, reply, before)
 
         return {"ai_status": room["ai_status"], "fresh": fresh}
 
@@ -447,5 +463,5 @@ def _pending_question(session: dict):
     pending = (session.get("prd") or {}).get("pending")
     if session.get("state") != "GATHERING" or not pending:
         return None
-    return {"kind": pending["kind"], "options": pending["options"],
+    return {"kind": pending["kind"], "options": pending["options"], "actions": present.actions_for(pending),
             "owner_only": pending["kind"] == "owner_confirm"}
