@@ -35,5 +35,6 @@ def test_preview_host_serves_generated_and_inquiries(client, preview):
 
 
 def test_off_by_default(client):
-    assert settings.preview_host is None
+    # conftest가 개발자 .env 값에 끌려가지 않게 빈 값으로 고정한다(None과 빈 값 모두 "꺼짐").
+    assert not settings.preview_host
     assert client.get("/design/nope").status_code == 404  # 리다이렉트 없음

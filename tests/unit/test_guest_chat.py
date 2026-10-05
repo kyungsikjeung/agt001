@@ -161,7 +161,10 @@ def test_5_purge_and_turn_off(client):
     _login(client, uid)
     r = client.post(f"/api/owner/shops/{key}/chat-settings", json={"guest_chat_on": False}, headers=ORIGIN)
     assert r.status_code == 200 and r.json() == {"guest_chat_on": False}
-    assert client.get(f"/api/owner/shops/{key}/chat-settings").json() == {"guest_chat_on": False}
+    # 상태 줄용 값까지 같이 돌려준다 (PRICING_AND_CHAT_1006 C-3): 받기·공개·손님 링크
+    state = client.get(f"/api/owner/shops/{key}/chat-settings").json()
+    assert state["guest_chat_on"] is False and state["published"] is True
+    assert state["link"] == "" and state["preview_url"] == f"/chat/{key}"  # 꺼지면 링크를 만들지 않는다
     assert "채팅 예약을 받지 않아요" in Guest(client, key).say(text="주차 돼요?")["reply"]
 
 

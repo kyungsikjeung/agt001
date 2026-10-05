@@ -533,9 +533,25 @@ def close_chat(site_key: str, thread_id: int, action: str, request: Request):
 
 @router.get("/api/owner/shops/{site_key}/chat-settings")
 def get_chat_settings(site_key: str, request: Request):
-    from app.services import shop_settings
+    """손님 채팅 상태 (PRICING_AND_CHAT_1006 C-1~C-3).
+
+    받기 켜짐 말고도 **공개됐나·손님 링크가 만들어지나**를 같이 돌려준다. 셋 중 하나만 빠져도
+    공개 사이트에 '채팅하기'가 안 보이는데, 사장님이 왜 안 보이는지 알 길이 없었다.
+    """
+    from app.db.models import ShopRow
+    from app.db.session import get_sessionmaker
+    from app.services import shop_settings, site_render, takedown
+
     _shop(request, site_key)
-    return {"guest_chat_on": bool(shop_settings.get(site_key).get("guest_chat_on", True))}
+    on = bool(shop_settings.get(site_key).get("guest_chat_on", True))
+    with get_sessionmaker()() as db:
+        published = db.get(ShopRow, site_key) is not None and not takedown.is_down(site_key)
+    try:
+        link = site_render._guest_chat_url(site_key)
+    except Exception:
+        link = ""
+    return {"guest_chat_on": on, "published": published, "link": link,
+            "preview_url": f"/chat/{site_key}"}
 
 
 @router.post("/api/owner/shops/{site_key}/chat-settings")

@@ -286,3 +286,34 @@ def stuck(days: int = 7, user: dict = Depends(_admin)):
     """막힘 지표 (UX_GAP_PLAN Q4). 숫자·칸 이름만, 사장님 말은 없다."""
     admin.viewed(user, "stuck")
     return stuck_report.report(days)
+
+
+@router.get("/api/admin/archived")
+def list_archived(site: str = "", days: int = 0, limit: int = 50, user: dict = Depends(_admin)):
+    """지운 프로젝트의 보관 거래기록 (RECORD_RETENTION_REVIEW §4-B).
+
+    환불·분쟁 때 조회할 수 있어야 해서 둔다. 손님 이름·전화는 보관할 때 이미 가려서 넣는다.
+    가게 키로 찾고(없으면 최근 순), 본 것은 기록한다.
+    """
+    from app.db.models import ArchivedTransactionRow
+
+    key = (site or "").strip()[:64]
+    admin.viewed(user, "archived", key or None)
+    cap = max(1, min(limit, PAGE_MAX))
+    with get_sessionmaker()() as db:
+        q = select(ArchivedTransactionRow).order_by(ArchivedTransactionRow.occurred_at.desc()).limit(cap)
+        if key:
+            q = q.where(ArchivedTransactionRow.site_key == key)
+        if days > 0:
+            q = q.where(ArchivedTransactionRow.occurred_at >= _now() - datetime.timedelta(days=days))
+        rows = db.scalars(q).all()
+        total = db.scalar(select(func.count()).select_from(ArchivedTransactionRow)
+                          .where(ArchivedTransactionRow.site_key == key)) if key else \
+            db.scalar(select(func.count()).select_from(ArchivedTransactionRow))
+    return {
+        "items": [{"id": r.id, "site_key": r.site_key, "kind": r.kind, "ref": r.ref,
+                   "occurred_at": _iso(r.occurred_at), "purge_after": _iso(r.purge_after),
+                   "data": r.data} for r in rows],
+        "total": total or 0,
+        "keep_years": 5,
+    }

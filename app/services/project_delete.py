@@ -13,11 +13,13 @@
 import datetime
 import logging
 import shutil
+from typing import Optional
 
 from sqlalchemy import delete, select
 
 from app.config import settings
 from app.db.models import (
+    ArchivedTransactionRow,
     AttachmentRow,
     BookingEventRow,
     BookingRow,
@@ -43,7 +45,7 @@ from app.db.models import (
 )
 from app.db.session import get_sessionmaker
 from app.security import sanitize_token
-from app.services import payments, takedown
+from app.services import members, payments, takedown
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +54,10 @@ GRACE_DAYS = 30  # 지운 뒤 되살릴 수 있는 기간(방침 3항과 같아�
 
 def _now() -> datetime.datetime:
     return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _iso(when) -> Optional[str]:
+    return when.isoformat() if when else None
 
 
 def _room_row(db, room_id: str):
@@ -164,9 +170,110 @@ _BY_SITE_KEY = (
 )
 
 
+KEEP_YEARS = 5  # 거래기록 보존 기간 (전자상거래법 시행령 제6조: 대금결제·공급, 계약·청약철회 각 5년)
+
+
+def _plus_years(when: datetime.datetime, years: int) -> datetime.datetime:
+    """몇 해 뒤. 2월 29일은 3월 1일로 넘긴다(그 해에 없는 날짜)."""
+    try:
+        return when.replace(year=when.year + years)
+    except ValueError:
+        return when.replace(year=when.year + years, month=3, day=1)
+
+
+def _mask_name(name) -> str:
+    """홍길동 → 홍*동, 김민 → 김*. 분쟁 때 누구인지 가늠만 되게 둔다."""
+    s = (name or "").strip()
+    if len(s) < 2:
+        return "*" if s else ""
+    return s[0] + "*" * (len(s) - 2) + (s[-1] if len(s) > 2 else "")
+
+
+def _archive_rows(db, site_key: str) -> int:
+    """거래기록을 보관 표로 옮긴다(지우기 전에, 같은 트랜잭션에서). 옮긴 건수를 돌려준다.
+
+    남기는 것: 주문 품목·금액·시각·상태, 결제 승인번호·금액·상태, 환불, 정산, 우리 구독 요금.
+    남기지 않는 것: 손님 전화·이름 원본(가려서 넣는다), 결제사 원응답(raw — 카드·구매자 정보가 섞인다),
+    도장·쿠폰·명단·문의·대화. 보존 의무가 있는 것만 최소로 옮긴다.
+    """
+    now = _now()
+    customers = {c.id: c for c in db.scalars(select(CustomerRow).where(CustomerRow.site_key == site_key)).all()}
+    pays = db.scalars(select(PaymentRow).where(PaymentRow.site_key == site_key)).all()
+    refunds: dict = {}
+    for r in db.scalars(select(RefundRow).where(RefundRow.site_key == site_key)).all():
+        refunds.setdefault(r.payment_id, []).append(
+            {"amount": r.amount, "reason": r.reason, "at": _iso(r.created_at),
+             "provider_cancel_id": r.provider_cancel_id})
+    settles: dict = {}
+    for s in db.scalars(select(SettlementRow).where(SettlementRow.site_key == site_key)).all():
+        settles.setdefault(s.payment_id, []).append(
+            {"kind": s.kind, "gross": s.gross, "pg_fee": s.pg_fee, "platform_fee": s.platform_fee,
+             "net": s.net, "settle_date": s.settle_date.isoformat() if s.settle_date else None,
+             "status": s.status})
+
+    def pay_view(p) -> dict:
+        return {"kind": p.kind, "method": p.method, "provider": p.provider,
+                "provider_payment_id": p.provider_payment_id, "amount": p.amount, "status": p.status,
+                "paid_at": _iso(p.paid_at), "created_at": _iso(p.created_at),
+                "refunds": refunds.get(p.id) or [], "settlements": settles.get(p.id) or []}
+
+    by_order: dict = {}
+    for p in pays:
+        if p.order_id is not None:
+            by_order.setdefault(p.order_id, []).append(p)
+    added = 0
+    for o in db.scalars(select(OrderRow).where(OrderRow.site_key == site_key)).all():
+        cust = customers.get(o.customer_id) if o.customer_id is not None else None
+        items = db.scalars(select(OrderItemRow).where(OrderItemRow.order_id == o.id)
+                           .order_by(OrderItemRow.id)).all()
+        db.add(ArchivedTransactionRow(
+            site_key=site_key, kind="order", ref=str(o.id), occurred_at=o.created_at,
+            purge_after=_plus_years(o.created_at, KEEP_YEARS),
+            data={
+                "order_id": o.id, "channel": o.channel, "status": o.status,
+                "subtotal": o.subtotal, "discount": o.discount, "total": o.total,
+                "created_at": _iso(o.created_at), "served_at": _iso(o.served_at),
+                "items": [{"name": i.name, "qty": i.qty, "unit_price": i.unit_price, "amount": i.amount}
+                          for i in items],
+                # 손님은 가려서 — 분쟁 때 누구인지 가늠만 되게 (개인정보보호법 제21조 제3항)
+                "customer": {"name": _mask_name(cust.name) if cust else "",
+                             "phone": members.mask(cust.phone) if cust else ""},
+                "payments": [pay_view(p) for p in by_order.get(o.id, [])],
+            }))
+        added += 1
+    for p in pays:  # 주문에 안 붙은 결제(구독료 등)도 보존 대상이다
+        if p.order_id is None:
+            db.add(ArchivedTransactionRow(
+                site_key=site_key, kind="payment", ref=p.provider_payment_id, occurred_at=p.created_at,
+                purge_after=_plus_years(p.created_at, KEEP_YEARS), data=pay_view(p)))
+            added += 1
+    sub = db.get(SubscriptionRow, site_key)
+    if sub is not None:
+        db.add(ArchivedTransactionRow(
+            site_key=site_key, kind="subscription", ref=sub.plan, occurred_at=sub.updated_at or now,
+            purge_after=_plus_years(sub.updated_at or now, KEEP_YEARS),
+            # 빌링키·카드 뒤 4자리는 넣지 않는다(결제 수단은 보존 대상이 아니다)
+            data={"plan": sub.plan, "status": sub.status, "fail_count": sub.fail_count,
+                  "current_period_end": _iso(sub.current_period_end), "updated_at": _iso(sub.updated_at)}))
+        added += 1
+    return added
+
+
+def purge_archived(now=None) -> int:
+    """보존 기간이 지난 보관분을 파기한다. 하루 한 번(main._purge_all). 지운 건수를 돌려준다."""
+    with get_sessionmaker()() as db, db.begin():
+        done = db.execute(delete(ArchivedTransactionRow)
+                          .where(ArchivedTransactionRow.purge_after < (now or _now()))).rowcount
+    if done:
+        log.info("보존 기간이 지난 거래기록 %d건을 파기했어요(보존 %d년)", done, KEEP_YEARS)
+    return done
+
+
 def _purge_one(db, room_id: str, session_id: str, site_key) -> None:
     """한 방을 통째로 지운다. 호출하는 쪽이 트랜잭션을 연다."""
     if site_key:
+        # 지우기 전에 거래기록만 떼어 보관한다(법정 보존 5년). 같은 트랜잭션이라 둘 다 되거나 둘 다 안 된다.
+        _archive_rows(db, site_key)
         db.execute(delete(BookingEventRow).where(BookingEventRow.shop_id == site_key))
         for model in _BY_SITE_KEY:
             db.execute(delete(model).where(model.site_key == site_key))

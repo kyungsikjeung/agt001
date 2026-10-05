@@ -5,6 +5,7 @@
 30일 뒤 **그 가게만** 사라지는지(옆 가게는 그대로).
 """
 import datetime
+import json
 import re
 import secrets
 
@@ -19,6 +20,7 @@ from app.db.models import (
     OrderRow,
     PaymentRow,
     PhoneVerificationRow,
+    ArchivedTransactionRow,
     RoomRow,
     SessionRow,
     ShopRow,
@@ -162,6 +164,13 @@ def _subscription(key):
         return row and (row.status, row.billing_key_enc, row.next_schedule_id, row.cancel_at_period_end)
 
 
+def _archived(key):
+    with get_sessionmaker()() as db:
+        return db.scalars(select(ArchivedTransactionRow)
+                          .where(ArchivedTransactionRow.site_key == key)
+                          .order_by(ArchivedTransactionRow.id)).all()
+
+
 def test_delete_paid_project(client, _sms):
     """돈을 받던 가게를 지우면: 사이트·주문·결제 닫힘 + 구독 해지 → 30일 뒤 그 가게만 영구 삭제."""
     room_id, key = _site(client, "010-1234-5678")
@@ -219,3 +228,28 @@ def test_delete_paid_project(client, _sms):
     assert client.get(f"/site/{other_key}/").status_code == 200
     with get_sessionmaker()() as db:
         assert db.scalar(select(SessionRow.id).where(SessionRow.requirement_id == key)) is None
+
+    # 7. 거래기록만 분리 보관됐다 (법정 5년, RECORD_RETENTION_REVIEW §4-B)
+    kept = _archived(key)
+    assert sorted(r.kind for r in kept) == ["order", "order", "subscription"], [r.kind for r in kept]
+    orders_kept = [r for r in kept if r.kind == "order"]
+    assert {r.data["total"] for r in orders_kept} == {4500}, [r.data for r in orders_kept]
+    paid = [r for r in orders_kept if r.data["payments"] and r.data["payments"][0]["status"] == "paid"]
+    assert len(paid) == 1 and paid[0].data["payments"][0]["provider_payment_id"], paid[0].data
+    assert paid[0].data["items"] == [{"name": MENU[0], "qty": 1, "unit_price": 4500, "amount": 4500}]
+
+    # 손님은 가려서 들어간다 (원본 이름·전화는 남지 않는다)
+    cust = paid[0].data["customer"]
+    assert cust["name"] == "김*님" and cust["phone"] == "010-****-0001", cust
+    dumped = json.dumps([r.data for r in kept], ensure_ascii=False)
+    assert "2000-0001" not in dumped and "01020000001" not in dumped, dumped[:300]
+    # 결제사 원응답(raw)·빌링키는 옮기지 않는다
+    assert "billing" not in dumped and '"raw"' not in dumped, dumped[:400]
+
+    # 보존 5년: 5년 전에는 그대로, 지나면 자동 파기
+    # (파기 건수는 다른 테스트가 남긴 보관분까지 세므로 이 가게 것만 본다)
+    project_delete.purge_archived(now=deleted_at + datetime.timedelta(days=365 * 5 - 10))
+    assert len(_archived(key)) == 3
+    assert project_delete.purge_archived(now=deleted_at + datetime.timedelta(days=365 * 5 + 10)) >= 3
+    assert _archived(key) == []
+    assert _archived(other_key) == []  # 옆 가게는 아직 안 지웠으니 보관분도 없다

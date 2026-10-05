@@ -13,6 +13,10 @@ os.environ["RUN_MIGRATIONS_ON_STARTUP"] = "false"
 # 초대 링크 기능 전의 테스트는 여러 명이 방 주소로 들어온다. 초대 테스트는 켜서 따로 본다.
 os.environ["ROOM_INVITE_REQUIRED"] = "false"
 os.environ["PUBLISH_LOGIN_REQUIRED"] = "false"
+# 개발자 .env에 주소가 들어 있어도 테스트는 상대 주소로 돈다. 비우지 않으면 결제·채팅 링크가
+# 그 주소(고정 포트)로 나가고, 출처 검사(_check_origin)도 그 주소를 요구한다.
+os.environ["PUBLIC_BASE_URL"] = ""
+os.environ["PREVIEW_HOST"] = ""
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+psycopg://agt001:agt001@localhost:55432/agt001_test"
 )
