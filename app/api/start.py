@@ -18,7 +18,7 @@ from app import store
 from app.api import card as card_api
 from app.api import inquiries as inquiries_api
 from app.security import sanitize_token
-from app.services import chat_flow, design, funnel, prd_engine, rooms
+from app.services import auth, chat_flow, design, funnel, prd_engine, rooms
 from app.services import photos as photos_svc
 
 router = APIRouter()
@@ -335,6 +335,11 @@ def post_publish(room_id: str, body: PublishIn, request: Request,
     """빌더 공개하기 (§2.5). 채팅의 _publish를 그대로 탄다. 방장만."""
     safe, member_id = card_api._member_room(room_id, x_member_id, request)
     base_url = str(request.base_url)
+    # 로그인하고 빌더로 돌아온 방장: 이 방을 계정에 붙인다. 빌더는 /api/me/claim을 부르지 않아
+    # 로그인해도 공개하기가 계속 '먼저 로그인해 주세요'로 돌아왔다(10/5 대표).
+    user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
+    if user is not None and rooms.owner_id(store.read_room(safe)) == member_id:
+        auth.claim_rooms(user["id"], member_id, [safe])
     with store.room_tx(safe) as (room, session):
         if rooms.owner_id(room) != member_id:
             raise HTTPException(status_code=403, detail="owner only")

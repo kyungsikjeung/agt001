@@ -191,6 +191,27 @@ def test_publish_login_confirm_force(client, monkeypatch):
     assert any("사이트를 열었어요" in t for t in texts)
 
 
+def test_publish_after_login_claims_room(client, monkeypatch):
+    """10/5: 빌더에서 카카오로 로그인하고 돌아와 공개하기를 누르면 다시 '로그인' 화면이 아니라 다음 단계로 간다."""
+    import uuid
+
+    from app.db.models import UserRow
+    from app.db.session import get_sessionmaker
+    from app.services import auth as auth_svc, rooms
+    body = _start(client)
+    rid, headers = body["room_id"], _owner(body)
+    monkeypatch.setattr(settings, "publish_login_required", True)
+    uid = str(uuid.uuid4())
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRow(id=uid, nickname="사장님"))
+    client.cookies.set(auth_svc.SESSION_COOKIE, auth_svc.create_session(uid))
+    r = client.post(f"/api/rooms/{rid}/publish", json={}, headers=headers)
+    assert r.status_code == 200, r.text
+    assert r.json()["need"] == "confirm"
+    assert rooms.owner_claimed(rid)
+    client.cookies.clear()
+
+
 def test_put_card_choice_sets_design_choice(client):
     """B1: PUT /card choice로 모양 바꾸기. 미리보기 기본 안도 따라간다."""
     body = _start(client)
