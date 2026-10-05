@@ -23,7 +23,7 @@ from app.db.models import (
     UserRoomRow,
 )
 from app.db.session import get_sessionmaker
-from app.services import admin, prd_engine, takedown
+from app.services import admin, config_check, prd_engine, takedown
 from app.services import rooms as rooms_svc
 from evals import live_metrics as M
 
@@ -272,3 +272,10 @@ def admin_metrics(days: int = 30, user: dict = Depends(_admin)):
     design["new_kind_top"] = {M.mask_pii(k): n for k, n in (design.get("new_kind_top") or {}).items()}
     return {"days": days, "design": design, "funnel": funnel, "rooms_created": created or 0,
             "published": published or 0, "owners_logged_in": sum(1 for rid in claimed if rooms_svc.owner_claimed(rid))}
+
+
+@router.get("/api/admin/config-check")
+def config_problems(user: dict = Depends(_admin)):
+    """빠진 설정 (UX_GAP_PLAN Q3). 키 값은 들어 있지 않다."""
+    admin.viewed(user, "config-check")
+    return {"problems": config_check.problems()}

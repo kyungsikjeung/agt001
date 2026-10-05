@@ -12,6 +12,7 @@
 import hashlib
 import html
 import json
+import logging
 import re
 from pathlib import Path
 from urllib.parse import quote
@@ -22,6 +23,8 @@ from app.config import settings
 from app.security import sanitize_token
 from app.services import components as COMP
 from app.services.video_links import parse_video_url
+
+log = logging.getLogger(__name__)
 
 
 class SiteSpecError(ValueError):
@@ -383,6 +386,9 @@ def list_variants() -> list:
     return sorted(_bundle()["templates"].keys())
 
 
+_warned_no_base = False
+
+
 def app_link(path: str) -> str:
     """공개 사이트에서 앱 페이지(채팅 등)로 가는 링크.
 
@@ -394,6 +400,10 @@ def app_link(path: str) -> str:
     if base.startswith("https://"):
         return f"{base}{path}"
     if settings.preview_host:
+        global _warned_no_base
+        if not _warned_no_base:  # 10/1~10/5 이 빈 글로 링크가 5일간 조용히 빠졌다. 프로세스당 한 번 남긴다.
+            _warned_no_base = True
+            log.warning("PUBLIC_BASE_URL이 https 주소가 아니어서 공개 사이트의 앱 링크(채팅하기·주문 등)를 뺍니다")
         return ""
     return path
 

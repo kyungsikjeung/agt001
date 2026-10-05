@@ -5,6 +5,7 @@ import pytest
 
 from app import llm
 from app.config import settings
+from app.services import ops_alert
 
 
 def _err(cls, status):
@@ -17,9 +18,12 @@ def _setup(monkeypatch):
     monkeypatch.setattr(settings, "nim_chat_model", "primary")
     monkeypatch.setattr(settings, "nim_chat_fallback_models", "second,third")
     monkeypatch.setattr(settings, "nim_all_fail_backoff_sec", 0)
+    monkeypatch.setattr(ops_alert, "send", lambda *a, **k: True)  # 없어진 모델 알림은 보내지 않는다
     llm._cooldown.clear()
+    llm._gone.clear()
     yield
     llm._cooldown.clear()
+    llm._gone.clear()
 
 
 def test_overloaded_primary_falls_back():

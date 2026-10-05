@@ -11,7 +11,7 @@ from app import store
 from app.db import migrate as db_migrate
 from app.api import admin, admin_keys, auth, bookings, callbot, card, chat, chat_agent, events, inquiries, live, members, orders, owner, projects, public, push, rooms, settings as owner_settings, start, stt, tts
 from app.config import settings
-from app.services import funnel, ops_alert, rag
+from app.services import config_check, funnel, ops_alert, rag
 
 # 서버 파이썬에 webp가 없어 예시 사진이 application/octet-stream으로 나갔다(카톡 미리보기가 그림으로 못 읽음)
 mimetypes.add_type("image/webp", ".webp")
@@ -62,6 +62,7 @@ async def lifespan(_app: FastAPI):
     if settings.run_migrations_on_startup:
         db_migrate.upgrade_head()
     store.recover_on_startup()
+    config_check.announce()  # 빠진 설정을 로그·운영 알림으로 (예외 없음, 알림은 뒤에서 보냄)
     _purge_all()
     if settings.precompute_embeddings:
         rag.precompute()
