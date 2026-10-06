@@ -165,6 +165,9 @@ def test_5_purge_and_turn_off(client):
     state = client.get(f"/api/owner/shops/{key}/chat-settings").json()
     assert state["guest_chat_on"] is False and state["published"] is True
     assert state["link"] == "" and state["preview_url"] == f"/chat/{key}"  # 꺼지면 링크를 만들지 않는다
+    # 요금제 포함량과 이번 달 AI 답 사용량도 같이 (D61 plans.py, C-4)
+    assert state["plan"] == "free" and state["plan_name"] == "무료"
+    assert state["ai_total"] == 300 and 0 <= state["ai_left"] <= 300  # 세는 것은 test_usage_quota에서 본다
     assert "채팅 예약을 받지 않아요" in Guest(client, key).say(text="주차 돼요?")["reply"]
 
 

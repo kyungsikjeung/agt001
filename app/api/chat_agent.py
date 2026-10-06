@@ -74,7 +74,13 @@ def chat(site_key: str, body: ChatIn, request: Request, response: Response):
         token = secrets.token_urlsafe(24)
     response.set_cookie(name, token, max_age=COOKIE_DAYS * 86400, path="/", secure=True, httponly=True,
                         samesite="lax")
-    return chat_agent.respond(key, token, text=body.text, action=body.action)
+    out = chat_agent.respond(key, token, text=body.text, action=body.action)
+    # AI가 답한 건만 센다(사장님 대기 중인 글은 AI를 거치지 않는다). 포함량은 요금제에서(D61).
+    # 넘어도 막지 않는다 — 안내와 지불 의사 신호만 남긴다(D40).
+    if isinstance(out, dict) and out.get("reply") and out.get("mode") != "owner":
+        from app.services import usage
+        usage.safe_use(key, "chat_ai")
+    return out
 
 
 @router.get("/api/chat/{site_key}/stream")

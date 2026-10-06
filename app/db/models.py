@@ -726,7 +726,7 @@ class UsageLedgerRow(Base):
 
     __tablename__ = "usage_ledger"
     __table_args__ = (
-        CheckConstraint("action IN ('design', 'restyle')", name="ck_usage_ledger_action"),
+        CheckConstraint("action IN ('design', 'restyle', 'chat_ai')", name="ck_usage_ledger_action"),
         CheckConstraint("kind IN ('grant', 'use', 'topup')", name="ck_usage_ledger_kind"),
         Index("ix_usage_ledger_site_month", "site_key", "month", "action"),
         Index("uq_usage_ledger_grant", "site_key", "month", "action", unique=True,
