@@ -135,7 +135,17 @@ ssh -i "$SSH_KEY" "$REMOTE_HOST" "
     exit 1
   fi
   rsync -a --delete --exclude='generated' --exclude='.env' --exclude='.env.local' \"\$releases_dir/\$snapshot_name/\" \"\$remote_dir/\"
-  cd \"\$remote_dir\" && sudo docker compose up -d --build backend
+  # 되돌린 옛 코드는 기동 때 마이그레이션을 하지 않는다(REHEARSAL_1015 §0).
+  # 새 배포가 DB를 올려 둔 뒤라 옛 코드가 'Can't locate revision'으로 못 뜨던 것을 막는다.
+  # 덮어쓰기 파일은 이번 기동에만 쓴다 — 다음 배포의 docker compose up이 설정 차이로 컨테이너를 새로 만들며 다시 켠다.
+  override=\$(mktemp /tmp/agt001-rollback-XXXXXX.yml)
+  printf 'services:\\n  backend:\\n    environment:\\n      - RUN_MIGRATIONS_ON_STARTUP=false\\n' > \"\$override\"
+  cd \"\$remote_dir\" || exit 1
+  # -f를 주면 서버의 docker-compose.override.yml이 저절로 안 읽히므로 있으면 같이 준다.
+  local_override=''
+  [ -f docker-compose.override.yml ] && local_override='-f docker-compose.override.yml'
+  sudo docker compose -f docker-compose.yml \$local_override -f \"\$override\" up -d --build backend
+  rm -f \"\$override\"
 "
 
 echo "헬스체크 (https + http 직접, 둘 다 200이어야 성공)"
