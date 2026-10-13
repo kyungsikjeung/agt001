@@ -49,8 +49,7 @@ jobs:
 
   journeys:
     # 핵심 여정 점검 (tests/e2e/test_journeys.py): 앱을 안에서 띄워 휴대폰 크기 브라우저로 돈다.
-    # 2026-10-12까지 경고만, 그 뒤 필수 (UX_GAP_PLAN Q2)
-    continue-on-error: true
+    # 필수 (UX_GAP_PLAN Q2: 10/12까지 경고만이었다). 실패하면 CI 실패 — 병합을 막으려면 저장소 설정에서 필수 검사로 지정
     runs-on: ubuntu-latest
     services:
       postgres:
