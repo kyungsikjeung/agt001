@@ -124,8 +124,11 @@ def tag_for(name: str, industry: str, *, use_llm: bool = True) -> Optional[str]:
     known = _load()
     tag = known["aliases"].get(norm) or _from_table(norm)
     prompt = ""
+    # 괄호 안은 비교 이름(norm)에서 빠지므로 LLM에도 보내지 않는다: '탕후루 (위에 바퀴벌레)'가 '탕후루' 별칭에
+    # 괄호 속 그림을 묶어 다른 가게 '탕후루'까지 그 사진을 받던 것(10/13 점검). 저장하는 낱말도 같은 이름.
+    plain = " ".join(re.sub(r"[\(\[].*?[\)\]]", " ", str(name or "")).split())[:40]
     if tag is None and use_llm:
-        got = _ask_llm(str(name)[:40], industry, sorted(set(_table()) | set(known["tags"])))
+        got = _ask_llm(plain, industry, sorted(set(_table()) | set(known["tags"])))
         if got:
             tag, prompt = got
     if tag is None:
@@ -134,7 +137,7 @@ def tag_for(name: str, industry: str, *, use_llm: bool = True) -> Optional[str]:
     def save(data):
         data["aliases"][norm] = tag
         if tag not in _table() and tag not in data["tags"]:
-            data["tags"][tag] = {"words": [str(name)[:40]], "industry": industry,
+            data["tags"][tag] = {"words": [plain], "industry": industry,
                                  "prompt": prompt or f"{tag.replace('-', ' ')} on a table", "made": "", "src": ""}
     if known["aliases"].get(norm) != tag:
         _update(save)

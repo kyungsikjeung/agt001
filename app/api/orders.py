@@ -228,7 +228,7 @@ def verify_submit(site_key: str, token: str, code: Optional[str] = Form(default=
     if orders.closed(site_key):
         return _paused_order(site_key)
     try:
-        payload = phone_verify.check(token, code)
+        payload = phone_verify.check(token, code, sanitize_token(site_key or ""))
     except phone_verify.VerifyError as e:
         return _verify_page(site_key, token, str(e), 400)
     if not isinstance(payload, dict):
@@ -267,7 +267,7 @@ def verify_resend(site_key: str, token: str, request: Request):
     if orders.closed(site_key):
         return _paused_order(site_key)
     try:
-        new_token = phone_verify.resend(token)
+        new_token = phone_verify.resend(token, sanitize_token(site_key or ""))
     except phone_verify.VerifyError as e:
         return _verify_page(site_key, token, str(e), 400)
     key = sanitize_token(site_key or "")

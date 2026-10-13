@@ -445,6 +445,7 @@ def photo_edit_preview(room_id: str, body: PhotoPreviewIn, request: Request,
     from app.services import ai_images as AI
     from app.services import photo_edit as PE
     safe, member_id = card_api._member_room(room_id, x_member_id, request)
+    unchanged = None
     with store.room_tx(safe) as (room, session):
         if rooms.owner_id(room) != member_id:
             raise HTTPException(status_code=403, detail="owner only")
@@ -459,18 +460,23 @@ def photo_edit_preview(room_id: str, body: PhotoPreviewIn, request: Request,
             out = PE.make_candidate(safe, _cand_session(session), got, action=body.action,
                                     instruction=body.instruction)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            if str(e) != PE.UNCHANGED:
+                raise HTTPException(status_code=400, detail=str(e))
+            # 거의 안 바뀐 결과: 시도 횟수(ai_edit_tries)는 저장해야 하니 트랜잭션을 마치고 나서 400(10/13 점검)
+            unchanged = str(e)
         except AI.ImageError as e:
             raise HTTPException(status_code=400, detail=str(e))
-        if (body.instruction or "") and got["kind"] != "owner":
-            slot = got["target"]
-            kind = "item" if slot.startswith("item:") else ("gallery" if slot.startswith("gallery") else "hero")
-            funnel.record("ai_image_edited",
-                          props={"industry": prd_engine.industry_of(card).key, "kind": kind,
-                                 "source": "example" if got["kind"] == "example" else "ai"})
-        return JSONResponse(content={"candidate_id": out["candidate_id"],
-                                     "before_url": out["before_url"], "after_url": out["after_url"]},
-                            headers=_NO_STORE)
+        if unchanged is None:
+            if (body.instruction or "") and got["kind"] != "owner":
+                slot = got["target"]
+                kind = "item" if slot.startswith("item:") else ("gallery" if slot.startswith("gallery") else "hero")
+                funnel.record("ai_image_edited",
+                              props={"industry": prd_engine.industry_of(card).key, "kind": kind,
+                                     "source": "example" if got["kind"] == "example" else "ai"})
+            return JSONResponse(content={"candidate_id": out["candidate_id"],
+                                         "before_url": out["before_url"], "after_url": out["after_url"]},
+                                headers=_NO_STORE)
+    raise HTTPException(status_code=400, detail=unchanged)
 
 
 @router.post("/api/rooms/{room_id}/photo-edit/apply")

@@ -51,7 +51,7 @@ def set_enabled(card: dict, on: bool) -> bool:
 
 def sms_quota_ok(site_key: str) -> bool:
     """우리 문자 키로 보낼 때만 가게당 하루 상한을 본다(가게 키면 가게 비용이라 상한 없음).
-    오늘 인증을 통과한 손님 수 + 아직 남은 인증 요청 수로 센다."""
+    지난 하루 이 가게로 보낸 인증 문자 수로 센다(인증 행은 다 써도 하루 동안 남는다, phone_verify)."""
     from app.services import shop_settings
     try:
         if shop_settings.sms_credentials(site_key):
@@ -60,11 +60,9 @@ def sms_quota_ok(site_key: str) -> bool:
         pass
     since = _now() - datetime.timedelta(days=1)
     with get_sessionmaker()() as db:
-        done = db.scalar(select(func.count()).select_from(CustomerRow).where(
-            CustomerRow.site_key == site_key, CustomerRow.phone_verified_at > since)) or 0
-        pending = db.scalar(select(func.count()).select_from(PhoneVerificationRow).where(
+        sent = db.scalar(select(func.count()).select_from(PhoneVerificationRow).where(
             PhoneVerificationRow.site_key == site_key, PhoneVerificationRow.created_at > since)) or 0
-    return done + pending < DAILY_SMS_MAX
+    return sent < DAILY_SMS_MAX
 
 
 def join(site_key: str, phone_raw: str) -> bool:
@@ -91,13 +89,13 @@ def is_member(site_key: str, phone: Optional[str]) -> bool:
 
 
 def leave(site_key: str, phone: Optional[str]) -> bool:
-    """탈퇴: 회원 표시와 명단 이름을 지운다."""
+    """탈퇴: 회원 표시·명단 이름·번호 인증 시각을 지운다. 예약·주문 기록(과 그 번호)은 가게 보관 기간을 따른다."""
     if not phone:
         return False
     with get_sessionmaker()() as db, db.begin():
         return db.execute(update(CustomerRow).where(
             CustomerRow.site_key == site_key, CustomerRow.phone == phone, CustomerRow.member_since.isnot(None))
-            .values(member_since=None, name=None)).rowcount > 0
+            .values(member_since=None, name=None, phone_verified_at=None)).rowcount > 0
 
 
 def history(site_key: str, phone: str) -> Optional[dict]:

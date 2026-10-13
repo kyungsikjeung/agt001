@@ -20,6 +20,7 @@ from app.services import photos
 KST = datetime.timezone(datetime.timedelta(hours=9))
 # 하루 AI 고치기 상한 (가게당)
 DAY_LIMIT = 10
+TRY_LIMIT = 20  # 하루 AI 시도(결과가 거의 안 바뀐 것 포함). 안 바뀐 결과는 DAY_LIMIT에서 빼 주지만 무한 반복은 막는다(10/13 점검)
 # 후보 유효 시간 (30분)
 CANDIDATE_TTL_SEC = 30 * 60
 
@@ -240,6 +241,18 @@ def _check_ai_limits(card: dict, slot: str) -> None:
         card["ai_edit_day"] = rec
     if int(rec.get("n") or 0) >= DAY_LIMIT:
         raise ValueError("오늘 AI 사진 고치기를 다 썼어요(하루 10번). 내일 다시 해 주세요.")
+    tries = card.get("ai_edit_tries") or {}
+    if tries.get("date") == _kst_today() and int(tries.get("n") or 0) >= TRY_LIMIT:
+        raise ValueError("오늘 AI 사진 고치기를 많이 시도했어요. 내일 다시 해 주세요.")
+
+
+def _count_try(card: dict) -> None:
+    """AI를 부르기 전에 센다. 결과가 거의 안 바뀌어도(UNCHANGED) 남는다 — 라우트가 그때도 카드를 저장한다."""
+    rec = card.get("ai_edit_tries") or {}
+    if rec.get("date") != _kst_today():
+        rec = {"date": _kst_today(), "n": 0}
+    rec["n"] = int(rec.get("n") or 0) + 1
+    card["ai_edit_tries"] = rec
 
 
 def _barely_changed(before: bytes, after: bytes) -> bool:
@@ -253,12 +266,17 @@ def _barely_changed(before: bytes, after: bytes) -> bool:
     return sum(ImageStat.Stat(ImageChops.difference(a, b)).mean) / 3 < UNCHANGED_DIFF
 
 
+MAX_CANDIDATES = 5  # 방마다 남기는 후보 수. 보정 버튼(AI 아님)은 횟수 제한이 없어 파일이 끝없이 쌓였다(10/13 점검)
+
+
 def _prune_candidates(session: dict) -> None:
-    """지난 후보 파일·기록 지우기."""
+    """지난 후보 파일·기록 지우기. 시간이 지난 것 + 새것 MAX_CANDIDATES-1개만 두고 나머지(새 후보 자리를 비운다)."""
     cands = session.get("photo_candidates") or {}
     now = time.time()
-    for cid in [k for k, v in cands.items()
-                if not isinstance(v, dict) or now - (v.get("at") or 0) > CANDIDATE_TTL_SEC]:
+    stale = [k for k, v in cands.items()
+             if not isinstance(v, dict) or now - (v.get("at") or 0) > CANDIDATE_TTL_SEC]
+    fresh = sorted((k for k in cands if k not in stale), key=lambda k: cands[k].get("at") or 0, reverse=True)
+    for cid in stale + fresh[MAX_CANDIDATES - 1:]:
         try:
             file = (cands[cid] or {}).get("file")
             if file:
@@ -317,6 +335,7 @@ def make_candidate(room_id: str, session: dict, target: dict, *,
         raise ValueError("지금 사진을 읽을 수 없어요.")
     if use_ai:
         _check_ai_limits(card, slot)
+        _count_try(card)
         raw = ai_images.edit_bytes(image_bytes, cleaned, slot)
         clean, _w, _h = photos._clean_ai_image(raw)
         if _barely_changed(image_bytes, clean):  # 횟수·쿨다운을 쓰지 않고 다시 말하게 한다

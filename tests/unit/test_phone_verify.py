@@ -57,7 +57,7 @@ def test_dev_mode_no_keys_returns_true_and_logs_only_last4(caplog):
     assert "010-1234-5678" not in caplog.text and "01012345678" not in caplog.text
 
 
-def test_start_check_roundtrip_deletes_row(monkeypatch):
+def test_start_check_roundtrip_consumes_row(monkeypatch):
     sent = _capture(monkeypatch)
     site = _site()
     payload = {"name": "김손님", "date": "2026-10-01"}
@@ -67,7 +67,8 @@ def test_start_check_roundtrip_deletes_row(monkeypatch):
     assert to == "01012345678"
     assert "[우리 가게] 인증번호" in text
     assert phone_verify.check(token, _code_of(text)) == payload
-    assert _row(token) is None
+    row = _row(token)  # 지우지 않고 '다 쓴' 표시로 남는다(하루 상한 셈), 폼 내용은 비운다
+    assert row is not None and row.code_hash == "" and row.payload == {}
     with pytest.raises(VerifyError, match="인증 요청을 찾을 수 없어요"):
         phone_verify.check(token, "000000")
 
@@ -247,3 +248,47 @@ def test_resend_keeps_shop_name(monkeypatch):
     new = phone_verify.resend(token)
     assert sent["texts"][-1][1].startswith("[단정손끝]")
     assert phone_verify.check(new, _code_of(sent["texts"][-1][1])) == {"a": 1}
+
+
+def _age(token, minutes=2):
+    with get_sessionmaker()() as db, db.begin():  # 다시 보내기 1분 제한을 지난 것으로
+        db.execute(update(PhoneVerificationRow).where(PhoneVerificationRow.token == token)
+                   .values(created_at=datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(minutes=minutes)))
+
+
+def test_resend_chain_cannot_bypass_daily_cap(monkeypatch):
+    """다시 보내기를 이어 가도 하루 5통에서 멈춘다(10/13 점검: 예전 행을 지워 상한이 늘 1로 세어졌다)."""
+    sent = _capture(monkeypatch)
+    token = phone_verify.start(_site(), "010-7777-0000", {"a": 1})
+    for _ in range(4):
+        _age(token)
+        token = phone_verify.resend(token)
+    _age(token)
+    with pytest.raises(VerifyError, match="오늘은"):
+        phone_verify.resend(token)
+    assert len(sent["texts"]) == phone_verify.DAILY_MAX
+
+
+def test_success_does_not_free_daily_cap(monkeypatch):
+    """인증에 성공해도 보낸 문자는 하루 상한에 남는다."""
+    sent = _capture(monkeypatch)
+    for _ in range(phone_verify.DAILY_MAX):
+        token = phone_verify.start(_site(), "010-7777-1111", {"a": 1})
+        assert phone_verify.check(token, _code_of(sent["texts"][-1][1])) == {"a": 1}
+    with pytest.raises(VerifyError, match="오늘은"):
+        phone_verify.start(_site(), "010-7777-1111", {"a": 1})
+
+
+@pytest.mark.parametrize("name,label", [
+    ("단정손끝", "단정손끝"),
+    ("OO은행] 계좌 정지 http://evil.example/x", "OO은행 계좌 정지"),
+    ("가게\n\n지금 확인 www.bad.kr", "가게 지금 확인"),
+    ("아주아주아주아주긴가게이름입니다정말로요요요", "아주아주아주아주긴가게이름입니다정말로요"),  # 20자
+    ("https://only.url", "예약"),
+    ("카페 cafe.kr 점", "카페 점"),
+    ("3.5평 카페", "3.5평 카페"),
+    (None, "예약"),
+])
+def test_sms_label_strips_urls_brackets_newlines(name, label):
+    """가게 이름은 사장님이 정한다 — 우리 발신번호로 피싱 글이 나가지 않게(10/13 점검)."""
+    assert phone_verify._sms_label(name) == label

@@ -7,12 +7,13 @@
 """
 import re
 
-_EXTERNAL_SCRIPT = re.compile(r"<script[^>]*\bsrc\s*=\s*[\"']https?://", re.I)
+# 따옴표 없는 주소(src=https://…)·주소 앞 공백·스킴 없는 //host 도 바깥 주소로 본다(10/13 점검: 셋 다 통과했다).
+_EXTERNAL_SCRIPT = re.compile(r"<script[^>]*\bsrc\s*=\s*[\"']?\s*(?:https?:)?//", re.I)
 # MAP_CONTRACT §4: 공개 지도 SDK 한 주소만 예외. 다른 외부 스크립트는 그대로 막는다.
+# 렌더러(map-draw)가 쓰는 모양 그대로만 뺀다 — 전엔 다른 속성 안에 이 주소를 숨긴 남의 스크립트까지 통째로 지웠다.
 _MAP_SDK_SCRIPT = re.compile(
-    r"<script[^>]*\bsrc\s*=\s*([\"'])https://dapi\.kakao\.com/v2/maps/sdk\.js"
-    r"\?appkey=[A-Za-z0-9]+&autoload=false\1[^>]*>", re.I)
-_EXTERNAL_FORM = re.compile(r"<form[^>]*\baction\s*=\s*[\"']https?://", re.I)
+    r"<script\s+src=\"https://dapi\.kakao\.com/v2/maps/sdk\.js\?appkey=[A-Za-z0-9]+&autoload=false\">", re.I)
+_EXTERNAL_FORM = re.compile(r"<form[^>]*\baction\s*=\s*[\"']?\s*(?:https?:)?//", re.I)
 _META_REFRESH = re.compile(r"<meta[^>]*\bhttp-equiv\s*=\s*[\"']?refresh", re.I)
 _LOCATION_OUT = re.compile(
     r"(?:window\.)?location(?:\.href)?\s*=\s*[\"']https?://"

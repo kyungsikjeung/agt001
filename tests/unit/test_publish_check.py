@@ -122,3 +122,21 @@ def test_served_pages_keep_sandbox_headers(client):
         assert "sandbox" in csp, f"CSP sandbox 없음: {path}"
         assert "allow-same-origin" not in csp, f"sandbox 우회 토큰: {path}"
         assert "allow-top-navigation" not in csp, f"sandbox 우회 토큰: {path}"
+
+
+@pytest.mark.parametrize("html", [
+    '<script src="https://evil.example/x.js" data-k=\'src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=abc&autoload=false"\'></script>',
+    "<script src=https://evil/x.js></script>",
+    '<script src="//evil/x.js"></script>',
+    '<script src=" https://evil/x.js"></script>',
+    '<form action="//evil">',
+    "<form action=https://evil>",
+])
+def test_external_script_and_form_variants_blocked(html):
+    """따옴표 없는·스킴 없는 주소, 지도 SDK 주소를 다른 속성에 숨긴 스크립트도 막는다(10/13 점검)."""
+    assert check_html(html)
+
+
+def test_real_map_sdk_tag_still_allowed():
+    tag = '<script src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=abc123&autoload=false"></script>'
+    assert check_html(tag) == []

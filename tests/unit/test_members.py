@@ -38,13 +38,17 @@ def _sms(monkeypatch):
     return sent
 
 
-def _pension(client):
+def _pension(client, publish=True):
     from app.api import inquiries as inquiries_api
     with inquiries_api._lock:
         inquiries_api._hits.clear()
     body = client.post("/api/start", json={"template": "pension"}).json()
     rid = body["room_id"]
-    key = store.read_session(store.read_room(rid)["session_id"])["requirement_id"]
+    sid = store.read_room(rid)["session_id"]
+    key = store.read_session(sid)["requirement_id"]
+    if publish:  # 회원 화면은 공개된 사이트에서만 열린다(10/13 점검)
+        with store.session_tx(sid) as session:
+            session["prd"]["published"] = "v1"
     return rid, {"X-Member-Id": body["member_id"]}, key
 
 
@@ -143,9 +147,10 @@ def test_platform_sms_daily_cap(client, monkeypatch):
     client.put(f"/api/rooms/{rid}/features", json={"key": "members", "on": True}, headers=h)
     monkeypatch.setattr(members, "DAILY_SMS_MAX", 2)
     now = datetime.datetime.now(datetime.timezone.utc)
-    with get_sessionmaker()() as db, db.begin():
+    with get_sessionmaker()() as db, db.begin():  # 오늘 이 가게로 이미 보낸 인증 문자 2통(다 쓴 것 포함)
         for i in range(2):
-            db.add(CustomerRow(site_key=key, phone=f"0101111000{i}", phone_verified_at=now))
+            db.add(PhoneVerificationRow(token=f"t-{secrets.token_hex(6)}", site_key=key, phone=f"0101111000{i}",
+                                        code_hash="" if i else "h", payload={}, attempts=0, expires_at=now))
     r = client.post(f"/api/members/{key}", data={"phone": PHONE, "agree": "1"})
     assert r.status_code == 429 and "오늘은 회원 확인 문자를" in r.text
     # 가게 문자 키가 있으면 가게 비용이라 상한 없음
@@ -193,3 +198,33 @@ def test_no_sms_keys_means_no_signup(client, monkeypatch):
         db.add(UserRoomRow(user_id=uid, room_id=rid, member_id=h["X-Member-Id"]))
     client.cookies.set(auth_svc.SESSION_COOKIE, auth_svc.create_session(uid))
     assert client.get(f"/api/owner/shops/{key}/members").json()["sms_ready"] is False
+
+
+def test_draft_or_taken_down_site_sends_no_member_sms(client, _sms):
+    """시안(공개 전)·관리자가 내린 사이트에서는 회원 가입 문자를 보내지 않는다(10/13 점검: 우리 번호로 피싱 문자)."""
+    from app.services import takedown
+    rid, h, key = _pension(client, publish=False)
+    client.put(f"/api/rooms/{rid}/features", json={"key": "members", "on": True}, headers=h)
+    r = client.post(f"/api/members/{key}", data={"phone": PHONE, "agree": "1"}, follow_redirects=False)
+    assert r.status_code == 404 and not _sms
+    rid, h, key = _pension(client)
+    client.put(f"/api/rooms/{rid}/features", json={"key": "members", "on": True}, headers=h)
+    takedown.take_down(key, "admin", "test")
+    r = client.post(f"/api/members/{key}", data={"phone": PHONE, "agree": "1"}, follow_redirects=False)
+    assert r.status_code == 404 and not _sms
+    takedown.restore(key, "admin")
+
+
+def test_token_from_other_shop_is_refused(client, _sms):
+    """가게 A에서 받은 인증 토큰으로 가게 B에 가입하지 못한다."""
+    rid, h, key = _pension(client)
+    client.put(f"/api/rooms/{rid}/features", json={"key": "members", "on": True}, headers=h)
+    rid2, h2, key2 = _pension(client)
+    client.put(f"/api/rooms/{rid2}/features", json={"key": "members", "on": True}, headers=h2)
+    r = client.post(f"/api/members/{key}", data={"phone": PHONE, "agree": "1"}, follow_redirects=False)
+    token = r.headers["location"].rsplit("/", 1)[1]
+    code = re.search(r"인증번호 (\d{6})", _sms[-1]).group(1)
+    r = client.post(f"/api/members/{key2}/verify/{token}", data={"code": code}, follow_redirects=False)
+    assert r.status_code == 400 and "찾을 수 없어요" in r.text
+    r = client.post(f"/api/members/{key}/verify/{token}", data={"code": code}, follow_redirects=False)
+    assert r.status_code == 303  # 제 가게에서는 그대로 된다

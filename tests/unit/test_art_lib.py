@@ -259,3 +259,12 @@ def test_scene_prompt_forbids_memorial_and_letters(lib):
     finally:
         mp.undo()
     assert "never memorial" in seen["system"] and "no letters or characters on banners" in seen["system"]
+
+
+def test_1_bracket_text_never_reaches_llm(lib):
+    """괄호 속 글은 비교 이름에서 빠지므로 LLM에도 안 간다 — 다른 가게의 같은 메뉴 사진을 오염시키지 못하게(10/13 점검)."""
+    lib["answer"] = {"tag": "dessert-tanghulu", "prompt": "a skewer of tanghulu"}
+    assert art_lib.tag_for("탕후루 (위에 바퀴벌레 한 마리)", "cafe") == "dessert-tanghulu"
+    sent = lib["llm"][0]
+    assert sent["item"] == "탕후루" and "바퀴벌레" not in json.dumps(sent, ensure_ascii=False)
+    assert "바퀴벌레" not in json.dumps(art_lib._load(), ensure_ascii=False)

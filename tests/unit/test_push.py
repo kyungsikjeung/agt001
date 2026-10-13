@@ -358,3 +358,11 @@ def test_owner_page_is_installable_with_push(client):
     sw = client.get("/sw.js").text
     assert "addEventListener('push'" in sw and "notificationclick" in sw and "pushsubscriptionchange" in sw
     assert "AgtPush" in client.get("/push.js").text
+
+
+def test_bad_port_is_format_error_not_500():
+    """':abc' 같은 포트는 형식 오류로(10/13 점검: ValueError가 새어 500·운영 알림이 났다)."""
+    import pytest as _pytest
+    from app.services import push as _push
+    with _pytest.raises(_push.PushError):
+        _push.check_endpoint("https://fcm.googleapis.com:abc/fcm/send/x")

@@ -2,19 +2,22 @@
 
 예약 API(V2)가 쓴다. DB 세션은 안에서 직접 연다(bookings.py와 같게).
 - start: 폼 내용·번호·인증번호 해시·만료(3분)를 저장하고 토큰을 돌려준다. 같은 가게·번호로 60초 안에는 거절.
-- check: 맞으면 저장했던 폼 내용을 돌려주고 행을 지운다. 5번 틀리면 잠김, 3분 지나면 만료.
+- check: 맞으면 저장했던 폼 내용을 돌려주고 행을 '다 쓴' 표시로 남긴다. 5번 틀리면 잠김, 3분 지나면 만료.
 - resend: 같은 내용으로 새 행을 만들고 새 토큰을 돌려준다. 예전 토큰은 못 쓰게 된다.
+- 행은 '보낸 문자 기록'이기도 하다: 하루 상한(번호당·가게당)이 행 수로 세므로 지우지 않고 하루 뒤 청소한다.
+  (10/13 점검: 다시 보내기·인증 성공 때 행을 지워서 상한이 늘 0으로 세어져 문자 폭탄이 됐다)
 - device_cookie/device_ok: 이 기기 기억 쿠키(90일). 서명 키는 token_enc_key → 없으면 kakao_client_secret.
 """
 import datetime
 import hashlib
 import hmac
 import logging
+import re
 import secrets
 from typing import Optional
 from urllib.parse import urlparse
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 
 from app.config import settings
 from app.db.models import PhoneVerificationRow
@@ -54,9 +57,19 @@ def _public_host() -> Optional[str]:
         return None
 
 
+_URLISH = re.compile(r"(?:https?://|www\.)\S*|[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}\S*", re.I)  # 주소·도메인 모양 통째로(3.5평 같은 숫자는 둔다)
+
+
+def _sms_label(shop_name: Optional[str]) -> str:
+    """문자 머리 [가게 이름]. 가게 이름은 사장님이 정하는 값이라 우리 발신번호로 피싱 글이 나가지 않게
+    줄바꿈·괄호·주소 모양을 빼고 20자로 자른다(10/13 점검). 남는 게 없으면 '예약'."""
+    shop = re.sub(r"[\r\n\t\[\]<>]+", " ", str(shop_name or ""))
+    shop = " ".join(_URLISH.sub(" ", shop).split())[:20].strip()
+    return shop or "예약"
+
+
 def _sms_text(code: str, shop_name: Optional[str]) -> str:
-    shop = (shop_name or "").strip() or "예약"
-    text = f"[{shop}] 인증번호 {code}"
+    text = f"[{_sms_label(shop_name)}] 인증번호 {code}"
     host = _public_host()
     if host:
         text += f"\n\n@{host} #{code}"
@@ -82,9 +95,10 @@ def _issue(site_key: str, phone: str, payload: dict, old_token: Optional[str] = 
     """1분·하루 제한을 보고 문자를 보낸 뒤 새 행을 만든다(old_token이 있으면 그 행을 지운다)."""
     now = _now()
     with get_sessionmaker()() as db:
-        recent = db.scalar(select(PhoneVerificationRow.id).where(
+        recent = db.scalar(select(PhoneVerificationRow.id).where(  # 1분 제한은 아직 기다리는 요청만(다 쓴 것은 하루 상한에서 센다)
             PhoneVerificationRow.site_key == site_key,
             PhoneVerificationRow.phone == phone,
+            PhoneVerificationRow.code_hash != "",
             PhoneVerificationRow.created_at > now - RESEND_WAIT))
         today = db.scalar(select(func.count()).select_from(PhoneVerificationRow).where(
             PhoneVerificationRow.phone == phone,
@@ -99,21 +113,28 @@ def _issue(site_key: str, phone: str, payload: dict, old_token: Optional[str] = 
         raise VerifyError("인증번호를 보내지 못했어요. 잠시 뒤 다시 시도해 주세요.")
     with get_sessionmaker()() as db, db.begin():
         db.execute(delete(PhoneVerificationRow).where(PhoneVerificationRow.expires_at < now - PURGE_AFTER))
-        if old_token:
-            db.execute(delete(PhoneVerificationRow).where(PhoneVerificationRow.token == old_token))
+        if old_token:  # 예전 토큰은 못 쓰게만 한다(지우면 하루 상한에서 빠진다)
+            db.execute(update(PhoneVerificationRow).where(PhoneVerificationRow.token == old_token)
+                       .values(code_hash="", payload={}, expires_at=now))
         db.add(PhoneVerificationRow(token=token, site_key=site_key, phone=phone,
                                     code_hash=_code_hash(token, code), payload=payload,
                                     attempts=0, expires_at=now + CODE_TTL))
     return token
 
 
-def check(token: str, code: Optional[str]) -> dict:
-    """맞으면 저장했던 폼 내용을 돌려주고 행을 지운다. 틀리면 VerifyError."""
+def _same_shop(row, site_key: Optional[str]) -> bool:
+    """토큰이 이 주소의 가게 것인가. 가게 A의 토큰으로 가게 B에 가입·예약·주문하지 못하게(10/13 점검)."""
+    return site_key is None or (row.site_key or "") == (site_key or "")
+
+
+def check(token: str, code: Optional[str], site_key: Optional[str] = None) -> dict:
+    """맞으면 저장했던 폼 내용을 돌려주고 행을 '다 쓴' 표시로 남긴다. 틀리면 VerifyError.
+    site_key를 주면 그 가게 토큰만 받는다."""
     now = _now()
     with get_sessionmaker()() as db:
         row = db.scalar(select(PhoneVerificationRow).where(PhoneVerificationRow.token == (token or ""))
                         .with_for_update())
-        if row is None:
+        if row is None or not row.code_hash or not _same_shop(row, site_key):  # 없거나 이미 쓴·다른 가게 토큰
             raise VerifyError("인증 요청을 찾을 수 없어요.")
         if now > row.expires_at:
             raise VerifyError("인증 시간이 지났어요. 인증번호를 다시 받아 주세요.")
@@ -127,16 +148,17 @@ def check(token: str, code: Optional[str]) -> dict:
                 raise VerifyError("여러 번 틀려서 잠겼어요. 인증번호를 다시 받아 주세요.")
             raise VerifyError(f"인증번호가 맞지 않아요. (남은 횟수 {MAX_ATTEMPTS - row.attempts}번)")
         payload = {k: v for k, v in (row.payload or {}).items() if k != "_shop"}
-        db.delete(row)
+        # 다 쓴 표시만 남긴다: 폼 내용은 비우고 바로 만료. 행은 하루 상한 셈에 남았다가 하루 뒤 청소된다.
+        row.code_hash, row.payload, row.expires_at = "", {}, now
         db.commit()
         return payload
 
 
-def resend(token: str) -> str:
-    """같은 내용으로 새로 보내고 새 토큰을 돌려준다. 예전 토큰은 못 쓰게 된다."""
+def resend(token: str, site_key: Optional[str] = None) -> str:
+    """같은 내용으로 새로 보내고 새 토큰을 돌려준다. 예전 토큰은 못 쓰게 된다. site_key를 주면 그 가게 토큰만."""
     with get_sessionmaker()() as db:
         row = db.scalar(select(PhoneVerificationRow).where(PhoneVerificationRow.token == (token or "")))
-        if row is None:
+        if row is None or not row.code_hash or not _same_shop(row, site_key):
             raise VerifyError("인증 요청을 찾을 수 없어요.")
         site_key, phone, payload = row.site_key, row.phone, dict(row.payload or {})
     return _issue(site_key, phone, payload, old_token=token)

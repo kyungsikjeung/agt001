@@ -596,3 +596,26 @@ def test_15_unchanged_ai_result_not_counted(room_iso, monkeypatch):
     assert int((card.get("ai_edit_day") or {}).get("n") or 0) == 0
     assert "hero" not in (card.get("ai_edit_at") or {})
     assert session["photo_candidates"] == {}
+
+
+def test_route_unchanged_result_still_counts_tries(client, fake_gemini, monkeypatch):
+    """AI 결과가 거의 안 바뀌면 하루 10번에서는 빼 주지만, 시도는 세어 20번에서 막는다(10/13 점검: 무한 Gemini 호출)."""
+    from app import store
+    monkeypatch.setattr(PE, "_barely_changed", lambda a, b: True)
+    monkeypatch.setattr(AI, "COOLDOWN_SEC", 0)
+    body = _start_room(client)
+    rid, headers = body["room_id"], _owner_headers(body)
+    calls = []
+    real_post = AI.httpx.post
+    monkeypatch.setattr(AI.httpx, "post", lambda url, **kw: calls.append(1) or real_post(url, **kw))
+    for _ in range(PE.TRY_LIMIT):
+        r = client.post(f"/api/rooms/{rid}/photo-edit/preview",
+                        json={"target": "hero", "instruction": "그대로"}, headers=headers)
+        assert r.status_code == 400 and r.json()["detail"] == PE.UNCHANGED
+    card = store.read_session(store.read_room(rid)["session_id"])["prd"]
+    assert card["ai_edit_tries"]["n"] == PE.TRY_LIMIT
+    assert int((card.get("ai_edit_day") or {}).get("n") or 0) == 0  # 하루 10번은 그대로
+    r = client.post(f"/api/rooms/{rid}/photo-edit/preview",
+                    json={"target": "hero", "instruction": "그대로"}, headers=headers)
+    assert r.status_code == 400 and "많이 시도" in r.json()["detail"]
+    assert len(calls) == PE.TRY_LIMIT, "상한에 걸린 뒤에는 Gemini를 부르지 않는다"

@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.api.inquiries import _allow
 from app.security import sanitize_token
-from app.services import availability, customers, members, phone_verify, sms
+from app.services import availability, customers, members, phone_verify, sms, takedown
 
 router = APIRouter()
 
@@ -56,7 +56,10 @@ def _ctx(site_key: str):
     slots = (card or {}).get("slots") or {}
     name = (slots.get("shop_name") or {}).get("value")
     phone = (slots.get("phone") or {}).get("value")
-    return key, name if isinstance(name, str) else "", phone if isinstance(phone, str) else "", members.enabled(card)
+    # 공개된(그리고 내리지 않은) 사이트에서만: 시안·내린 사이트로 우리 번호 문자를 보내지 못하게(10/13 점검)
+    live = bool(card and card.get("published")) and not takedown.is_down(key)
+    return key, name if isinstance(name, str) else "", phone if isinstance(phone, str) else "", \
+        live and members.enabled(card)
 
 
 def _back(key: str) -> str:
@@ -200,7 +203,7 @@ def member_verify(site_key: str, token: str, code: Optional[str] = Form(default=
     if not on:
         return _off(key)
     try:
-        payload = phone_verify.check(token, code)
+        payload = phone_verify.check(token, code, key)
     except phone_verify.VerifyError as exc:
         return _verify(key, token, str(exc), 400)
     if not isinstance(payload, dict) or payload.get("kind") != "member":
@@ -233,7 +236,7 @@ def member_resend(site_key: str, token: str, request: Request):
     if not members.sms_quota_ok(key):
         return _verify(key, token, "오늘은 회원 확인 문자를 더 보낼 수 없어요.", 429)
     try:
-        new_token = phone_verify.resend(token)
+        new_token = phone_verify.resend(token, key)
     except phone_verify.VerifyError as exc:
         return _verify(key, token, str(exc), 400)
     return RedirectResponse(f"/api/members/{key}/verify/{sanitize_token(new_token)}", status_code=303)

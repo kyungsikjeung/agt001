@@ -10,6 +10,7 @@ from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from app import store
+from app.api.auth import _check_origin
 from app.security import sanitize_token
 from app.services import auth, prd_schema, project_delete, rooms as rooms_svc
 
@@ -99,6 +100,9 @@ def _owner_room(room_id: str, member_id_raw, request: Request) -> tuple:
         # 다른 기기에서 로그인했으면 계정에 옮긴 방의 본인 확인 값을 쓴다.
         user = auth.user_for_session(request.cookies.get(auth.SESSION_COOKIE))
         if user is not None:
+            # 쿠키로 지우는 요청은 우리 출처만(보안 S-3). sslip.io는 공개 접미사 목록에 없어 남의 *.sslip.io도
+            # 같은 사이트라 SameSite=Lax 쿠키가 따라온다 — 출처 검사가 유일한 CSRF 방어다(10/13 점검).
+            _check_origin(request)
             member_id = dict(auth.rooms_for_user(user["id"])).get(safe, "")
     if not member_id or not any(m["member_id"] == member_id for m in room["members"]):
         raise HTTPException(status_code=404, detail="없는 프로젝트예요")

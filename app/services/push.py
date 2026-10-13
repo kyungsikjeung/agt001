@@ -159,9 +159,13 @@ def check_endpoint(endpoint: str) -> str:
     e = (endpoint or "").strip()
     if not e or len(e) > 1024:
         raise PushError("알림 주소가 비었거나 너무 길어요.")
-    p = urlsplit(e)
+    try:
+        p = urlsplit(e)
+        port = p.port  # ':abc' 같은 포트는 ValueError — 500·운영 알림 대신 형식 오류로(10/13 점검)
+    except ValueError:
+        raise PushError("알림 주소 형식이 맞지 않아요.")
     host = (p.hostname or "").lower()
-    if p.scheme != "https" or p.username or p.password or p.port not in (None, 443):
+    if p.scheme != "https" or p.username or p.password or port not in (None, 443):
         raise PushError("알림 주소 형식이 맞지 않아요.")
     if not any(host == h or host.endswith("." + h) for h in ALLOWED_HOSTS):
         raise PushError("지원하지 않는 브라우저 알림 주소예요.")

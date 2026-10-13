@@ -287,17 +287,38 @@ def _purge_one(db, room_id: str, session_id: str, site_key) -> None:
     db.execute(delete(SessionRow).where(SessionRow.id == session_id))
 
 
-def _purge_files(site_key) -> None:
-    """만든 사이트 파일(공개본·시안·올린 사진). 지우지 못해도 DB 삭제는 되돌리지 않는다."""
+def _purge_files(site_key, room_id=None) -> None:
+    """만든 사이트 파일(공개본·시안)과 올린 사진. 지우지 못해도 DB 삭제는 되돌리지 않는다.
+
+    올린 사진(사장님·선생님 얼굴 포함)은 사이트 폴더가 아니라 uploads/<방>에 있다 — 전엔 남아서
+    알려진 주소로 계속 열렸다(10/13 점검, 방침 3항 "30일 뒤 영구 삭제")."""
+    paths = []
     key = sanitize_token(site_key or "")
-    if not key:
-        return
-    path = settings.generated_dir / key
-    try:
-        if path.is_dir():
-            shutil.rmtree(path)
-    except Exception:
-        log.exception("지운 프로젝트 파일을 지우지 못함 site=%s", key)
+    if key:
+        paths.append(settings.generated_dir / key)
+    room = sanitize_token(room_id or "")
+    if room:
+        paths.append(settings.generated_dir / "uploads" / room)
+    for path in paths:
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+        except Exception:
+            log.exception("지운 프로젝트 파일을 지우지 못함 %s", path.name)
+
+
+def photos_hidden(room_id: str) -> bool:
+    """이 방의 올린 사진을 내보내면 안 되나: 방장이 지웠거나(유예 중) 그 사이트를 관리자가 내렸을 때."""
+    safe = sanitize_token(room_id or "")
+    if not safe:
+        return False
+    with get_sessionmaker()() as db:
+        row = db.execute(select(RoomRow.deleted_at, SessionRow.requirement_id)
+                         .join(SessionRow, SessionRow.id == RoomRow.session_id, isouter=True)
+                         .where(RoomRow.id == safe)).first()
+    if row is None:
+        return False
+    return row.deleted_at is not None or bool(row.requirement_id and takedown.is_down(row.requirement_id))
 
 
 def purge_deleted(now=None) -> int:
@@ -317,7 +338,7 @@ def purge_deleted(now=None) -> int:
         except Exception:
             log.exception("지운 프로젝트를 영구 삭제하지 못함 room=%s", room_id)
             continue
-        _purge_files(site_key)
+        _purge_files(site_key, room_id)
         done += 1
     if done:
         log.info("지운 프로젝트 %d개를 영구 삭제했어요(유예 %d일)", done, GRACE_DAYS)

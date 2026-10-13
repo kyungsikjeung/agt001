@@ -54,7 +54,7 @@ flowchart LR
 | `PREVIEW_HOST` | `144-24-91-250.sslip.io` | 공개 사이트를 앱과 다른 주소에서 연다(격리) |
 | `PUBLISH_LOGIN_REQUIRED` | `true` | 공개는 로그인한 사장님만 |
 | `COMMERCE_PAUSED` | `false` (문제 생기면 `true` + 재시작) | 주문·결제·스탬프 비상 스위치 |
-| `ART_LIB_DAILY_CAP` | `0` | 메뉴 태그 사진 하루 상한 없음(D58) |
+| `ART_LIB_DAILY_CAP` | `0` → **300 추천**(대표 결정) | 메뉴 태그 사진 하루 상한. 0이면 무제한(D58)인데 로그인 없이 방을 만들어 Gemini를 끝없이 돌릴 수 있다(evals/security-review-2026-10-13 §3) |
 | `GEMINI_API_KEY` | 있음 | 예시 사진 |
 | 카카오 REST 키·Client Secret(키 저장소), `KAKAO_JS_KEY` | 있음 | 로그인·카톡 알림·주소 검색·지도 |
 | `TOKEN_ENC_KEY` | 있음(긴 무작위 값) | 키 교체·저장 키 암호화, 손님 회원 기기 기억 쿠키 서명(없으면 매번 인증) |
@@ -84,7 +84,7 @@ flowchart TD
 | 번호 | 단계 | 누가 | 명령·방법 | 합격 |
 |---|---|---|---|---|
 | 1 | 백업·버전 기록 | 대표(서버) | `~/agt001/scripts/backup_db.sh` 그리고 아래 "버전 보기" | 새 `~/agt001-backups/agt001-<시각>.dump`, 지금 코드 커밋·DB 버전을 §5에 적음 |
-| 2 | 배포 | Claude | 깨끗한 main에서 `./scripts/deploy.sh --auto-rollback` | 헬스 https·http 둘 다 200, DB 버전 0026 |
+| 2 | 배포 | Claude | 깨끗한 main에서 `./scripts/deploy.sh --auto-rollback`. 10/13 보안 수정으로 `Dockerfile.backend`가 바뀌어 이미지를 다시 만든다(몇 분 더 걸림) | 헬스 https·http 둘 다 200, DB 버전 0026 |
 | 3 | 스모크 | Claude | `python scripts/smoke_prod.py https://144.24.91.250.sslip.io --site <가게 키>` | 실패 0 |
 | 4 | 휴대폰 | 대표 | 아래 §3-3 표 | 모두 됨 |
 | 5 | 되돌리기 | Claude | 아래 §3-1 "되돌리기 전 확인" → `scripts/rollback.sh --list` → `scripts/rollback.sh` | 헬스 200, 로그에 마이그레이션 오류 없음, DB 버전 그대로 0026 |
@@ -176,4 +176,5 @@ sudo docker compose logs --since 5m backend | grep -E "마이그레이션|alembi
 | 날짜 | 내용 |
 |---|---|
 | 2026-10-01 | 처음 작성 (스모크 스크립트와 함께) |
+| 2026-10-13 | `ART_LIB_DAILY_CAP` 추천값, 배포 때 이미지 다시 만듦(보안 점검) |
 | 2026-10-10 | 전제 고침(DB 0019 → 0022 이상, 새 마이그레이션 0023~0026). 되돌리기가 멈추던 것 고침(`rollback.sh`·`migrate.py`), 마이그레이션 표·되돌리기 전 확인·마지막 수단, PR 상태, `.env` 4줄, 휴대폰 점검 9~13, 로컬 리허설 결과 |

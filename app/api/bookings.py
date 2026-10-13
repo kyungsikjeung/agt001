@@ -116,7 +116,7 @@ def verify_page(site_key: str, token: str):
 @router.post("/api/bookings/{site_key}/verify/{token}", include_in_schema=False)
 def verify_submit(site_key: str, token: str, code: Optional[str] = Form(default=None)):
     try:
-        form = phone_verify.check(token, code)
+        form = phone_verify.check(token, code, sanitize_token(site_key or ""))
     except phone_verify.VerifyError as e:
         return _verify_page(site_key, token, str(e), 400)
     try:
@@ -139,7 +139,7 @@ def verify_resend(site_key: str, token: str, request: Request):
     if not _allow(request.client.host if request.client else "unknown"):
         return _page("잠시 후 다시 보내 주세요", "짧은 시간에 신청이 많이 들어왔어요.", site_key, 429)
     try:
-        new_token = phone_verify.resend(token)
+        new_token = phone_verify.resend(token, sanitize_token(site_key or ""))
     except phone_verify.VerifyError as e:
         return _verify_page(site_key, token, str(e), 400)
     return RedirectResponse(f"/api/bookings/{sanitize_token(site_key)}/verify/{sanitize_token(new_token)}",

@@ -27,4 +27,6 @@ ENV PORT=8643
 EXPOSE 8643
 
 # Caddy가 넘겨준 X-Forwarded-Proto를 신뢰해 배포 URL이 https로 나오게 한다.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8643", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# X-Forwarded-For는 같은 서버 안(Caddy·도커 사설망)에서 온 것만 믿는다. "*"이면 8643으로 바로 붙어 헤더를 꾸며
+# IP당 제한(문자·문의·방 만들기)을 피할 수 있었다(10/13 점검). 8643은 배포 헬스체크 때문에 열려 있다.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8643", "--proxy-headers", "--forwarded-allow-ips", "127.0.0.1,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8"]

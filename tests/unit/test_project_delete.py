@@ -253,3 +253,49 @@ def test_delete_paid_project(client, _sms):
     assert project_delete.purge_archived(now=deleted_at + datetime.timedelta(days=365 * 5 + 10)) >= 3
     assert _archived(key) == []
     assert _archived(other_key) == []  # 옆 가게는 아직 안 지웠으니 보관분도 없다
+
+
+def test_cookie_delete_needs_our_origin(client):
+    """다른 기기(쿠키 로그인)로 지우기·되살리기는 우리 출처만. 남의 *.sslip.io 쪽에서 오는 요청을 막는다(CSRF, 10/13 점검)."""
+    from app.db.models import UserRow
+    from app.services import auth
+    room_id, key = _site(client, "010-1234-5678")
+    with get_sessionmaker()() as db, db.begin():
+        db.add(UserRow(id="u-owner", nickname="사장님"))
+    assert auth.claim_rooms("u-owner", "owner", [room_id]) == 1
+    client.cookies.set(auth.SESSION_COOKIE, auth.create_session("u-owner"))
+
+    evil = {"Origin": "https://6-6-6-6.sslip.io"}
+    assert client.post(f"/api/projects/{room_id}/delete", headers=evil).status_code == 403
+    assert client.post(f"/api/projects/{room_id}/delete").status_code == 403  # 출처 없음도
+    assert not takedown.is_down(key), "막힌 요청으로 사이트가 닫히면 안 된다"
+
+    assert client.post(f"/api/projects/{room_id}/delete", headers=ORIGIN).status_code == 200
+    assert client.post(f"/api/projects/{room_id}/restore", headers=evil).status_code == 403
+    assert client.post(f"/api/projects/{room_id}/restore", headers=ORIGIN).status_code == 200
+    assert not takedown.is_down(key)
+
+
+def test_deleted_project_photos_close_and_purge(client):
+    """올린 사진(uploads/<방>)도 지우면 닫히고, 30일 뒤 파일까지 지워진다(10/13 점검: 전엔 계속 열렸다)."""
+    room_id, key = _site(client, "010-1234-5678")
+    folder = settings.generated_dir / "uploads" / room_id
+    folder.mkdir(parents=True, exist_ok=True)
+    (folder / "p1.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    url = f"/uploads/{room_id}/p1.jpg"
+    assert client.get(url).status_code == 200
+
+    r = client.post(f"/api/projects/{room_id}/delete", headers={"X-Member-Id": "owner"})
+    assert r.status_code == 200
+    assert client.get(url).status_code == 404, "지운 프로젝트 사진이 열리면 안 된다"
+    assert client.post(f"/api/projects/{room_id}/restore", headers={"X-Member-Id": "owner"}).status_code == 200
+    assert client.get(url).status_code == 200  # 되살리면 다시
+
+    takedown.take_down(key, "admin", "test")  # 관리자가 내린 사이트도
+    assert client.get(url).status_code == 404
+    takedown.restore(key, "admin")
+
+    deleted_at = datetime.datetime.fromisoformat(
+        client.post(f"/api/projects/{room_id}/delete", headers={"X-Member-Id": "owner"}).json()["deleted_at"])
+    assert project_delete.purge_deleted(now=deleted_at + datetime.timedelta(days=31)) == 1
+    assert not folder.exists(), "30일 뒤에는 사진 파일까지 지워져야 한다"

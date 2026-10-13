@@ -181,6 +181,9 @@ def uploaded_photo(room_id: str, filename: str):
     path = settings.generated_dir / "uploads" / safe_room / f"{stem}.jpg"
     if not path.is_file():
         raise HTTPException(status_code=404)
+    from app.services import project_delete
+    if project_delete.photos_hidden(safe_room):  # 지운 프로젝트·내린 사이트의 사진은 닫는다(10/13 점검)
+        raise HTTPException(status_code=404)
     return FileResponse(path, media_type="image/jpeg",
                         headers={"X-Content-Type-Options": "nosniff", "Cache-Control": "public, max-age=86400"})
 
