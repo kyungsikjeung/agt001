@@ -207,7 +207,12 @@ _PROBE = r"""
   // 대비 판정용: rgb + oklch. 짙은 띠(section[data-tone=inverse]) 배경은
   // getComputedStyle이 oklch()로 돌려준다 (QA-1). 못 읽으면 흰 바탕으로 떨어져
   // 흰 글자가 1.00으로 찍혔던 문제. 색 개수(color_count)는 기존 rgb만 쓴다.
-  const color = (c) => { const v = rgb(c); if (v) return v;
+  // color-mix() 결과는 color(srgb r g b / a)(0~1)로 온다. 못 읽으면 건너뛰어 뒤 띠 색과 견줘 오판했다(10/13 넘기기 화살표 1.11).
+  const srgb = (c) => { const m = c.match(/color\(srgb\s+([-0-9.e]+)\s+([-0-9.e]+)\s+([-0-9.e]+)\s*(?:\/\s*([0-9.]+%?))?\)/);
+    if (!m) return null; let a = m[4] === undefined ? 1 : parseFloat(m[4]); if (m[4] && m[4].endsWith('%')) a /= 100;
+    const k = (v) => Math.min(255, Math.max(0, parseFloat(v) * 255));
+    return {r: k(m[1]), g: k(m[2]), b: k(m[3]), a}; };
+  const color = (c) => { const v = rgb(c) || srgb(c); if (v) return v;
     const m = c.match(/oklch\(\s*([0-9.]+%?)\s+([0-9.]+)\s+([0-9.]+|none)\s*(?:\/\s*([0-9.]+%?))?\)/);
     if (!m) return null;
     let l = parseFloat(m[1]); if (m[1].endsWith('%')) l /= 100;

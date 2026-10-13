@@ -143,10 +143,11 @@ describe('ProjectsPage', () => {
     expect(await screen.findByText(/정말 지울까요\?/)).toBeInTheDocument();
     expect(screen.getByText(/요금제가 있으면 바로 해지/)).toBeInTheDocument();
     expect(screen.getByText(/30일 뒤에/)).toBeInTheDocument();
+    expect(screen.getByText(/주문·결제 기록은 법에 따라 5년/)).toBeInTheDocument(); // 거래기록은 분리 보관(6453ba9)
     expect(calls.some((c) => c.includes('/delete'))).toBe(false); // 아직 안 지웠다
 
     screen.getByRole('button', { name: '네, 지울래요' }).click();
-    expect(await screen.findByText(/모든 기록이 영구 삭제돼요/)).toBeInTheDocument();
+    expect(await screen.findByText(/기록이 영구 삭제돼요/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '되살리기' })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '이어서 하기' })).not.toBeInTheDocument();
     expect(calls.filter((c) => c === '/api/projects/r1/delete')).toHaveLength(1);

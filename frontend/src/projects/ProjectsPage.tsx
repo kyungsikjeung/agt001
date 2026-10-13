@@ -223,7 +223,8 @@ export default function ProjectsPage() {
                 {p.deleted_at ? (
                   <div className="proj-actions">
                     <p className="proj-deleted" role="status">
-                      지웠어요. 사이트는 이미 닫혔고 {dayText(p.purge_at)}에 모든 기록이 영구 삭제돼요.
+                      지웠어요. 사이트는 이미 닫혔고 {dayText(p.purge_at)}에 기록이 영구 삭제돼요(주문·결제 기록만 법에 따라 5년 따로
+                      보관).
                     </p>
                     <button
                       type="button"
@@ -238,8 +239,9 @@ export default function ProjectsPage() {
                   <div className="proj-actions proj-confirm" role="group" aria-label="지우기 확인">
                     <p className="proj-deleted">
                       <b>정말 지울까요?</b> 공개 사이트가 바로 닫혀요(주문·결제·예약·채팅도 함께 멈춰요). 내시던
-                      요금제가 있으면 바로 해지돼요. {GRACE_DAYS}일 뒤에 사이트·채팅·사진·예약·주문 기록까지 모두
-                      영구 삭제돼요. {GRACE_DAYS}일 안에는 되살릴 수 있어요(요금제는 다시 신청해야 해요).
+                      요금제가 있으면 바로 해지돼요. {GRACE_DAYS}일 뒤에 사이트·채팅·사진·예약까지 모두 영구 삭제돼요.
+                      주문·결제 기록은 법에 따라 5년 동안 따로 보관해요(손님 이름·전화는 가려서). {GRACE_DAYS}일
+                      안에는 되살릴 수 있어요(요금제는 다시 신청해야 해요).
                     </p>
                     <button type="button" className="ghost" disabled={busyRoom === p.room_id} onClick={() => setAskDelete(null)}>
                       그만두기
